@@ -19,15 +19,40 @@ struct FixtureDetailView: View {
                 // 경기 기본 정보
                 MatchHeaderView(fixture: fixture)
                 
-                // 탭 선택
-                Picker("상세 정보", selection: $selectedTab) {
-                    Text("이벤트").tag(0)
-                    Text("통계").tag(1)
-                    Text("라인업").tag(2)
-                    Text("선수 통계").tag(3)
+                // 탭 컨트롤
+                VStack(spacing: 0) {
+                    // 메인 탭
+                    HStack(spacing: 0) {
+                        ForEach(["이벤트", "통계", "라인업", "선수 통계"].indices, id: \.self) { index in
+                            Button(action: {
+                                withAnimation(.easeInOut(duration: 0.3)) {
+                                    selectedTab = index
+                                }
+                            }) {
+                                VStack(spacing: 8) {
+                                    Text(["이벤트", "통계", "라인업", "선수 통계"][index])
+                                        .font(.system(.subheadline, design: .rounded))
+                                        .fontWeight(selectedTab == index ? .semibold : .regular)
+                                        .foregroundColor(selectedTab == index ? .blue : .gray)
+                                        .frame(maxWidth: .infinity)
+                                    
+                                    // 선택 인디케이터
+                                    Rectangle()
+                                        .fill(selectedTab == index ? Color.blue : Color.clear)
+                                        .frame(height: 3)
+                                        .cornerRadius(1.5)
+                                }
+                            }
+                            .buttonStyle(PlainButtonStyle())
+                            .frame(height: 44)
+                        }
+                    }
+                    .padding(.horizontal)
+                    
+                    Divider()
+                        .padding(.horizontal)
                 }
-                .pickerStyle(SegmentedPickerStyle())
-                .padding(.horizontal)
+                .background(Color(.systemBackground))
                 
                 // 선택된 탭에 따른 컨텐츠
                 switch selectedTab {
@@ -101,43 +126,46 @@ struct MatchHeaderView: View {
     }
     
     var body: some View {
-        VStack(spacing: 0) {
-            // 리그 정보
-            HStack {
-                AsyncImage(url: URL(string: fixture.league.logo)) { image in
-                    image
-                        .resizable()
-                        .scaledToFit()
-                        .frame(width: 20, height: 20)
-                } placeholder: {
-                    Image(systemName: "trophy.fill")
-                        .foregroundColor(.gray)
+        VStack(spacing: 16) {
+            // 리그 및 경기 상태
+            VStack(spacing: 8) {
+                HStack {
+                    AsyncImage(url: URL(string: fixture.league.logo)) { image in
+                        image
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 24, height: 24)
+                    } placeholder: {
+                        Image(systemName: "trophy.fill")
+                            .foregroundColor(.gray)
+                    }
+                    
+                    Text(fixture.league.name)
+                        .font(.system(.subheadline, design: .rounded))
+                        .fontWeight(.medium)
                 }
                 
-                Text(fixture.league.name)
-                    .font(.caption)
-                    .foregroundColor(.gray)
-                
-                Spacer()
-                
                 // 경기 상태
-                HStack(spacing: 4) {
+                HStack(spacing: 6) {
                     if isLive {
                         Circle()
                             .fill(Color.red)
-                            .frame(width: 6, height: 6)
+                            .frame(width: 8, height: 8)
                     }
                     
                     Text(fixture.fixture.status.long)
-                        .font(.caption)
+                        .font(.system(.subheadline, design: .rounded))
                         .foregroundColor(statusColor)
+                        .fontWeight(.medium)
                 }
             }
-            .padding(.horizontal)
-            .padding(.top)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 12)
+            .background(Color(.systemGray6))
+            .cornerRadius(12)
             
             // 팀 정보와 스코어
-            HStack(spacing: 0) {
+            HStack(alignment: .center, spacing: 0) {
                 // 홈팀
                 TeamInfoView(team: fixture.teams.home, isWinner: fixture.teams.home.winner == true)
                     .frame(maxWidth: .infinity)
@@ -146,31 +174,32 @@ struct MatchHeaderView: View {
                 VStack(spacing: 8) {
                     if fixture.fixture.status.short == "NS" {
                         Text("VS")
-                            .font(.title.bold())
+                            .font(.system(size: 32, weight: .bold, design: .rounded))
                             .foregroundColor(.blue)
-                            .frame(width: 100)
-                            .padding(.vertical, 8)
+                            .frame(width: 120)
+                            .padding(.vertical, 12)
                     } else {
-                        VStack(spacing: 4) {
-                            HStack(spacing: 16) {
+                        VStack(spacing: 6) {
+                            HStack(spacing: 20) {
                                 Text("\(fixture.goals?.home ?? 0)")
                                 Text("-")
                                 Text("\(fixture.goals?.away ?? 0)")
                             }
-                            .font(.system(size: 36, weight: .bold, design: .rounded))
+                            .font(.system(size: 44, weight: .bold, design: .rounded))
                             
                             if let elapsed = fixture.fixture.status.elapsed {
                                 Text("\(elapsed)'")
-                                    .font(.caption)
+                                    .font(.system(.callout, design: .rounded))
+                                    .fontWeight(.medium)
                                     .foregroundColor(statusColor)
-                                    .padding(.horizontal, 12)
-                                    .padding(.vertical, 4)
+                                    .padding(.horizontal, 16)
+                                    .padding(.vertical, 6)
                                     .background(statusColor.opacity(0.1))
                                     .clipShape(Capsule())
                             }
                         }
-                        .frame(width: 100)
-                        .padding(.vertical, 8)
+                        .frame(width: 120)
+                        .padding(.vertical, 12)
                     }
                 }
                 .background(Color(.systemBackground))
@@ -179,35 +208,44 @@ struct MatchHeaderView: View {
                 TeamInfoView(team: fixture.teams.away, isWinner: fixture.teams.away.winner == true)
                     .frame(maxWidth: .infinity)
             }
-            .padding(.vertical)
+            .padding(.vertical, 20)
+            .background(Color(.systemBackground))
+            .cornerRadius(16)
+            .shadow(color: Color.black.opacity(0.05), radius: 8, y: 2)
             
             // 경기 정보
-            HStack(spacing: 16) {
-                // 경기장
+            HStack(spacing: 24) {
                 if let venue = fixture.fixture.venue.name {
-                    HStack(spacing: 4) {
+                    Label {
+                        Text(venue)
+                            .font(.system(.caption, design: .rounded))
+                            .foregroundColor(.gray)
+                    } icon: {
                         Image(systemName: "mappin.circle.fill")
                             .foregroundColor(.gray)
-                        Text(venue)
                     }
                 }
                 
-                // 심판
                 if let referee = fixture.fixture.referee {
-                    HStack(spacing: 4) {
+                    Label {
+                        Text(referee)
+                            .font(.system(.caption, design: .rounded))
+                            .foregroundColor(.gray)
+                    } icon: {
                         Image(systemName: "whistle.fill")
                             .foregroundColor(.gray)
-                        Text(referee)
                     }
                 }
             }
-            .font(.caption)
-            .foregroundColor(.gray)
-            .padding(.bottom)
+            .padding(.horizontal)
+            .padding(.vertical, 12)
+            .frame(maxWidth: .infinity)
+            .background(Color(.systemGray6))
+            .cornerRadius(12)
         }
+        .padding(.horizontal)
+        .padding(.vertical, 12)
         .background(Color(.systemBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 16))
-        .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 5)
     }
 }
 
@@ -217,38 +255,55 @@ struct TeamInfoView: View {
     let isWinner: Bool
     
     var body: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 16) {
             // 팀 로고
-            AsyncImage(url: URL(string: team.logo)) { image in
-                image
-                    .resizable()
-                    .scaledToFit()
-                    .saturation(isWinner ? 1.0 : 0.7)
-            } placeholder: {
-                Image(systemName: "sportscourt.fill")
-                    .foregroundColor(.gray)
+            ZStack {
+                Circle()
+                    .fill(Color(.systemBackground))
+                    .frame(width: 80, height: 80)
+                    .shadow(color: isWinner ? Color.blue.opacity(0.2) : Color.black.opacity(0.05),
+                           radius: isWinner ? 12 : 8)
+                
+                AsyncImage(url: URL(string: team.logo)) { image in
+                    image
+                        .resizable()
+                        .scaledToFit()
+                        .saturation(isWinner ? 1.0 : 0.8)
+                } placeholder: {
+                    Image(systemName: "sportscourt.fill")
+                        .font(.system(size: 30))
+                        .foregroundColor(.gray)
+                }
+                .frame(width: 60, height: 60)
+                
+                if isWinner {
+                    Circle()
+                        .strokeBorder(Color.blue.opacity(0.3), lineWidth: 3)
+                        .frame(width: 80, height: 80)
+                }
             }
-            .frame(width: 70, height: 70)
-            .shadow(color: isWinner ? Color.blue.opacity(0.3) : Color.clear, radius: 8)
             
-            // 팀 이름
-            Text(team.name)
-                .font(.system(.callout, design: .rounded))
-                .fontWeight(isWinner ? .bold : .regular)
-                .foregroundColor(isWinner ? .primary : .gray)
-                .multilineTextAlignment(.center)
-                .lineLimit(2)
-                .frame(maxWidth: 120)
-                .padding(.horizontal, 4)
-            
-            // 승리 표시
-            if isWinner {
-                Image(systemName: "checkmark.circle.fill")
-                    .foregroundColor(.blue)
-                    .imageScale(.small)
+            VStack(spacing: 6) {
+                // 팀 이름
+                Text(team.name)
+                    .font(.system(.callout, design: .rounded))
+                    .fontWeight(isWinner ? .semibold : .medium)
+                    .foregroundColor(isWinner ? .primary : .secondary)
+                    .multilineTextAlignment(.center)
+                    .lineLimit(2)
+                    .frame(maxWidth: 130)
+                
+                // 승리 표시
+                if isWinner {
+                    Label("승리", systemImage: "checkmark.circle.fill")
+                        .font(.system(.caption, design: .rounded))
+                        .foregroundColor(.blue)
+                        .imageScale(.small)
+                }
             }
         }
-        .padding(.vertical, 8)
+        .padding(.vertical, 12)
+        .contentShape(Rectangle())
     }
 }
 
@@ -1041,24 +1096,53 @@ struct LineupsView: View {
                         .foregroundColor(.gray)
                         .padding()
                 } else {
-                    // 팀 선택 세그먼트
-                    Picker("팀 선택", selection: $selectedTeamIndex) {
+                    // 팀 선택 슬라이더
+                    HStack(spacing: 0) {
                         ForEach(lineups.indices, id: \.self) { index in
-                            HStack {
-                                AsyncImage(url: URL(string: lineups[index].team.logo)) { image in
-                                    image
-                                        .resizable()
-                                        .scaledToFit()
-                                        .frame(width: 20, height: 20)
-                                } placeholder: {
-                                    Image(systemName: "sportscourt")
+                            Button(action: {
+                                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                    selectedTeamIndex = index
                                 }
-                                Text(lineups[index].team.name)
+                            }) {
+                                HStack(spacing: 12) {
+                                    AsyncImage(url: URL(string: lineups[index].team.logo)) { image in
+                                        image
+                                            .resizable()
+                                            .scaledToFit()
+                                            .saturation(selectedTeamIndex == index ? 1.0 : 0.7)
+                                    } placeholder: {
+                                        Image(systemName: "sportscourt.fill")
+                                            .foregroundColor(.gray)
+                                    }
+                                    .frame(width: 32, height: 32)
+                                    
+                                    Text(lineups[index].team.name)
+                                        .font(.system(.callout, design: .rounded))
+                                        .fontWeight(selectedTeamIndex == index ? .semibold : .regular)
+                                        .foregroundColor(selectedTeamIndex == index ? .primary : .secondary)
+                                }
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 12)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .fill(selectedTeamIndex == index ? Color.blue.opacity(0.1) : Color.clear)
+                                )
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .stroke(selectedTeamIndex == index ? Color.blue.opacity(0.3) : Color.clear, lineWidth: 1)
+                                )
                             }
-                            .tag(index)
+                            .buttonStyle(PlainButtonStyle())
+                            
+                            if index == 0 {
+                                Divider()
+                                    .padding(.vertical, 8)
+                            }
                         }
                     }
-                    .pickerStyle(SegmentedPickerStyle())
+                    .padding(8)
+                    .background(Color(.systemGray6))
+                    .cornerRadius(16)
                     .padding(.horizontal)
                     
                     let lineup = lineups[selectedTeamIndex]
@@ -1183,10 +1267,45 @@ struct FormationView: View {
         GeometryReader { geometry in
             ZStack {
                 // 축구장 배경
-                Image(systemName: "sportscourt")
-                    .resizable()
-                    .scaledToFit()
-                    .foregroundColor(.green.opacity(0.1))
+                Color(.systemGray6)
+                    .overlay(
+                        VStack(spacing: 0) {
+                            // 필드 라인
+                            Rectangle()
+                                .stroke(Color.white, lineWidth: 1)
+                                .overlay(
+                                    VStack(spacing: 0) {
+                                        // 센터 서클
+                                        Circle()
+                                            .stroke(Color.white, lineWidth: 1)
+                                            .frame(width: 80)
+                                            .position(x: geometry.size.width/2, y: geometry.size.height/2)
+                                        
+                                        // 페널티 에어리어
+                                        ForEach([0.2, 0.8], id: \.self) { y in
+                                            Rectangle()
+                                                .stroke(Color.white, lineWidth: 1)
+                                                .frame(width: geometry.size.width * 0.4, height: geometry.size.height * 0.2)
+                                                .position(x: geometry.size.width/2, y: geometry.size.height * y)
+                                        }
+                                    }
+                                )
+                        }
+                    )
+                
+                // 포메이션 라인
+                ForEach(0..<lineup.formationArray.count, id: \.self) { row in
+                    let yPosition = CGFloat(row + 1) * geometry.size.height / CGFloat(lineup.formationArray.count + 1)
+                    HStack(spacing: 0) {
+                        ForEach(0..<lineup.formationArray[row], id: \.self) { _ in
+                            Rectangle()
+                                .stroke(Color.white.opacity(0.3), lineWidth: 1)
+                                .frame(width: geometry.size.width / CGFloat(lineup.formationArray[row] + 1),
+                                       height: geometry.size.height / CGFloat(lineup.formationArray.count + 1))
+                        }
+                    }
+                    .position(x: geometry.size.width / 2, y: yPosition)
+                }
                 
                 // 선수 배치
                 ForEach(lineup.startXI) { player in
@@ -1194,7 +1313,8 @@ struct FormationView: View {
                         PlayerDot(
                             number: player.number,
                             name: player.name,
-                            position: player.pos ?? ""
+                            position: player.pos ?? "",
+                            stats: lineup.playersByPosition[player.pos ?? ""]?.count ?? 0
                         )
                         .position(
                             x: CGFloat(gridPosition.x) * geometry.size.width / 5,
@@ -1203,6 +1323,7 @@ struct FormationView: View {
                     }
                 }
             }
+            .clipShape(RoundedRectangle(cornerRadius: 16))
         }
         .padding()
     }
@@ -1212,74 +1333,140 @@ struct PlayerDot: View {
     let number: Int
     let name: String
     let position: String
+    let stats: Int
     @State private var isShowingDetails = false
+    @State private var isPressed = false
     
     var body: some View {
-        Button(action: { isShowingDetails.toggle() }) {
+        Button(action: { withAnimation(.spring()) { isShowingDetails.toggle() } }) {
             ZStack {
+                // 배경 서클
                 Circle()
-                    .fill(Color.blue.opacity(0.2))
-                    .frame(width: 30, height: 30)
+                    .fill(Color.white)
+                    .frame(width: 36, height: 36)
+                    .shadow(color: Color.black.opacity(0.1), radius: isPressed ? 2 : 4,
+                           x: 0, y: isPressed ? 1 : 2)
                 
+                // 내부 서클
+                Circle()
+                    .fill(LinearGradient(
+                        gradient: Gradient(colors: [.blue.opacity(0.3), .blue.opacity(0.1)]),
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ))
+                    .frame(width: 34, height: 34)
+                
+                // 선수 번호
                 Text("\(number)")
-                    .font(.caption2.bold())
+                    .font(.system(.callout, design: .rounded).weight(.bold))
                     .foregroundColor(.blue)
             }
+            .scaleEffect(isPressed ? 0.95 : 1.0)
         }
+        .buttonStyle(PlainButtonStyle())
         .overlay {
             if isShowingDetails {
                 VStack(spacing: 4) {
                     Text(name)
-                        .font(.caption.bold())
-                    Text(position)
-                        .font(.caption2)
-                        .foregroundColor(.gray)
+                        .font(.system(.callout, design: .rounded).weight(.semibold))
+                    
+                    HStack(spacing: 8) {
+                        Text(position)
+                            .font(.system(.caption, design: .rounded))
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 2)
+                            .background(Color.blue.opacity(0.1))
+                            .cornerRadius(4)
+                    }
                 }
-                .padding(8)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
                 .background(Color(.systemBackground))
-                .cornerRadius(8)
-                .shadow(radius: 4)
-                .offset(y: -40)
+                .cornerRadius(12)
+                .shadow(color: Color.black.opacity(0.1), radius: 8)
+                .offset(y: -50)
+                .transition(.scale.combined(with: .opacity))
             }
         }
-        .animation(.spring(), value: isShowingDetails)
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { _ in isPressed = true }
+                .onEnded { _ in isPressed = false }
+        )
     }
 }
 
+// MARK: - Player Cards
 struct PlayerCard: View {
     let number: Int
     let name: String
     let position: String
     let isStarter: Bool
+    @State private var isPressed = false
     
     var body: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 16) {
+            // 선수 번호
             ZStack {
                 Circle()
-                    .fill(isStarter ? Color.blue.opacity(0.1) : Color.gray.opacity(0.1))
-                    .frame(width: 50, height: 50)
+                    .fill(
+                        LinearGradient(
+                            gradient: Gradient(colors: [
+                                isStarter ? Color.blue.opacity(0.15) : Color.gray.opacity(0.15),
+                                isStarter ? Color.blue.opacity(0.05) : Color.gray.opacity(0.05)
+                            ]),
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(width: 60, height: 60)
+                    .shadow(
+                        color: isStarter ? Color.blue.opacity(0.1) : Color.gray.opacity(0.1),
+                        radius: isPressed ? 4 : 8,
+                        y: isPressed ? 1 : 2
+                    )
                 
                 Text("\(number)")
-                    .font(.title3.bold())
+                    .font(.system(.title2, design: .rounded).weight(.bold))
                     .foregroundColor(isStarter ? .blue : .gray)
             }
             
-            VStack(spacing: 4) {
+            VStack(spacing: 6) {
+                // 선수 이름
                 Text(name)
-                    .font(.callout)
+                    .font(.system(.callout, design: .rounded))
                     .fontWeight(.medium)
                     .multilineTextAlignment(.center)
+                    .lineLimit(2)
+                    .frame(height: 40)
                 
+                // 포지션
                 Text(position)
-                    .font(.caption)
-                    .foregroundColor(.gray)
+                    .font(.system(.caption, design: .rounded))
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(
+                        isStarter ? Color.blue.opacity(0.1) : Color.gray.opacity(0.1)
+                    )
+                    .cornerRadius(8)
             }
         }
-        .frame(width: 100)
+        .frame(width: 120)
         .padding()
         .background(Color(.systemBackground))
-        .cornerRadius(12)
-        .shadow(color: Color.black.opacity(0.05), radius: 5)
+        .cornerRadius(16)
+        .shadow(
+            color: Color.black.opacity(0.05),
+            radius: isPressed ? 4 : 8,
+            y: isPressed ? 1 : 2
+        )
+        .scaleEffect(isPressed ? 0.98 : 1.0)
+        .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isPressed)
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { _ in isPressed = true }
+                .onEnded { _ in isPressed = false }
+        )
     }
 }
 
@@ -1287,9 +1474,11 @@ struct TopPlayerCard: View {
     let player: PlayerInfo
     let team: Team
     let rating: String
+    @State private var isPressed = false
     
     var body: some View {
         VStack(spacing: 12) {
+            // 선수 사진
             AsyncImage(url: URL(string: player.photo)) { image in
                 image
                     .resizable()
@@ -1304,32 +1493,56 @@ struct TopPlayerCard: View {
                 Circle()
                     .stroke(Color.blue, lineWidth: 2)
             )
+            .shadow(
+                color: Color.blue.opacity(0.1),
+                radius: isPressed ? 4 : 8,
+                y: isPressed ? 1 : 2
+            )
             
-            VStack(spacing: 4) {
+            VStack(spacing: 6) {
+                // 선수 이름
                 Text(player.name)
-                    .font(.callout)
+                    .font(.system(.callout, design: .rounded))
                     .fontWeight(.medium)
                     .multilineTextAlignment(.center)
+                    .lineLimit(2)
                 
+                // 팀 로고
                 AsyncImage(url: URL(string: team.logo)) { image in
                     image
                         .resizable()
                         .scaledToFit()
-                        .frame(width: 20, height: 20)
+                        .frame(width: 24, height: 24)
                 } placeholder: {
                     Image(systemName: "sportscourt")
                         .foregroundColor(.gray)
                 }
                 
+                // 평점
                 Text(rating)
-                    .font(.title3.bold())
+                    .font(.system(.title3, design: .rounded).weight(.bold))
                     .foregroundColor(.blue)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 4)
+                    .background(Color.blue.opacity(0.1))
+                    .cornerRadius(8)
             }
         }
         .frame(width: 120)
         .padding()
         .background(Color(.systemBackground))
-        .cornerRadius(12)
-        .shadow(color: Color.black.opacity(0.05), radius: 5)
+        .cornerRadius(16)
+        .shadow(
+            color: Color.black.opacity(0.05),
+            radius: isPressed ? 4 : 8,
+            y: isPressed ? 1 : 2
+        )
+        .scaleEffect(isPressed ? 0.98 : 1.0)
+        .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isPressed)
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { _ in isPressed = true }
+                .onEnded { _ in isPressed = false }
+        )
     }
 }
