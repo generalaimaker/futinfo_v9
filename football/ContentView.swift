@@ -1,24 +1,17 @@
-//
-//  ContentView.swift
-//  football
-//
-//  Created by Hyun Woo Park on 2/5/25.
-//
-
 import SwiftUI
 
 struct ContentView: View {
     var body: some View {
-        VStack {
-            Image(systemName: "globe")
-                .imageScale(.large)
-                .foregroundStyle(.tint)
-            Text("Hello, world!")
+        TabView {
+            LeaguesView()
+                .tabItem {
+                    Label("리그", systemImage: "trophy")
+                }
+            
+            FixturesView(leagueId: SupportedLeagues.allLeagues[0], leagueName: SupportedLeagues.getName(SupportedLeagues.allLeagues[0]))
+                .tabItem {
+                    Label("경기 일정", systemImage: "calendar")
+                }
         }
-        .padding()
     }
-}
-
-#Preview {
-    ContentView()
 }
