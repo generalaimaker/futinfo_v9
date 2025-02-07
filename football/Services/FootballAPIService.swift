@@ -38,10 +38,97 @@ class FootballAPIService {
     
     static let shared = FootballAPIService()
     
-    // MARK: - Fixture Details
+    // MARK: - Leagues
     
-    func getFixtureEvents(fixtureId: Int) async throws -> [FixtureEvent] {
-        let endpoint = "/fixtures/events?fixture=\(fixtureId)"
+    func getCurrentLeagues() async throws -> [LeagueDetails] {
+        var allLeagues: [LeagueDetails] = []
+        let currentSeason = 2024 // 2023-24 시즌
+        
+        print("\n🎯 Starting to fetch league details...")
+        
+        for leagueId in SupportedLeagues.allLeagues {
+            do {
+                print("\n🏆 Fetching details for league \(leagueId) (\(SupportedLeagues.getName(leagueId)))")
+                let league = try await getLeagueDetails(leagueId: leagueId, season: currentSeason)
+                allLeagues.append(league)
+                
+                // API 요청 제한을 고려한 딜레이
+                if leagueId != SupportedLeagues.allLeagues.last {
+                    try await Task.sleep(nanoseconds: 500_000_000) // 0.5초 대기
+                }
+            } catch {
+                print("❌ Error fetching league details for league \(leagueId): \(error.localizedDescription)")
+                continue
+            }
+        }
+        
+        print("\n📊 Total leagues fetched: \(allLeagues.count)")
+        return allLeagues
+    }
+    
+    func getLeagueDetails(leagueId: Int, season: Int) async throws -> LeagueDetails {
+        let endpoint = "/leagues?id=\(leagueId)&season=\(season)"
+        let request = createRequest(endpoint)
+        
+        print("\n📡 Fetching league details for league \(leagueId)...")
+        let (data, response) = try await URLSession.shared.data(for: request)
+        try handleResponse(response)
+        
+        // API 응답 로깅
+        logResponse(data: data, endpoint: "League Details")
+        
+        let decoder = JSONDecoder()
+        let leaguesResponse = try decoder.decode(LeaguesResponse.self, from: data)
+        
+        if !leaguesResponse.errors.isEmpty {
+            throw FootballAPIError.apiError(leaguesResponse.errors)
+        }
+        
+        guard let leagueDetails = leaguesResponse.response.first else {
+            throw FootballAPIError.apiError(["리그 정보를 찾을 수 없습니다."])
+        }
+        
+        return leagueDetails
+    }
+    
+    // MARK: - Standings
+    
+    func getStandings(leagueId: Int, season: Int) async throws -> [Standing] {
+        let endpoint = "/standings?league=\(leagueId)&season=\(season)"
+        let request = createRequest(endpoint)
+        
+        print("\n📡 Fetching standings for league \(leagueId)...")
+        let (data, response) = try await URLSession.shared.data(for: request)
+        try handleResponse(response)
+        
+        // API 응답 로깅
+        logResponse(data: data, endpoint: "Standings")
+        
+        let decoder = JSONDecoder()
+        let standingsResponse = try decoder.decode(StandingsResponse.self, from: data)
+        
+        if !standingsResponse.errors.isEmpty {
+            throw FootballAPIError.apiError(standingsResponse.errors)
+        }
+        
+        guard let standings = standingsResponse.response.first?.league.standings.first else {
+            throw FootballAPIError.apiError(["순위 정보를 찾을 수 없습니다."])
+        }
+        
+        return standings
+    }
+    
+    // MARK: - Fixture Events
+    
+    func getFixtureEvents(fixtureId: Int, teamId: Int? = nil, playerId: Int? = nil) async throws -> [FixtureEvent] {
+        var endpoint = "/fixtures/events?fixture=\(fixtureId)"
+        if let teamId = teamId {
+            endpoint += "&team=\(teamId)"
+        }
+        if let playerId = playerId {
+            endpoint += "&player=\(playerId)"
+        }
+        
         let request = createRequest(endpoint)
         
         print("\n📡 Fetching events for fixture \(fixtureId)...")
@@ -49,12 +136,7 @@ class FootballAPIService {
         try handleResponse(response)
         
         // API 응답 로깅
-        if let jsonObject = try? JSONSerialization.jsonObject(with: data),
-           let prettyData = try? JSONSerialization.data(withJSONObject: jsonObject, options: .prettyPrinted),
-           let prettyString = String(data: prettyData, encoding: .utf8) {
-            print("\n📦 Fixture Events Response:")
-            print(prettyString)
-        }
+        logResponse(data: data, endpoint: "Fixture Events")
         
         let decoder = JSONDecoder()
         let eventsResponse = try decoder.decode(FixtureEventResponse.self, from: data)
@@ -66,8 +148,17 @@ class FootballAPIService {
         return eventsResponse.response
     }
     
-    func getFixtureStatistics(fixtureId: Int) async throws -> [TeamStatistics] {
-        let endpoint = "/fixtures/statistics?fixture=\(fixtureId)"
+    // MARK: - Fixture Statistics
+    
+    func getFixtureStatistics(fixtureId: Int, teamId: Int? = nil, type: StatisticType? = nil) async throws -> [TeamStatistics] {
+        var endpoint = "/fixtures/statistics?fixture=\(fixtureId)"
+        if let teamId = teamId {
+            endpoint += "&team=\(teamId)"
+        }
+        if let type = type {
+            endpoint += "&type=\(type.rawValue.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? type.rawValue)"
+        }
+        
         let request = createRequest(endpoint)
         
         print("\n📡 Fetching statistics for fixture \(fixtureId)...")
@@ -75,12 +166,7 @@ class FootballAPIService {
         try handleResponse(response)
         
         // API 응답 로깅
-        if let jsonObject = try? JSONSerialization.jsonObject(with: data),
-           let prettyData = try? JSONSerialization.data(withJSONObject: jsonObject, options: .prettyPrinted),
-           let prettyString = String(data: prettyData, encoding: .utf8) {
-            print("\n📦 Fixture Statistics Response:")
-            print(prettyString)
-        }
+        logResponse(data: data, endpoint: "Fixture Statistics")
         
         let decoder = JSONDecoder()
         let statisticsResponse = try decoder.decode(FixtureStatisticsResponse.self, from: data)
@@ -92,8 +178,115 @@ class FootballAPIService {
         return statisticsResponse.response
     }
     
-    func getFixtureLineups(fixtureId: Int) async throws -> [TeamLineup] {
-        let endpoint = "/fixtures/lineups?fixture=\(fixtureId)"
+    // MARK: - Fixture Players Statistics
+    
+    func getFixturePlayersStatistics(fixtureId: Int) async throws -> [TeamPlayersStatistics] {
+        let endpoint = "/fixtures/players?fixture=\(fixtureId)"
+        let request = createRequest(endpoint)
+        
+        print("\n📡 Fetching players statistics for fixture \(fixtureId)...")
+        let (data, response) = try await URLSession.shared.data(for: request)
+        try handleResponse(response)
+        
+        // API 응답 로깅
+        logResponse(data: data, endpoint: "Fixture Players Statistics")
+        
+        let decoder = JSONDecoder()
+        let playersResponse = try decoder.decode(FixturePlayersResponse.self, from: data)
+        
+        if !playersResponse.errors.isEmpty {
+            throw FootballAPIError.apiError(playersResponse.errors)
+        }
+        
+        return playersResponse.response
+    }
+    
+    // MARK: - Player Statistics
+    
+    func getPlayerStatistics(playerId: Int, season: Int) async throws -> [PlayerStats] {
+        let endpoint = "/players?id=\(playerId)&season=\(season)"
+        let request = createRequest(endpoint)
+        
+        print("\n📡 Fetching statistics for player \(playerId)...")
+        let (data, response) = try await URLSession.shared.data(for: request)
+        try handleResponse(response)
+        
+        // API 응답 로깅
+        logResponse(data: data, endpoint: "Player Statistics")
+        
+        let decoder = JSONDecoder()
+        let playerResponse = try decoder.decode(PlayerStatisticsResponse.self, from: data)
+        
+        if !playerResponse.errors.isEmpty {
+            throw FootballAPIError.apiError(playerResponse.errors)
+        }
+        
+        return playerResponse.response
+    }
+    
+    // MARK: - Fixtures
+    
+    func getFixtures(leagueId: Int, season: Int) async throws -> [Fixture] {
+        var allFixtures: [Fixture] = []
+        let decoder = JSONDecoder()
+        let dateRange = getDateRange(forSeason: season)
+        
+        // 1. 실시간 경기 가져오기 (현재 시즌만)
+        if season == 2024 {
+            let liveEndpoint = "/fixtures?live=all&league=\(leagueId)&season=\(season)"
+            let liveRequest = createRequest(liveEndpoint)
+            
+            print("\n📡 Fetching live fixtures for league \(leagueId)...")
+            let (liveData, liveResponse) = try await URLSession.shared.data(for: liveRequest)
+            try handleResponse(liveResponse)
+            
+            // API 응답 로깅
+            logResponse(data: liveData, endpoint: "Live Fixtures")
+            
+            let liveFixtures = try decoder.decode(FixturesResponse.self, from: liveData)
+            if !liveFixtures.errors.isEmpty {
+                throw FootballAPIError.apiError(liveFixtures.errors)
+            }
+            allFixtures.append(contentsOf: liveFixtures.response)
+            
+            // API 요청 제한을 고려한 딜레이
+            try await Task.sleep(nanoseconds: 500_000_000) // 0.5초 대기
+        }
+        
+        // 2. 날짜 범위로 경기 가져오기
+        let fixturesEndpoint = "/fixtures?league=\(leagueId)&season=\(season)&from=\(dateRange.from)&to=\(dateRange.to)"
+        let fixturesRequest = createRequest(fixturesEndpoint)
+        
+        print("\n📡 Fetching fixtures for league \(leagueId)...")
+        let (fixturesData, fixturesResponse) = try await URLSession.shared.data(for: fixturesRequest)
+        try handleResponse(fixturesResponse)
+        
+        // API 응답 로깅
+        logResponse(data: fixturesData, endpoint: "Fixtures")
+        
+        let fixtures = try decoder.decode(FixturesResponse.self, from: fixturesData)
+        if !fixtures.errors.isEmpty {
+            throw FootballAPIError.apiError(fixtures.errors)
+        }
+        allFixtures.append(contentsOf: fixtures.response)
+        
+        // 중복 제거
+        allFixtures = Array(Set(allFixtures))
+        
+        print("\n✅ Successfully fetched \(allFixtures.count) fixtures for league \(leagueId)")
+        return allFixtures.sorted { fixture1, fixture2 in
+            fixture1.fixture.date < fixture2.fixture.date
+        }
+    }
+    
+    // MARK: - Lineups
+    
+    func getFixtureLineups(fixtureId: Int, teamId: Int? = nil) async throws -> [TeamLineup] {
+        var endpoint = "/fixtures/lineups?fixture=\(fixtureId)"
+        if let teamId = teamId {
+            endpoint += "&team=\(teamId)"
+        }
+        
         let request = createRequest(endpoint)
         
         print("\n📡 Fetching lineups for fixture \(fixtureId)...")
@@ -101,12 +294,7 @@ class FootballAPIService {
         try handleResponse(response)
         
         // API 응답 로깅
-        if let jsonObject = try? JSONSerialization.jsonObject(with: data),
-           let prettyData = try? JSONSerialization.data(withJSONObject: jsonObject, options: .prettyPrinted),
-           let prettyString = String(data: prettyData, encoding: .utf8) {
-            print("\n📦 Fixture Lineups Response:")
-            print(prettyString)
-        }
+        logResponse(data: data, endpoint: "Fixture Lineups")
         
         let decoder = JSONDecoder()
         let lineupsResponse = try decoder.decode(FixtureLineupResponse.self, from: data)
@@ -118,31 +306,7 @@ class FootballAPIService {
         return lineupsResponse.response
     }
     
-    func getPlayerStatistics(playerId: Int, season: Int) async throws -> [PlayerStats] {
-        let endpoint = "/players?id=\(playerId)&season=\(season)"
-        let request = createRequest(endpoint)
-        
-        print("\n📡 Fetching statistics for player \(playerId)...")
-        let (data, response) = try await URLSession.shared.data(for: request)
-        try handleResponse(response)
-        
-        // API 응답 로깅
-        if let jsonObject = try? JSONSerialization.jsonObject(with: data),
-           let prettyData = try? JSONSerialization.data(withJSONObject: jsonObject, options: .prettyPrinted),
-           let prettyString = String(data: prettyData, encoding: .utf8) {
-            print("\n📦 Player Statistics Response:")
-            print(prettyString)
-        }
-        
-        let decoder = JSONDecoder()
-        let playerResponse = try decoder.decode(PlayerStatisticsResponse.self, from: data)
-        
-        if !playerResponse.errors.isEmpty {
-            throw FootballAPIError.apiError(playerResponse.errors)
-        }
-        
-        return playerResponse.response
-    }
+    // MARK: - Private Methods
     
     private init() {
         // Info.plist에서 API 키 읽기
@@ -157,7 +321,7 @@ class FootballAPIService {
             fatalError("Invalid URL: \(baseURL + endpoint)")
         }
         
-        var request = URLRequest(url: url, 
+        var request = URLRequest(url: url,
                                cachePolicy: .useProtocolCachePolicy,
                                timeoutInterval: 10.0)
         
@@ -173,6 +337,15 @@ class FootballAPIService {
         }
         
         return request
+    }
+    
+    private func logResponse(data: Data, endpoint: String) {
+        if let jsonObject = try? JSONSerialization.jsonObject(with: data),
+           let prettyData = try? JSONSerialization.data(withJSONObject: jsonObject, options: .prettyPrinted),
+           let prettyString = String(data: prettyData, encoding: .utf8) {
+            print("\n📦 \(endpoint) Response:")
+            print(prettyString)
+        }
     }
     
     private func updateRateLimits(_ response: HTTPURLResponse) {
@@ -213,11 +386,6 @@ class FootballAPIService {
         }
     }
     
-    private func handleError(_ error: Error, endpoint: String) {
-        print("\n❌ API Error for endpoint \(endpoint):")
-        print("Error: \(error.localizedDescription)")
-    }
-    
     private func getDateRange(forSeason season: Int) -> (from: String, to: String) {
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "yyyy-MM-dd"
@@ -242,154 +410,5 @@ class FootballAPIService {
             print("📅 Past season date range: \(fromStr) ~ \(toStr)")
             return (fromStr, toStr)
         }
-    }
-    
-    func getFixtures(leagueId: Int, season: Int) async throws -> [Fixture] {
-        var allFixtures: [Fixture] = []
-        let decoder = JSONDecoder()
-        let dateRange = getDateRange(forSeason: season)
-        
-        // 1. 실시간 경기 가져오기 (현재 시즌만)
-        if season == 2024 {
-            let liveEndpoint = "/fixtures?live=all&league=\(leagueId)&season=\(season)"
-            let liveRequest = createRequest(liveEndpoint)
-            
-            print("\n📡 Fetching live fixtures for league \(leagueId)...")
-            let (liveData, liveResponse) = try await URLSession.shared.data(for: liveRequest)
-            try handleResponse(liveResponse)
-            
-            // API 응답 로깅
-            if let jsonObject = try? JSONSerialization.jsonObject(with: liveData),
-               let prettyData = try? JSONSerialization.data(withJSONObject: jsonObject, options: .prettyPrinted),
-               let prettyString = String(data: prettyData, encoding: .utf8) {
-                print("\n📦 Live Fixtures Response:")
-                print(prettyString)
-            }
-            
-            let liveFixtures = try decoder.decode(FixturesResponse.self, from: liveData)
-            if !liveFixtures.errors.isEmpty {
-                throw FootballAPIError.apiError(liveFixtures.errors)
-            }
-            allFixtures.append(contentsOf: liveFixtures.response)
-            
-            // API 요청 제한을 고려한 딜레이
-            try await Task.sleep(nanoseconds: 500_000_000) // 0.5초 대기
-        }
-        
-        // 2. 날짜 범위로 경기 가져오기
-        let fixturesEndpoint = "/fixtures?league=\(leagueId)&season=\(season)&from=\(dateRange.from)&to=\(dateRange.to)"
-        let fixturesRequest = createRequest(fixturesEndpoint)
-        
-        print("\n📡 Fetching fixtures for league \(leagueId)...")
-        let (fixturesData, fixturesResponse) = try await URLSession.shared.data(for: fixturesRequest)
-        try handleResponse(fixturesResponse)
-        
-        // API 응답 로깅
-        if let jsonObject = try? JSONSerialization.jsonObject(with: fixturesData),
-           let prettyData = try? JSONSerialization.data(withJSONObject: jsonObject, options: .prettyPrinted),
-           let prettyString = String(data: prettyData, encoding: .utf8) {
-            print("\n📦 Fixtures Response:")
-            print(prettyString)
-        }
-        
-        let fixtures = try decoder.decode(FixturesResponse.self, from: fixturesData)
-        if !fixtures.errors.isEmpty {
-            throw FootballAPIError.apiError(fixtures.errors)
-        }
-        allFixtures.append(contentsOf: fixtures.response)
-        
-        // 중복 제거
-        allFixtures = Array(Set(allFixtures))
-        
-        print("\n✅ Successfully fetched \(allFixtures.count) fixtures for league \(leagueId)")
-        return allFixtures.sorted { fixture1, fixture2 in
-            fixture1.fixture.date < fixture2.fixture.date
-        }
-    }
-    
-    func getLeagueDetails(leagueId: Int, season: Int) async throws -> LeagueDetails {
-        let endpoint = "/leagues?id=\(leagueId)&season=\(season)"
-        let request = createRequest(endpoint)
-        
-        print("\n📡 Fetching league details for league \(leagueId)...")
-        let (data, response) = try await URLSession.shared.data(for: request)
-        try handleResponse(response)
-        
-        // API 응답 로깅
-        if let jsonObject = try? JSONSerialization.jsonObject(with: data),
-           let prettyData = try? JSONSerialization.data(withJSONObject: jsonObject, options: .prettyPrinted),
-           let prettyString = String(data: prettyData, encoding: .utf8) {
-            print("\n📦 League Details Response:")
-            print(prettyString)
-        }
-        
-        let decoder = JSONDecoder()
-        let leaguesResponse = try decoder.decode(LeaguesResponse.self, from: data)
-        
-        if !leaguesResponse.errors.isEmpty {
-            throw FootballAPIError.apiError(leaguesResponse.errors)
-        }
-        
-        guard let leagueDetails = leaguesResponse.response.first else {
-            throw FootballAPIError.apiError(["리그 정보를 찾을 수 없습니다."])
-        }
-        
-        return leagueDetails
-    }
-    
-    func getCurrentLeagues() async throws -> [LeagueDetails] {
-        var allLeagues: [LeagueDetails] = []
-        let currentSeason = 2024 // 2023-24 시즌
-        
-        print("\n🎯 Starting to fetch league details...")
-        
-        for leagueId in SupportedLeagues.allLeagues {
-            do {
-                print("\n🏆 Fetching details for league \(leagueId) (\(SupportedLeagues.getName(leagueId)))")
-                let league = try await getLeagueDetails(leagueId: leagueId, season: currentSeason)
-                allLeagues.append(league)
-                
-                // API 요청 제한을 고려한 딜레이
-                if leagueId != SupportedLeagues.allLeagues.last {
-                    try await Task.sleep(nanoseconds: 500_000_000) // 0.5초 대기
-                }
-            } catch {
-                print("❌ Error fetching league details for league \(leagueId): \(error.localizedDescription)")
-                continue
-            }
-        }
-        
-        print("\n📊 Total leagues fetched: \(allLeagues.count)")
-        return allLeagues
-    }
-    
-    func getStandings(leagueId: Int, season: Int) async throws -> [Standing] {
-        let endpoint = "/standings?league=\(leagueId)&season=\(season)"
-        let request = createRequest(endpoint)
-        
-        print("\n📡 Fetching standings for league \(leagueId)...")
-        let (data, response) = try await URLSession.shared.data(for: request)
-        try handleResponse(response)
-        
-        // API 응답 로깅
-        if let jsonObject = try? JSONSerialization.jsonObject(with: data),
-           let prettyData = try? JSONSerialization.data(withJSONObject: jsonObject, options: .prettyPrinted),
-           let prettyString = String(data: prettyData, encoding: .utf8) {
-            print("\n📦 Standings Response:")
-            print(prettyString)
-        }
-        
-        let decoder = JSONDecoder()
-        let standingsResponse = try decoder.decode(StandingsResponse.self, from: data)
-        
-        if !standingsResponse.errors.isEmpty {
-            throw FootballAPIError.apiError(standingsResponse.errors)
-        }
-        
-        guard let standings = standingsResponse.response.first?.league.standings.first else {
-            throw FootballAPIError.apiError(["순위 정보를 찾을 수 없습니다."])
-        }
-        
-        return standings
     }
 }
