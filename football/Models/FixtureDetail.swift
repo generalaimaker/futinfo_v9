@@ -20,7 +20,7 @@ struct FixtureEvent: Codable, Identifiable {
     let comments: String?
     
     var id: String {
-        "\(time.elapsed)\(team.id)\(player.id)\(type)\(detail)"
+        "\(time.elapsed)\(team.id)\(player.id ?? 0)\(type)\(detail)"
     }
     
     // 이벤트 타입 분류
