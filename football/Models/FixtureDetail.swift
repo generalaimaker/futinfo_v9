@@ -138,22 +138,34 @@ struct TeamStatistics: Codable {
 
 // 통계 타입 열거형
 enum StatisticType: String {
+    // 공격 관련 통계
     case shotsOnGoal = "Shots on Goal"
     case shotsOffGoal = "Shots off Goal"
     case totalShots = "Total Shots"
     case blockedShots = "Blocked Shots"
     case shotsInsideBox = "Shots insidebox"
     case shotsOutsideBox = "Shots outsidebox"
-    case fouls = "Fouls"
-    case cornerKicks = "Corner Kicks"
-    case offsides = "Offsides"
-    case ballPossession = "Ball Possession"
-    case yellowCards = "Yellow Cards"
-    case redCards = "Red Cards"
-    case saves = "Goalkeeper Saves"
+    case expectedGoals = "expected_goals"
+    
+    // 패스 관련 통계
     case totalPasses = "Total passes"
     case passesAccurate = "Passes accurate"
     case passesPercentage = "Passes %"
+    
+    // 수비 관련 통계
+    case saves = "Goalkeeper Saves"
+    case fouls = "Fouls"
+    case yellowCards = "Yellow Cards"
+    case redCards = "Red Cards"
+    
+    // 기타 통계
+    case ballPossession = "Ball Possession"
+    case cornerKicks = "Corner Kicks"
+    case offsides = "Offsides"
+    
+    static func from(_ rawValue: String) -> StatisticType {
+        StatisticType(rawValue: rawValue) ?? .totalShots
+    }
 }
 
 struct Statistic: Codable {
@@ -169,17 +181,45 @@ enum StatisticValue: Codable {
     
     init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
-        if let stringValue = try? container.decode(String.self) {
-            self = .string(stringValue)
-        } else if let intValue = try? container.decode(Int.self) {
-            self = .int(intValue)
-        } else if let doubleValue = try? container.decode(Double.self) {
-            self = .double(doubleValue)
-        } else if container.decodeNil() {
+        
+        // null 체크를 먼저
+        if container.decodeNil() {
             self = .null
-        } else {
-            throw DecodingError.typeMismatch(StatisticValue.self, DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Wrong type for StatisticValue"))
+            return
         }
+        
+        // 문자열로 먼저 디코딩 시도
+        if let stringValue = try? container.decode(String.self) {
+            // 숫자 형태의 문자열인 경우 숫자로 변환 시도
+            if let intValue = Int(stringValue) {
+                self = .int(intValue)
+            } else if let doubleValue = Double(stringValue) {
+                self = .double(doubleValue)
+            } else {
+                self = .string(stringValue)
+            }
+            return
+        }
+        
+        // 정수 시도
+        if let intValue = try? container.decode(Int.self) {
+            self = .int(intValue)
+            return
+        }
+        
+        // 실수 시도
+        if let doubleValue = try? container.decode(Double.self) {
+            self = .double(doubleValue)
+            return
+        }
+        
+        throw DecodingError.typeMismatch(
+            StatisticValue.self,
+            DecodingError.Context(
+                codingPath: decoder.codingPath,
+                debugDescription: "Expected String, Int, Double, or null"
+            )
+        )
     }
     
     func encode(to encoder: Encoder) throws {

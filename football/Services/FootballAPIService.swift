@@ -150,13 +150,16 @@ class FootballAPIService {
     
     // MARK: - Fixture Statistics
     
-    func getFixtureStatistics(fixtureId: Int, teamId: Int? = nil, type: StatisticType? = nil) async throws -> [TeamStatistics] {
+    func getFixtureStatistics(fixtureId: Int, teamId: Int? = nil, type: StatisticType? = nil, includeHalves: Bool = false) async throws -> [TeamStatistics] {
         var endpoint = "/fixtures/statistics?fixture=\(fixtureId)"
         if let teamId = teamId {
             endpoint += "&team=\(teamId)"
         }
         if let type = type {
             endpoint += "&type=\(type.rawValue.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? type.rawValue)"
+        }
+        if includeHalves {
+            endpoint += "&half=true"
         }
         
         let request = createRequest(endpoint)
@@ -166,13 +169,100 @@ class FootballAPIService {
         try handleResponse(response)
         
         // API 응답 로깅
-        logResponse(data: data, endpoint: "Fixture Statistics")
+        print("\n📦 Raw Statistics Response:")
+        if let jsonString = String(data: data, encoding: .utf8) {
+            print(jsonString)
+        }
+        
+        do {
+            // 먼저 JSON 구조 출력
+            if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                print("\n📦 JSON Structure:")
+                print(json)
+            }
+            
+            let decoder = JSONDecoder()
+            decoder.keyDecodingStrategy = .convertFromSnakeCase
+            
+            do {
+                let statisticsResponse = try decoder.decode(FixtureStatisticsResponse.self, from: data)
+                
+                if !statisticsResponse.errors.isEmpty {
+                    throw FootballAPIError.apiError(statisticsResponse.errors)
+                }
+                
+                print("\n✅ Successfully decoded statistics response")
+                print("📊 Teams found: \(statisticsResponse.response.count)")
+                for team in statisticsResponse.response {
+                    print("   - \(team.team.name): \(team.statistics.count) statistics")
+                    for stat in team.statistics {
+                        print("     • \(stat.type): \(stat.value.displayValue)")
+                    }
+                }
+                
+                return statisticsResponse.response
+                
+            } catch DecodingError.keyNotFound(let key, let context) {
+                print("❌ Key '\(key)' not found:", context.debugDescription)
+                print("Coding path:", context.codingPath)
+                throw FootballAPIError.decodingError(DecodingError.keyNotFound(key, context))
+            } catch DecodingError.typeMismatch(let type, let context) {
+                print("❌ Type '\(type)' mismatch:", context.debugDescription)
+                print("Coding path:", context.codingPath)
+                throw FootballAPIError.decodingError(DecodingError.typeMismatch(type, context))
+            } catch {
+                print("❌ Other decoding error:", error)
+                throw FootballAPIError.decodingError(error)
+            }
+            
+        } catch {
+            print("\n❌ Failed to decode statistics response: \(error)")
+            throw FootballAPIError.decodingError(error)
+        }
+    }
+    
+    func getFixtureHalfStatistics(fixtureId: Int) async throws -> [HalfTeamStatistics] {
+        let endpoint = "/fixtures/statistics?fixture=\(fixtureId)&half=true"
+        let request = createRequest(endpoint)
+        
+        print("\n📡 Fetching half statistics for fixture \(fixtureId)...")
+        let (data, response) = try await URLSession.shared.data(for: request)
+        try handleResponse(response)
+        
+        // API 응답 로깅
+        print("\n📦 Raw Half Statistics Response:")
+        if let jsonString = String(data: data, encoding: .utf8) {
+            print(jsonString)
+        }
+        
+        // JSON 구조 출력
+        if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            print("\n📦 JSON Structure:")
+            print(json)
+        }
         
         let decoder = JSONDecoder()
-        let statisticsResponse = try decoder.decode(FixtureStatisticsResponse.self, from: data)
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        
+        let statisticsResponse = try decoder.decode(HalfStatisticsResponse.self, from: data)
         
         if !statisticsResponse.errors.isEmpty {
             throw FootballAPIError.apiError(statisticsResponse.errors)
+        }
+        
+        print("\n✅ Successfully decoded half statistics response")
+        print("📊 Teams found: \(statisticsResponse.response.count)")
+        for team in statisticsResponse.response {
+            print("   - \(team.team.name):")
+            let stats = team.halfStats
+            print("     First Half: \(stats.firstHalf.count) statistics")
+            for stat in stats.firstHalf {
+                print("       • \(stat.type): \(stat.value.displayValue)")
+            }
+            print("     Second Half: \(stats.secondHalf.count) statistics")
+            for stat in stats.secondHalf {
+                print("       • \(stat.type): \(stat.value.displayValue)")
+            }
         }
         
         return statisticsResponse.response

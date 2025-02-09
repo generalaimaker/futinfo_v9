@@ -4,6 +4,8 @@ import Foundation
 class FixtureDetailViewModel: ObservableObject {
     @Published var events: [FixtureEvent] = []
     @Published var statistics: [TeamStatistics] = []
+    @Published var halfStatistics: [HalfTeamStatistics] = []
+    @Published var chartData: [ChartData] = []
     @Published var lineups: [TeamLineup] = []
     @Published var topPlayers: [PlayerStats] = []
     @Published var matchPlayerStats: [TeamPlayersStatistics] = []
@@ -99,26 +101,130 @@ class FixtureDetailViewModel: ObservableObject {
         isLoadingStats = true
         errorMessage = nil
         
+        print("\n📊 Loading statistics for fixture \(fixtureId)...")
+        
         do {
+            // 1. 전체 통계 로드
             var fetchedStats = try await service.getFixtureStatistics(
                 fixtureId: fixtureId,
                 teamId: selectedTeamId,
                 type: selectedStatisticType
             )
             
-            // 통계 데이터 정렬 및 필터링
+            print("📊 Loaded general statistics: \(fetchedStats.count) teams")
             if !fetchedStats.isEmpty {
-                fetchedStats = fetchedStats.map { teamStats in
-                    var stats = teamStats
-                    let sortedStatistics = stats.statistics.sorted { stat1, stat2 in
-                        getStatisticPriority(stat1.type) > getStatisticPriority(stat2.type)
-                    }
-                    stats.statistics = sortedStatistics
-                    return stats
+                print("📊 Teams:")
+                for stats in fetchedStats {
+                    print("   - \(stats.team.name): \(stats.statistics.count) statistics")
                 }
             }
             
+            // 2. 전/후반 통계 로드
+            let halfStats = try await service.getFixtureHalfStatistics(fixtureId: fixtureId)
+            
+            print("📊 Loaded half statistics: \(halfStats.count) teams")
+            if !halfStats.isEmpty {
+                print("📊 Half statistics teams:")
+                for stats in halfStats {
+                    print("   - \(stats.team.name)")
+                }
+            }
+            
+            print("\n📊 Processing statistics data...")
+            print("📊 Fetched stats count: \(fetchedStats.count)")
+            
+            // 통계 데이터 정렬 및 필터링
+            fetchedStats = fetchedStats.map { teamStats in
+                var stats = teamStats
+                let sortedStatistics = stats.statistics.sorted { stat1, stat2 in
+                    getStatisticPriority(stat1.type) > getStatisticPriority(stat2.type)
+                }
+                stats.statistics = sortedStatistics
+                return stats
+            }
+            
+            // 통계 데이터 검증
+            if fetchedStats.isEmpty {
+                print("⚠️ No statistics data available")
+                errorMessage = "통계 정보가 없습니다"
+                statistics = []
+                halfStatistics = []
+                chartData = []
+                return
+            }
+            
+            if fetchedStats.count < 2 {
+                print("⚠️ Insufficient statistics data: only \(fetchedStats.count) team(s)")
+                errorMessage = "통계 정보가 부족합니다"
+                statistics = fetchedStats
+                halfStatistics = []
+                chartData = []
+                return
+            }
+            
+            // 통계 데이터 출력
+            for teamStats in fetchedStats {
+                print("\n📊 Team: \(teamStats.team.name)")
+                print("   - Total statistics: \(teamStats.statistics.count)")
+                for stat in teamStats.statistics {
+                    print("   - \(stat.type): \(stat.value.displayValue)")
+                }
+            }
+            
+            // 차트 데이터 생성
+            let homeStats = fetchedStats[0]
+            let awayStats = fetchedStats[1]
+            
+            print("\n📊 Creating chart data for teams: \(homeStats.team.name) vs \(awayStats.team.name)")
+            
+            var newChartData: [ChartData] = []
+            
+            // 차트 데이터 생성 함수
+            func addChartData(type: StatisticType) {
+                let chart = ChartData(type: type, homeStats: homeStats, awayStats: awayStats)
+                if chart.maxValue > 0 {
+                    newChartData.append(chart)
+                    print("   ✓ Added \(type.rawValue) chart")
+                    print("     - Home: \(chart.homeValue)")
+                    print("     - Away: \(chart.awayValue)")
+                } else {
+                    print("   ⚠️ Skipped \(type.rawValue) chart (no data)")
+                }
+            }
+            
+            // 공격 관련 차트
+            print("\n📊 Adding attack charts...")
+            addChartData(type: .shotsOnGoal)
+            addChartData(type: .totalShots)
+            addChartData(type: .expectedGoals)
+            
+            // 패스 관련 차트
+            print("\n📊 Adding passing charts...")
+            addChartData(type: .totalPasses)
+            addChartData(type: .passesAccurate)
+            addChartData(type: .passesPercentage)
+            
+            // 수비 관련 차트
+            print("\n📊 Adding defense charts...")
+            addChartData(type: .saves)
+            addChartData(type: .blockedShots)
+            addChartData(type: .fouls)
+            
+            // 기타 차트
+            print("\n📊 Adding other charts...")
+            addChartData(type: .ballPossession)
+            addChartData(type: .cornerKicks)
+            addChartData(type: .offsides)
+            
+            print("\n📊 Chart data summary:")
+            print("   Total valid charts: \(newChartData.count)")
+            
+            chartData = newChartData
+            print("✅ Statistics processing completed")
+            
             statistics = fetchedStats
+            halfStatistics = halfStats
+            
         } catch {
             errorMessage = "통계 정보를 불러오는데 실패했습니다: \(error.localizedDescription)"
             print("Load Statistics Error: \(error)")
