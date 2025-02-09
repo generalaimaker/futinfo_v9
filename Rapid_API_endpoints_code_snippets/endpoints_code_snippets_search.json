@@ -1,0 +1,423 @@
+
+{
+    "endpoint": "Trophies by player id",
+    "description": "Retrieve all trophies won by a specific player using their player ID.",
+    "method": "GET",
+    "url": "https://api-football-v1.p.rapidapi.com/v3/trophies",
+    "headers": {
+      "x-rapidapi-key": "YOUR_API_KEY",
+      "x-rapidapi-host": "api-football-v1.p.rapidapi.com"
+    },
+    "query_parameters": {
+      "player": "276"
+    },
+    "swift_code": "import Foundation\n\nlet headers = [\n\t\"x-rapidapi-key\": \"YOUR_API_KEY\",\n\t\"x-rapidapi-host\": \"api-football-v1.p.rapidapi.com\"\n]\n\nlet request = NSMutableURLRequest(url: NSURL(string: \"https://api-football-v1.p.rapidapi.com/v3/trophies?player=276\")! as URL,\n                                        cachePolicy: .useProtocolCachePolicy,\n                                    timeoutInterval: 10.0)\nrequest.httpMethod = \"GET\"\nrequest.allHTTPHeaderFields = headers\n\nlet session = URLSession.shared\nlet dataTask = session.dataTask(with: request as URLRequest, completionHandler: { (data, response, error) -> Void in\n\tif (error != nil) {\n\t\tprint(error as Any)\n\t} else {\n\t\tlet httpResponse = response as? HTTPURLResponse\n\t\tprint(httpResponse)\n\t}\n})\n\ndataTask.resume()"
+  }
+  
+
+  {
+    "endpoint": "Trophies by players ids",
+    "description": "Retrieve all trophies won by multiple players using their player IDs.",
+    "method": "GET",
+    "url": "https://api-football-v1.p.rapidapi.com/v3/trophies",
+    "headers": {
+      "x-rapidapi-key": "YOUR_API_KEY",
+      "x-rapidapi-host": "api-football-v1.p.rapidapi.com"
+    },
+    "query_parameters": {
+      "players": "276-278"
+    },
+    "swift_code": "import Foundation\n\nlet headers = [\n\t\"x-rapidapi-key\": \"YOUR_API_KEY\",\n\t\"x-rapidapi-host\": \"api-football-v1.p.rapidapi.com\"\n]\n\nlet request = NSMutableURLRequest(url: NSURL(string: \"https://api-football-v1.p.rapidapi.com/v3/trophies?players=276-278\")! as URL,\n                                        cachePolicy: .useProtocolCachePolicy,\n                                    timeoutInterval: 10.0)\nrequest.httpMethod = \"GET\"\nrequest.allHTTPHeaderFields = headers\n\nlet session = URLSession.shared\nlet dataTask = session.dataTask(with: request as URLRequest, completionHandler: { (data, response, error) -> Void in\n\tif (error != nil) {\n\t\tprint(error as Any)\n\t} else {\n\t\tlet httpResponse = response as? HTTPURLResponse\n\t\tprint(httpResponse)\n\t}\n})\n\ndataTask.resume()"
+  }
+  
+
+  {
+    "endpoint": "Trophies by coachs ids",
+    "description": "Retrieve all trophies won by multiple coaches using their coach IDs.",
+    "method": "GET",
+    "url": "https://api-football-v1.p.rapidapi.com/v3/trophies",
+    "headers": {
+      "x-rapidapi-key": "YOUR_API_KEY",
+      "x-rapidapi-host": "api-football-v1.p.rapidapi.com"
+    },
+    "query_parameters": {
+      "coachs": "2-6"
+    },
+    "swift_code": "import Foundation\n\nlet headers = [\n\t\"x-rapidapi-key\": \"YOUR_API_KEY\",\n\t\"x-rapidapi-host\": \"api-football-v1.p.rapidapi.com\"\n]\n\nlet request = NSMutableURLRequest(url: NSURL(string: \"https://api-football-v1.p.rapidapi.com/v3/trophies?coachs=2-6\")! as URL,\n                                        cachePolicy: .useProtocolCachePolicy,\n                                    timeoutInterval: 10.0)\nrequest.httpMethod = \"GET\"\nrequest.allHTTPHeaderFields = headers\n\nlet session = URLSession.shared\nlet dataTask = session.dataTask(with: request as URLRequest, completionHandler: { (data, response, error) -> Void in\n\tif (error != nil) {\n\t\tprint(error as Any)\n\t} else {\n\t\tlet httpResponse = response as? HTTPURLResponse\n\t\tprint(httpResponse)\n\t}\n})\n\ndataTask.resume()"
+  }
+  
+  {
+    "endpoint": "Odds (In-play)",
+    "description": "Retrieve real-time odds for fixtures currently in progress.",
+    "method": "GET",
+    "url": "https://api-football-v1.p.rapidapi.com/v3/odds/live",
+    "headers": {
+      "x-rapidapi-key": "YOUR_API_KEY",
+      "x-rapidapi-host": "api-football-v1.p.rapidapi.com"
+    },
+    "query_parameters": {},
+    "swift_code": "import Foundation\n\nlet headers = [\n\t\"x-rapidapi-key\": \"YOUR_API_KEY\",\n\t\"x-rapidapi-host\": \"api-football-v1.p.rapidapi.com\"\n]\n\nlet request = NSMutableURLRequest(url: NSURL(string: \"https://api-football-v1.p.rapidapi.com/v3/odds/live\")! as URL,\n                                        cachePolicy: .useProtocolCachePolicy,\n                                    timeoutInterval: 10.0)\nrequest.httpMethod = \"GET\"\nrequest.allHTTPHeaderFields = headers\n\nlet session = URLSession.shared\nlet dataTask = session.dataTask(with: request as URLRequest, completionHandler: { (data, response, error) -> Void in\n\tif (error != nil) {\n\t\tprint(error as Any)\n\t} else {\n\t\tlet httpResponse = response as? HTTPURLResponse\n\t\tprint(httpResponse)\n\t}\n})\n\ndataTask.resume()"
+  }
+  
+
+  {
+    "endpoint": "Sidelined by player ID",
+    "description": "Retrieve a list of injuries and suspensions for a specific player using their player ID.",
+    "method": "GET",
+    "url": "https://api-football-v1.p.rapidapi.com/v3/sidelined",
+    "headers": {
+      "x-rapidapi-key": "YOUR_API_KEY",
+      "x-rapidapi-host": "api-football-v1.p.rapidapi.com"
+    },
+    "query_parameters": {
+      "player": "276"
+    },
+    "swift_code": "import Foundation\n\nlet headers = [\n\t\"x-rapidapi-key\": \"YOUR_API_KEY\",\n\t\"x-rapidapi-host\": \"api-football-v1.p.rapidapi.com\"\n]\n\nlet request = NSMutableURLRequest(url: NSURL(string: \"https://api-football-v1.p.rapidapi.com/v3/sidelined?player=276\")! as URL,\n                                        cachePolicy: .useProtocolCachePolicy,\n                                    timeoutInterval: 10.0)\nrequest.httpMethod = \"GET\"\nrequest.allHTTPHeaderFields = headers\n\nlet session = URLSession.shared\nlet dataTask = session.dataTask(with: request as URLRequest, completionHandler: { (data, response, error) -> Void in\n\tif (error != nil) {\n\t\tprint(error as Any)\n\t} else {\n\t\tlet httpResponse = response as? HTTPURLResponse\n\t\tprint(httpResponse)\n\t}\n})\n\ndataTask.resume()"
+  }
+  
+
+  {
+    "endpoint": "Sidelined by coach ID",
+    "description": "Retrieve a list of injuries and suspensions for a specific coach using their coach ID.",
+    "method": "GET",
+    "url": "https://api-football-v1.p.rapidapi.com/v3/sidelined",
+    "headers": {
+      "x-rapidapi-key": "YOUR_API_KEY",
+      "x-rapidapi-host": "api-football-v1.p.rapidapi.com"
+    },
+    "query_parameters": {
+      "coach": "276"
+    },
+    "swift_code": "import Foundation\n\nlet headers = [\n\t\"x-rapidapi-key\": \"YOUR_API_KEY\",\n\t\"x-rapidapi-host\": \"api-football-v1.p.rapidapi.com\"\n]\n\nlet request = NSMutableURLRequest(url: NSURL(string: \"https://api-football-v1.p.rapidapi.com/v3/sidelined?coach=276\")! as URL,\n                                        cachePolicy: .useProtocolCachePolicy,\n                                    timeoutInterval: 10.0)\nrequest.httpMethod = \"GET\"\nrequest.allHTTPHeaderFields = headers\n\nlet session = URLSession.shared\nlet dataTask = session.dataTask(with: request as URLRequest, completionHandler: { (data, response, error) -> Void in\n\tif (error != nil) {\n\t\tprint(error as Any)\n\t} else {\n\t\tlet httpResponse = response as? HTTPURLResponse\n\t\tprint(httpResponse)\n\t}\n})\n\ndataTask.resume()"
+  }
+   
+
+
+{
+  "endpoint": "Sidelined by players IDs",
+  "description": "Retrieve a list of injuries and suspensions for multiple players using their player IDs.",
+  "method": "GET",
+  "url": "https://api-football-v1.p.rapidapi.com/v3/sidelined",
+  "headers": {
+    "x-rapidapi-key": "YOUR_API_KEY",
+    "x-rapidapi-host": "api-football-v1.p.rapidapi.com"
+  },
+  "query_parameters": {
+    "players": "276-278"
+  },
+  "swift_code": "import Foundation\n\nlet headers = [\n\t\"x-rapidapi-key\": \"YOUR_API_KEY\",\n\t\"x-rapidapi-host\": \"api-football-v1.p.rapidapi.com\"\n]\n\nlet request = NSMutableURLRequest(url: NSURL(string: \"https://api-football-v1.p.rapidapi.com/v3/sidelined?players=276-278\")! as URL,\n                                        cachePolicy: .useProtocolCachePolicy,\n                                    timeoutInterval: 10.0)\nrequest.httpMethod = \"GET\"\nrequest.allHTTPHeaderFields = headers\n\nlet session = URLSession.shared\nlet dataTask = session.dataTask(with: request as URLRequest, completionHandler: { (data, response, error) -> Void in\n\tif (error != nil) {\n\t\tprint(error as Any)\n\t} else {\n\t\tlet httpResponse = response as? HTTPURLResponse\n\t\tprint(httpResponse)\n\t}\n})\n\ndataTask.resume()"
+}
+
+
+{
+    "endpoint": "Sidelined by coaches IDs",
+    "description": "Retrieve a list of injuries and suspensions for multiple coaches using their coach IDs.",
+    "method": "GET",
+    "url": "https://api-football-v1.p.rapidapi.com/v3/sidelined",
+    "headers": {
+      "x-rapidapi-key": "YOUR_API_KEY",
+      "x-rapidapi-host": "api-football-v1.p.rapidapi.com"
+    },
+    "query_parameters": {
+      "coachs": "2-6"
+    },
+    "swift_code": "import Foundation\n\nlet headers = [\n\t\"x-rapidapi-key\": \"YOUR_API_KEY\",\n\t\"x-rapidapi-host\": \"api-football-v1.p.rapidapi.com\"\n]\n\nlet request = NSMutableURLRequest(url: NSURL(string: \"https://api-football-v1.p.rapidapi.com/v3/sidelined?coachs=2-6\")! as URL,\n                                        cachePolicy: .useProtocolCachePolicy,\n                                    timeoutInterval: 10.0)\nrequest.httpMethod = \"GET\"\nrequest.allHTTPHeaderFields = headers\n\nlet session = URLSession.shared\nlet dataTask = session.dataTask(with: request as URLRequest, completionHandler: { (data, response, error) -> Void in\n\tif (error != nil) {\n\t\tprint(error as Any)\n\t} else {\n\t\tlet httpResponse = response as? HTTPURLResponse\n\t\tprint(httpResponse)\n\t}\n})\n\ndataTask.resume()"
+  }
+  
+
+
+{
+  "endpoint": "Transfers by player ID",
+  "description": "Retrieve all transfer history for a specific player using their player ID.",
+  "method": "GET",
+  "url": "https://api-football-v1.p.rapidapi.com/v3/transfers",
+  "headers": {
+    "x-rapidapi-key": "YOUR_API_KEY",
+    "x-rapidapi-host": "api-football-v1.p.rapidapi.com"
+  },
+  "query_parameters": {
+    "player": "35845"
+  },
+  "swift_code": "import Foundation\n\nlet headers = [\n\t\"x-rapidapi-key\": \"YOUR_API_KEY\",\n\t\"x-rapidapi-host\": \"api-football-v1.p.rapidapi.com\"\n]\n\nlet request = NSMutableURLRequest(url: NSURL(string: \"https://api-football-v1.p.rapidapi.com/v3/transfers?player=35845\")! as URL,\n                                        cachePolicy: .useProtocolCachePolicy,\n                                    timeoutInterval: 10.0)\nrequest.httpMethod = \"GET\"\nrequest.allHTTPHeaderFields = headers\n\nlet session = URLSession.shared\nlet dataTask = session.dataTask(with: request as URLRequest, completionHandler: { (data, response, error) -> Void in\n\tif (error != nil) {\n\t\tprint(error as Any)\n\t} else {\n\t\tlet httpResponse = response as? HTTPURLResponse\n\t\tprint(httpResponse)\n\t}\n})\n\ndataTask.resume()"
+}
+
+
+{
+    "endpoint": "Transfers by team ID",
+    "description": "Retrieve all transfer history for a specific team using their team ID.",
+    "method": "GET",
+    "url": "https://api-football-v1.p.rapidapi.com/v3/transfers",
+    "headers": {
+      "x-rapidapi-key": "YOUR_API_KEY",
+      "x-rapidapi-host": "api-football-v1.p.rapidapi.com"
+    },
+    "query_parameters": {
+      "team": "33"
+    },
+    "swift_code": "import Foundation\n\nlet headers = [\n\t\"x-rapidapi-key\": \"YOUR_API_KEY\",\n\t\"x-rapidapi-host\": \"api-football-v1.p.rapidapi.com\"\n]\n\nlet request = NSMutableURLRequest(url: NSURL(string: \"https://api-football-v1.p.rapidapi.com/v3/transfers?team=33\")! as URL,\n                                        cachePolicy: .useProtocolCachePolicy,\n                                    timeoutInterval: 10.0)\nrequest.httpMethod = \"GET\"\nrequest.allHTTPHeaderFields = headers\n\nlet session = URLSession.shared\nlet dataTask = session.dataTask(with: request as URLRequest, completionHandler: { (data, response, error) -> Void in\n\tif (error != nil) {\n\t\tprint(error as Any)\n\t} else {\n\t\tlet httpResponse = response as? HTTPURLResponse\n\t\tprint(httpResponse)\n\t}\n})\n\ndataTask.resume()"
+  }
+  
+
+  {
+    "endpoint": "Search Team",
+    "description": "Retrieve team information by searching for a partial or full team name.",
+    "method": "GET",
+    "url": "https://api-football-v1.p.rapidapi.com/v3/teams",
+    "headers": {
+      "x-rapidapi-key": "YOUR_API_KEY",
+      "x-rapidapi-host": "api-football-v1.p.rapidapi.com"
+    },
+    "query_parameters": {
+      "search": "manches"
+    },
+    "swift_code": "import Foundation\n\nlet headers = [\n\t\"x-rapidapi-key\": \"YOUR_API_KEY\",\n\t\"x-rapidapi-host\": \"api-football-v1.p.rapidapi.com\"\n]\n\nlet request = NSMutableURLRequest(url: NSURL(string: \"https://api-football-v1.p.rapidapi.com/v3/teams?search=manches\")! as URL,\n                                        cachePolicy: .useProtocolCachePolicy,\n                                    timeoutInterval: 10.0)\nrequest.httpMethod = \"GET\"\nrequest.allHTTPHeaderFields = headers\n\nlet session = URLSession.shared\nlet dataTask = session.dataTask(with: request as URLRequest, completionHandler: { (data, response, error) -> Void in\n\tif (error != nil) {\n\t\tprint(error as Any)\n\t} else {\n\t\tlet httpResponse = response as? HTTPURLResponse\n\t\tprint(httpResponse)\n\t}\n})\n\ndataTask.resume()"
+  }
+   
+
+  {
+    "endpoint": "Search Country",
+    "description": "Retrieve country information by searching for a partial or full country name.",
+    "method": "GET",
+    "url": "https://api-football-v1.p.rapidapi.com/v3/countries",
+    "headers": {
+      "x-rapidapi-key": "YOUR_API_KEY",
+      "x-rapidapi-host": "api-football-v1.p.rapidapi.com"
+    },
+    "query_parameters": {
+      "search": "engl"
+    },
+    "swift_code": "import Foundation\n\nlet headers = [\n\t\"x-rapidapi-key\": \"YOUR_API_KEY\",\n\t\"x-rapidapi-host\": \"api-football-v1.p.rapidapi.com\"\n]\n\nlet request = NSMutableURLRequest(url: NSURL(string: \"https://api-football-v1.p.rapidapi.com/v3/countries?search=engl\")! as URL,\n                                        cachePolicy: .useProtocolCachePolicy,\n                                    timeoutInterval: 10.0)\nrequest.httpMethod = \"GET\"\nrequest.allHTTPHeaderFields = headers\n\nlet session = URLSession.shared\nlet dataTask = session.dataTask(with: request as URLRequest, completionHandler: { (data, response, error) -> Void in\n\tif (error != nil) {\n\t\tprint(error as Any)\n\t} else {\n\t\tlet httpResponse = response as? HTTPURLResponse\n\t\tprint(httpResponse)\n\t}\n})\n\ndataTask.resume()"
+  }
+  
+  {
+    "endpoint": "Top Scorers",
+    "description": "Retrieve the top goal scorers for a given league and season.",
+    "method": "GET",
+    "url": "https://api-football-v1.p.rapidapi.com/v3/players/topscorers",
+    "headers": {
+      "x-rapidapi-key": "YOUR_API_KEY",
+      "x-rapidapi-host": "api-football-v1.p.rapidapi.com"
+    },
+    "query_parameters": {
+      "league": 39,
+      "season": 2020
+    },
+    "swift_code": "import Foundation\n\nlet headers = [\n\t\"x-rapidapi-key\": \"YOUR_API_KEY\",\n\t\"x-rapidapi-host\": \"api-football-v1.p.rapidapi.com\"\n]\n\nlet request = NSMutableURLRequest(url: NSURL(string: \"https://api-football-v1.p.rapidapi.com/v3/players/topscorers?league=39&season=2020\")! as URL,\n                                        cachePolicy: .useProtocolCachePolicy,\n                                    timeoutInterval: 10.0)\nrequest.httpMethod = \"GET\"\nrequest.allHTTPHeaderFields = headers\n\nlet session = URLSession.shared\nlet dataTask = session.dataTask(with: request as URLRequest, completionHandler: { (data, response, error) -> Void in\n\tif (error != nil) {\n\t\tprint(error as Any)\n\t} else {\n\t\tlet httpResponse = response as? HTTPURLResponse\n\t\tprint(httpResponse)\n\t}\n})\n\ndataTask.resume()"
+  }
+  
+
+
+{
+  "endpoint": "Top Assists",
+  "description": "Retrieve the top players with the most assists for a given league and season.",
+  "method": "GET",
+  "url": "https://api-football-v1.p.rapidapi.com/v3/players/topassists",
+  "headers": {
+    "x-rapidapi-key": "YOUR_API_KEY",
+    "x-rapidapi-host": "api-football-v1.p.rapidapi.com"
+  },
+  "query_parameters": {
+    "league": 39,
+    "season": 2020
+  },
+  "swift_code": "import Foundation\n\nlet headers = [\n\t\"x-rapidapi-key\": \"YOUR_API_KEY\",\n\t\"x-rapidapi-host\": \"api-football-v1.p.rapidapi.com\"\n]\n\nlet request = NSMutableURLRequest(url: NSURL(string: \"https://api-football-v1.p.rapidapi.com/v3/players/topassists?league=39&season=2020\")! as URL,\n                                        cachePolicy: .useProtocolCachePolicy,\n                                    timeoutInterval: 10.0)\nrequest.httpMethod = \"GET\"\nrequest.allHTTPHeaderFields = headers\n\nlet session = URLSession.shared\nlet dataTask = session.dataTask(with: request as URLRequest, completionHandler: { (data, response, error) -> Void in\n\tif (error != nil) {\n\t\tprint(error as Any)\n\t} else {\n\t\tlet httpResponse = response as? HTTPURLResponse\n\t\tprint(httpResponse)\n\t}\n})\n\ndataTask.resume()"
+}
+
+
+{
+    "endpoint": "Venues by venue id",
+    "description": "Retrieve information about a specific venue by its ID.",
+    "method": "GET",
+    "url": "https://api-football-v1.p.rapidapi.com/v3/venues",
+    "headers": {
+      "x-rapidapi-key": "YOUR_API_KEY",
+      "x-rapidapi-host": "api-football-v1.p.rapidapi.com"
+    },
+    "query_parameters": {
+      "id": 556
+    },
+    "swift_code": "import Foundation\n\nlet headers = [\n\t\"x-rapidapi-key\": \"YOUR_API_KEY\",\n\t\"x-rapidapi-host\": \"api-football-v1.p.rapidapi.com\"\n]\n\nlet request = NSMutableURLRequest(url: NSURL(string: \"https://api-football-v1.p.rapidapi.com/v3/venues?id=556\")! as URL,\n                                        cachePolicy: .useProtocolCachePolicy,\n                                    timeoutInterval: 10.0)\nrequest.httpMethod = \"GET\"\nrequest.allHTTPHeaderFields = headers\n\nlet session = URLSession.shared\nlet dataTask = session.dataTask(with: request as URLRequest, completionHandler: { (data, response, error) -> Void in\n\tif (error != nil) {\n\t\tprint(error as Any)\n\t} else {\n\t\tlet httpResponse = response as? HTTPURLResponse\n\t\tprint(httpResponse)\n\t}\n})\n\ndataTask.resume()"
+  }
+  
+
+
+{
+  "endpoint": "Injuries by team id and season",
+  "description": "Retrieve a list of injuries for a specific team in a given season.",
+  "method": "GET",
+  "url": "https://api-football-v1.p.rapidapi.com/v3/injuries",
+  "headers": {
+    "x-rapidapi-key": "YOUR_API_KEY",
+    "x-rapidapi-host": "api-football-v1.p.rapidapi.com"
+  },
+  "query_parameters": {
+    "season": 2020,
+    "team": 33
+  },
+  "swift_code": "import Foundation\n\nlet headers = [\n\t\"x-rapidapi-key\": \"YOUR_API_KEY\",\n\t\"x-rapidapi-host\": \"api-football-v1.p.rapidapi.com\"\n]\n\nlet request = NSMutableURLRequest(url: NSURL(string: \"https://api-football-v1.p.rapidapi.com/v3/injuries?season=2020&team=33\")! as URL,\n                                        cachePolicy: .useProtocolCachePolicy,\n                                    timeoutInterval: 10.0)\nrequest.httpMethod = \"GET\"\nrequest.allHTTPHeaderFields = headers\n\nlet session = URLSession.shared\nlet dataTask = session.dataTask(with: request as URLRequest, completionHandler: { (data, response, error) -> Void in\n\tif (error != nil) {\n\t\tprint(error as Any)\n\t} else {\n\t\tlet httpResponse = response as? HTTPURLResponse\n\t\tprint(httpResponse)\n\t}\n})\n\ndataTask.resume()"
+}
+
+
+{
+    "endpoint": "Injuries by player id and season",
+    "description": "Retrieve a list of injuries for a specific player in a given season.",
+    "method": "GET",
+    "url": "https://api-football-v1.p.rapidapi.com/v3/injuries",
+    "headers": {
+      "x-rapidapi-key": "YOUR_API_KEY",
+      "x-rapidapi-host": "api-football-v1.p.rapidapi.com"
+    },
+    "query_parameters": {
+      "season": 2020,
+      "player": 276
+    },
+    "swift_code": "import Foundation\n\nlet headers = [\n\t\"x-rapidapi-key\": \"YOUR_API_KEY\",\n\t\"x-rapidapi-host\": \"api-football-v1.p.rapidapi.com\"\n]\n\nlet request = NSMutableURLRequest(url: NSURL(string: \"https://api-football-v1.p.rapidapi.com/v3/injuries?season=2020&player=276\")! as URL,\n                                        cachePolicy: .useProtocolCachePolicy,\n                                    timeoutInterval: 10.0)\nrequest.httpMethod = \"GET\"\nrequest.allHTTPHeaderFields = headers\n\nlet session = URLSession.shared\nlet dataTask = session.dataTask(with: request as URLRequest, completionHandler: { (data, response, error) -> Void in\n\tif (error != nil) {\n\t\tprint(error as Any)\n\t} else {\n\t\tlet httpResponse = response as? HTTPURLResponse\n\t\tprint(httpResponse)\n\t}\n})\n\ndataTask.resume()"
+  }
+  
+
+  {
+    "endpoint": "Injuries by league id and season",
+    "description": "Retrieve a list of injuries for all players in a specific league during a given season.",
+    "method": "GET",
+    "url": "https://api-football-v1.p.rapidapi.com/v3/injuries",
+    "headers": {
+      "x-rapidapi-key": "YOUR_API_KEY",
+      "x-rapidapi-host": "api-football-v1.p.rapidapi.com"
+    },
+    "query_parameters": {
+      "league": 61,
+      "season": 2020
+    },
+    "swift_code": "import Foundation\n\nlet headers = [\n\t\"x-rapidapi-key\": \"YOUR_API_KEY\",\n\t\"x-rapidapi-host\": \"api-football-v1.p.rapidapi.com\"\n]\n\nlet request = NSMutableURLRequest(url: NSURL(string: \"https://api-football-v1.p.rapidapi.com/v3/injuries?league=61&season=2020\")! as URL,\n                                        cachePolicy: .useProtocolCachePolicy,\n                                    timeoutInterval: 10.0)\nrequest.httpMethod = \"GET\"\nrequest.allHTTPHeaderFields = headers\n\nlet session = URLSession.shared\nlet dataTask = session.dataTask(with: request as URLRequest, completionHandler: { (data, response, error) -> Void in\n\tif (error != nil) {\n\t\tprint(error as Any)\n\t} else {\n\t\tlet httpResponse = response as? HTTPURLResponse\n\t\tprint(httpResponse)\n\t}\n})\n\ndataTask.resume()"
+  }
+  
+
+  {
+    "endpoint": "Injuries by fixture id",
+    "description": "Retrieve a list of injuries for all players in a specific fixture.",
+    "method": "GET",
+    "url": "https://api-football-v1.p.rapidapi.com/v3/injuries",
+    "headers": {
+      "x-rapidapi-key": "YOUR_API_KEY",
+      "x-rapidapi-host": "api-football-v1.p.rapidapi.com"
+    },
+    "query_parameters": {
+      "fixture": 686308
+    },
+    "swift_code": "import Foundation\n\nlet headers = [\n\t\"x-rapidapi-key\": \"YOUR_API_KEY\",\n\t\"x-rapidapi-host\": \"api-football-v1.p.rapidapi.com\"\n]\n\nlet request = NSMutableURLRequest(url: NSURL(string: \"https://api-football-v1.p.rapidapi.com/v3/injuries?fixture=686308\")! as URL,\n                                        cachePolicy: .useProtocolCachePolicy,\n                                    timeoutInterval: 10.0)\nrequest.httpMethod = \"GET\"\nrequest.allHTTPHeaderFields = headers\n\nlet session = URLSession.shared\nlet dataTask = session.dataTask(with: request as URLRequest, completionHandler: { (data, response, error) -> Void in\n\tif (error != nil) {\n\t\tprint(error as Any)\n\t} else {\n\t\tlet httpResponse = response as? HTTPURLResponse\n\t\tprint(httpResponse)\n\t}\n})\n\ndataTask.resume()"
+  }
+   
+
+  {
+    "endpoint": "Injuries by date",
+    "description": "Retrieve a list of injuries for all players on a specific date.",
+    "method": "GET",
+    "url": "https://api-football-v1.p.rapidapi.com/v3/injuries",
+    "headers": {
+      "x-rapidapi-key": "YOUR_API_KEY",
+      "x-rapidapi-host": "api-football-v1.p.rapidapi.com"
+    },
+    "query_parameters": {
+      "date": "2021-04-27"
+    },
+    "swift_code": "import Foundation\n\nlet headers = [\n\t\"x-rapidapi-key\": \"YOUR_API_KEY\",\n\t\"x-rapidapi-host\": \"api-football-v1.p.rapidapi.com\"\n]\n\nlet request = NSMutableURLRequest(url: NSURL(string: \"https://api-football-v1.p.rapidapi.com/v3/injuries?date=2021-04-27\")! as URL,\n                                        cachePolicy: .useProtocolCachePolicy,\n                                    timeoutInterval: 10.0)\nrequest.httpMethod = \"GET\"\nrequest.allHTTPHeaderFields = headers\n\nlet session = URLSession.shared\nlet dataTask = session.dataTask(with: request as URLRequest, completionHandler: { (data, response, error) -> Void in\n\tif (error != nil) {\n\t\tprint(error as Any)\n\t} else {\n\t\tlet httpResponse = response as? HTTPURLResponse\n\t\tprint(httpResponse)\n\t}\n})\n\ndataTask.resume()"
+  }
+   
+
+  {
+    "endpoint": "Coachs by team id",
+    "description": "Retrieve a list of coaches associated with a specific team.",
+    "method": "GET",
+    "url": "https://api-football-v1.p.rapidapi.com/v3/coachs",
+    "headers": {
+      "x-rapidapi-key": "YOUR_API_KEY",
+      "x-rapidapi-host": "api-football-v1.p.rapidapi.com"
+    },
+    "query_parameters": {
+      "team": "33"
+    },
+    "swift_code": "import Foundation\n\nlet headers = [\n\t\"x-rapidapi-key\": \"YOUR_API_KEY\",\n\t\"x-rapidapi-host\": \"api-football-v1.p.rapidapi.com\"\n]\n\nlet request = NSMutableURLRequest(url: NSURL(string: \"https://api-football-v1.p.rapidapi.com/v3/coachs?team=33\")! as URL,\n                                        cachePolicy: .useProtocolCachePolicy,\n                                    timeoutInterval: 10.0)\nrequest.httpMethod = \"GET\"\nrequest.allHTTPHeaderFields = headers\n\nlet session = URLSession.shared\nlet dataTask = session.dataTask(with: request as URLRequest, completionHandler: { (data, response, error) -> Void in\n\tif (error != nil) {\n\t\tprint(error as Any)\n\t} else {\n\t\tlet httpResponse = response as? HTTPURLResponse\n\t\tprint(httpResponse)\n\t}\n})\n\ndataTask.resume()"
+  }
+   
+
+  {
+    "endpoint": "Coachs by coach id",
+    "description": "Retrieve information about a specific coach by their ID.",
+    "method": "GET",
+    "url": "https://api-football-v1.p.rapidapi.com/v3/coachs",
+    "headers": {
+      "x-rapidapi-key": "YOUR_API_KEY",
+      "x-rapidapi-host": "api-football-v1.p.rapidapi.com"
+    },
+    "query_parameters": {
+      "id": "276"
+    },
+    "swift_code": "import Foundation\n\nlet headers = [\n\t\"x-rapidapi-key\": \"YOUR_API_KEY\",\n\t\"x-rapidapi-host\": \"api-football-v1.p.rapidapi.com\"\n]\n\nlet request = NSMutableURLRequest(url: NSURL(string: \"https://api-football-v1.p.rapidapi.com/v3/coachs?id=276\")! as URL,\n                                        cachePolicy: .useProtocolCachePolicy,\n                                    timeoutInterval: 10.0)\nrequest.httpMethod = \"GET\"\nrequest.allHTTPHeaderFields = headers\n\nlet session = URLSession.shared\nlet dataTask = session.dataTask(with: request as URLRequest, completionHandler: { (data, response, error) -> Void in\n\tif (error != nil) {\n\t\tprint(error as Any)\n\t} else {\n\t\tlet httpResponse = response as? HTTPURLResponse\n\t\tprint(httpResponse)\n\t}\n})\n\ndataTask.resume()"
+  }
+   
+
+  {
+    "endpoint": "Top Red Cards",
+    "description": "Retrieve the list of players with the most red cards in a given league and season.",
+    "method": "GET",
+    "url": "https://api-football-v1.p.rapidapi.com/v3/players/topredcards",
+    "headers": {
+      "x-rapidapi-key": "YOUR_API_KEY",
+      "x-rapidapi-host": "api-football-v1.p.rapidapi.com"
+    },
+    "query_parameters": {
+      "league": "39",
+      "season": "2020"
+    },
+    "swift_code": "import Foundation\n\nlet headers = [\n\t\"x-rapidapi-key\": \"YOUR_API_KEY\",\n\t\"x-rapidapi-host\": \"api-football-v1.p.rapidapi.com\"\n]\n\nlet request = NSMutableURLRequest(url: NSURL(string: \"https://api-football-v1.p.rapidapi.com/v3/players/topredcards?league=39&season=2020\")! as URL,\n                                        cachePolicy: .useProtocolCachePolicy,\n                                    timeoutInterval: 10.0)\nrequest.httpMethod = \"GET\"\nrequest.allHTTPHeaderFields = headers\n\nlet session = URLSession.shared\nlet dataTask = session.dataTask(with: request as URLRequest, completionHandler: { (data, response, error) -> Void in\n\tif (error != nil) {\n\t\tprint(error as Any)\n\t} else {\n\t\tlet httpResponse = response as? HTTPURLResponse\n\t\tprint(httpResponse)\n\t}\n})\n\ndataTask.resume()"
+  }
+  
+
+
+{
+  "endpoint": "Top Yellow Cards",
+  "description": "Retrieve the list of players with the most yellow cards in a given league and season.",
+  "method": "GET",
+  "url": "https://api-football-v1.p.rapidapi.com/v3/players/topyellowcards",
+  "headers": {
+    "x-rapidapi-key": "YOUR_API_KEY",
+    "x-rapidapi-host": "api-football-v1.p.rapidapi.com"
+  },
+  "query_parameters": {
+    "league": "39",
+    "season": "2020"
+  },
+  "swift_code": "import Foundation\n\nlet headers = [\n\t\"x-rapidapi-key\": \"YOUR_API_KEY\",\n\t\"x-rapidapi-host\": \"api-football-v1.p.rapidapi.com\"\n]\n\nlet request = NSMutableURLRequest(url: NSURL(string: \"https://api-football-v1.p.rapidapi.com/v3/players/topyellowcards?league=39&season=2020\")! as URL,\n                                        cachePolicy: .useProtocolCachePolicy,\n                                    timeoutInterval: 10.0)\nrequest.httpMethod = \"GET\"\nrequest.allHTTPHeaderFields = headers\n\nlet session = URLSession.shared\nlet dataTask = session.dataTask(with: request as URLRequest, completionHandler: { (data, response, error) -> Void in\n\tif (error != nil) {\n\t\tprint(error as Any)\n\t} else {\n\t\tlet httpResponse = response as? HTTPURLResponse\n\t\tprint(httpResponse)\n\t}\n})\n\ndataTask.resume()"
+}
+
+{
+    "endpoint": "Search League",
+    "description": "Retrieve information about leagues that match the search keyword.",
+    "method": "GET",
+    "url": "https://api-football-v1.p.rapidapi.com/v3/leagues",
+    "headers": {
+      "x-rapidapi-key": "YOUR_API_KEY",
+      "x-rapidapi-host": "api-football-v1.p.rapidapi.com"
+    },
+    "query_parameters": {
+      "search": "major"
+    },
+    "swift_code": "import Foundation\n\nlet headers = [\n\t\"x-rapidapi-key\": \"YOUR_API_KEY\",\n\t\"x-rapidapi-host\": \"api-football-v1.p.rapidapi.com\"\n]\n\nlet request = NSMutableURLRequest(url: NSURL(string: \"https://api-football-v1.p.rapidapi.com/v3/leagues?search=major\")! as URL,\n                                        cachePolicy: .useProtocolCachePolicy,\n                                    timeoutInterval: 10.0)\nrequest.httpMethod = \"GET\"\nrequest.allHTTPHeaderFields = headers\n\nlet session = URLSession.shared\nlet dataTask = session.dataTask(with: request as URLRequest, completionHandler: { (data, response, error) -> Void in\n\tif (error != nil) {\n\t\tprint(error as Any)\n\t} else {\n\t\tlet httpResponse = response as? HTTPURLResponse\n\t\tprint(httpResponse)\n\t}\n})\n\ndataTask.resume()"
+  }
+  
+
+  {
+    "endpoint": "Search Player",
+    "description": "Retrieve information about a player that matches the search keyword within a specific league.",
+    "method": "GET",
+    "url": "https://api-football-v1.p.rapidapi.com/v3/players",
+    "headers": {
+      "x-rapidapi-key": "YOUR_API_KEY",
+      "x-rapidapi-host": "api-football-v1.p.rapidapi.com"
+    },
+    "query_parameters": {
+      "league": "61",
+      "search": "neymar"
+    },
+    "swift_code": "import Foundation\n\nlet headers = [\n\t\"x-rapidapi-key\": \"YOUR_API_KEY\",\n\t\"x-rapidapi-host\": \"api-football-v1.p.rapidapi.com\"\n]\n\nlet request = NSMutableURLRequest(url: NSURL(string: \"https://api-football-v1.p.rapidapi.com/v3/players?league=61&search=neymar\")! as URL,\n                                        cachePolicy: .useProtocolCachePolicy,\n                                    timeoutInterval: 10.0)\nrequest.httpMethod = \"GET\"\nrequest.allHTTPHeaderFields = headers\n\nlet session = URLSession.shared\nlet dataTask = session.dataTask(with: request as URLRequest, completionHandler: { (data, response, error) -> Void in\n\tif (error != nil) {\n\t\tprint(error as Any)\n\t} else {\n\t\tlet httpResponse = response as? HTTPURLResponse\n\t\tprint(httpResponse)\n\t}\n})\n\ndataTask.resume()"
+  }

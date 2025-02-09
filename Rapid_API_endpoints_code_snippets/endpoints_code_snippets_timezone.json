@@ -1,0 +1,55 @@
+
+{
+  "Timezone": {
+    "imports": [
+      "Foundation"
+    ],
+    "headers": {
+      "x-rapidapi-key": "bd09a1efecmshf47e95710709f44p1dcafdjsn072eabc66aa4",
+      "x-rapidapi-host": "api-football-v1.p.rapidapi.com"
+    ],
+    "request": {
+      "url": "https://api-football-v1.p.rapidapi.com/v3/timezone",
+      "cachePolicy": "useProtocolCachePolicy",
+      "timeoutInterval": 10.0,
+      "httpMethod": "GET",
+      "allHTTPHeaderFields": {
+        "x-rapidapi-key": "bd09a1efecmshf47e95710709f44p1dcafdjsn072eabc66aa4",
+        "x-rapidapi-host": "api-football-v1.p.rapidapi.com"
+      }
+    },
+    "session": "URLSession.shared",
+    "dataTask": {
+      "completionHandler": {
+        "onError": "print(error as Any)",
+        "onSuccess": "print(httpResponse)"
+      }
+    }
+  },
+  "Predictions": {
+    "imports": [
+      "Foundation"
+    ],
+    "headers": {
+      "x-rapidapi-key": "bd09a1efecmshf47e95710709f44p1dcafdjsn072eabc66aa4",
+      "x-rapidapi-host": "api-football-v1.p.rapidapi.com"
+    ],
+    "request": {
+      "url": "https://api-football-v1.p.rapidapi.com/v3/predictions?fixture=198772",
+      "cachePolicy": "useProtocolCachePolicy",
+      "timeoutInterval": 10.0,
+      "httpMethod": "GET",
+      "allHTTPHeaderFields": {
+        "x-rapidapi-key": "bd09a1efecmshf47e95710709f44p1dcafdjsn072eabc66aa4",
+        "x-rapidapi-host": "api-football-v1.p.rapidapi.com"
+      }
+    },
+    "session": "URLSession.shared",
+    "dataTask": {
+      "completionHandler": {
+        "onError": "print(error as Any)",
+        "onSuccess": "print(httpResponse)"
+      }
+    }
+  }
+}
