@@ -247,6 +247,7 @@ struct PlayerGameStats: Codable {
     let position: String?
     let rating: String?
     let captain: Bool?
+    let substitute: Bool?
 }
 
 // MARK: - Lineups

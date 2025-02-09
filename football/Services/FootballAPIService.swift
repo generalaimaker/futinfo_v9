@@ -279,6 +279,29 @@ class FootballAPIService {
         }
     }
     
+    // MARK: - Head to Head
+    
+    func getHeadToHead(team1Id: Int, team2Id: Int) async throws -> [Fixture] {
+        let endpoint = "/fixtures/headtohead?h2h=\(team1Id)-\(team2Id)"
+        let request = createRequest(endpoint)
+        
+        print("\n📡 Fetching head to head statistics...")
+        let (data, response) = try await URLSession.shared.data(for: request)
+        try handleResponse(response)
+        
+        // API 응답 로깅
+        logResponse(data: data, endpoint: "Head to Head")
+        
+        let decoder = JSONDecoder()
+        let headToHeadResponse = try decoder.decode(HeadToHeadResponse.self, from: data)
+        
+        if !headToHeadResponse.errors.isEmpty {
+            throw FootballAPIError.apiError(headToHeadResponse.errors)
+        }
+        
+        return headToHeadResponse.response
+    }
+    
     // MARK: - Lineups
     
     func getFixtureLineups(fixtureId: Int, teamId: Int? = nil) async throws -> [TeamLineup] {

@@ -7,6 +7,9 @@ class FixtureDetailViewModel: ObservableObject {
     @Published var lineups: [TeamLineup] = []
     @Published var topPlayers: [PlayerStats] = []
     @Published var matchPlayerStats: [TeamPlayersStatistics] = []
+    @Published var headToHeadFixtures: [Fixture] = []
+    @Published var team1Stats: HeadToHeadStats?
+    @Published var team2Stats: HeadToHeadStats?
     
     @Published var selectedStatisticType: StatisticType?
     @Published var selectedTeamId: Int?
@@ -17,25 +20,34 @@ class FixtureDetailViewModel: ObservableObject {
     @Published var isLoadingLineups = false
     @Published var isLoadingPlayers = false
     @Published var isLoadingMatchStats = false
+    @Published var isLoadingHeadToHead = false
     
     @Published var errorMessage: String?
     
     private let service = FootballAPIService.shared
     private let fixtureId: Int
     private let season: Int
+    private var currentFixture: Fixture?
     
-    init(fixtureId: Int, season: Int) {
-        self.fixtureId = fixtureId
-        self.season = season
+    init(fixture: Fixture) {
+        self.fixtureId = fixture.fixture.id
+        self.season = fixture.league.season
+        self.currentFixture = fixture
     }
     
     func loadAllData() {
         Task {
+            // 먼저 매치 플레이어 통계를 로드
+            await loadMatchPlayerStats()
+            
+            // 상대전적 로드 (매치 플레이어 통계에 의존)
+            await loadHeadToHead()
+            
+            // 나머지 데이터를 병렬로 로드
             await withTaskGroup(of: Void.self) { group in
                 group.addTask { await self.loadEvents() }
                 group.addTask { await self.loadStatistics() }
                 group.addTask { await self.loadLineups() }
-                group.addTask { await self.loadMatchPlayerStats() }
             }
         }
     }
@@ -136,11 +148,27 @@ class FixtureDetailViewModel: ObservableObject {
         isLoadingMatchStats = true
         errorMessage = nil
         
+        print("📊 Loading match player stats for fixture: \(fixtureId)")
+        
         do {
-            matchPlayerStats = try await service.getFixturePlayersStatistics(fixtureId: fixtureId)
+            let stats = try await service.getFixturePlayersStatistics(fixtureId: fixtureId)
+            print("📊 Loaded match player stats: \(stats.count) teams")
+            
+            if stats.isEmpty {
+                errorMessage = "선수 통계 정보가 없습니다."
+                print("⚠️ No match player stats found")
+            } else if stats.count < 2 {
+                errorMessage = "양 팀의 선수 통계 정보가 필요합니다."
+                print("⚠️ Insufficient team stats: only \(stats.count) team(s)")
+            } else {
+                print("✅ Team 1: \(stats[0].team.name), Team 2: \(stats[1].team.name)")
+            }
+            
+            matchPlayerStats = stats
+            
         } catch {
             errorMessage = "선수 통계 정보를 불러오는데 실패했습니다: \(error.localizedDescription)"
-            print("Load Match Player Stats Error: \(error)")
+            print("❌ Load Match Player Stats Error: \(error)")
         }
         
         isLoadingMatchStats = false
@@ -170,48 +198,146 @@ class FixtureDetailViewModel: ObservableObject {
         isLoadingLineups = false
     }
     
-    private func loadTopPlayersStats() async {
-        isLoadingPlayers = true
+    // MARK: - Head to Head
+    
+    func loadHeadToHead() async {
+        isLoadingHeadToHead = true
+        errorMessage = nil
         
-        // 양 팀의 선발 선수들 중에서 통계 정보를 가져올 선수들 선택
-        let selectedPlayers = lineups.flatMap { lineup in
-            lineup.startXI.prefix(5)
+        print("🔄 Loading head to head stats...")
+        
+        // 매치 선수 통계에서 팀 ID 가져오기
+        if matchPlayerStats.isEmpty {
+            do {
+                matchPlayerStats = try await service.getFixturePlayersStatistics(fixtureId: fixtureId)
+                print("📊 Loaded match player stats: \(matchPlayerStats.count) teams")
+            } catch {
+                errorMessage = "매치 선수 통계를 불러올 수 없습니다: \(error.localizedDescription)"
+                print("❌ Failed to load match player stats: \(error)")
+                isLoadingHeadToHead = false
+                return
+            }
         }
         
-        var playerStats: [PlayerStats] = []
-        let playerGroups = selectedPlayers.chunked(into: 2) // API 요청 제한을 고려하여 2명씩 그룹화
+        // 팀 정보 확인
+        guard matchPlayerStats.count >= 2 else {
+            errorMessage = "양 팀의 선수 통계가 필요합니다."
+            print("❌ Insufficient team stats: only \(matchPlayerStats.count) team(s)")
+            isLoadingHeadToHead = false
+            return
+        }
         
-        for group in playerGroups {
-            let stats = await withTaskGroup(of: [PlayerStats].self) { taskGroup in
-                for player in group {
-                    taskGroup.addTask {
-                        do {
-                            return try await self.service.getPlayerStatistics(playerId: player.id, season: self.season)
-                        } catch {
-                            print("Failed to load stats for player \(player.id): \(error)")
-                            return []
-                        }
-                    }
-                }
-                
-                var groupResults: [PlayerStats] = []
-                for await result in taskGroup {
-                    groupResults.append(contentsOf: result)
-                }
-                return groupResults
+        let team1Id = matchPlayerStats[0].team.id
+        let team2Id = matchPlayerStats[1].team.id
+        
+        print("🆚 Loading head to head for teams: \(team1Id)(\(matchPlayerStats[0].team.name)) vs \(team2Id)(\(matchPlayerStats[1].team.name))")
+        
+        do {
+            // 두 팀의 과거 상대 전적 가져오기
+            headToHeadFixtures = try await service.getHeadToHead(team1Id: team1Id, team2Id: team2Id)
+            
+            if headToHeadFixtures.isEmpty {
+                errorMessage = "상대전적 정보가 없습니다."
+                print("⚠️ No head to head fixtures found")
+                isLoadingHeadToHead = false
+                return
             }
             
-            playerStats.append(contentsOf: stats)
+            print("📊 Loaded \(headToHeadFixtures.count) head to head fixtures")
             
-            // API 요청 제한을 고려한 딜레이
-            try? await Task.sleep(nanoseconds: 500_000_000) // 0.5초 대기
+            // 각 팀의 상대 전적 통계 계산
+            team1Stats = HeadToHeadStats(fixtures: headToHeadFixtures, teamId: team1Id)
+            team2Stats = HeadToHeadStats(fixtures: headToHeadFixtures, teamId: team2Id)
+            
+            print("✅ Head to head stats calculated successfully")
+            
+        } catch {
+            errorMessage = "상대 전적을 불러오는데 실패했습니다: \(error.localizedDescription)"
+            print("❌ Load Head to Head Error: \(error)")
         }
         
-        // 평점 기준으로 정렬
-        topPlayers = playerStats.sorted { player1, player2 in
-            let rating1 = Double(player1.statistics.first?.games.rating ?? "0") ?? 0
-            let rating2 = Double(player2.statistics.first?.games.rating ?? "0") ?? 0
-            return rating1 > rating2
+        isLoadingHeadToHead = false
+    }
+
+    private func loadTopPlayersStats() async {
+        isLoadingPlayers = true
+        errorMessage = nil
+        
+        do {
+            // 경기의 모든 선수 통계 가져오기
+            let matchStats = try await service.getFixturePlayersStatistics(fixtureId: fixtureId)
+            
+            // 선발 선수 ID 목록
+            let starterIds = Set(lineups.flatMap { lineup in
+                lineup.startXI.map { $0.id }
+            })
+            
+            print("📊 Processing match stats for \(starterIds.count) starters")
+            
+            // 모든 선수의 통계를 처리
+            var processedStats: [PlayerStats] = []
+            
+            for teamStats in matchStats {
+                for player in teamStats.players {
+                    // 선수가 경기에 참여했는지 확인
+                    guard let matchStat = player.statistics.first,
+                          let position = matchStat.games.position else {
+                        continue
+                    }
+                    
+                    // 기본 평점 설정 (참여한 선수는 최소 5.0)
+                    let rating = matchStat.games.rating ?? "5.0"
+                    
+                    // PlayerMatchStats를 PlayerSeasonStats로 변환
+                    let seasonStats = [PlayerSeasonStats(
+                        team: teamStats.team,
+                        league: PlayerLeagueInfo(
+                            id: 0,
+                            name: "Current Match",
+                            country: nil,
+                            logo: "",
+                            season: self.season
+                        ),
+                        games: PlayerGames(
+                            appearences: 1,
+                            lineups: matchStat.games.minutes ?? 0 > 0 ? 1 : 0,
+                            minutes: matchStat.games.minutes ?? 0,
+                            number: matchStat.games.number,
+                            position: position,
+                            rating: rating,
+                            captain: matchStat.games.captain
+                        ),
+                        shots: matchStat.shots ?? PlayerShots(total: 0, on: 0),
+                        goals: matchStat.goals ?? PlayerGoals(total: 0, conceded: 0, assists: 0, saves: 0),
+                        passes: matchStat.passes ?? PlayerPasses(total: 0, key: 0, accuracy: "0"),
+                        tackles: matchStat.tackles ?? PlayerTackles(total: 0, blocks: 0, interceptions: 0),
+                        duels: matchStat.duels ?? PlayerDuels(total: 0, won: 0),
+                        dribbles: matchStat.dribbles ?? PlayerDribbles(attempts: 0, success: 0, past: 0),
+                        fouls: matchStat.fouls ?? PlayerFouls(drawn: 0, committed: 0),
+                        cards: matchStat.cards ?? PlayerCards(yellow: 0, yellowred: 0, red: 0),
+                        penalty: nil
+                    )]
+                    
+                    processedStats.append(PlayerStats(
+                        player: player.player,
+                        statistics: seasonStats
+                    ))
+                    print("✅ Processed stats for \(player.player.name)")
+                }
+            }
+            
+            // 평점 기준으로 정렬
+            topPlayers = processedStats.sorted { player1, player2 in
+                let rating1 = Double(player1.statistics.first?.games.rating ?? "0") ?? 0
+                let rating2 = Double(player2.statistics.first?.games.rating ?? "0") ?? 0
+                return rating1 > rating2
+            }
+            
+            print("📊 Total players processed: \(topPlayers.count)")
+            
+        } catch {
+            errorMessage = "선수 통계 정보를 불러오는데 실패했습니다: \(error.localizedDescription)"
+            print("❌ Load Top Players Stats Error: \(error)")
         }
         
         isLoadingPlayers = false
@@ -243,6 +369,7 @@ class FixtureDetailViewModel: ObservableObject {
             await loadStatistics()
         }
     }
+    
 }
 
 // MARK: - Helpers

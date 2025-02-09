@@ -3,14 +3,11 @@ import SwiftUI
 struct FixtureDetailView: View {
     let fixture: Fixture
     @StateObject private var viewModel: FixtureDetailViewModel
-    @State private var selectedTab = 0 // 0: 이벤트, 1: 통계, 2: 라인업, 3: 선수 통계
+    @State private var selectedTab = 0 // 0: 이벤트, 1: 통계, 2: 라인업, 3: 선수 통계, 4: 상대전적
     
     init(fixture: Fixture) {
         self.fixture = fixture
-        self._viewModel = StateObject(wrappedValue: FixtureDetailViewModel(
-            fixtureId: fixture.fixture.id,
-            season: fixture.league.season
-        ))
+        self._viewModel = StateObject(wrappedValue: FixtureDetailViewModel(fixture: fixture))
     }
     
     var body: some View {
@@ -23,14 +20,14 @@ struct FixtureDetailView: View {
                 VStack(spacing: 0) {
                     // 메인 탭
                     HStack(spacing: 0) {
-                        ForEach(["이벤트", "통계", "라인업", "선수 통계"].indices, id: \.self) { index in
+                        ForEach(["이벤트", "통계", "라인업", "선수 통계", "상대전적"].indices, id: \.self) { index in
                             Button(action: {
                                 withAnimation(.easeInOut(duration: 0.3)) {
                                     selectedTab = index
                                 }
                             }) {
                                 VStack(spacing: 8) {
-                                    Text(["이벤트", "통계", "라인업", "선수 통계"][index])
+                                    Text(["이벤트", "통계", "라인업", "선수 통계", "상대전적"][index])
                                         .font(.system(.subheadline, design: .rounded))
                                         .fontWeight(selectedTab == index ? .semibold : .regular)
                                         .foregroundColor(selectedTab == index ? .blue : .gray)
@@ -91,8 +88,29 @@ struct FixtureDetailView: View {
                 case 3:
                     if viewModel.isLoadingMatchStats {
                         ProgressView()
-                    } else {
+                    } else if !viewModel.matchPlayerStats.isEmpty {
                         MatchPlayerStatsView(teamStats: viewModel.matchPlayerStats)
+                    } else {
+                        Text(viewModel.errorMessage ?? "선수 통계 정보를 불러올 수 없습니다")
+                            .foregroundColor(.gray)
+                            .padding()
+                    }
+                case 4:
+                    if viewModel.isLoadingHeadToHead {
+                        ProgressView()
+                    } else if let team1Stats = viewModel.team1Stats,
+                              let team2Stats = viewModel.team2Stats {
+                        HeadToHeadView(
+                            fixtures: viewModel.headToHeadFixtures,
+                            team1Stats: team1Stats,
+                            team2Stats: team2Stats,
+                            team1: fixture.teams.home,
+                            team2: fixture.teams.away
+                        )
+                    } else {
+                        Text(viewModel.errorMessage ?? "상대전적 정보를 불러올 수 없습니다")
+                            .foregroundColor(.gray)
+                            .padding()
                     }
                 default:
                     EmptyView()
@@ -922,9 +940,28 @@ struct MatchPlayerStatsView: View {
                         // 선수 통계
                         let filteredPlayers = filterPlayers(teamStat.players)
                         ForEach(filteredPlayers) { player in
-                            if let stats = player.statistics.first {
-                                PlayerStatRow(player: player.player, stats: stats)
-                            }
+                            PlayerStatRow(
+                                player: player.player,
+                                stats: player.statistics.first ?? PlayerMatchStats(
+                                    games: PlayerGameStats(
+                                        minutes: 0,
+                                        number: nil,
+                                        position: nil,
+                                        rating: "0.0",
+                                        captain: false,
+                                        substitute: true
+                                    ),
+                                    offsides: nil,
+                                    shots: nil,
+                                    goals: nil,
+                                    passes: nil,
+                                    tackles: nil,
+                                    duels: nil,
+                                    dribbles: nil,
+                                    fouls: nil,
+                                    cards: nil
+                                )
+                            )
                         }
                     }
                     .padding()
@@ -937,9 +974,37 @@ struct MatchPlayerStatsView: View {
     }
     
     private func filterPlayers(_ players: [FixturePlayerStats]) -> [FixturePlayerStats] {
-        guard let position = selectedPosition else { return players }
-        return players.filter { player in
-            player.statistics.first?.games.position?.starts(with: position) ?? false
+        // 유효한 통계가 있는 선수만 필터링
+        let validPlayers = players.filter { player in
+            // 선수의 첫 번째 통계 데이터 사용
+            guard let stats = player.statistics.first else { return false }
+            
+            // 포지션이 있고 선수 번호가 있는 경우 표시
+            guard let position = stats.games.position,
+                  stats.games.number != nil else {
+                return false
+            }
+            
+            // 포지션 필터가 선택된 경우
+            if let selectedPos = selectedPosition {
+                return position.starts(with: selectedPos)
+            }
+            
+            return true
+        }
+        
+        // 선발/교체 여부와 선수 번호로 정렬
+        return validPlayers.sorted { player1, player2 in
+            let stats1 = player1.statistics.first!
+            let stats2 = player2.statistics.first!
+            
+            // 선발 선수를 먼저 표시
+            if (stats1.games.substitute ?? true) != (stats2.games.substitute ?? true) {
+                return !(stats1.games.substitute ?? true)
+            }
+            
+            // 같은 그룹 내에서는 선수 번호로 정렬
+            return (stats1.games.number ?? 99) < (stats2.games.number ?? 99)
         }
     }
     
@@ -963,7 +1028,7 @@ struct PlayerStatRow: View {
         VStack(spacing: 8) {
             Button(action: { isExpanded.toggle() }) {
                 HStack {
-                    AsyncImage(url: URL(string: player.photo)) { image in
+                    AsyncImage(url: URL(string: player.photo ?? "")) { image in
                         image
                             .resizable()
                             .scaledToFit()
@@ -978,17 +1043,28 @@ struct PlayerStatRow: View {
                         Text(player.name)
                             .font(.callout)
                         
-                        if let position = stats.games.position {
-                            Text(position)
-                                .font(.caption)
-                                .foregroundColor(.gray)
+                        HStack(spacing: 4) {
+                            if let position = stats.games.position {
+                                Text(position)
+                                    .font(.caption)
+                                    .foregroundColor(.gray)
+                            }
+                            
+                            if stats.games.substitute ?? false {
+                                Text("(교체)")
+                                    .font(.caption)
+                                    .foregroundColor(.orange)
+                            }
                         }
                     }
                     
                     Spacer()
                     
-                    if let rating = stats.games.rating {
-                        Text(rating)
+                    // 평점이 있는 경우에만 표시
+                    if let rating = stats.games.rating,
+                       let ratingValue = Double(rating),
+                       ratingValue > 0 {
+                        Text(String(format: "%.1f", ratingValue))
                             .font(.headline)
                             .foregroundColor(.blue)
                     }
@@ -1029,7 +1105,7 @@ struct PlayerStatRow: View {
                     if let passes = stats.passes {
                         HStack(spacing: 20) {
                             StatItem(title: "패스 시도", value: "\(passes.total ?? 0)")
-                            StatItem(title: "성공률", value: "\(passes.accuracy ?? 0)%")
+                            StatItem(title: "성공률", value: "\(passes.accuracy ?? "0")%")
                             StatItem(title: "키패스", value: "\(passes.key ?? 0)")
                         }
                     }
@@ -1479,7 +1555,7 @@ struct TopPlayerCard: View {
     var body: some View {
         VStack(spacing: 12) {
             // 선수 사진
-            AsyncImage(url: URL(string: player.photo)) { image in
+            AsyncImage(url: URL(string: player.photo ?? "")) { image in
                 image
                     .resizable()
                     .scaledToFit()

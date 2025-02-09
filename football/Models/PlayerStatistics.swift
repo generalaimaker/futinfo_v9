@@ -18,13 +18,13 @@ struct PlayerStats: Codable {
 struct PlayerInfo: Codable {
     let id: Int
     let name: String
-    let firstname: String
-    let lastname: String
-    let age: Int
-    let nationality: String
+    let firstname: String?
+    let lastname: String?
+    let age: Int?
+    let nationality: String?
     let height: String?
     let weight: String?
-    let photo: String
+    let photo: String?
 }
 
 struct PlayerSeasonStats: Codable {
@@ -75,7 +75,7 @@ struct PlayerGoals: Codable {
 struct PlayerPasses: Codable {
     let total: Int?
     let key: Int?
-    let accuracy: Int?
+    let accuracy: String?
 }
 
 struct PlayerTackles: Codable {
