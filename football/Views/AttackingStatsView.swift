@@ -16,7 +16,7 @@ struct AttackingStatsView: View {
     }
     
     var body: some View {
-        VStack(spacing: 24) {
+        VStack(spacing: 16) {
             // 팀 로고
             HStack {
                 AsyncImage(url: URL(string: statistics[0].team.logo)) { image in
@@ -51,8 +51,19 @@ struct AttackingStatsView: View {
             }
             .padding(.horizontal, 40)
             
-            // 공격 통계
-            VStack(spacing: 20) {
+            VStack(spacing: 24) {
+                // 점유율
+                if let homePossession = homeStats["Ball Possession"],
+                   let awayPossession = awayStats["Ball Possession"] {
+                    StatisticItem(
+                        title: "점유율",
+                        leftValue: homePossession.displayValue,
+                        rightValue: awayPossession.displayValue,
+                        showProgressBar: true,
+                        showPercentage: false // 이미 % 포함되어 있음
+                    )
+                }
+                
                 // 예상 득점
                 if let homeXG = homeStats["expected_goals"],
                    let awayXG = awayStats["expected_goals"] {
@@ -60,88 +71,180 @@ struct AttackingStatsView: View {
                         title: "예상 득점 (xG)",
                         leftValue: homeXG.displayValue,
                         rightValue: awayXG.displayValue,
-                        showProgressBar: true
+                        showProgressBar: true,
+                        showPercentage: true
+                    )
+                }
+                
+                // 선방
+                if let homeSaves = homeStats["Goalkeeper Saves"],
+                   let awaySaves = awayStats["Goalkeeper Saves"] {
+                    StatisticItem(
+                        title: "선방",
+                        leftValue: homeSaves.displayValue,
+                        rightValue: awaySaves.displayValue,
+                        showProgressBar: true,
+                        showPercentage: true
+                    )
+                }
+                
+                // 코너킥
+                if let homeCorners = homeStats["Corner Kicks"],
+                   let awayCorners = awayStats["Corner Kicks"] {
+                    StatisticItem(
+                        title: "코너킥",
+                        leftValue: homeCorners.displayValue,
+                        rightValue: awayCorners.displayValue,
+                        showProgressBar: true,
+                        showPercentage: true
                     )
                 }
                 
                 Divider()
+                    .padding(.horizontal)
                 
-                // 전체 슈팅
-                if let homeTotalShots = homeStats["Total Shots"],
-                   let awayTotalShots = awayStats["Total Shots"] {
-                    StatisticItem(
-                        title: "전체 슛",
-                        leftValue: homeTotalShots.displayValue,
-                        rightValue: awayTotalShots.displayValue,
-                        showProgressBar: true
-                    )
+                // 슈팅
+                VStack(spacing: 16) {
+                    Text("슈팅")
+                        .font(.system(.headline, design: .rounded))
+                        .fontWeight(.bold)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    
+                    // 총 슈팅
+                    if let homeTotalShots = homeStats["Total Shots"],
+                       let awayTotalShots = awayStats["Total Shots"] {
+                        StatisticItem(
+                            title: "총 슈팅",
+                            leftValue: homeTotalShots.displayValue,
+                            rightValue: awayTotalShots.displayValue,
+                            showProgressBar: true,
+                            showPercentage: true
+                        )
+                    }
+                    
+                    // 유효 슈팅
+                    if let homeShotsOnGoal = homeStats["Shots on Goal"],
+                       let awayShotsOnGoal = awayStats["Shots on Goal"] {
+                        StatisticItem(
+                            title: "유효 슈팅",
+                            leftValue: homeShotsOnGoal.displayValue,
+                            rightValue: awayShotsOnGoal.displayValue,
+                            showProgressBar: true,
+                            showPercentage: true
+                        )
+                    }
+                    
+                    // 빗나간 슈팅
+                    if let homeShotsOffGoal = homeStats["Shots off Goal"],
+                       let awayShotsOffGoal = awayStats["Shots off Goal"] {
+                        StatisticItem(
+                            title: "빗나간 슈팅",
+                            leftValue: homeShotsOffGoal.displayValue,
+                            rightValue: awayShotsOffGoal.displayValue,
+                            showProgressBar: true,
+                            showPercentage: true
+                        )
+                    }
+                    
+                    // 막힌 슈팅
+                    if let homeBlockedShots = homeStats["Blocked Shots"],
+                       let awayBlockedShots = awayStats["Blocked Shots"] {
+                        StatisticItem(
+                            title: "막힌 슈팅",
+                            leftValue: homeBlockedShots.displayValue,
+                            rightValue: awayBlockedShots.displayValue,
+                            showProgressBar: true,
+                            showPercentage: true
+                        )
+                    }
+                    
+                    // 박스 안 슈팅
+                    if let homeShotsInside = homeStats["Shots insidebox"],
+                       let awayShotsInside = awayStats["Shots insidebox"] {
+                        StatisticItem(
+                            title: "박스 안",
+                            leftValue: homeShotsInside.displayValue,
+                            rightValue: awayShotsInside.displayValue,
+                            showProgressBar: true,
+                            showPercentage: true
+                        )
+                    }
+                    
+                    // 박스 밖 슈팅
+                    if let homeShotsOutside = homeStats["Shots outsidebox"],
+                       let awayShotsOutside = awayStats["Shots outsidebox"] {
+                        StatisticItem(
+                            title: "박스 밖",
+                            leftValue: homeShotsOutside.displayValue,
+                            rightValue: awayShotsOutside.displayValue,
+                            showProgressBar: true,
+                            showPercentage: true
+                        )
+                    }
                 }
                 
                 Divider()
+                    .padding(.horizontal)
                 
-                // 유효 슈팅
-                if let homeShotsOnTarget = homeStats["Shots on Goal"],
-                   let awayShotsOnTarget = awayStats["Shots on Goal"] {
-                    StatisticItem(
-                        title: "유효 슈팅",
-                        leftValue: homeShotsOnTarget.displayValue,
-                        rightValue: awayShotsOnTarget.displayValue,
-                        showProgressBar: true
-                    )
-                }
-                
-                Divider()
-                
-                // 빗나간 슈팅
-                if let homeShotsOffTarget = homeStats["Shots off Goal"],
-                   let awayShotsOffTarget = awayStats["Shots off Goal"] {
-                    StatisticItem(
-                        title: "빗나간 슈팅",
-                        leftValue: homeShotsOffTarget.displayValue,
-                        rightValue: awayShotsOffTarget.displayValue,
-                        showProgressBar: true
-                    )
-                }
-                
-                Divider()
-                
-                // 막힌 슈팅
-                if let homeShotsBlocked = homeStats["Blocked Shots"],
-                   let awayShotsBlocked = awayStats["Blocked Shots"] {
-                    StatisticItem(
-                        title: "막힌 슛",
-                        leftValue: homeShotsBlocked.displayValue,
-                        rightValue: awayShotsBlocked.displayValue,
-                        showProgressBar: true
-                    )
-                }
-                
-                Divider()
-                
-                // 박스 안 슈팅
-                if let homeShotsInsideBox = homeStats["Shots insidebox"],
-                   let awayShotsInsideBox = awayStats["Shots insidebox"] {
-                    StatisticItem(
-                        title: "박스 안 슈팅",
-                        leftValue: homeShotsInsideBox.displayValue,
-                        rightValue: awayShotsInsideBox.displayValue,
-                        showProgressBar: true
-                    )
-                }
-                
-                Divider()
-                
-                // 박스 바깥 슈팅
-                if let homeShotsOutsideBox = homeStats["Shots outsidebox"],
-                   let awayShotsOutsideBox = awayStats["Shots outsidebox"] {
-                    StatisticItem(
-                        title: "박스 바깥 슈팅",
-                        leftValue: homeShotsOutsideBox.displayValue,
-                        rightValue: awayShotsOutsideBox.displayValue,
-                        showProgressBar: true
-                    )
+                // 패스
+                VStack(spacing: 16) {
+                    Text("패스")
+                        .font(.system(.headline, design: .rounded))
+                        .fontWeight(.bold)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    
+                    // 총 패스
+                    if let homeTotalPasses = Int(homeStats["Total passes"]?.displayValue ?? "0"),
+                       let awayTotalPasses = Int(awayStats["Total passes"]?.displayValue ?? "0") {
+                        StatisticItem(
+                            title: "총 패스",
+                            leftValue: "\(homeTotalPasses)",
+                            rightValue: "\(awayTotalPasses)",
+                            showProgressBar: true,
+                            showPercentage: true
+                        )
+                    }
+                    
+                    // 패스 정확도
+                    if let homePassAccuracy = homeStats["Passes %"]?.displayValue,
+                       let awayPassAccuracy = awayStats["Passes %"]?.displayValue {
+                        StatisticItem(
+                            title: "패스 정확도",
+                            leftValue: homePassAccuracy,
+                            rightValue: awayPassAccuracy,
+                            showProgressBar: true,
+                            showPercentage: false // 이미 % 포함되어 있음
+                        )
+                    }
+                    
+                    // 크로스
+                    if let homeCrosses = homeStats["Crosses total"],
+                       let awayCrosses = awayStats["Crosses total"] {
+                        StatisticItem(
+                            title: "크로스",
+                            leftValue: homeCrosses.displayValue,
+                            rightValue: awayCrosses.displayValue,
+                            showProgressBar: true,
+                            showPercentage: true
+                        )
+                    }
+                    
+                    // 긴 패스
+                    if let homeLongBalls = homeStats["Long Balls Accurate"],
+                       let awayLongBalls = awayStats["Long Balls Accurate"] {
+                        StatisticItem(
+                            title: "긴 패스",
+                            leftValue: homeLongBalls.displayValue,
+                            rightValue: awayLongBalls.displayValue,
+                            showProgressBar: true,
+                            showPercentage: true
+                        )
+                    }
                 }
             }
+            .padding()
+            .background(Color(.systemGray6))
+            .cornerRadius(12)
         }
         .padding()
         .background(Color(.systemBackground))
