@@ -76,55 +76,18 @@ struct ShootingChartView: View {
                     .font(.headline)
                     .frame(maxWidth: .infinity, alignment: .leading)
                 
-                HStack(spacing: 20) {
-                    // 홈팀
-                    VStack(spacing: 8) {
-                        Text("박스 안")
-                            .font(.caption)
-                            .foregroundColor(.gray)
-                        
-                        HStack {
-                            Text(homeStats["Shots insidebox"]?.displayValue ?? "0")
-                                .font(.system(.title2, design: .rounded))
-                                .fontWeight(.semibold)
-                                .foregroundColor(.blue)
-                            
-                            Text("vs")
-                                .font(.caption)
-                                .foregroundColor(.gray)
-                            
-                            Text(awayStats["Shots insidebox"]?.displayValue ?? "0")
-                                .font(.system(.title2, design: .rounded))
-                                .fontWeight(.semibold)
-                                .foregroundColor(.red)
-                        }
-                    }
+                VStack(spacing: 16) {
+                    StatisticItem(
+                        title: "박스 안",
+                        leftValue: homeStats["Shots insidebox"]?.displayValue ?? "0",
+                        rightValue: awayStats["Shots insidebox"]?.displayValue ?? "0"
+                    )
                     
-                    Divider()
-                        .frame(height: 40)
-                    
-                    // 원정팀
-                    VStack(spacing: 8) {
-                        Text("박스 밖")
-                            .font(.caption)
-                            .foregroundColor(.gray)
-                        
-                        HStack {
-                            Text(homeStats["Shots outsidebox"]?.displayValue ?? "0")
-                                .font(.system(.title2, design: .rounded))
-                                .fontWeight(.semibold)
-                                .foregroundColor(.blue)
-                            
-                            Text("vs")
-                                .font(.caption)
-                                .foregroundColor(.gray)
-                            
-                            Text(awayStats["Shots outsidebox"]?.displayValue ?? "0")
-                                .font(.system(.title2, design: .rounded))
-                                .fontWeight(.semibold)
-                                .foregroundColor(.red)
-                        }
-                    }
+                    StatisticItem(
+                        title: "박스 밖",
+                        leftValue: homeStats["Shots outsidebox"]?.displayValue ?? "0",
+                        rightValue: awayStats["Shots outsidebox"]?.displayValue ?? "0"
+                    )
                 }
                 .padding()
                 .background(Color(.systemGray6))
