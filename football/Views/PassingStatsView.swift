@@ -52,16 +52,19 @@ struct PassingStatsView: View {
             .padding(.horizontal, 40)
             
             // 패스 통계
-            VStack(spacing: 16) {
+            VStack(spacing: 20) {
                 // 총 패스
                 if let homeTotalPasses = statistics[0].statistics.first(where: { $0.type == "Total passes" })?.value,
                    let awayTotalPasses = statistics[1].statistics.first(where: { $0.type == "Total passes" })?.value {
                     StatisticItem(
                         title: "총 패스",
                         leftValue: homeTotalPasses.displayValue,
-                        rightValue: awayTotalPasses.displayValue
+                        rightValue: awayTotalPasses.displayValue,
+                        showProgressBar: true
                     )
                 }
+                
+                Divider()
                 
                 // 정확한 패스
                 if let homeAccuratePasses = statistics[0].statistics.first(where: { $0.type == "Passes accurate" })?.value,
@@ -69,9 +72,12 @@ struct PassingStatsView: View {
                     StatisticItem(
                         title: "정확한 패스",
                         leftValue: homeAccuratePasses.displayValue,
-                        rightValue: awayAccuratePasses.displayValue
+                        rightValue: awayAccuratePasses.displayValue,
+                        showProgressBar: true
                     )
                 }
+                
+                Divider()
                 
                 // 정확한 긴패스
                 if let homeLongBalls = statistics[0].statistics.first(where: { $0.type == "Long Balls accurate" })?.value,
@@ -79,9 +85,12 @@ struct PassingStatsView: View {
                     StatisticItem(
                         title: "정확한 긴패스",
                         leftValue: homeLongBalls.displayValue,
-                        rightValue: awayLongBalls.displayValue
+                        rightValue: awayLongBalls.displayValue,
+                        showProgressBar: true
                     )
                 }
+                
+                Divider()
                 
                 // 크로스
                 if let homeCrosses = statistics[0].statistics.first(where: { $0.type == "Crosses total" })?.value,
@@ -89,9 +98,12 @@ struct PassingStatsView: View {
                     StatisticItem(
                         title: "크로스",
                         leftValue: homeCrosses.displayValue,
-                        rightValue: awayCrosses.displayValue
+                        rightValue: awayCrosses.displayValue,
+                        showProgressBar: true
                     )
                 }
+                
+                Divider()
                 
                 // 스로인
                 if let homeThrowIns = statistics[0].statistics.first(where: { $0.type == "Throw In" })?.value,

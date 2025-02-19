@@ -53,16 +53,19 @@ struct StatisticsView: View {
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .padding(.horizontal, 20)
                         
-                        VStack(spacing: 16) {
+                        VStack(spacing: 20) {
                             // 공 점유율
                             if let homePossession = statistics[0].statistics.first(where: { $0.type == "Ball Possession" })?.value,
                                let awayPossession = statistics[1].statistics.first(where: { $0.type == "Ball Possession" })?.value {
                                 StatisticItem(
                                     title: "공 점유율",
                                     leftValue: homePossession.displayValue,
-                                    rightValue: awayPossession.displayValue
+                                    rightValue: awayPossession.displayValue,
+                                    showProgressBar: true
                                 )
                             }
+                            
+                            Divider()
                             
                             // 큰 기회
                             if let homeBigChances = statistics[0].statistics.first(where: { $0.type == "Big Chances" })?.value,
@@ -70,9 +73,12 @@ struct StatisticsView: View {
                                 StatisticItem(
                                     title: "큰 기회",
                                     leftValue: homeBigChances.displayValue,
-                                    rightValue: awayBigChances.displayValue
+                                    rightValue: awayBigChances.displayValue,
+                                    showProgressBar: true
                                 )
                             }
+                            
+                            Divider()
                             
                             // 큰 기회 놓침
                             if let homeBigChancesMissed = statistics[0].statistics.first(where: { $0.type == "Big Chances Missed" })?.value,
@@ -80,9 +86,12 @@ struct StatisticsView: View {
                                 StatisticItem(
                                     title: "큰 기회 놓침",
                                     leftValue: homeBigChancesMissed.displayValue,
-                                    rightValue: awayBigChancesMissed.displayValue
+                                    rightValue: awayBigChancesMissed.displayValue,
+                                    showProgressBar: true
                                 )
                             }
+                            
+                            Divider()
                             
                             // 반칙
                             if let homeFouls = statistics[0].statistics.first(where: { $0.type == "Fouls" })?.value,
