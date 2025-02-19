@@ -26,6 +26,16 @@ struct StatisticsView: View {
                         AttackingStatsView(statistics: statistics)
                     }
                     
+                    // 슈팅 차트
+                    VStack(spacing: 8) {
+                        Text("슈팅 분석")
+                            .font(.headline)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 20)
+                        
+                        ShootingChartView(statistics: statistics)
+                    }
+                    
                     // 기타 통계
                     VStack(spacing: 8) {
                         Text("기타 통계")
