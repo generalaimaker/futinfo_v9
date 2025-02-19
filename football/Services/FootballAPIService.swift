@@ -314,6 +314,35 @@ class FootballAPIService {
         return playerResponse.response
     }
     
+    // MARK: - Team Fixtures
+    
+    func getTeamFixtures(teamId: Int, season: Int, last: Int? = nil) async throws -> [Fixture] {
+        var endpoint = "/fixtures?team=\(teamId)&season=\(season)"
+        if let last = last {
+            endpoint += "&last=\(last)"
+        }
+        
+        let request = createRequest(endpoint)
+        
+        print("\n📡 Fetching fixtures for team \(teamId)...")
+        let (data, response) = try await URLSession.shared.data(for: request)
+        try handleResponse(response)
+        
+        // API 응답 로깅
+        logResponse(data: data, endpoint: "Team Fixtures")
+        
+        let decoder = JSONDecoder()
+        let fixturesResponse = try decoder.decode(FixturesResponse.self, from: data)
+        
+        if !fixturesResponse.errors.isEmpty {
+            throw FootballAPIError.apiError(fixturesResponse.errors)
+        }
+        
+        return fixturesResponse.response.sorted { fixture1, fixture2 in
+            fixture1.fixture.date > fixture2.fixture.date
+        }
+    }
+    
     // MARK: - Fixtures
     
     func getFixtures(leagueId: Int, season: Int) async throws -> [Fixture] {

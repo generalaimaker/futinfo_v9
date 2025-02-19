@@ -12,6 +12,10 @@ class FixtureDetailViewModel: ObservableObject {
     @Published var headToHeadFixtures: [Fixture] = []
     @Published var team1Stats: HeadToHeadStats?
     @Published var team2Stats: HeadToHeadStats?
+    @Published var homeTeamForm: TeamForm?
+    @Published var awayTeamForm: TeamForm?
+    
+    @Published var isLoadingForm = false
     
     @Published var selectedStatisticType: StatisticType?
     @Published var selectedTeamId: Int?
@@ -50,6 +54,7 @@ class FixtureDetailViewModel: ObservableObject {
                 group.addTask { await self.loadEvents() }
                 group.addTask { await self.loadStatistics() }
                 group.addTask { await self.loadLineups() }
+                group.addTask { await self.loadTeamForms() }
             }
         }
     }
@@ -363,6 +368,87 @@ class FixtureDetailViewModel: ObservableObject {
         }
         
         isLoadingHeadToHead = false
+    }
+    
+    // MARK: - Team Forms
+    
+    func loadTeamForms() async {
+        isLoadingForm = true
+        errorMessage = nil
+        
+        guard let fixture = currentFixture else {
+            print("❌ No fixture data available")
+            isLoadingForm = false
+            return
+        }
+        
+        let homeTeamId = fixture.teams.home.id
+        let awayTeamId = fixture.teams.away.id
+        
+        print("🔄 Loading recent form for teams: \(homeTeamId) and \(awayTeamId)")
+        
+        do {
+            // 홈팀 최근 5경기 결과
+            let homeFixtures = try await service.getTeamFixtures(
+                teamId: homeTeamId,
+                season: season,
+                last: 5
+            )
+            
+            // 원정팀 최근 5경기 결과
+            let awayFixtures = try await service.getTeamFixtures(
+                teamId: awayTeamId,
+                season: season,
+                last: 5
+            )
+            
+            // 홈팀 폼 계산
+            let homeResults = homeFixtures.map { fixture -> TeamForm.MatchResult in
+                let teamScore = fixture.teams.home.id == homeTeamId ? fixture.goals?.home : fixture.goals?.away
+                let opponentScore = fixture.teams.home.id == homeTeamId ? fixture.goals?.away : fixture.goals?.home
+                
+                guard let team = teamScore, let opponent = opponentScore else {
+                    return .draw
+                }
+                
+                if team > opponent {
+                    return .win
+                } else if team < opponent {
+                    return .loss
+                } else {
+                    return .draw
+                }
+            }
+            
+            // 원정팀 폼 계산
+            let awayResults = awayFixtures.map { fixture -> TeamForm.MatchResult in
+                let teamScore = fixture.teams.home.id == awayTeamId ? fixture.goals?.home : fixture.goals?.away
+                let opponentScore = fixture.teams.home.id == awayTeamId ? fixture.goals?.away : fixture.goals?.home
+                
+                guard let team = teamScore, let opponent = opponentScore else {
+                    return .draw
+                }
+                
+                if team > opponent {
+                    return .win
+                } else if team < opponent {
+                    return .loss
+                } else {
+                    return .draw
+                }
+            }
+            
+            homeTeamForm = TeamForm(teamId: homeTeamId, results: homeResults)
+            awayTeamForm = TeamForm(teamId: awayTeamId, results: awayResults)
+            
+            print("✅ Team forms loaded successfully")
+            
+        } catch {
+            errorMessage = "팀 폼 정보를 불러오는데 실패했습니다: \(error.localizedDescription)"
+            print("❌ Load Team Forms Error: \(error)")
+        }
+        
+        isLoadingForm = false
     }
 
     private func loadTopPlayersStats() async {
