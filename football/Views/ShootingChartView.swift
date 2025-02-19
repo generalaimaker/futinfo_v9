@@ -108,8 +108,8 @@ struct ShootingDistributionChart: View {
     let offTarget: Int
     let teamColor: Color
     
-    private var barHeight: CGFloat = 24
-    private var maxWidth: CGFloat = 150
+    var barHeight: CGFloat = 24
+    var maxWidth: CGFloat = 150
     
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
