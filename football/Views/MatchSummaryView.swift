@@ -230,10 +230,10 @@ struct MatchSummaryView: View {
                             // 점유율
                             if let homePossession = homeStats["Ball Possession"],
                                let awayPossession = awayStats["Ball Possession"] {
-                                StatRow(
+                                StatisticItem(
                                     title: "점유율",
-                                    homeValue: homePossession.displayValue,
-                                    awayValue: awayPossession.displayValue,
+                                    leftValue: homePossession.displayValue,
+                                    rightValue: awayPossession.displayValue,
                                     homeTeam: statistics[0].team,
                                     awayTeam: statistics[1].team
                                 )
@@ -242,10 +242,10 @@ struct MatchSummaryView: View {
                             // 예상 득점
                             if let homeXG = homeStats["expected_goals"],
                                let awayXG = awayStats["expected_goals"] {
-                                StatRow(
+                                StatisticItem(
                                     title: "예상 득점",
-                                    homeValue: homeXG.displayValue,
-                                    awayValue: awayXG.displayValue,
+                                    leftValue: homeXG.displayValue,
+                                    rightValue: awayXG.displayValue,
                                     homeTeam: statistics[0].team,
                                     awayTeam: statistics[1].team
                                 )
@@ -254,10 +254,10 @@ struct MatchSummaryView: View {
                             // 전체 슈팅
                             if let homeShots = homeStats["Total Shots"],
                                let awayShots = awayStats["Total Shots"] {
-                                StatRow(
+                                StatisticItem(
                                     title: "전체 슈팅",
-                                    homeValue: homeShots.displayValue,
-                                    awayValue: awayShots.displayValue,
+                                    leftValue: homeShots.displayValue,
+                                    rightValue: awayShots.displayValue,
                                     homeTeam: statistics[0].team,
                                     awayTeam: statistics[1].team
                                 )
