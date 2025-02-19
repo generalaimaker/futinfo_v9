@@ -51,17 +51,33 @@ struct AttackingStatsView: View {
             }
             .padding(.horizontal, 40)
             
-            // 슈팅 통계
-            VStack(spacing: 16) {
+            // 공격 통계
+            VStack(spacing: 20) {
+                // 예상 득점
+                if let homeXG = homeStats["expected_goals"],
+                   let awayXG = awayStats["expected_goals"] {
+                    StatisticItem(
+                        title: "예상 득점 (xG)",
+                        leftValue: homeXG.displayValue,
+                        rightValue: awayXG.displayValue,
+                        showProgressBar: true
+                    )
+                }
+                
+                Divider()
+                
                 // 전체 슈팅
                 if let homeTotalShots = homeStats["Total Shots"],
                    let awayTotalShots = awayStats["Total Shots"] {
                     StatisticItem(
                         title: "전체 슛",
                         leftValue: homeTotalShots.displayValue,
-                        rightValue: awayTotalShots.displayValue
+                        rightValue: awayTotalShots.displayValue,
+                        showProgressBar: true
                     )
                 }
+                
+                Divider()
                 
                 // 유효 슈팅
                 if let homeShotsOnTarget = homeStats["Shots on Goal"],
@@ -69,9 +85,12 @@ struct AttackingStatsView: View {
                     StatisticItem(
                         title: "유효 슈팅",
                         leftValue: homeShotsOnTarget.displayValue,
-                        rightValue: awayShotsOnTarget.displayValue
+                        rightValue: awayShotsOnTarget.displayValue,
+                        showProgressBar: true
                     )
                 }
+                
+                Divider()
                 
                 // 빗나간 슈팅
                 if let homeShotsOffTarget = homeStats["Shots off Goal"],
@@ -79,9 +98,12 @@ struct AttackingStatsView: View {
                     StatisticItem(
                         title: "빗나간 슈팅",
                         leftValue: homeShotsOffTarget.displayValue,
-                        rightValue: awayShotsOffTarget.displayValue
+                        rightValue: awayShotsOffTarget.displayValue,
+                        showProgressBar: true
                     )
                 }
+                
+                Divider()
                 
                 // 막힌 슈팅
                 if let homeShotsBlocked = homeStats["Blocked Shots"],
@@ -89,19 +111,25 @@ struct AttackingStatsView: View {
                     StatisticItem(
                         title: "막힌 슛",
                         leftValue: homeShotsBlocked.displayValue,
-                        rightValue: awayShotsBlocked.displayValue
+                        rightValue: awayShotsBlocked.displayValue,
+                        showProgressBar: true
                     )
                 }
                 
-                // 골대 맞은 슈팅
+                Divider()
+                
+                // 박스 안 슈팅
                 if let homeShotsInsideBox = homeStats["Shots insidebox"],
                    let awayShotsInsideBox = awayStats["Shots insidebox"] {
                     StatisticItem(
                         title: "박스 안 슈팅",
                         leftValue: homeShotsInsideBox.displayValue,
-                        rightValue: awayShotsInsideBox.displayValue
+                        rightValue: awayShotsInsideBox.displayValue,
+                        showProgressBar: true
                     )
                 }
+                
+                Divider()
                 
                 // 박스 바깥 슈팅
                 if let homeShotsOutsideBox = homeStats["Shots outsidebox"],
@@ -109,17 +137,8 @@ struct AttackingStatsView: View {
                     StatisticItem(
                         title: "박스 바깥 슈팅",
                         leftValue: homeShotsOutsideBox.displayValue,
-                        rightValue: awayShotsOutsideBox.displayValue
-                    )
-                }
-                
-                // 예상 득점
-                if let homeXG = homeStats["expected_goals"],
-                   let awayXG = awayStats["expected_goals"] {
-                    StatisticItem(
-                        title: "예상 득점 (xG)",
-                        leftValue: homeXG.displayValue,
-                        rightValue: awayXG.displayValue
+                        rightValue: awayShotsOutsideBox.displayValue,
+                        showProgressBar: true
                     )
                 }
             }
