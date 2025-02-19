@@ -37,13 +37,25 @@ struct ShootingChartView: View {
                                 .foregroundColor(.gray)
                         }
                         
-                        ShootingDistributionChart(
-                            total: Int(homeStats["Total Shots"]?.displayValue ?? "0") ?? 0,
-                            onTarget: Int(homeStats["Shots on Goal"]?.displayValue ?? "0") ?? 0,
-                            blocked: Int(homeStats["Blocked Shots"]?.displayValue ?? "0") ?? 0,
-                            offTarget: Int(homeStats["Shots off Goal"]?.displayValue ?? "0") ?? 0,
-                            teamColor: .blue
-                        )
+                        VStack(spacing: 12) {
+                            let total = Int(homeStats["Total Shots"]?.displayValue ?? "0") ?? 0
+                            let onTarget = Int(homeStats["Shots on Goal"]?.displayValue ?? "0") ?? 0
+                            let blocked = Int(homeStats["Blocked Shots"]?.displayValue ?? "0") ?? 0
+                            let offTarget = Int(homeStats["Shots off Goal"]?.displayValue ?? "0") ?? 0
+                            
+                            Text("\(total)")
+                                .font(.system(.title, design: .rounded))
+                                .fontWeight(.bold)
+                                .foregroundColor(.blue)
+                            
+                            ShootingDistributionChart(
+                                total: total,
+                                onTarget: onTarget,
+                                blocked: blocked,
+                                offTarget: offTarget,
+                                teamColor: .blue
+                            )
+                        }
                     }
                     
                     // 원정팀 슈팅 분포
@@ -59,13 +71,25 @@ struct ShootingChartView: View {
                                 .foregroundColor(.gray)
                         }
                         
-                        ShootingDistributionChart(
-                            total: Int(awayStats["Total Shots"]?.displayValue ?? "0") ?? 0,
-                            onTarget: Int(awayStats["Shots on Goal"]?.displayValue ?? "0") ?? 0,
-                            blocked: Int(awayStats["Blocked Shots"]?.displayValue ?? "0") ?? 0,
-                            offTarget: Int(awayStats["Shots off Goal"]?.displayValue ?? "0") ?? 0,
-                            teamColor: .red
-                        )
+                        VStack(spacing: 12) {
+                            let total = Int(awayStats["Total Shots"]?.displayValue ?? "0") ?? 0
+                            let onTarget = Int(awayStats["Shots on Goal"]?.displayValue ?? "0") ?? 0
+                            let blocked = Int(awayStats["Blocked Shots"]?.displayValue ?? "0") ?? 0
+                            let offTarget = Int(awayStats["Shots off Goal"]?.displayValue ?? "0") ?? 0
+                            
+                            Text("\(total)")
+                                .font(.system(.title, design: .rounded))
+                                .fontWeight(.bold)
+                                .foregroundColor(.red)
+                            
+                            ShootingDistributionChart(
+                                total: total,
+                                onTarget: onTarget,
+                                blocked: blocked,
+                                offTarget: offTarget,
+                                teamColor: .red
+                            )
+                        }
                     }
                 }
             }
@@ -80,13 +104,17 @@ struct ShootingChartView: View {
                     StatisticItem(
                         title: "박스 안",
                         leftValue: homeStats["Shots insidebox"]?.displayValue ?? "0",
-                        rightValue: awayStats["Shots insidebox"]?.displayValue ?? "0"
+                        rightValue: awayStats["Shots insidebox"]?.displayValue ?? "0",
+                        showProgressBar: true
                     )
+                    
+                    Divider()
                     
                     StatisticItem(
                         title: "박스 밖",
                         leftValue: homeStats["Shots outsidebox"]?.displayValue ?? "0",
-                        rightValue: awayStats["Shots outsidebox"]?.displayValue ?? "0"
+                        rightValue: awayStats["Shots outsidebox"]?.displayValue ?? "0",
+                        showProgressBar: true
                     )
                 }
                 .padding()
