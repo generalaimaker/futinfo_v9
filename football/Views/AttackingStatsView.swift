@@ -130,31 +130,3 @@ struct AttackingStatsView: View {
         .shadow(color: Color.black.opacity(0.05), radius: 10, y: 5)
     }
 }
-
-struct StatisticItem: View {
-    let title: String
-    let leftValue: String
-    let rightValue: String
-    
-    var body: some View {
-        HStack {
-            Text(leftValue)
-                .font(.system(.title2, design: .rounded))
-                .fontWeight(.semibold)
-                .foregroundColor(.blue)
-                .frame(maxWidth: .infinity, alignment: .trailing)
-            
-            Text(title)
-                .font(.system(.body))
-                .foregroundColor(.secondary)
-                .frame(maxWidth: .infinity)
-                .multilineTextAlignment(.center)
-            
-            Text(rightValue)
-                .font(.system(.title2, design: .rounded))
-                .fontWeight(.semibold)
-                .foregroundColor(.red)
-                .frame(maxWidth: .infinity, alignment: .leading)
-        }
-    }
-}
