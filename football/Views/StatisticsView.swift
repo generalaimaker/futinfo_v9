@@ -36,6 +36,16 @@ struct StatisticsView: View {
                         ShootingChartView(statistics: statistics)
                     }
                     
+                    // 패스 통계
+                    VStack(spacing: 8) {
+                        Text("패스 통계")
+                            .font(.headline)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 20)
+                        
+                        PassingStatsView(statistics: statistics)
+                    }
+                    
                     // 기타 통계
                     VStack(spacing: 8) {
                         Text("기타 통계")
@@ -71,16 +81,6 @@ struct StatisticsView: View {
                                     title: "큰 기회 놓침",
                                     leftValue: homeBigChancesMissed.displayValue,
                                     rightValue: awayBigChancesMissed.displayValue
-                                )
-                            }
-                            
-                            // 정확한 패스
-                            if let homeAccuratePasses = statistics[0].statistics.first(where: { $0.type == "Passes accurate" })?.value,
-                               let awayAccuratePasses = statistics[1].statistics.first(where: { $0.type == "Passes accurate" })?.value {
-                                StatisticItem(
-                                    title: "정확한 패스",
-                                    leftValue: homeAccuratePasses.displayValue,
-                                    rightValue: awayAccuratePasses.displayValue
                                 )
                             }
                             
