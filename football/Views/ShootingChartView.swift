@@ -38,10 +38,10 @@ struct ShootingChartView: View {
                         }
                         
                         ShootingDistributionChart(
-                            total: Int(homeStats["Total Shots"]?.value ?? "0") ?? 0,
-                            onTarget: Int(homeStats["Shots on Goal"]?.value ?? "0") ?? 0,
-                            blocked: Int(homeStats["Blocked Shots"]?.value ?? "0") ?? 0,
-                            offTarget: Int(homeStats["Shots off Goal"]?.value ?? "0") ?? 0,
+                            total: Int(homeStats["Total Shots"]?.displayValue ?? "0") ?? 0,
+                            onTarget: Int(homeStats["Shots on Goal"]?.displayValue ?? "0") ?? 0,
+                            blocked: Int(homeStats["Blocked Shots"]?.displayValue ?? "0") ?? 0,
+                            offTarget: Int(homeStats["Shots off Goal"]?.displayValue ?? "0") ?? 0,
                             teamColor: .blue
                         )
                     }
@@ -60,10 +60,10 @@ struct ShootingChartView: View {
                         }
                         
                         ShootingDistributionChart(
-                            total: Int(awayStats["Total Shots"]?.value ?? "0") ?? 0,
-                            onTarget: Int(awayStats["Shots on Goal"]?.value ?? "0") ?? 0,
-                            blocked: Int(awayStats["Blocked Shots"]?.value ?? "0") ?? 0,
-                            offTarget: Int(awayStats["Shots off Goal"]?.value ?? "0") ?? 0,
+                            total: Int(awayStats["Total Shots"]?.displayValue ?? "0") ?? 0,
+                            onTarget: Int(awayStats["Shots on Goal"]?.displayValue ?? "0") ?? 0,
+                            blocked: Int(awayStats["Blocked Shots"]?.displayValue ?? "0") ?? 0,
+                            offTarget: Int(awayStats["Shots off Goal"]?.displayValue ?? "0") ?? 0,
                             teamColor: .red
                         )
                     }
