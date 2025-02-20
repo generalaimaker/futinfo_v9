@@ -36,7 +36,7 @@ struct FixtureCell: View {
                 // 팀 정보
                 HStack(spacing: 20) {
                     // 홈팀
-                    TeamView(team: fixture.teams.home)
+                    TeamView(team: fixture.teams.home, leagueId: fixture.league.id)
                     
                     // 스코어
                     ScoreView(
@@ -47,7 +47,7 @@ struct FixtureCell: View {
                     )
                     
                     // 원정팀
-                    TeamView(team: fixture.teams.away)
+                    TeamView(team: fixture.teams.away, leagueId: fixture.league.id)
                 }
                 
                 // 라운드 정보
@@ -75,18 +75,27 @@ struct FixtureCell: View {
     // MARK: - Team View
     struct TeamView: View {
         let team: Team
+        let leagueId: Int
+        
+        init(team: Team, leagueId: Int) {
+            self.team = team
+            self.leagueId = leagueId
+        }
         
         var body: some View {
             VStack(spacing: 8) {
-                AsyncImage(url: URL(string: team.logo)) { image in
-                    image
-                        .resizable()
-                        .scaledToFit()
-                } placeholder: {
-                    Image(systemName: "sportscourt")
-                        .foregroundColor(.gray)
+                NavigationLink(destination: TeamProfileView(teamId: team.id, leagueId: leagueId)) {
+                    AsyncImage(url: URL(string: team.logo)) { image in
+                        image
+                            .resizable()
+                            .scaledToFit()
+                    } placeholder: {
+                        Image(systemName: "sportscourt")
+                            .foregroundColor(.gray)
+                    }
+                    .frame(width: 30, height: 30)
                 }
-                .frame(width: 30, height: 30)
+                .buttonStyle(PlainButtonStyle())
                 
                 Text(team.name)
                     .font(.caption)

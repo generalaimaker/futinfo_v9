@@ -1,11 +1,12 @@
 import Foundation
+import SwiftUI
 
 @MainActor
 class FixtureDetailViewModel: ObservableObject {
     @Published var events: [FixtureEvent] = []
     @Published var statistics: [TeamStatistics] = []
     @Published var halfStatistics: [HalfTeamStatistics] = []
-    @Published var chartData: [ChartData] = []
+    @Published var chartData: [FixtureChartData] = []
     @Published var lineups: [TeamLineup] = []
     @Published var topPlayers: [PlayerStats] = []
     @Published var matchPlayerStats: [TeamPlayersStatistics] = []
@@ -184,11 +185,11 @@ class FixtureDetailViewModel: ObservableObject {
             
             print("\n📊 Creating chart data for teams: \(homeStats.team.name) vs \(awayStats.team.name)")
             
-            var newChartData: [ChartData] = []
+            var newChartData: [FixtureChartData] = []
             
             // 차트 데이터 생성 함수
             func addChartData(type: StatisticType) {
-                let chart = ChartData(type: type, homeStats: homeStats, awayStats: awayStats)
+                let chart = FixtureChartData(type: type, homeStats: homeStats, awayStats: awayStats)
                 if chart.maxValue > 0 {
                     newChartData.append(chart)
                     print("   ✓ Added \(type.rawValue) chart")
@@ -526,14 +527,15 @@ class FixtureDetailViewModel: ObservableObject {
                             logo: "",
                             season: self.season
                         ),
-                        games: PlayerGames(
-                            appearences: 1,
-                            lineups: matchStat.games.minutes ?? 0 > 0 ? 1 : 0,
+                        games: PlayerGameStats(
                             minutes: matchStat.games.minutes ?? 0,
                             number: matchStat.games.number,
                             position: position,
                             rating: rating,
-                            captain: matchStat.games.captain
+                            captain: matchStat.games.captain,
+                            substitute: false,
+                            appearences: 1,
+                            lineups: matchStat.games.minutes ?? 0 > 0 ? 1 : 0
                         ),
                         shots: matchStat.shots ?? PlayerShots(total: 0, on: 0),
                         goals: matchStat.goals ?? PlayerGoals(total: 0, conceded: 0, assists: 0, saves: 0),

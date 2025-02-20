@@ -1,5 +1,8 @@
 import SwiftUI
 
+// 경기 통계용 TeamStatistics를 사용
+import Foundation
+
 struct AttackingStatsView: View {
     let statistics: [TeamStatistics]
     

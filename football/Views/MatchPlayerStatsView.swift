@@ -85,7 +85,9 @@ struct MatchPlayerStatsView: View {
                                         position: nil,
                                         rating: "0.0",
                                         captain: false,
-                                        substitute: true
+                                        substitute: true,
+                                        appearences: 0,
+                                        lineups: 0
                                     ),
                                     offsides: nil,
                                     shots: nil,

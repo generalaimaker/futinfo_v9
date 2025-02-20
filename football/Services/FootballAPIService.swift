@@ -472,6 +472,125 @@ class FootballAPIService {
         return lineupsResponse.response
     }
     
+    // MARK: - Team Profile
+    
+    func getTeamProfile(teamId: Int) async throws -> TeamProfile {
+        let endpoint = "/teams?id=\(teamId)"
+        let request = createRequest(endpoint)
+        
+        print("\n📡 Fetching team profile for team \(teamId)...")
+        let (data, response) = try await URLSession.shared.data(for: request)
+        try handleResponse(response)
+        
+        // API 응답 로깅
+        logResponse(data: data, endpoint: "Team Profile")
+        
+        let decoder = JSONDecoder()
+        let profileResponse = try decoder.decode(TeamProfileResponse.self, from: data)
+        
+        if !profileResponse.errors.isEmpty {
+            throw FootballAPIError.apiError(profileResponse.errors)
+        }
+        
+        guard let profile = profileResponse.response.first else {
+            throw FootballAPIError.apiError(["팀 정보를 찾을 수 없습니다."])
+        }
+        
+        return profile
+    }
+    
+    // MARK: - Team Statistics and Standing
+    func getTeamStatistics(teamId: Int, leagueId: Int, season: Int) async throws -> TeamSeasonStatistics {
+        let endpoint = "/teams/statistics?team=\(teamId)&league=\(leagueId)&season=\(season)"
+        let request = createRequest(endpoint)
+        
+        print("\n📡 Fetching team statistics for team \(teamId)...")
+        let (data, response) = try await URLSession.shared.data(for: request)
+        try handleResponse(response)
+        
+        // API 응답 로깅
+        logResponse(data: data, endpoint: "Team Statistics")
+        
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        let statsResponse = try decoder.decode(TeamStatisticsResponse.self, from: data)
+        
+        if !statsResponse.errors.isEmpty {
+            throw FootballAPIError.apiError(statsResponse.errors)
+        }
+        
+        return statsResponse.response
+    }
+    
+    func getTeamStanding(teamId: Int, leagueId: Int, season: Int) async throws -> TeamStanding? {
+        let endpoint = "/standings?team=\(teamId)&league=\(leagueId)&season=\(season)"
+        let request = createRequest(endpoint)
+        
+        print("\n📡 Fetching team standing for team \(teamId)...")
+        let (data, response) = try await URLSession.shared.data(for: request)
+        try handleResponse(response)
+        
+        // API 응답 로깅
+        logResponse(data: data, endpoint: "Team Standing")
+        
+        let decoder = JSONDecoder()
+        let standingResponse = try decoder.decode(TeamStandingResponse.self, from: data)
+        
+        if !standingResponse.errors.isEmpty {
+            throw FootballAPIError.apiError(standingResponse.errors)
+        }
+        
+        return standingResponse.response.first?.league.standings.first?.first
+    }
+    
+    // MARK: - Team Squad
+    func getTeamSquad(teamId: Int) async throws -> [PlayerResponse] {
+        let endpoint = "/players/squads?team=\(teamId)"
+        let request = createRequest(endpoint)
+        
+        print("\n📡 Fetching squad for team \(teamId)...")
+        let (data, response) = try await URLSession.shared.data(for: request)
+        try handleResponse(response)
+        
+        // API 응답 로깅
+        logResponse(data: data, endpoint: "Team Squad")
+        
+        let decoder = JSONDecoder()
+        let squadResponse = try decoder.decode(SquadResponse.self, from: data)
+        
+        if !squadResponse.errors.isEmpty {
+            throw FootballAPIError.apiError(squadResponse.errors)
+        }
+        
+        return squadResponse.response
+    }
+    
+    func getTeamSeasons(teamId: Int) async throws -> [Int] {
+        let endpoint = "/teams/seasons?team=\(teamId)"
+        let request = createRequest(endpoint)
+        
+        print("\n📡 Fetching seasons for team \(teamId)...")
+        let (data, response) = try await URLSession.shared.data(for: request)
+        try handleResponse(response)
+        
+        // API 응답 로깅
+        logResponse(data: data, endpoint: "Team Seasons")
+        
+        struct SeasonsResponse: Codable {
+            let response: [Int]
+            let errors: [String]
+        }
+        
+        let decoder = JSONDecoder()
+        let seasonsResponse = try decoder.decode(SeasonsResponse.self, from: data)
+        
+        if !seasonsResponse.errors.isEmpty {
+            throw FootballAPIError.apiError(seasonsResponse.errors)
+        }
+        
+        return seasonsResponse.response.sorted(by: >)
+    }
+    
     // MARK: - Private Methods
     
     private init() {

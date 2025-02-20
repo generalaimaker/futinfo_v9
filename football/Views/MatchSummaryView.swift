@@ -193,16 +193,19 @@ struct MatchSummaryView: View {
                     VStack(spacing: 24) {
                         // 팀 로고
                         HStack {
-                            AsyncImage(url: URL(string: statistics[0].team.logo)) { image in
-                                image
-                                    .resizable()
-                                    .scaledToFit()
-                                    .frame(width: 40, height: 40)
-                            } placeholder: {
-                                Image(systemName: "sportscourt")
-                                    .font(.system(size: 30))
-                                    .foregroundColor(.gray)
+                            NavigationLink(destination: TeamProfileView(teamId: statistics[0].team.id, leagueId: fixture.league.id)) {
+                                AsyncImage(url: URL(string: statistics[0].team.logo)) { image in
+                                    image
+                                        .resizable()
+                                        .scaledToFit()
+                                        .frame(width: 40, height: 40)
+                                } placeholder: {
+                                    Image(systemName: "sportscourt")
+                                        .font(.system(size: 30))
+                                        .foregroundColor(.gray)
+                                }
                             }
+                            .buttonStyle(PlainButtonStyle())
                             
                             Spacer()
                             
@@ -212,16 +215,19 @@ struct MatchSummaryView: View {
                             
                             Spacer()
                             
-                            AsyncImage(url: URL(string: statistics[1].team.logo)) { image in
-                                image
-                                    .resizable()
-                                    .scaledToFit()
-                                    .frame(width: 40, height: 40)
-                            } placeholder: {
-                                Image(systemName: "sportscourt")
-                                    .font(.system(size: 30))
-                                    .foregroundColor(.gray)
+                            NavigationLink(destination: TeamProfileView(teamId: statistics[1].team.id, leagueId: fixture.league.id)) {
+                                AsyncImage(url: URL(string: statistics[1].team.logo)) { image in
+                                    image
+                                        .resizable()
+                                        .scaledToFit()
+                                        .frame(width: 40, height: 40)
+                                } placeholder: {
+                                    Image(systemName: "sportscourt")
+                                        .font(.system(size: 30))
+                                        .foregroundColor(.gray)
+                                }
                             }
+                            .buttonStyle(PlainButtonStyle())
                         }
                         .padding(.horizontal, 40)
                         
@@ -281,16 +287,19 @@ struct MatchSummaryView: View {
                     VStack(spacing: 16) {
                         // 홈팀
                         HStack {
-                            AsyncImage(url: URL(string: fixture.teams.home.logo)) { image in
-                                image
-                                    .resizable()
-                                    .scaledToFit()
-                                    .frame(width: 32, height: 32)
-                            } placeholder: {
-                                Image(systemName: "sportscourt")
-                                    .font(.system(size: 24))
-                                    .foregroundColor(.gray)
+                            NavigationLink(destination: TeamProfileView(teamId: fixture.teams.home.id, leagueId: fixture.league.id)) {
+                                AsyncImage(url: URL(string: fixture.teams.home.logo)) { image in
+                                    image
+                                        .resizable()
+                                        .scaledToFit()
+                                        .frame(width: 32, height: 32)
+                                } placeholder: {
+                                    Image(systemName: "sportscourt")
+                                        .font(.system(size: 24))
+                                        .foregroundColor(.gray)
+                                }
                             }
+                            .buttonStyle(PlainButtonStyle())
                             
                             Text(fixture.teams.home.name)
                                 .font(.system(.body, design: .rounded))
@@ -307,16 +316,19 @@ struct MatchSummaryView: View {
                         
                         // 원정팀
                         HStack {
-                            AsyncImage(url: URL(string: fixture.teams.away.logo)) { image in
-                                image
-                                    .resizable()
-                                    .scaledToFit()
-                                    .frame(width: 32, height: 32)
-                            } placeholder: {
-                                Image(systemName: "sportscourt")
-                                    .font(.system(size: 24))
-                                    .foregroundColor(.gray)
+                            NavigationLink(destination: TeamProfileView(teamId: fixture.teams.away.id, leagueId: fixture.league.id)) {
+                                AsyncImage(url: URL(string: fixture.teams.away.logo)) { image in
+                                    image
+                                        .resizable()
+                                        .scaledToFit()
+                                        .frame(width: 32, height: 32)
+                                } placeholder: {
+                                    Image(systemName: "sportscourt")
+                                        .font(.system(size: 24))
+                                        .foregroundColor(.gray)
+                                }
                             }
+                            .buttonStyle(PlainButtonStyle())
                             
                             Text(fixture.teams.away.name)
                                 .font(.system(.body, design: .rounded))

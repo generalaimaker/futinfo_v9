@@ -4,7 +4,7 @@ struct StatisticsView: View {
     let viewModel: FixtureDetailViewModel
     let statistics: [TeamStatistics]
     let halfStatistics: [HalfTeamStatistics]
-    let chartData: [ChartData]
+    let chartData: [FixtureChartData]
     let selectedType: StatisticType?
     let onTypeFilter: (StatisticType?) -> Void
     

@@ -12,7 +12,7 @@ struct HalfStatisticsResponse: Codable {
 struct HalfTeamStatistics: Codable, Identifiable {
     var id: Int { team.id }
     let team: Team
-    let statistics: [Statistic]
+    let statistics: [FixtureStatistic]
     
     private enum CodingKeys: String, CodingKey {
         case team
@@ -22,7 +22,7 @@ struct HalfTeamStatistics: Codable, Identifiable {
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         team = try container.decode(Team.self, forKey: .team)
-        statistics = try container.decode([Statistic].self, forKey: .statistics)
+        statistics = try container.decode([FixtureStatistic].self, forKey: .statistics)
     }
     
     var halfStats: HalfStatistics {
@@ -33,10 +33,10 @@ struct HalfTeamStatistics: Codable, Identifiable {
 }
 
 struct HalfStatistics {
-    let firstHalf: [Statistic]
-    let secondHalf: [Statistic]
+    let firstHalf: [FixtureStatistic]
+    let secondHalf: [FixtureStatistic]
     
-    init(firstHalf: [Statistic], secondHalf: [Statistic]) {
+    init(firstHalf: [FixtureStatistic], secondHalf: [FixtureStatistic]) {
         self.firstHalf = firstHalf
         self.secondHalf = secondHalf
     }
@@ -44,7 +44,7 @@ struct HalfStatistics {
 
 
 // 차트 데이터 모델
-struct ChartData {
+struct FixtureChartData {
     let label: String
     let homeValue: Double
     let awayValue: Double

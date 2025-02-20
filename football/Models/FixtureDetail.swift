@@ -1,4 +1,6 @@
 import Foundation
+import SwiftUI
+
 
 // MARK: - Events
 struct FixtureEventResponse: Codable {
@@ -128,9 +130,9 @@ struct FixtureStatisticsResponse: Codable {
 
 public struct TeamStatistics: Codable {
     public let team: Team
-    public var statistics: [Statistic]
+    public var statistics: [FixtureStatistic]
     
-    public init(team: Team, statistics: [Statistic]) {
+    public init(team: Team, statistics: [FixtureStatistic]) {
         self.team = team
         self.statistics = statistics
     }
@@ -141,7 +143,7 @@ public struct TeamStatistics: Codable {
     }
 }
 
-public struct Statistic: Codable {
+public struct FixtureStatistic: Codable {
     public let type: String
     public let value: StatisticValue
     
@@ -246,27 +248,6 @@ struct FixturePlayerStats: Codable, Identifiable {
     var id: Int { player.id }
 }
 
-struct PlayerMatchStats: Codable {
-    let games: PlayerGameStats
-    let offsides: Int?
-    let shots: PlayerShots?
-    let goals: PlayerGoals?
-    let passes: PlayerPasses?
-    let tackles: PlayerTackles?
-    let duels: PlayerDuels?
-    let dribbles: PlayerDribbles?
-    let fouls: PlayerFouls?
-    let cards: PlayerCards?
-}
-
-struct PlayerGameStats: Codable {
-    let minutes: Int?
-    let number: Int?
-    let position: String?
-    let rating: String?
-    let captain: Bool?
-    let substitute: Bool?
-}
 
 // MARK: - Lineups
 struct FixtureLineupResponse: Codable {

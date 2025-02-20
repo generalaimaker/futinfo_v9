@@ -19,7 +19,7 @@ struct StandingData: Codable {
 struct StandingLeagueInfo: Codable {
     let id: Int
     let name: String
-    let country: String
+    let country: String?
     let logo: String
     let flag: String?
     let season: Int
@@ -49,6 +49,7 @@ struct StandingTeam: Codable {
     let id: Int
     let name: String
     let logo: String
+    let country: String?
 }
 
 // MARK: - Games
