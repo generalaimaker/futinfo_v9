@@ -1,6 +1,6 @@
 import SwiftUI
 
-struct PassingStatsView: View {
+struct DefenseStatsView: View {
     let statistics: [TeamStatistics]
     
     private var homeStats: [String: StatisticValue] {
@@ -52,52 +52,63 @@ struct PassingStatsView: View {
             .padding(.horizontal, 40)
             
             VStack(spacing: 24) {
-                // 총 패스
-                if let homeTotalPasses = Int(homeStats["Total passes"]?.displayValue ?? "0"),
-                   let awayTotalPasses = Int(awayStats["Total passes"]?.displayValue ?? "0") {
+                // 선방
+                if let homeSaves = homeStats["Goalkeeper Saves"],
+                   let awaySaves = awayStats["Goalkeeper Saves"] {
                     StatisticItem(
-                        title: "총 패스",
-                        leftValue: "\(homeTotalPasses)",
-                        rightValue: "\(awayTotalPasses)",
+                        title: "선방",
+                        leftValue: homeSaves.displayValue,
+                        rightValue: awaySaves.displayValue,
                         showProgressBar: true,
                         showPercentage: true
                     )
                 }
                 
-                // 패스 정확도
-                if let homePassAccuracy = homeStats["Passes %"]?.displayValue,
-                   let awayPassAccuracy = awayStats["Passes %"]?.displayValue {
+                // 파울
+                if let homeFouls = homeStats["Fouls"],
+                   let awayFouls = awayStats["Fouls"] {
                     StatisticItem(
-                        title: "패스 정확도",
-                        leftValue: homePassAccuracy,
-                        rightValue: awayPassAccuracy,
-                        showProgressBar: true,
-                        showPercentage: false // 이미 % 포함되어 있음
-                    )
-                }
-                
-                // 크로스
-                if let homeCrosses = homeStats["Crosses total"],
-                   let awayCrosses = awayStats["Crosses total"] {
-                    StatisticItem(
-                        title: "크로스",
-                        leftValue: homeCrosses.displayValue,
-                        rightValue: awayCrosses.displayValue,
+                        title: "파울",
+                        leftValue: homeFouls.displayValue,
+                        rightValue: awayFouls.displayValue,
                         showProgressBar: true,
                         showPercentage: true
                     )
                 }
                 
-                // 긴 패스
-                if let homeLongBalls = homeStats["Long Balls Accurate"],
-                   let awayLongBalls = awayStats["Long Balls Accurate"] {
-                    StatisticItem(
-                        title: "긴 패스",
-                        leftValue: homeLongBalls.displayValue,
-                        rightValue: awayLongBalls.displayValue,
-                        showProgressBar: true,
-                        showPercentage: true
-                    )
+                Divider()
+                    .padding(.horizontal)
+                
+                // 경고
+                VStack(spacing: 16) {
+                    Text("경고")
+                        .font(.system(.headline, design: .rounded))
+                        .fontWeight(.bold)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    
+                    // 옐로카드
+                    if let homeYellowCards = homeStats["Yellow Cards"],
+                       let awayYellowCards = awayStats["Yellow Cards"] {
+                        StatisticItem(
+                            title: "옐로카드",
+                            leftValue: homeYellowCards.displayValue,
+                            rightValue: awayYellowCards.displayValue,
+                            showProgressBar: true,
+                            showPercentage: true
+                        )
+                    }
+                    
+                    // 레드카드
+                    if let homeRedCards = homeStats["Red Cards"],
+                       let awayRedCards = awayStats["Red Cards"] {
+                        StatisticItem(
+                            title: "레드카드",
+                            leftValue: homeRedCards.displayValue,
+                            rightValue: awayRedCards.displayValue,
+                            showProgressBar: true,
+                            showPercentage: true
+                        )
+                    }
                 }
             }
             .padding()

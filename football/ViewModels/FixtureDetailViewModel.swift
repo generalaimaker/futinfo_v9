@@ -27,8 +27,10 @@ class FixtureDetailViewModel: ObservableObject {
     @Published var isLoadingPlayers = false
     @Published var isLoadingMatchStats = false
     @Published var isLoadingHeadToHead = false
+    @Published var isLoadingStandings = false
     
     @Published var errorMessage: String?
+    @Published var standings: [Standing] = []
     
     private let service = FootballAPIService.shared
     private let fixtureId: Int
@@ -311,6 +313,37 @@ class FixtureDetailViewModel: ObservableObject {
     
     // MARK: - Head to Head
     
+    // MARK: - Standings
+    
+    func loadStandings() async {
+        isLoadingStandings = true
+        errorMessage = nil
+        
+        guard let fixture = currentFixture else {
+            print("❌ No fixture data available")
+            isLoadingStandings = false
+            return
+        }
+        
+        print("📊 Loading standings for league: \(fixture.league.id), season: \(fixture.league.season)")
+        
+        do {
+            let leagueStandings = try await service.getStandings(
+                leagueId: fixture.league.id,
+                season: fixture.league.season
+            )
+            
+            standings = leagueStandings
+            print("✅ Standings loaded successfully: \(standings.count) teams")
+            
+        } catch {
+            errorMessage = "순위 정보를 불러오는데 실패했습니다: \(error.localizedDescription)"
+            print("❌ Load Standings Error: \(error)")
+        }
+        
+        isLoadingStandings = false
+    }
+    
     func loadHeadToHead() async {
         isLoadingHeadToHead = true
         errorMessage = nil
@@ -361,6 +394,9 @@ class FixtureDetailViewModel: ObservableObject {
             team2Stats = HeadToHeadStats(fixtures: headToHeadFixtures, teamId: team2Id)
             
             print("✅ Head to head stats calculated successfully")
+            
+            // 순위 정보 로드
+            await loadStandings()
             
         } catch {
             errorMessage = "상대 전적을 불러오는데 실패했습니다: \(error.localizedDescription)"

@@ -126,60 +126,38 @@ struct FixtureStatisticsResponse: Codable {
     let response: [TeamStatistics]
 }
 
-struct TeamStatistics: Codable {
-    let team: Team
-    var statistics: [Statistic]
+public struct TeamStatistics: Codable {
+    public let team: Team
+    public var statistics: [Statistic]
+    
+    public init(team: Team, statistics: [Statistic]) {
+        self.team = team
+        self.statistics = statistics
+    }
     
     // 특정 타입의 통계 값 가져오기
-    func getValue(for type: StatisticType) -> StatisticValue {
+    public func getValue(for type: StatisticType) -> StatisticValue {
         statistics.first { $0.type == type.rawValue }?.value ?? .null
     }
 }
 
-// 통계 타입 열거형
-enum StatisticType: String {
-    // 공격 관련 통계
-    case shotsOnGoal = "Shots on Goal"
-    case shotsOffGoal = "Shots off Goal"
-    case totalShots = "Total Shots"
-    case blockedShots = "Blocked Shots"
-    case shotsInsideBox = "Shots insidebox"
-    case shotsOutsideBox = "Shots outsidebox"
-    case expectedGoals = "expected_goals"
+public struct Statistic: Codable {
+    public let type: String
+    public let value: StatisticValue
     
-    // 패스 관련 통계
-    case totalPasses = "Total passes"
-    case passesAccurate = "Passes accurate"
-    case passesPercentage = "Passes %"
-    
-    // 수비 관련 통계
-    case saves = "Goalkeeper Saves"
-    case fouls = "Fouls"
-    case yellowCards = "Yellow Cards"
-    case redCards = "Red Cards"
-    
-    // 기타 통계
-    case ballPossession = "Ball Possession"
-    case cornerKicks = "Corner Kicks"
-    case offsides = "Offsides"
-    
-    static func from(_ rawValue: String) -> StatisticType {
-        StatisticType(rawValue: rawValue) ?? .totalShots
+    public init(type: String, value: StatisticValue) {
+        self.type = type
+        self.value = value
     }
 }
 
-struct Statistic: Codable {
-    let type: String
-    let value: StatisticValue
-}
-
-enum StatisticValue: Codable {
+public enum StatisticValue: Codable {
     case string(String)
     case int(Int)
     case double(Double)
     case null
     
-    init(from decoder: Decoder) throws {
+    public init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
         
         // null 체크를 먼저
@@ -222,7 +200,7 @@ enum StatisticValue: Codable {
         )
     }
     
-    func encode(to encoder: Encoder) throws {
+    public func encode(to encoder: Encoder) throws {
         var container = encoder.singleValueContainer()
         switch self {
         case .string(let value):
@@ -236,7 +214,7 @@ enum StatisticValue: Codable {
         }
     }
     
-    var displayValue: String {
+    public var displayValue: String {
         switch self {
         case .string(let value): return value
         case .int(let value): return String(value)

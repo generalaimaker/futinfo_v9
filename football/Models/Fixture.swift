@@ -76,11 +76,18 @@ struct Teams: Codable, Hashable {
 }
 
 // MARK: - Team
-struct Team: Codable, Hashable {
-    let id: Int
-    let name: String
-    let logo: String
-    let winner: Bool?
+public struct Team: Codable, Hashable {
+    public let id: Int
+    public let name: String
+    public let logo: String
+    public let winner: Bool?
+    
+    public init(id: Int, name: String, logo: String, winner: Bool? = nil) {
+        self.id = id
+        self.name = name
+        self.logo = logo
+        self.winner = winner
+    }
 }
 
 // MARK: - Goals

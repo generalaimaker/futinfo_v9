@@ -1,7 +1,11 @@
 import SwiftUI
 
-struct ShootingChartView: View {
-    let statistics: [TeamStatistics]
+public struct ShootingChartView: View {
+    public let statistics: [TeamStatistics]
+    
+    public init(statistics: [TeamStatistics]) {
+        self.statistics = statistics
+    }
     
     private var homeStats: [String: StatisticValue] {
         guard !statistics.isEmpty else { return [:] }
@@ -15,12 +19,13 @@ struct ShootingChartView: View {
         return Dictionary(uniqueKeysWithValues: stats.map { ($0.type, $0.value) })
     }
     
-    var body: some View {
+    public var body: some View {
         VStack(spacing: 24) {
             // 슈팅 분포 차트
-            VStack(spacing: 8) {
+            VStack(spacing: 16) {
                 Text("슈팅 분포")
-                    .font(.headline)
+                    .font(.system(.headline, design: .rounded))
+                    .fontWeight(.bold)
                     .frame(maxWidth: .infinity, alignment: .leading)
                 
                 HStack(spacing: 20) {
@@ -94,10 +99,14 @@ struct ShootingChartView: View {
                 }
             }
             
+            Divider()
+                .padding(.horizontal)
+            
             // 박스 안/밖 슈팅 비교
-            VStack(spacing: 8) {
-                Text("박스 안/밖 슈팅")
-                    .font(.headline)
+            VStack(spacing: 16) {
+                Text("슈팅 위치")
+                    .font(.system(.headline, design: .rounded))
+                    .fontWeight(.bold)
                     .frame(maxWidth: .infinity, alignment: .leading)
                 
                 VStack(spacing: 16) {
@@ -105,16 +114,16 @@ struct ShootingChartView: View {
                         title: "박스 안",
                         leftValue: homeStats["Shots insidebox"]?.displayValue ?? "0",
                         rightValue: awayStats["Shots insidebox"]?.displayValue ?? "0",
-                        showProgressBar: true
+                        showProgressBar: true,
+                        showPercentage: true
                     )
-                    
-                    Divider()
                     
                     StatisticItem(
                         title: "박스 밖",
                         leftValue: homeStats["Shots outsidebox"]?.displayValue ?? "0",
                         rightValue: awayStats["Shots outsidebox"]?.displayValue ?? "0",
-                        showProgressBar: true
+                        showProgressBar: true,
+                        showPercentage: true
                     )
                 }
                 .padding()
@@ -129,64 +138,132 @@ struct ShootingChartView: View {
     }
 }
 
-struct ShootingDistributionChart: View {
-    let total: Int
-    let onTarget: Int
-    let blocked: Int
-    let offTarget: Int
-    let teamColor: Color
+public struct ShootingDistributionChart: View {
+    public let total: Int
+    public let onTarget: Int
+    public let blocked: Int
+    public let offTarget: Int
+    public let teamColor: Color
     
-    var barHeight: CGFloat = 24
-    var maxWidth: CGFloat = 150
+    private var maxWidth: CGFloat = 150
+    private var barHeight: CGFloat = 24
     
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+    public init(total: Int, onTarget: Int, blocked: Int, offTarget: Int, teamColor: Color) {
+        self.total = total
+        self.onTarget = onTarget
+        self.blocked = blocked
+        self.offTarget = offTarget
+        self.teamColor = teamColor
+    }
+    
+    private var onTargetPercentage: String {
+        total > 0 ? String(format: "%.0f%%", Double(onTarget) / Double(total) * 100) : "0%"
+    }
+    
+    private var blockedPercentage: String {
+        total > 0 ? String(format: "%.0f%%", Double(blocked) / Double(total) * 100) : "0%"
+    }
+    
+    private var offTargetPercentage: String {
+        total > 0 ? String(format: "%.0f%%", Double(offTarget) / Double(total) * 100) : "0%"
+    }
+    
+    public var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
             // 유효 슈팅
             VStack(alignment: .leading, spacing: 4) {
-                Text("유효 슈팅")
-                    .font(.caption)
-                    .foregroundColor(.gray)
-                
-                GeometryReader { geometry in
-                    let width = total > 0 ? CGFloat(onTarget) / CGFloat(total) * maxWidth : 0
-                    
-                    RoundedRectangle(cornerRadius: 4)
-                        .fill(teamColor)
-                        .frame(width: width, height: barHeight)
+                HStack {
+                    Text("유효 슈팅")
+                        .font(.system(.caption, design: .rounded))
+                        .foregroundColor(.secondary)
+                    Spacer()
+                    Text("\(onTarget) (\(onTargetPercentage))")
+                        .font(.system(.caption, design: .rounded))
+                        .foregroundColor(teamColor)
                 }
-                .frame(width: maxWidth, height: barHeight)
+                
+                ZStack(alignment: .leading) {
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(Color(.systemGray6))
+                        .frame(width: maxWidth, height: barHeight)
+                    
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(
+                            LinearGradient(
+                                gradient: Gradient(colors: [
+                                    teamColor.opacity(0.8),
+                                    teamColor
+                                ]),
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                        .frame(width: total > 0 ? maxWidth * CGFloat(onTarget) / CGFloat(total) : 0, height: barHeight)
+                }
             }
             
             // 막힌 슈팅
             VStack(alignment: .leading, spacing: 4) {
-                Text("막힌 슈팅")
-                    .font(.caption)
-                    .foregroundColor(.gray)
-                
-                GeometryReader { geometry in
-                    let width = total > 0 ? CGFloat(blocked) / CGFloat(total) * maxWidth : 0
-                    
-                    RoundedRectangle(cornerRadius: 4)
-                        .fill(teamColor.opacity(0.6))
-                        .frame(width: width, height: barHeight)
+                HStack {
+                    Text("막힌 슈팅")
+                        .font(.system(.caption, design: .rounded))
+                        .foregroundColor(.secondary)
+                    Spacer()
+                    Text("\(blocked) (\(blockedPercentage))")
+                        .font(.system(.caption, design: .rounded))
+                        .foregroundColor(teamColor.opacity(0.6))
                 }
-                .frame(width: maxWidth, height: barHeight)
+                
+                ZStack(alignment: .leading) {
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(Color(.systemGray6))
+                        .frame(width: maxWidth, height: barHeight)
+                    
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(
+                            LinearGradient(
+                                gradient: Gradient(colors: [
+                                    teamColor.opacity(0.5),
+                                    teamColor.opacity(0.6)
+                                ]),
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                        .frame(width: total > 0 ? maxWidth * CGFloat(blocked) / CGFloat(total) : 0, height: barHeight)
+                }
             }
             
             // 빗나간 슈팅
             VStack(alignment: .leading, spacing: 4) {
-                Text("빗나간 슈팅")
-                    .font(.caption)
-                    .foregroundColor(.gray)
-                
-                GeometryReader { geometry in
-                    let width = total > 0 ? CGFloat(offTarget) / CGFloat(total) * maxWidth : 0
-                    
-                    RoundedRectangle(cornerRadius: 4)
-                        .fill(teamColor.opacity(0.3))
-                        .frame(width: width, height: barHeight)
+                HStack {
+                    Text("빗나간 슈팅")
+                        .font(.system(.caption, design: .rounded))
+                        .foregroundColor(.secondary)
+                    Spacer()
+                    Text("\(offTarget) (\(offTargetPercentage))")
+                        .font(.system(.caption, design: .rounded))
+                        .foregroundColor(teamColor.opacity(0.3))
                 }
-                .frame(width: maxWidth, height: barHeight)
+                
+                ZStack(alignment: .leading) {
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(Color(.systemGray6))
+                        .frame(width: maxWidth, height: barHeight)
+                    
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(
+                            LinearGradient(
+                                gradient: Gradient(colors: [
+                                    teamColor.opacity(0.2),
+                                    teamColor.opacity(0.3)
+                                ]),
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                        .frame(width: total > 0 ? maxWidth * CGFloat(offTarget) / CGFloat(total) : 0, height: barHeight)
+                }
             }
         }
     }

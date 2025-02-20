@@ -180,6 +180,7 @@ struct FixtureDetailView: View {
                     } else if let team1Stats = viewModel.team1Stats,
                               let team2Stats = viewModel.team2Stats {
                         HeadToHeadView(
+                            viewModel: viewModel,
                             fixtures: viewModel.headToHeadFixtures,
                             team1Stats: team1Stats,
                             team2Stats: team2Stats,

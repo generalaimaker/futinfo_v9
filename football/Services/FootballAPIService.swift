@@ -174,6 +174,25 @@ class FootballAPIService {
             print(jsonString)
         }
         
+        // 통계 데이터 구조 자세히 출력
+        if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+           let response = json["response"] as? [[String: Any]] {
+            print("\n📊 Detailed Statistics:")
+            for teamStats in response {
+                if let team = teamStats["team"] as? [String: Any],
+                   let teamName = team["name"] as? String,
+                   let statistics = teamStats["statistics"] as? [[String: Any]] {
+                    print("\n🏃‍♂️ Team: \(teamName)")
+                    for stat in statistics {
+                        if let type = stat["type"] as? String,
+                           let value = stat["value"] {
+                            print("   • \(type): \(value)")
+                        }
+                    }
+                }
+            }
+        }
+        
         do {
             // 먼저 JSON 구조 출력
             if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
@@ -196,7 +215,12 @@ class FootballAPIService {
                 for team in statisticsResponse.response {
                     print("   - \(team.team.name): \(team.statistics.count) statistics")
                     for stat in team.statistics {
-                        print("     • \(stat.type): \(stat.value.displayValue)")
+                        print("     • Type: '\(stat.type)'")
+                    print("       Raw Type: '\(stat.type)'")
+                    print("       Raw Value: '\(stat.value)'")
+                    print("       Display Value: '\(stat.value.displayValue)'")
+                    print("       Dictionary Key: '\(stat.type)'")
+                    print("       All Stats Keys: '\(team.statistics.map { $0.type }.joined(separator: ", "))'")
                     }
                 }
                 
@@ -400,8 +424,8 @@ class FootballAPIService {
     
     // MARK: - Head to Head
     
-    func getHeadToHead(team1Id: Int, team2Id: Int) async throws -> [Fixture] {
-        let endpoint = "/fixtures/headtohead?h2h=\(team1Id)-\(team2Id)"
+    func getHeadToHead(team1Id: Int, team2Id: Int, last: Int = 20) async throws -> [Fixture] {
+        let endpoint = "/fixtures/headtohead?h2h=\(team1Id)-\(team2Id)&last=\(last)"
         let request = createRequest(endpoint)
         
         print("\n📡 Fetching head to head statistics...")

@@ -1,20 +1,22 @@
 import SwiftUI
 
-struct StatisticItem: View {
-    let title: String
-    let leftValue: String
-    let rightValue: String
-    let homeTeam: Team?
-    let awayTeam: Team?
-    let showProgressBar: Bool
+public struct StatisticItem: View {
+    public let title: String
+    public let leftValue: String
+    public let rightValue: String
+    public let homeTeam: Team?
+    public let awayTeam: Team?
+    public let showProgressBar: Bool
+    public let showPercentage: Bool
     
-    init(
+    public init(
         title: String,
         leftValue: String,
         rightValue: String,
         homeTeam: Team? = nil,
         awayTeam: Team? = nil,
-        showProgressBar: Bool = false
+        showProgressBar: Bool = false,
+        showPercentage: Bool = false
     ) {
         self.title = title
         self.leftValue = leftValue
@@ -22,6 +24,7 @@ struct StatisticItem: View {
         self.homeTeam = homeTeam
         self.awayTeam = awayTeam
         self.showProgressBar = showProgressBar
+        self.showPercentage = showPercentage
     }
     
     private var leftNumericValue: Double {
@@ -32,14 +35,35 @@ struct StatisticItem: View {
         Double(rightValue.replacingOccurrences(of: "%", with: "")) ?? 0
     }
     
-    var body: some View {
+    private var leftPercentage: String {
+        let total = leftNumericValue + rightNumericValue
+        guard total > 0 else { return "0%" }
+        return String(format: "%.0f%%", (leftNumericValue / total) * 100)
+    }
+    
+    private var rightPercentage: String {
+        let total = leftNumericValue + rightNumericValue
+        guard total > 0 else { return "0%" }
+        return String(format: "%.0f%%", (rightNumericValue / total) * 100)
+    }
+    
+    public var body: some View {
         VStack(spacing: 8) {
             HStack(spacing: 0) {
-                Text(leftValue)
-                    .font(.system(.title2, design: .rounded))
-                    .fontWeight(.semibold)
-                    .foregroundColor(.blue)
-                    .frame(width: 100, alignment: .trailing)
+                HStack {
+                    Spacer()
+                    if showPercentage {
+                        Text(leftPercentage)
+                            .font(.system(.subheadline, design: .rounded))
+                            .foregroundColor(.gray)
+                            .padding(.trailing, 4)
+                    }
+                    Text(leftValue)
+                        .font(.system(.title2, design: .rounded))
+                        .fontWeight(.semibold)
+                        .foregroundColor(.blue)
+                }
+                .frame(width: 100)
                 
                 Text(title)
                     .font(.system(.body))
@@ -47,11 +71,20 @@ struct StatisticItem: View {
                     .frame(maxWidth: .infinity)
                     .multilineTextAlignment(.center)
                 
-                Text(rightValue)
-                    .font(.system(.title2, design: .rounded))
-                    .fontWeight(.semibold)
-                    .foregroundColor(.red)
-                    .frame(width: 100, alignment: .leading)
+                HStack {
+                    Text(rightValue)
+                        .font(.system(.title2, design: .rounded))
+                        .fontWeight(.semibold)
+                        .foregroundColor(.red)
+                    if showPercentage {
+                        Text(rightPercentage)
+                            .font(.system(.subheadline, design: .rounded))
+                            .foregroundColor(.gray)
+                            .padding(.leading, 4)
+                    }
+                    Spacer()
+                }
+                .frame(width: 100)
             }
             
             if showProgressBar {
