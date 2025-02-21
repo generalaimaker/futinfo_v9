@@ -3,7 +3,7 @@ import SwiftUI
 struct FixtureDetailView: View {
     let fixture: Fixture
     @StateObject private var viewModel: FixtureDetailViewModel
-    @State private var selectedTab = 0 // 0: 경기요약, 1: 통계, 2: 라인업, 3: 선수 통계, 4: 상대전적
+    @State private var selectedTab = 0 // 0: 경기요약, 1: 통계, 2: 라인업, 3: 상대전적
     
     init(fixture: Fixture) {
         self.fixture = fixture
@@ -98,14 +98,14 @@ struct FixtureDetailView: View {
                 VStack(spacing: 0) {
                     // 메인 탭
                     HStack(spacing: 0) {
-                        ForEach(["경기요약", "통계", "라인업", "선수 통계", "상대전적"].indices, id: \.self) { index in
+                        ForEach(["경기요약", "통계", "라인업", "상대전적"].indices, id: \.self) { index in
                             Button(action: {
                                 withAnimation(.easeInOut(duration: 0.3)) {
                                     selectedTab = index
                                 }
                             }) {
                                 VStack(spacing: 8) {
-                                    Text(["경기요약", "통계", "라인업", "선수 통계", "상대전적"][index])
+                                    Text(["경기요약", "통계", "라인업", "상대전적"][index])
                                         .font(.system(.subheadline, design: .rounded))
                                         .fontWeight(selectedTab == index ? .semibold : .regular)
                                         .foregroundColor(selectedTab == index ? .blue : .gray)
@@ -156,25 +156,16 @@ struct FixtureDetailView: View {
                         )
                     }
                 case 2:
-                    if viewModel.isLoadingLineups {
+                    if viewModel.isLoadingLineups || viewModel.isLoadingMatchStats {
                         ProgressView()
                     } else {
                         LineupsView(
                             lineups: viewModel.lineups,
-                            topPlayers: viewModel.topPlayers
+                            topPlayers: viewModel.topPlayers,
+                            teamStats: viewModel.matchPlayerStats
                         )
                     }
                 case 3:
-                    if viewModel.isLoadingMatchStats {
-                        ProgressView()
-                    } else if !viewModel.matchPlayerStats.isEmpty {
-                        MatchPlayerStatsView(teamStats: viewModel.matchPlayerStats)
-                    } else {
-                        Text(viewModel.errorMessage ?? "선수 통계 정보를 불러올 수 없습니다")
-                            .foregroundColor(.gray)
-                            .padding()
-                    }
-                case 4:
                     if viewModel.isLoadingHeadToHead {
                         ProgressView()
                     } else if let team1Stats = viewModel.team1Stats,
