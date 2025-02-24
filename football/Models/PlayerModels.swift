@@ -1,18 +1,13 @@
 import Foundation
 import SwiftUI
 
+
 // MARK: - Common Types
 
 // MARK: - Player Info
-struct Birth: Codable {
-    let date: String?
-    let place: String?
-    let country: String?
-}
-
 struct PlayerInfo: Codable {
-    let id: Int
-    let name: String
+    let id: Int?
+    let name: String?
     let firstname: String?
     let lastname: String?
     let age: Int?
@@ -20,6 +15,14 @@ struct PlayerInfo: Codable {
     let height: String?
     let weight: String?
     let photo: String?
+    let injured: Bool?
+    let birth: Birth?
+    
+    struct Birth: Codable {
+        let date: String?
+        let place: String?
+        let country: String?
+    }
 }
 
 // MARK: - Player Game Stats
@@ -91,7 +94,7 @@ struct PlayerPenalty: Codable {
 
 // MARK: - Match Statistics
 struct PlayerMatchStats: Codable {
-    let games: PlayerGameStats
+    let games: PlayerGameStats?
     let offsides: Int?
     let shots: PlayerShots?
     let goals: PlayerGoals?
@@ -101,13 +104,50 @@ struct PlayerMatchStats: Codable {
     let dribbles: PlayerDribbles?
     let fouls: PlayerFouls?
     let cards: PlayerCards?
+    let penalty: PlayerPenalty?
+    let substitutes: PlayerSubstitutes?
+    let team: Team?
+    let league: PlayerLeagueInfo?
+    
+    init(
+        games: PlayerGameStats? = nil,
+        offsides: Int? = nil,
+        shots: PlayerShots? = nil,
+        goals: PlayerGoals? = nil,
+        passes: PlayerPasses? = nil,
+        tackles: PlayerTackles? = nil,
+        duels: PlayerDuels? = nil,
+        dribbles: PlayerDribbles? = nil,
+        fouls: PlayerFouls? = nil,
+        cards: PlayerCards? = nil,
+        penalty: PlayerPenalty? = nil,
+        substitutes: PlayerSubstitutes? = nil,
+        team: Team? = nil,
+        league: PlayerLeagueInfo? = nil
+    ) {
+        self.games = games
+        self.offsides = offsides
+        self.shots = shots
+        self.goals = goals
+        self.passes = passes
+        self.tackles = tackles
+        self.duels = duels
+        self.dribbles = dribbles
+        self.fouls = fouls
+        self.cards = cards
+        self.penalty = penalty
+        self.substitutes = substitutes
+        self.team = team
+        self.league = league
+    }
 }
 
 // MARK: - Season Statistics
 struct PlayerSeasonStats: Codable {
-    let team: Team
-    let league: PlayerLeagueInfo
-    let games: PlayerGameStats
+    let team: Team?
+    let league: PlayerLeagueInfo?
+    let games: PlayerGameStats?
+    let substitutes: PlayerSubstitutes?
     let shots: PlayerShots?
     let goals: PlayerGoals?
     let passes: PlayerPasses?
@@ -119,10 +159,17 @@ struct PlayerSeasonStats: Codable {
     let penalty: PlayerPenalty?
 }
 
+struct PlayerSubstitutes: Codable {
+    let `in`: Int?
+    let out: Int?
+    let bench: Int?
+}
+
 struct PlayerLeagueInfo: Codable {
-    let id: Int
-    let name: String
+    let id: Int?
+    let name: String?
     let country: String?
-    let logo: String
-    let season: Int
+    let logo: String?
+    let season: Int?
+    let flag: String?
 }

@@ -1,5 +1,6 @@
 import Foundation
 
+
 // MARK: - Fixture Response
 struct FixturesResponse: Codable {
     let get: String
@@ -75,20 +76,6 @@ struct Teams: Codable, Hashable {
     let away: Team
 }
 
-// MARK: - Team
-public struct Team: Codable, Hashable {
-    public let id: Int
-    public let name: String
-    public let logo: String
-    public let winner: Bool?
-    
-    public init(id: Int, name: String, logo: String, winner: Bool? = nil) {
-        self.id = id
-        self.name = name
-        self.logo = logo
-        self.winner = winner
-    }
-}
 
 // MARK: - Goals
 struct Goals: Codable, Hashable {

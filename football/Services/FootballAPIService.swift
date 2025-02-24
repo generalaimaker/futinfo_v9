@@ -317,7 +317,7 @@ class FootballAPIService {
     
     // MARK: - Player Statistics
     
-    func getPlayerStatistics(playerId: Int, season: Int) async throws -> [PlayerStats] {
+    func getPlayerStatistics(playerId: Int, season: Int) async throws -> [PlayerProfileData] {
         let endpoint = "/players?id=\(playerId)&season=\(season)"
         let request = createRequest(endpoint)
         
@@ -541,6 +541,92 @@ class FootballAPIService {
         }
         
         return standingResponse.response.first?.league.standings.first?.first
+    }
+    
+    // MARK: - Player Profile
+    
+    func getPlayerProfile(playerId: Int) async throws -> PlayerProfileData {
+        let endpoint = "/players?id=\(playerId)&season=2024"
+        let request = createRequest(endpoint)
+        
+        print("\n📡 Fetching profile for player \(playerId)...")
+        let (data, response) = try await URLSession.shared.data(for: request)
+        try handleResponse(response)
+        
+        // API 응답 로깅
+        logResponse(data: data, endpoint: "Player Profile")
+        
+        let decoder = JSONDecoder()
+        let profileResponse = try decoder.decode(PlayerProfileResponse.self, from: data)
+        
+        if !profileResponse.errors.isEmpty {
+            throw FootballAPIError.apiError(profileResponse.errors)
+        }
+        
+        guard profileResponse.results > 0,
+              let profile = profileResponse.response.first else {
+            throw FootballAPIError.apiError(["선수 정보를 찾을 수 없습니다."])
+        }
+        
+        return profile
+    }
+    
+    func getPlayerCareerStats(playerId: Int) async throws -> [PlayerCareerStats] {
+        let endpoint = "/players/teams?player=\(playerId)"
+        let request = createRequest(endpoint)
+        
+        print("\n📡 Fetching career stats for player \(playerId)...")
+        let (data, response) = try await URLSession.shared.data(for: request)
+        try handleResponse(response)
+        
+        // API 응답 로깅
+        logResponse(data: data, endpoint: "Player Career")
+        
+        let decoder = JSONDecoder()
+        let careerResponse = try decoder.decode(PlayerCareerResponse.self, from: data)
+        
+        if !careerResponse.errors.isEmpty {
+            throw FootballAPIError.apiError(careerResponse.errors)
+        }
+        
+        guard careerResponse.results > 0,
+              !careerResponse.response.isEmpty else {
+            throw FootballAPIError.apiError(["선수 커리어 정보를 찾을 수 없습니다."])
+        }
+        
+        // CareerTeamResponse를 PlayerCareerStats로 변환
+        return careerResponse.response.map { teamResponse in
+            PlayerCareerStats(
+                team: teamResponse.team,
+                seasons: teamResponse.seasons
+            )
+        }
+    }
+    
+    func getPlayerSeasonalStats(playerId: Int, season: Int) async throws -> [PlayerSeasonStats] {
+        let endpoint = "/players?id=\(playerId)&season=\(season)"
+        let request = createRequest(endpoint)
+        
+        print("\n📡 Fetching seasonal stats for player \(playerId)...")
+        let (data, response) = try await URLSession.shared.data(for: request)
+        try handleResponse(response)
+        
+        // API 응답 로깅
+        logResponse(data: data, endpoint: "Player Seasonal Stats")
+        
+        let decoder = JSONDecoder()
+        let statsResponse = try decoder.decode(PlayerSeasonalStatsResponse.self, from: data)
+        
+        if !statsResponse.errors.isEmpty {
+            throw FootballAPIError.apiError(statsResponse.errors)
+        }
+        
+        guard statsResponse.results > 0,
+              !statsResponse.response.isEmpty else {
+            throw FootballAPIError.apiError(["선수 시즌 통계를 찾을 수 없습니다."])
+        }
+        
+        return statsResponse.response
     }
     
     // MARK: - Team Squad

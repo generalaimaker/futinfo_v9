@@ -158,6 +158,10 @@ struct FixtureDetailView: View {
                 case 2:
                     if viewModel.isLoadingLineups || viewModel.isLoadingMatchStats {
                         ProgressView()
+                    } else if viewModel.matchPlayerStats.isEmpty {
+                        Text("선수 통계 정보를 불러오는 중입니다")
+                            .foregroundColor(.gray)
+                            .padding()
                     } else {
                         LineupsView(
                             lineups: viewModel.lineups,

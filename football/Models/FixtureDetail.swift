@@ -2,6 +2,7 @@ import Foundation
 import SwiftUI
 
 
+
 // MARK: - Events
 struct FixtureEventResponse: Codable {
     let get: String
@@ -245,7 +246,11 @@ struct FixturePlayerStats: Codable, Identifiable {
     let player: PlayerInfo
     let statistics: [PlayerMatchStats]
     
-    var id: Int { player.id }
+    var id: Int { player.id ?? 0 }
+    
+    var team: Team? {
+        statistics.first?.team
+    }
 }
 
 

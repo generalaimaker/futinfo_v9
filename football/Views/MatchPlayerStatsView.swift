@@ -97,7 +97,15 @@ struct MatchPlayerStatsView: View {
                                     duels: nil,
                                     dribbles: nil,
                                     fouls: nil,
-                                    cards: nil
+                                    cards: nil,
+                                    penalty: nil,
+                                    substitutes: nil,
+                                    team: Team(
+                                        id: 0,
+                                        name: "Unknown Team",
+                                        logo: ""
+                                    ),
+                                    league: nil
                                 )
                             )
                         }
@@ -118,8 +126,9 @@ struct MatchPlayerStatsView: View {
             guard let stats = player.statistics.first else { return false }
             
             // 포지션이 있고 선수 번호가 있는 경우 표시
-            guard let position = stats.games.position,
-                  stats.games.number != nil else {
+            guard let games = stats.games,
+                  let position = games.position,
+                  games.number != nil else {
                 return false
             }
             
@@ -137,12 +146,16 @@ struct MatchPlayerStatsView: View {
             let stats2 = player2.statistics.first!
             
             // 선발 선수를 먼저 표시
-            if (stats1.games.substitute ?? true) != (stats2.games.substitute ?? true) {
-                return !(stats1.games.substitute ?? true)
+            let sub1 = stats1.games?.substitute ?? true
+            let sub2 = stats2.games?.substitute ?? true
+            if sub1 != sub2 {
+                return !sub1
             }
             
             // 같은 그룹 내에서는 선수 번호로 정렬
-            return (stats1.games.number ?? 99) < (stats2.games.number ?? 99)
+            let num1 = stats1.games?.number ?? 99
+            let num2 = stats2.games?.number ?? 99
+            return num1 < num2
         }
     }
     
@@ -178,17 +191,19 @@ struct PlayerStatRow: View {
                     .clipShape(Circle())
                     
                     VStack(alignment: .leading, spacing: 4) {
-                        Text(player.name)
+                        Text(player.name ?? "선수 정보 없음")
                             .font(.callout)
                         
                         HStack(spacing: 4) {
-                            if let position = stats.games.position {
+                            if let games = stats.games,
+                               let position = games.position {
                                 Text(position)
                                     .font(.caption)
                                     .foregroundColor(.gray)
                             }
                             
-                            if stats.games.substitute ?? false {
+                            if let games = stats.games,
+                               games.substitute ?? false {
                                 Text("(교체)")
                                     .font(.caption)
                                     .foregroundColor(.orange)
@@ -199,7 +214,8 @@ struct PlayerStatRow: View {
                     Spacer()
                     
                     // 평점이 있는 경우에만 표시
-                    if let rating = stats.games.rating,
+                    if let games = stats.games,
+                       let rating = games.rating,
                        let ratingValue = Double(rating),
                        ratingValue > 0 {
                         Text(String(format: "%.1f", ratingValue))
@@ -218,12 +234,14 @@ struct PlayerStatRow: View {
                 VStack(spacing: 12) {
                     // 기본 정보
                     HStack(spacing: 20) {
-                        StatItem(title: "출전 시간", value: "\(stats.games.minutes ?? 0)'")
-                        if let number = stats.games.number {
-                            StatItem(title: "등번호", value: "\(number)")
-                        }
-                        if stats.games.captain == true {
-                            StatItem(title: "주장", value: "○")
+                        if let games = stats.games {
+                            StatItem(title: "출전 시간", value: "\(games.minutes ?? 0)'")
+                            if let number = games.number {
+                                StatItem(title: "등번호", value: "\(number)")
+                            }
+                            if games.captain == true {
+                                StatItem(title: "주장", value: "○")
+                            }
                         }
                     }
                     

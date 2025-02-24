@@ -3,10 +3,10 @@ import Foundation
 // MARK: - Team Profile Response
 struct TeamProfileResponse: Codable {
     let get: String
-    let parameters: Parameters
+    let parameters: TeamParameters
     let errors: [String]
     let results: Int
-    let paging: Paging
+    let paging: APIPaging
     let response: [TeamProfile]
 }
 
@@ -43,10 +43,10 @@ struct VenueInfo: Codable {
 // MARK: - Team Statistics Response
 struct TeamStatisticsResponse: Codable {
     let get: String
-    let parameters: Parameters
+    let parameters: TeamStatisticsParameters
     let errors: [String]
     let results: Int
-    let paging: Paging
+    let paging: APIPaging
     let response: TeamSeasonStatistics
 }
 

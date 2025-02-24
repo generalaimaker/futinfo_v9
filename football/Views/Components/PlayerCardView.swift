@@ -17,7 +17,7 @@ struct PlayerCardView: View {
             .clipShape(Circle())
             
             VStack(spacing: 2) {
-                Text(player.name)
+                Text(player.name ?? "선수 정보 없음")
                     .font(.caption)
                     .fontWeight(.medium)
                     .lineLimit(1)

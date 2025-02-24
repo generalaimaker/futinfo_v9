@@ -4,10 +4,10 @@ import SwiftUI
 // MARK: - Squad Response
 struct SquadResponse: Codable {
     let get: String
-    let parameters: Parameters
+    let parameters: SquadParameters
     let errors: [String]
     let results: Int
-    let paging: Paging
+    let paging: APIPaging
     let response: [PlayerResponse]
 }
 
@@ -19,8 +19,6 @@ struct PlayerResponse: Codable {
 // MARK: - Player
 typealias Player = PlayerInfo
 
-// MARK: - Squad Response
-
 // MARK: - Squad Group
 struct SquadGroup: Identifiable {
     let position: String
@@ -30,7 +28,7 @@ struct SquadGroup: Identifiable {
     
     static func groupPlayers(_ players: [PlayerResponse]) -> [SquadGroup] {
         let grouped = Dictionary(grouping: players) { player in
-            player.statistics.first?.games.position ?? "Unknown"
+            player.statistics.first?.games?.position ?? "Unknown"
         }
         
         let positionOrder = ["Goalkeeper", "Defender", "Midfielder", "Attacker"]
