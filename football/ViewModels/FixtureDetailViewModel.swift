@@ -51,18 +51,15 @@ class FixtureDetailViewModel: ObservableObject {
                 group.addTask { await self.loadEvents() }
                 group.addTask { await self.loadStatistics() }
                 group.addTask { await self.loadTeamForms() }
+                group.addTask { await self.loadHeadToHead() } // 상대전적은 항상 로드
             }
             
             // 2. 매치 플레이어 통계 로드
             await loadMatchPlayerStats()
             
-            // 3. 매치 플레이어 통계가 있는 경우에만 의존적인 데이터 로드
+            // 3. 매치 플레이어 통계가 있는 경우에만 라인업 로드
             if !matchPlayerStats.isEmpty {
-                // 라인업과 상대전적을 병렬로 로드
-                await withTaskGroup(of: Void.self) { group in
-                    group.addTask { await self.loadLineups() }
-                    group.addTask { await self.loadHeadToHead() }
-                }
+                await loadLineups()
             }
         }
     }
@@ -300,10 +297,22 @@ class FixtureDetailViewModel: ObservableObject {
         errorMessage = nil
         
         do {
-            lineups = try await service.getFixtureLineups(
+            var fetchedLineups = try await service.getFixtureLineups(
                 fixtureId: fixtureId,
                 teamId: selectedTeamId
             )
+            
+            // 선수 통계 정보를 라인업에 연결
+            if !matchPlayerStats.isEmpty {
+                for i in 0..<fetchedLineups.count {
+                    let teamId = fetchedLineups[i].team.id
+                    // 해당 팀의 선수 통계 정보 찾기
+                    let teamStats = matchPlayerStats.filter { $0.team.id == teamId }
+                    fetchedLineups[i].teamStats = teamStats
+                }
+            }
+            
+            lineups = fetchedLineups
             
             // 선발 선수들의 통계 정보 로드
             if !lineups.isEmpty {
@@ -356,19 +365,32 @@ class FixtureDetailViewModel: ObservableObject {
         
         print("🔄 Loading head to head stats...")
         
+        // 팀 정보 확인 - matchPlayerStats 또는 currentFixture에서 가져오기
+        var team1Id: Int = 0
+        var team2Id: Int = 0
+        var team1Name: String = ""
+        var team2Name: String = ""
         
-        // 팀 정보 확인
-        guard matchPlayerStats.count >= 2 else {
-            errorMessage = "양 팀의 선수 통계가 필요합니다."
-            print("❌ Insufficient team stats: only \(matchPlayerStats.count) team(s)")
+        if matchPlayerStats.count >= 2 {
+            // 선수 통계에서 팀 정보 가져오기
+            team1Id = matchPlayerStats[0].team.id
+            team2Id = matchPlayerStats[1].team.id
+            team1Name = matchPlayerStats[0].team.name
+            team2Name = matchPlayerStats[1].team.name
+        } else if let fixture = currentFixture {
+            // 경기 정보에서 팀 정보 가져오기
+            team1Id = fixture.teams.home.id
+            team2Id = fixture.teams.away.id
+            team1Name = fixture.teams.home.name
+            team2Name = fixture.teams.away.name
+        } else {
+            errorMessage = "팀 정보를 찾을 수 없습니다."
+            print("❌ No team information available")
             isLoadingHeadToHead = false
             return
         }
         
-        let team1Id = matchPlayerStats[0].team.id
-        let team2Id = matchPlayerStats[1].team.id
-        
-        print("🆚 Loading head to head for teams: \(team1Id)(\(matchPlayerStats[0].team.name)) vs \(team2Id)(\(matchPlayerStats[1].team.name))")
+        print("🆚 Loading head to head for teams: \(team1Id)(\(team1Name)) vs \(team2Id)(\(team2Name))")
         
         do {
             // 두 팀의 과거 상대 전적 가져오기
@@ -574,6 +596,37 @@ class FixtureDetailViewModel: ObservableObject {
         Task {
             await loadStatistics()
         }
+    }
+    
+    // MARK: - Helper Methods
+    
+    func getTopScorerForTeam(teamId: Int) -> PlayerProfileData? {
+        for player in topPlayers {
+            if let firstStat = player.statistics?.first,
+               let team = firstStat.team,
+               team.id == teamId {
+                return player
+            }
+        }
+        return nil
+    }
+    
+    func getPlayerGoals(player: PlayerProfileData) -> Int {
+        guard let firstStat = player.statistics?.first,
+              let goals = firstStat.goals,
+              let total = goals.total else {
+            return 0
+        }
+        return total
+    }
+    
+    func getPlayerAssists(player: PlayerProfileData) -> Int {
+        guard let firstStat = player.statistics?.first,
+              let goals = firstStat.goals,
+              let assists = goals.assists else {
+            return 0
+        }
+        return assists
     }
     
 }
