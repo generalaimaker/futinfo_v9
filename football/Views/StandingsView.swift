@@ -79,10 +79,10 @@ struct StandingsView: View {
                     VStack(spacing: 0) {
                         if selectedTab == 0 {
                             // 기록 탭
-                            RecordView(standings: viewModel.getSortedStandings())
+                            RecordView(standings: viewModel.getSortedStandings(), leagueId: leagueId)
                         } else {
                             // 최근 폼 탭
-                            RecentFormView(standings: viewModel.getSortedStandings())
+                            RecentFormView(standings: viewModel.getSortedStandings(), leagueId: leagueId)
                         }
                     }
                 }
@@ -101,6 +101,7 @@ struct StandingsView: View {
 // MARK: - Record View
 struct RecordView: View {
     let standings: [Standing]
+    let leagueId: Int
     
     var body: some View {
         VStack(spacing: 0) {
@@ -215,6 +216,7 @@ struct FormResultsView: View {
 // MARK: - Recent Form View
 struct RecentFormView: View {
     let standings: [Standing]
+    let leagueId: Int
     
     var body: some View {
         VStack(spacing: 0) {
