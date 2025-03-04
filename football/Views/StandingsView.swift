@@ -132,45 +132,48 @@ struct RecordView: View {
             // 순위 목록
             ForEach(standings) { standing in
                 VStack(spacing: 0) {
-                    HStack(spacing: 0) {
-                        Text("\(standing.rank)")
-                            .frame(width: 25, alignment: .center)
-                            .foregroundColor(standing.rank <= 4 ? .blue : .primary)
-                        
-                        HStack(spacing: 8) {
-                            AsyncImage(url: URL(string: standing.team.logo)) { image in
-                                image
-                                    .resizable()
-                                    .scaledToFit()
-                            } placeholder: {
-                                Image(systemName: "sportscourt")
-                                    .foregroundColor(.gray)
+                        NavigationLink(destination: TeamProfileView(teamId: standing.team.id, leagueId: leagueId)) {
+                            HStack(spacing: 0) {
+                                Text("\(standing.rank)")
+                                    .frame(width: 25, alignment: .center)
+                                    .foregroundColor(standing.rank <= 4 ? .blue : .primary)
+                                
+                                HStack(spacing: 8) {
+                                    AsyncImage(url: URL(string: standing.team.logo)) { image in
+                                        image
+                                            .resizable()
+                                            .scaledToFit()
+                                    } placeholder: {
+                                        Image(systemName: "sportscourt")
+                                            .foregroundColor(.gray)
+                                    }
+                                    .frame(width: 20, height: 20)
+                                    
+                                    Text(standing.team.name)
+                                        .lineLimit(1)
+                                        .font(.system(size: 13))
+                                }
+                                .frame(width: 180, alignment: .leading)
+                                
+                                Text("\(standing.all.played)")
+                                    .frame(width: 35, alignment: .center)
+                                Text("\(standing.all.win)")
+                                    .frame(width: 25, alignment: .center)
+                                Text("\(standing.all.draw)")
+                                    .frame(width: 25, alignment: .center)
+                                Text("\(standing.all.lose)")
+                                    .frame(width: 25, alignment: .center)
+                                
+                                Text(standing.goalsDiff > 0 ? "+\(standing.goalsDiff)" : "\(standing.goalsDiff)")
+                                    .frame(width: 35, alignment: .center)
+                                    .foregroundColor(standing.goalsDiff > 0 ? .green : (standing.goalsDiff < 0 ? .red : .primary))
+                                
+                                Text("\(standing.points)")
+                                    .frame(width: 35, alignment: .center)
+                                    .bold()
                             }
-                            .frame(width: 20, height: 20)
-                            
-                            Text(standing.team.name)
-                                .lineLimit(1)
-                                .font(.system(size: 13))
+                            .foregroundColor(.primary)
                         }
-                        .frame(width: 180, alignment: .leading)
-                        
-                        Text("\(standing.all.played)")
-                            .frame(width: 35, alignment: .center)
-                        Text("\(standing.all.win)")
-                            .frame(width: 25, alignment: .center)
-                        Text("\(standing.all.draw)")
-                            .frame(width: 25, alignment: .center)
-                        Text("\(standing.all.lose)")
-                            .frame(width: 25, alignment: .center)
-                        
-                        Text(standing.goalsDiff > 0 ? "+\(standing.goalsDiff)" : "\(standing.goalsDiff)")
-                            .frame(width: 35, alignment: .center)
-                            .foregroundColor(standing.goalsDiff > 0 ? .green : (standing.goalsDiff < 0 ? .red : .primary))
-                        
-                        Text("\(standing.points)")
-                            .frame(width: 35, alignment: .center)
-                            .bold()
-                    }
                     .font(.system(size: 13))
                     .padding(.vertical, 10)
                     
@@ -182,9 +185,9 @@ struct RecordView: View {
     }
 }
 
-// MARK: - Recent Form View
-struct RecentFormView: View {
-    let standings: [Standing]
+// MARK: - Form Results View
+struct FormResultsView: View {
+    let form: String
     
     private func getFormColor(_ result: Character) -> Color {
         switch result {
@@ -194,6 +197,24 @@ struct RecentFormView: View {
         default: return .clear
         }
     }
+    
+    var body: some View {
+        HStack(spacing: 4) {
+            ForEach(Array(form.reversed().prefix(5)), id: \.self) { result in
+                Text(String(result))
+                    .font(.caption)
+                    .foregroundColor(.white)
+                    .frame(width: 24, height: 24)
+                    .background(getFormColor(result))
+                    .cornerRadius(4)
+            }
+        }
+    }
+}
+
+// MARK: - Recent Form View
+struct RecentFormView: View {
+    let standings: [Standing]
     
     var body: some View {
         VStack(spacing: 0) {
@@ -215,40 +236,34 @@ struct RecentFormView: View {
             // 순위 목록
             ForEach(standings) { standing in
                 VStack(spacing: 0) {
-                    HStack(spacing: 0) {
-                        Text("\(standing.rank)")
-                            .frame(width: 25, alignment: .center)
-                            .foregroundColor(standing.rank <= 4 ? .blue : .primary)
-                        
-                        HStack(spacing: 8) {
-                            AsyncImage(url: URL(string: standing.team.logo)) { image in
-                                image
-                                    .resizable()
-                                    .scaledToFit()
-                            } placeholder: {
-                                Image(systemName: "sportscourt")
-                                    .foregroundColor(.gray)
-                            }
-                            .frame(width: 20, height: 20)
+                    NavigationLink(destination: TeamProfileView(teamId: standing.team.id, leagueId: leagueId)) {
+                        HStack(spacing: 0) {
+                            Text("\(standing.rank)")
+                                .frame(width: 25, alignment: .center)
+                                .foregroundColor(standing.rank <= 4 ? .blue : .primary)
                             
-                            Text(standing.team.name)
-                                .lineLimit(1)
-                                .font(.system(size: 13))
-                        }
-                        .frame(width: 180, alignment: .leading)
-                        
-                        // 최근 5경기
-                        HStack(spacing: 4) {
-                            ForEach(Array((standing.form ?? "").reversed().prefix(5)), id: \.self) { result in
-                                Text(String(result))
-                                    .font(.caption)
-                                    .foregroundColor(.white)
-                                    .frame(width: 24, height: 24)
-                                    .background(getFormColor(result))
-                                    .cornerRadius(4)
+                            HStack(spacing: 8) {
+                                AsyncImage(url: URL(string: standing.team.logo)) { image in
+                                    image
+                                        .resizable()
+                                        .scaledToFit()
+                                } placeholder: {
+                                    Image(systemName: "sportscourt")
+                                        .foregroundColor(.gray)
+                                }
+                                .frame(width: 20, height: 20)
+                                
+                                Text(standing.team.name)
+                                    .lineLimit(1)
+                                    .font(.system(size: 13))
                             }
+                            .frame(width: 180, alignment: .leading)
+                            
+                            // 최근 5경기
+                            FormResultsView(form: standing.form ?? "")
+                                .frame(width: 150)
                         }
-                        .frame(width: 150)
+                        .foregroundColor(.primary)
                     }
                     .font(.system(size: 13))
                     .padding(.vertical, 10)
