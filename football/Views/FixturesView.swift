@@ -115,8 +115,7 @@ struct FixturesView: View {
                                     ForEach(fixtures) { fixture in
                                         FixtureCell(
                                             fixture: fixture,
-                                            formattedDate: viewModel.formatDate(fixture.fixture.date),
-                                            status: viewModel.getMatchStatus(fixture.fixture.status)
+                                            formattedDate: viewModel.formatDate(fixture.fixture.date)
                                         )
                                         .padding(.horizontal)
                                     }

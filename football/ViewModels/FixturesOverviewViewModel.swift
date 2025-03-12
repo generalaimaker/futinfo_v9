@@ -753,8 +753,7 @@ class FixturesOverviewViewModel: ObservableObject {
         let today = calendar.startOfDay(for: Date())
         let todayIndex = visibleDateRange.firstIndex(where: { calendar.isDate($0, inSameDayAs: today) }) ?? 7
         
-        // 주요 리그 ID 목록
-        let prioritizedLeagues = [39, 140, 135, 78, 2, 3]
+        // 주요 리그 ID 목록은 이미 다른 곳에서 정의되어 있음
         
         print("🔄 경기 일정 로드 시작 - 기준 날짜: \(formatDateForAPI(today))")
         

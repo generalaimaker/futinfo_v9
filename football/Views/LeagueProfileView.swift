@@ -6,8 +6,10 @@ struct LeagueProfileView: View {
     @State private var selectedSeason: Int = 2024
     
     let seasons = [2024, 2023, 2022, 2021, 2020]
+    let leagueId: Int
     
     init(leagueId: Int) {
+        self.leagueId = leagueId
         self._viewModel = StateObject(wrappedValue: LeagueProfileViewModel(leagueId: leagueId))
     }
     
@@ -27,7 +29,7 @@ struct LeagueProfileView: View {
             // 탭 선택
             TabView(selection: $selectedTab) {
                 // 순위 탭
-                StandingsTabView(standings: viewModel.standings)
+                StandingsTabView(standings: viewModel.standings, leagueId: leagueId)
                     .tag(0)
                 
                 // 경기 탭
@@ -307,6 +309,12 @@ struct LeagueLoadingView: View {
 // MARK: - 순위 탭 뷰
 struct StandingsTabView: View {
     let standings: [Standing]
+    let leagueId: Int
+    
+    init(standings: [Standing], leagueId: Int = 0) {
+        self.standings = standings
+        self.leagueId = leagueId
+    }
     
     var body: some View {
         ScrollView {
@@ -340,49 +348,52 @@ struct StandingsTabView: View {
                 // 순위 목록
                 ForEach(standings) { standing in
                     VStack(spacing: 0) {
-                        HStack(spacing: 0) {
-                            Text("\(standing.rank)")
-                                .frame(width: 25, alignment: .center)
-                                .foregroundColor(standing.rank <= 4 ? .blue : .primary)
-                            
-                            HStack(spacing: 8) {
-                                AsyncImage(url: URL(string: standing.team.logo)) { image in
-                                    image
-                                        .resizable()
-                                        .scaledToFit()
-                                } placeholder: {
-                                    Image(systemName: "sportscourt")
-                                        .foregroundColor(.gray)
-                                }
-                                .frame(width: 20, height: 20)
+                        NavigationLink(destination: TeamProfileView(teamId: standing.team.id, leagueId: leagueId)) {
+                            HStack(spacing: 0) {
+                                Text("\(standing.rank)")
+                                    .frame(width: 25, alignment: .center)
+                                    .foregroundColor(standing.rank <= 4 ? .blue : .primary)
                                 
-                                Text(standing.team.name)
-                                    .lineLimit(1)
-                                    .font(.system(size: 13))
+                                HStack(spacing: 8) {
+                                    AsyncImage(url: URL(string: standing.team.logo)) { image in
+                                        image
+                                            .resizable()
+                                            .scaledToFit()
+                                    } placeholder: {
+                                        Image(systemName: "sportscourt")
+                                            .foregroundColor(.gray)
+                                    }
+                                    .frame(width: 20, height: 20)
+                                    
+                                    Text(standing.team.name)
+                                        .lineLimit(1)
+                                        .font(.system(size: 13))
+                                }
+                                .frame(width: 180, alignment: .leading)
+                                
+                                Text("\(standing.all.played)")
+                                    .frame(width: 35, alignment: .center)
+                                Text("\(standing.all.win)")
+                                    .frame(width: 25, alignment: .center)
+                                Text("\(standing.all.draw)")
+                                    .frame(width: 25, alignment: .center)
+                                Text("\(standing.all.lose)")
+                                    .frame(width: 25, alignment: .center)
+                                
+                                Text(standing.goalsDiff > 0 ? "+\(standing.goalsDiff)" : "\(standing.goalsDiff)")
+                                    .frame(width: 35, alignment: .center)
+                                    .foregroundColor(standing.goalsDiff > 0 ? .green : (standing.goalsDiff < 0 ? .red : .primary))
+                                
+                                Text("\(standing.points)")
+                                    .frame(width: 35, alignment: .center)
+                                    .bold()
                             }
-                            .frame(width: 180, alignment: .leading)
-                            
-                            Text("\(standing.all.played)")
-                                .frame(width: 35, alignment: .center)
-                            Text("\(standing.all.win)")
-                                .frame(width: 25, alignment: .center)
-                            Text("\(standing.all.draw)")
-                                .frame(width: 25, alignment: .center)
-                            Text("\(standing.all.lose)")
-                                .frame(width: 25, alignment: .center)
-                            
-                            Text(standing.goalsDiff > 0 ? "+\(standing.goalsDiff)" : "\(standing.goalsDiff)")
-                                .frame(width: 35, alignment: .center)
-                                .foregroundColor(standing.goalsDiff > 0 ? .green : (standing.goalsDiff < 0 ? .red : .primary))
-                            
-                            Text("\(standing.points)")
-                                .frame(width: 35, alignment: .center)
-                                .bold()
+                            .foregroundColor(.primary)
+                            .font(.system(size: 13))
+                            .padding(.vertical, 10)
+                            .padding(.horizontal, 8)
                         }
-                        .foregroundColor(.primary)
-                        .font(.system(size: 13))
-                        .padding(.vertical, 10)
-                        .padding(.horizontal, 8)
+                        .buttonStyle(PlainButtonStyle())
                         
                         Divider()
                     }
@@ -416,8 +427,7 @@ struct LeagueFixturesTabView: View {
                         ForEach(todayFixtures) { fixture in
                             FixtureCell(
                                 fixture: fixture,
-                                formattedDate: formatDate(fixture.fixture.date),
-                                status: getMatchStatus(fixture.fixture.status)
+                                formattedDate: formatDate(fixture.fixture.date)
                             )
                             .padding(.horizontal)
                         }
@@ -431,8 +441,7 @@ struct LeagueFixturesTabView: View {
                         ForEach(upcomingFixtures) { fixture in
                             FixtureCell(
                                 fixture: fixture,
-                                formattedDate: formatDate(fixture.fixture.date),
-                                status: getMatchStatus(fixture.fixture.status)
+                                formattedDate: formatDate(fixture.fixture.date)
                             )
                             .padding(.horizontal)
                         }
@@ -447,8 +456,7 @@ struct LeagueFixturesTabView: View {
                         if let firstPastFixture = pastFixtures.first {
                             FixtureCell(
                                 fixture: firstPastFixture,
-                                formattedDate: formatDate(firstPastFixture.fixture.date),
-                                status: getMatchStatus(firstPastFixture.fixture.status)
+                                formattedDate: formatDate(firstPastFixture.fixture.date)
                             )
                             .padding(.horizontal)
                             .id("recentMatch")
@@ -458,8 +466,7 @@ struct LeagueFixturesTabView: View {
                         ForEach(pastFixtures.dropFirst()) { fixture in
                             FixtureCell(
                                 fixture: fixture,
-                                formattedDate: formatDate(fixture.fixture.date),
-                                status: getMatchStatus(fixture.fixture.status)
+                                formattedDate: formatDate(fixture.fixture.date)
                             )
                             .padding(.horizontal)
                         }

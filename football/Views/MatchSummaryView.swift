@@ -191,21 +191,19 @@ struct MatchSummaryView: View {
                         .padding()
                 } else {
                     VStack(spacing: 24) {
-                        // 팀 로고
+                        // 팀 로고 - 경기 요약 탭 하단에서는 팀 프로필로 이동하지 않음
                         HStack {
-                            NavigationLink(destination: TeamProfileView(teamId: statistics[0].team.id, leagueId: fixture.league.id)) {
-                                AsyncImage(url: URL(string: statistics[0].team.logo)) { image in
-                                    image
-                                        .resizable()
-                                        .scaledToFit()
-                                        .frame(width: 40, height: 40)
-                                } placeholder: {
-                                    Image(systemName: "sportscourt")
-                                        .font(.system(size: 30))
-                                        .foregroundColor(.gray)
-                                }
+                            // 홈팀 로고
+                            AsyncImage(url: URL(string: statistics[0].team.logo)) { image in
+                                image
+                                    .resizable()
+                                    .scaledToFit()
+                                    .frame(width: 40, height: 40)
+                            } placeholder: {
+                                Image(systemName: "sportscourt")
+                                    .font(.system(size: 30))
+                                    .foregroundColor(.gray)
                             }
-                            .buttonStyle(PlainButtonStyle())
                             
                             Spacer()
                             
@@ -215,19 +213,17 @@ struct MatchSummaryView: View {
                             
                             Spacer()
                             
-                            NavigationLink(destination: TeamProfileView(teamId: statistics[1].team.id, leagueId: fixture.league.id)) {
-                                AsyncImage(url: URL(string: statistics[1].team.logo)) { image in
-                                    image
-                                        .resizable()
-                                        .scaledToFit()
-                                        .frame(width: 40, height: 40)
-                                } placeholder: {
-                                    Image(systemName: "sportscourt")
-                                        .font(.system(size: 30))
-                                        .foregroundColor(.gray)
-                                }
+                            // 원정팀 로고
+                            AsyncImage(url: URL(string: statistics[1].team.logo)) { image in
+                                image
+                                    .resizable()
+                                    .scaledToFit()
+                                    .frame(width: 40, height: 40)
+                            } placeholder: {
+                                Image(systemName: "sportscourt")
+                                    .font(.system(size: 30))
+                                    .foregroundColor(.gray)
                             }
-                            .buttonStyle(PlainButtonStyle())
                         }
                         .padding(.horizontal, 40)
                         
@@ -285,21 +281,19 @@ struct MatchSummaryView: View {
                         .font(.headline)
                     
                     VStack(spacing: 16) {
-                        // 홈팀
+                        // 홈팀 - 최근 폼 영역에서도 팀 프로필로 이동하지 않음
                         HStack {
-                            NavigationLink(destination: TeamProfileView(teamId: fixture.teams.home.id, leagueId: fixture.league.id)) {
-                                AsyncImage(url: URL(string: fixture.teams.home.logo)) { image in
-                                    image
-                                        .resizable()
-                                        .scaledToFit()
-                                        .frame(width: 32, height: 32)
-                                } placeholder: {
-                                    Image(systemName: "sportscourt")
-                                        .font(.system(size: 24))
-                                        .foregroundColor(.gray)
-                                }
+                            // 홈팀 로고
+                            AsyncImage(url: URL(string: fixture.teams.home.logo)) { image in
+                                image
+                                    .resizable()
+                                    .scaledToFit()
+                                    .frame(width: 32, height: 32)
+                            } placeholder: {
+                                Image(systemName: "sportscourt")
+                                    .font(.system(size: 24))
+                                    .foregroundColor(.gray)
                             }
-                            .buttonStyle(PlainButtonStyle())
                             
                             Text(fixture.teams.home.name)
                                 .font(.system(.body, design: .rounded))
@@ -314,21 +308,19 @@ struct MatchSummaryView: View {
                             }
                         }
                         
-                        // 원정팀
+                        // 원정팀 - 최근 폼 영역에서도 팀 프로필로 이동하지 않음
                         HStack {
-                            NavigationLink(destination: TeamProfileView(teamId: fixture.teams.away.id, leagueId: fixture.league.id)) {
-                                AsyncImage(url: URL(string: fixture.teams.away.logo)) { image in
-                                    image
-                                        .resizable()
-                                        .scaledToFit()
-                                        .frame(width: 32, height: 32)
-                                } placeholder: {
-                                    Image(systemName: "sportscourt")
-                                        .font(.system(size: 24))
-                                        .foregroundColor(.gray)
-                                }
+                            // 원정팀 로고
+                            AsyncImage(url: URL(string: fixture.teams.away.logo)) { image in
+                                image
+                                    .resizable()
+                                    .scaledToFit()
+                                    .frame(width: 32, height: 32)
+                            } placeholder: {
+                                Image(systemName: "sportscourt")
+                                    .font(.system(size: 24))
+                                    .foregroundColor(.gray)
                             }
-                            .buttonStyle(PlainButtonStyle())
                             
                             Text(fixture.teams.away.name)
                                 .font(.system(.body, design: .rounded))

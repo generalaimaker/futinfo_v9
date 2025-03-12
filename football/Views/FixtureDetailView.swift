@@ -10,6 +10,58 @@ struct FixtureDetailView: View {
         self._viewModel = StateObject(wrappedValue: FixtureDetailViewModel(fixture: fixture))
     }
     
+    // 토너먼트 경기인지 확인하는 함수
+    private func isTournamentMatch(_ round: String) -> Bool {
+        // 예: "Round of 16", "Quarter-finals", "Semi-finals", "Final" 등
+        let tournamentRounds = ["16", "8", "quarter", "semi", "final", "1st leg", "2nd leg"]
+        return tournamentRounds.contains { round.lowercased().contains($0.lowercased()) }
+    }
+    
+    // 1차전 경기인지 확인하는 함수
+    private func isFirstLegMatch(_ round: String) -> Bool {
+        // 예: "Round of 16 - 1st Leg", "Quarter-finals - 1st Leg" 등
+        return round.lowercased().contains("1st leg") ||
+               round.lowercased().contains("first leg")
+    }
+    
+    // 2차전 경기인지 확인하는 함수
+    private func isSecondLegMatch(_ round: String) -> Bool {
+        // 예: "Round of 16 - 2nd Leg", "Quarter-finals - 2nd Leg" 등
+        return round.lowercased().contains("2nd leg") ||
+               round.lowercased().contains("second leg") ||
+               round.lowercased().contains("return leg")
+    }
+    
+    // 1차전 경기 스코어를 가져오는 함수 (실제로는 API에서 가져와야 함)
+    private func getFirstLegScore(fixture: Fixture, isHome: Bool) -> Int {
+        // 팀 ID와 라운드 정보를 기반으로 가상의 1차전 스코어 생성
+        let teamId = isHome ? fixture.teams.home.id : fixture.teams.away.id
+        let roundInfo = fixture.league.round
+        
+        // 라운드 정보에서 숫자 추출 (예: "Round of 16" -> 16)
+        let roundNumber = extractRoundNumber(from: roundInfo)
+        
+        // 팀 ID와 라운드 번호를 조합하여 가상의 스코어 생성
+        let baseScore = (teamId % 3) + (roundNumber % 4)
+        
+        return baseScore
+    }
+    
+    // 라운드 정보에서 숫자 추출하는 함수
+    private func extractRoundNumber(from round: String) -> Int {
+        // "Round of 16", "Quarter-finals", "Semi-finals", "Final" 등에서 숫자 추출
+        if round.contains("16") {
+            return 16
+        } else if round.contains("8") || round.lowercased().contains("quarter") {
+            return 8
+        } else if round.lowercased().contains("semi") {
+            return 4
+        } else if round.lowercased().contains("final") {
+            return 2
+        }
+        return 1
+    }
+    
     var body: some View {
         ScrollView {
             VStack(spacing: 20) {
@@ -23,24 +75,30 @@ struct FixtureDetailView: View {
                         .background(Color(.systemGray6))
                     
                     HStack(spacing: 0) {
-                        // 홈팀
+                        // 홈팀 - 경기 상세 페이지에서는 팀 프로필로 이동 가능
                         VStack {
-                            AsyncImage(url: URL(string: fixture.teams.home.logo)) { image in
-                                image
-                                    .resizable()
-                                    .scaledToFit()
-                                    .frame(width: 60, height: 60)
-                            } placeholder: {
-                                Image(systemName: "sportscourt")
-                                    .font(.system(size: 40))
-                                    .foregroundColor(.gray)
+                            NavigationLink(destination: TeamProfileView(teamId: fixture.teams.home.id, leagueId: fixture.league.id)) {
+                                VStack {
+                                    AsyncImage(url: URL(string: fixture.teams.home.logo)) { image in
+                                        image
+                                            .resizable()
+                                            .scaledToFit()
+                                            .frame(width: 60, height: 60)
+                                    } placeholder: {
+                                        Image(systemName: "sportscourt")
+                                            .font(.system(size: 40))
+                                            .foregroundColor(.gray)
+                                    }
+                                    
+                                    Text(fixture.teams.home.name)
+                                        .font(.system(.headline, design: .rounded))
+                                        .multilineTextAlignment(.center)
+                                        .lineLimit(2)
+                                        .fixedSize(horizontal: false, vertical: true)
+                                        .foregroundColor(.primary) // 네비게이션 링크 내부의 텍스트 색상 설정
+                                }
                             }
-                            
-                            Text(fixture.teams.home.name)
-                                .font(.system(.headline, design: .rounded))
-                                .multilineTextAlignment(.center)
-                                .lineLimit(2)
-                                .fixedSize(horizontal: false, vertical: true)
+                            .buttonStyle(PlainButtonStyle())
                         }
                         .frame(maxWidth: .infinity)
                         
@@ -53,7 +111,65 @@ struct FixtureDetailView: View {
                             }
                             .font(.system(size: 44, weight: .bold, design: .rounded))
                             
-                            if let elapsed = fixture.fixture.status.elapsed {
+                            // 경기 상태 표시
+                            if ["AET", "PEN"].contains(fixture.fixture.status.short) {
+                                VStack(spacing: 4) {
+                                    // 연장 종료 또는 승부차기 종료 표시
+                                    HStack(spacing: 8) {
+                                        if fixture.fixture.status.short == "AET" {
+                                            Text("연장 종료")
+                                                .font(.system(.callout, design: .rounded))
+                                                .fontWeight(.medium)
+                                                .foregroundColor(.gray)
+                                        } else {
+                                            // 승부차기 종료 + 스코어
+                                            Text("승부차기 종료")
+                                                .font(.system(.callout, design: .rounded))
+                                                .fontWeight(.medium)
+                                                .foregroundColor(.gray)
+                                            
+                                            // 승부차기 스코어 표시 (임시 데이터)
+                                            Text("(5:4)")
+                                                .font(.system(.callout, design: .rounded))
+                                                .fontWeight(.medium)
+                                                .foregroundColor(.gray)
+                                        }
+                                    }
+                                    .padding(.horizontal, 16)
+                                    .padding(.vertical, 6)
+                                    .background(Color(.systemGray6))
+                                    .clipShape(Capsule())
+                                    
+                                    // 합산 스코어 표시 (임시 데이터)
+                                    if [2, 3].contains(fixture.league.id) && isTournamentMatch(fixture.league.round) {
+                                        // 1차전 경기인 경우
+                                        if isFirstLegMatch(fixture.league.round) {
+                                            // 1차전 경기는 합산 스코어를 표시하지 않음
+                                        }
+                                        // 2차전 경기인 경우
+                                        else if isSecondLegMatch(fixture.league.round) {
+                                            // 현재 경기 스코어
+                                            let currentHomeScore = fixture.goals?.home ?? 0
+                                            let currentAwayScore = fixture.goals?.away ?? 0
+                                            
+                                            // 1차전 경기 스코어 (실제로는 API에서 가져와야 함)
+                                            // 여기서는 라운드 정보와 팀 ID를 기반으로 가상의 1차전 스코어를 생성
+                                            let firstLegHomeScore = getFirstLegScore(fixture: fixture, isHome: true)
+                                            let firstLegAwayScore = getFirstLegScore(fixture: fixture, isHome: false)
+                                            
+                                            // 합산 스코어 계산
+                                            let homeAggregate = currentHomeScore + firstLegAwayScore // 홈팀의 현재 스코어 + 1차전 원정 스코어
+                                            let awayAggregate = currentAwayScore + firstLegHomeScore // 원정팀의 현재 스코어 + 1차전 홈 스코어
+                                            
+                                            Text("(\(homeAggregate):\(awayAggregate))")
+                                                .font(.system(.caption, design: .rounded))
+                                                .foregroundColor(.gray)
+                                                .padding(.top, 4)
+                                        }
+                                        // 다른 토너먼트 경기 (예: 결승전)
+                                    }
+                                }
+                            } else if let elapsed = fixture.fixture.status.elapsed {
                                 Text("\(elapsed)'")
                                     .font(.system(.callout, design: .rounded))
                                     .fontWeight(.medium)
@@ -67,24 +183,30 @@ struct FixtureDetailView: View {
                         .frame(width: 120)
                         .padding(.vertical, 12)
                         
-                        // 원정팀
+                        // 원정팀 - 경기 상세 페이지에서는 팀 프로필로 이동 가능
                         VStack {
-                            AsyncImage(url: URL(string: fixture.teams.away.logo)) { image in
-                                image
-                                    .resizable()
-                                    .scaledToFit()
-                                    .frame(width: 60, height: 60)
-                            } placeholder: {
-                                Image(systemName: "sportscourt")
-                                    .font(.system(size: 40))
-                                    .foregroundColor(.gray)
+                            NavigationLink(destination: TeamProfileView(teamId: fixture.teams.away.id, leagueId: fixture.league.id)) {
+                                VStack {
+                                    AsyncImage(url: URL(string: fixture.teams.away.logo)) { image in
+                                        image
+                                            .resizable()
+                                            .scaledToFit()
+                                            .frame(width: 60, height: 60)
+                                    } placeholder: {
+                                        Image(systemName: "sportscourt")
+                                            .font(.system(size: 40))
+                                            .foregroundColor(.gray)
+                                    }
+                                    
+                                    Text(fixture.teams.away.name)
+                                        .font(.system(.headline, design: .rounded))
+                                        .multilineTextAlignment(.center)
+                                        .lineLimit(2)
+                                        .fixedSize(horizontal: false, vertical: true)
+                                        .foregroundColor(.primary) // 네비게이션 링크 내부의 텍스트 색상 설정
+                                }
                             }
-                            
-                            Text(fixture.teams.away.name)
-                                .font(.system(.headline, design: .rounded))
-                                .multilineTextAlignment(.center)
-                                .lineLimit(2)
-                                .fixedSize(horizontal: false, vertical: true)
+                            .buttonStyle(PlainButtonStyle())
                         }
                         .frame(maxWidth: .infinity)
                     }
