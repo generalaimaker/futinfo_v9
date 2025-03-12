@@ -25,6 +25,10 @@ class TeamProfileViewModel: ObservableObject {
     init(teamId: Int, leagueId: Int? = nil) {
         self.teamId = teamId
         self.selectedLeagueId = leagueId
+        
+        // 현재 시즌을 기본값으로 설정 (2024)
+        self.selectedSeason = 2024
+        
         Task {
             await loadTeamProfile(teamId: teamId)
             await loadTeamSeasons(teamId: teamId)
@@ -54,34 +58,46 @@ class TeamProfileViewModel: ObservableObject {
         isLoadingStats = true
         errorMessage = nil
         
-        async let statisticsTask = service.getTeamStatistics(
-            teamId: teamId,
-            leagueId: leagueId,
-            season: selectedSeason
-        )
-        
-        async let standingTask = service.getTeamStanding(
-            teamId: teamId,
-            leagueId: leagueId,
-            season: selectedSeason
-        )
-        
         do {
-            let (statistics, standing) = try await (statisticsTask, standingTask)
+            // 통계 데이터 로드
+            let statistics = try await service.getTeamStatistics(
+                teamId: teamId,
+                leagueId: leagueId,
+                season: selectedSeason
+            )
             teamStatistics = statistics
-            teamStanding = standing
+            
+            // 순위 데이터 로드 (실패해도 계속 진행)
+            do {
+                teamStanding = try await service.getTeamStanding(
+                    teamId: teamId,
+                    leagueId: leagueId,
+                    season: selectedSeason
+                )
+            } catch {
+                print("Standing data load failed: \(error)")
+                // 순위 데이터가 없어도 계속 진행
+                teamStanding = nil
+            }
             
             // 차트 데이터 생성
-            if let stats = teamStatistics {
-                chartData = [
-                    TeamSeasonChartData(type: "승률", stats: stats),
-                    TeamSeasonChartData(type: "경기당 득점", stats: stats),
-                    TeamSeasonChartData(type: "클린시트", stats: stats)
-                ]
-            }
+            chartData = [
+                TeamSeasonChartData(type: "승률", stats: statistics),
+                TeamSeasonChartData(type: "경기당 득점", stats: statistics),
+                TeamSeasonChartData(type: "클린시트", stats: statistics)
+            ]
+            
+            // 에러 메시지 초기화
+            errorMessage = nil
+            
+        } catch DecodingError.valueNotFound(let type, let context) {
+            // 리그 ID가 null인 경우 처리
+            print("Load Team Data Error: valueNotFound(\(type), \(context.debugDescription))")
+            errorMessage = "이 팀의 리그 데이터를 찾을 수 없습니다."
+            chartData = []
         } catch {
-            errorMessage = "팀 데이터를 불러오는데 실패했습니다: \(error.localizedDescription)"
             print("Load Team Data Error: \(error)")
+            errorMessage = "팀 데이터를 불러오는데 실패했습니다: \(error.localizedDescription)"
             chartData = []
         }
         
@@ -94,9 +110,15 @@ class TeamProfileViewModel: ObservableObject {
         
         do {
             teamSquad = try await service.getTeamSquad(teamId: teamId)
+        } catch DecodingError.keyNotFound(let key, let context) {
+            // "player" 키를 찾을 수 없는 경우 - API 응답 구조가 다를 수 있음
+            print("Load Team Squad Error: keyNotFound(\(key), \(context.debugDescription))")
+            // 에러 메시지를 표시하지 않고 빈 배열로 설정 - UI에 영향을 주지 않음
+            teamSquad = []
         } catch {
-            errorMessage = "선수단 정보를 불러오는데 실패했습니다: \(error.localizedDescription)"
             print("Load Team Squad Error: \(error)")
+            // 다른 에러의 경우 사용자에게 알림
+            errorMessage = "선수단 정보를 불러오는데 실패했습니다: \(error.localizedDescription)"
         }
         
         isLoadingSquad = false
@@ -117,31 +139,46 @@ class TeamProfileViewModel: ObservableObject {
     func loadTeamHistory() async {
         guard let leagueId = selectedLeagueId else { return }
         
+        let currentYear = Calendar.current.component(.year, from: Date())
         var history: [TeamHistory] = []
-        for season in seasons.prefix(5) {
+        
+        // 최근 5개 시즌만 로드 (미래 시즌 제외)
+        for season in seasons.prefix(5).filter({ $0 <= currentYear }) {
+            // 각 API 호출을 개별적으로 처리하여 하나가 실패해도 다른 하나는 계속 진행
+            var statistics: TeamSeasonStatistics?
+            var standing: TeamStanding?
+            
             do {
-                async let statisticsTask = service.getTeamStatistics(
+                statistics = try await service.getTeamStatistics(
                     teamId: teamId,
                     leagueId: leagueId,
                     season: season
                 )
-                async let standingTask = service.getTeamStanding(
+            } catch {
+                print("Failed to load statistics for season \(season): \(error)")
+                continue // 통계 로드 실패 시 이 시즌은 건너뜀
+            }
+            
+            do {
+                standing = try await service.getTeamStanding(
                     teamId: teamId,
                     leagueId: leagueId,
                     season: season
                 )
-                
-                let (statistics, standing) = try await (statisticsTask, standingTask)
-                
+            } catch {
+                print("Failed to load standing for season \(season): \(error)")
+                // 순위 로드 실패해도 계속 진행
+            }
+            
+            // 통계 데이터가 있는 경우에만 히스토리에 추가
+            if let stats = statistics {
                 let seasonHistory = TeamHistory(
                     season: season,
                     leagueId: leagueId,
-                    statistics: statistics,
+                    statistics: stats,
                     standing: standing
                 )
                 history.append(seasonHistory)
-            } catch {
-                print("Failed to load history for season \(season): \(error)")
             }
         }
         
@@ -155,8 +192,21 @@ class TeamProfileViewModel: ObservableObject {
         errorMessage = nil
         
         do {
-            seasons = try await service.getTeamSeasons(teamId: teamId)
-            if let firstSeason = seasons.first {
+            // 시즌 목록 가져오기
+            var allSeasons = try await service.getTeamSeasons(teamId: teamId)
+            
+            // 현재 연도 이하의 시즌만 필터링 (미래 시즌 제외)
+            let currentYear = Calendar.current.component(.year, from: Date())
+            allSeasons = allSeasons.filter { $0 <= currentYear }
+            
+            // 시즌 목록 업데이트
+            seasons = allSeasons
+            
+            // 현재 시즌(2024)을 기본값으로 설정
+            if seasons.contains(2024) {
+                selectedSeason = 2024
+            } else if let firstSeason = seasons.first {
+                // 현재 시즌이 없으면 가장 최근 시즌 선택
                 selectedSeason = firstSeason
             }
         } catch {

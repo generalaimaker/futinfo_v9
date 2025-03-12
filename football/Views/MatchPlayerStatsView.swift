@@ -261,7 +261,7 @@ struct PlayerStatRow: View {
                     if let passes = stats.passes {
                         HStack(spacing: 20) {
                             StatItem(title: "패스 시도", value: "\(passes.total ?? 0)")
-                            StatItem(title: "성공률", value: "\(passes.accuracy ?? "0")%")
+                            StatItem(title: "성공률", value: passes.accuracy?.displayValue ?? "0%")
                             StatItem(title: "키패스", value: "\(passes.key ?? 0)")
                         }
                     }

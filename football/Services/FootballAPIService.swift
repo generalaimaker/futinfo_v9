@@ -1,12 +1,29 @@
 import Foundation
 
-enum FootballAPIError: LocalizedError {
+enum FootballAPIError: LocalizedError, Equatable {
     case invalidURL
     case invalidResponse
     case rateLimitExceeded
-    case apiError([String])
+    case apiError([String])     // 원래 배열 형태로 되돌림
     case decodingError(Error)
     case missingAPIKey
+    
+    static func == (lhs: FootballAPIError, rhs: FootballAPIError) -> Bool {
+        switch (lhs, rhs) {
+        case (.invalidURL, .invalidURL),
+             (.invalidResponse, .invalidResponse),
+             (.rateLimitExceeded, .rateLimitExceeded),
+             (.missingAPIKey, .missingAPIKey):
+            return true
+        case (.apiError(let lhsErrors), .apiError(let rhsErrors)):
+            return lhsErrors == rhsErrors
+        case (.decodingError, .decodingError):
+            // Error 프로토콜은 Equatable을 준수하지 않으므로 타입만 비교
+            return true
+        default:
+            return false
+        }
+    }
     
     var errorDescription: String? {
         switch self {
@@ -42,7 +59,7 @@ class FootballAPIService {
     
     func getCurrentLeagues() async throws -> [LeagueDetails] {
         var allLeagues: [LeagueDetails] = []
-        let currentSeason = 2024 // 2023-24 시즌
+        let currentSeason = 2024 // 2024-25 시즌
         
         print("\n🎯 Starting to fetch league details...")
         
@@ -369,38 +386,59 @@ class FootballAPIService {
     
     // MARK: - Fixtures
     
-    func getFixtures(leagueId: Int, season: Int) async throws -> [Fixture] {
+    func getFixtures(leagueIds: [Int], season: Int) async throws -> [Fixture] {
         var allFixtures: [Fixture] = []
         let decoder = JSONDecoder()
         let dateRange = getDateRange(forSeason: season)
         
+        // 리그 ID를 쉼표로 구분된 문자열로 변환
+        let leaguesStr = leagueIds.map { String($0) }.joined(separator: ",")
+        
         // 1. 실시간 경기 가져오기 (현재 시즌만)
         if season == 2024 {
-            let liveEndpoint = "/fixtures?live=all&league=\(leagueId)&season=\(season)"
+            let liveEndpoint = "/fixtures?live=all&league=\(leaguesStr)&season=\(season)"
             let liveRequest = createRequest(liveEndpoint)
             
-            print("\n📡 Fetching live fixtures for league \(leagueId)...")
-            let (liveData, liveResponse) = try await URLSession.shared.data(for: liveRequest)
-            try handleResponse(liveResponse)
+            print("\n📡 Fetching live fixtures for leagues \(leaguesStr)...")
             
-            // API 응답 로깅
-            logResponse(data: liveData, endpoint: "Live Fixtures")
-            
-            let liveFixtures = try decoder.decode(FixturesResponse.self, from: liveData)
-            if !liveFixtures.errors.isEmpty {
-                throw FootballAPIError.apiError(liveFixtures.errors)
+            do {
+                let (liveData, liveResponse) = try await URLSession.shared.data(for: liveRequest)
+                try handleResponse(liveResponse)
+                
+                // API 응답 로깅
+                logResponse(data: liveData, endpoint: "Live Fixtures")
+                
+                let liveFixtures = try decoder.decode(FixturesResponse.self, from: liveData)
+                if !liveFixtures.errors.isEmpty {
+                    print("⚠️ Live fixtures API errors: \(liveFixtures.errors.joined(separator: ", "))")
+                } else {
+                    print("✅ Found \(liveFixtures.response.count) live fixtures")
+                    allFixtures.append(contentsOf: liveFixtures.response)
+                }
+            } catch {
+                print("⚠️ Error fetching live fixtures: \(error.localizedDescription)")
+                // 라이브 경기 로드 실패는 무시하고 계속 진행
             }
-            allFixtures.append(contentsOf: liveFixtures.response)
             
             // API 요청 제한을 고려한 딜레이
-            try await Task.sleep(nanoseconds: 500_000_000) // 0.5초 대기
+            do {
+                try await Task.sleep(nanoseconds: 500_000_000) // 0.5초 대기
+            } catch {
+                if error is CancellationError {
+                    print("⚠️ Task cancelled during delay (normal)")
+                } else {
+                    print("⚠️ Task.sleep error: \(error.localizedDescription)")
+                }
+            }
         }
         
         // 2. 날짜 범위로 경기 가져오기
-        let fixturesEndpoint = "/fixtures?league=\(leagueId)&season=\(season)&from=\(dateRange.from)&to=\(dateRange.to)"
+        let fixturesEndpoint = "/fixtures?league=\(leaguesStr)&season=\(season)&from=\(dateRange.from)&to=\(dateRange.to)"
         let fixturesRequest = createRequest(fixturesEndpoint)
         
-        print("\n📡 Fetching fixtures for league \(leagueId)...")
+        print("\n📡 Fetching fixtures for leagues \(leaguesStr)...")
+        print("📅 Date range: \(dateRange.from) to \(dateRange.to)")
+        
         let (fixturesData, fixturesResponse) = try await URLSession.shared.data(for: fixturesRequest)
         try handleResponse(fixturesResponse)
         
@@ -411,15 +449,22 @@ class FootballAPIService {
         if !fixtures.errors.isEmpty {
             throw FootballAPIError.apiError(fixtures.errors)
         }
+        
+        print("✅ Received \(fixtures.response.count) fixtures from API")
         allFixtures.append(contentsOf: fixtures.response)
         
         // 중복 제거
-        allFixtures = Array(Set(allFixtures))
+        let uniqueFixtures = Array(Set(allFixtures))
         
-        print("\n✅ Successfully fetched \(allFixtures.count) fixtures for league \(leagueId)")
-        return allFixtures.sorted { fixture1, fixture2 in
+        print("\n✅ Successfully fetched \(uniqueFixtures.count) unique fixtures for leagues \(leaguesStr)")
+        return uniqueFixtures.sorted { fixture1, fixture2 in
             fixture1.fixture.date < fixture2.fixture.date
         }
+    }
+    
+    // 단일 리그 버전 (이전 버전과의 호환성 유지)
+    func getFixtures(leagueId: Int, season: Int) async throws -> [Fixture] {
+        return try await getFixtures(leagueIds: [leagueId], season: season)
     }
     
     // MARK: - Head to Head
@@ -546,29 +591,164 @@ class FootballAPIService {
     // MARK: - Player Profile
     
     func getPlayerProfile(playerId: Int) async throws -> PlayerProfileData {
-        let endpoint = "/players?id=\(playerId)&season=2024"
+        // 1. 먼저 players/profiles 엔드포인트로 최신 선수 정보 시도
+        do {
+            let profileData = try await getPlayerProfileFromProfiles(playerId: playerId)
+            print("✅ Successfully loaded player profile from profiles endpoint")
+            return profileData
+        } catch {
+            print("⚠️ Failed to load player profile from profiles endpoint: \(error.localizedDescription)")
+            print("⚠️ Falling back to season-based endpoint...")
+            // 실패하면 기존 시즌 기반 메서드로 폴백
+            return try await getPlayerProfileFromSeasons(playerId: playerId)
+        }
+    }
+    
+    // 기존 시즌 기반 메서드 (이름 변경)
+    private func getPlayerProfileFromSeasons(playerId: Int) async throws -> PlayerProfileData {
+        // 시도할 시즌 목록 (최신 시즌부터)
+        let seasons = [2024, 2023, 2022]
+        var lastError: Error? = nil
+        
+        // 각 시즌을 순차적으로 시도
+        for season in seasons {
+            do {
+                let endpoint = "/players?id=\(playerId)&season=\(season)"
+                let request = createRequest(endpoint)
+                
+                print("\n📡 Fetching profile for player \(playerId) (season \(season))...")
+                let (data, response) = try await URLSession.shared.data(for: request)
+                try handleResponse(response)
+                
+                // API 응답 로깅
+                logResponse(data: data, endpoint: "Player Profile (Season \(season))")
+                
+                // JSON 구조 분석 (디버깅용)
+                if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                    print("\n📊 Player Profile JSON Structure:")
+                    if let results = json["results"] as? Int {
+                        print("Results: \(results)")
+                    }
+                    if let response = json["response"] as? [[String: Any]], !response.isEmpty {
+                        print("Response items: \(response.count)")
+                        if let firstPlayer = response.first {
+                            print("Player keys: \(firstPlayer.keys.joined(separator: ", "))")
+                            if let player = firstPlayer["player"] as? [String: Any] {
+                                print("Player info keys: \(player.keys.joined(separator: ", "))")
+                            }
+                            if let statistics = firstPlayer["statistics"] as? [[String: Any]] {
+                                print("Statistics items: \(statistics.count)")
+                            }
+                        }
+                    }
+                }
+                
+                let decoder = JSONDecoder()
+                
+                // 디코딩 시도
+                do {
+                    let profileResponse = try decoder.decode(PlayerProfileResponse.self, from: data)
+                    
+                    if !profileResponse.errors.isEmpty {
+                        print("⚠️ API errors: \(profileResponse.errors.joined(separator: ", "))")
+                        continue // 다음 시즌 시도
+                    }
+                    
+                    guard profileResponse.results > 0,
+                          let profile = profileResponse.response.first else {
+                        print("⚠️ No player data found for season \(season)")
+                        continue // 다음 시즌 시도
+                    }
+                    
+                    print("✅ Successfully loaded player profile for season \(season)")
+                    return profile
+                    
+                } catch DecodingError.keyNotFound(let key, let context) {
+                    print("❌ Decoding error - Key '\(key)' not found: \(context.debugDescription)")
+                    print("Coding path: \(context.codingPath)")
+                    lastError = DecodingError.keyNotFound(key, context)
+                    continue // 다음 시즌 시도
+                } catch DecodingError.typeMismatch(let type, let context) {
+                    print("❌ Decoding error - Type '\(type)' mismatch: \(context.debugDescription)")
+                    print("Coding path: \(context.codingPath)")
+                    lastError = DecodingError.typeMismatch(type, context)
+                    continue // 다음 시즌 시도
+                } catch {
+                    print("❌ Other decoding error: \(error)")
+                    lastError = error
+                    continue // 다음 시즌 시도
+                }
+            } catch {
+                print("❌ API request error for season \(season): \(error)")
+                lastError = error
+                continue // 다음 시즌 시도
+            }
+        }
+        
+        // 모든 시즌에서 실패한 경우
+        if let error = lastError {
+            throw FootballAPIError.decodingError(error)
+        } else {
+            throw FootballAPIError.apiError(["선수 정보를 찾을 수 없습니다."])
+        }
+    }
+    
+    // 새로운 profiles 엔드포인트 메서드
+    private func getPlayerProfileFromProfiles(playerId: Int) async throws -> PlayerProfileData {
+        let endpoint = "/players/profiles?id=\(playerId)"
         let request = createRequest(endpoint)
         
-        print("\n📡 Fetching profile for player \(playerId)...")
+        print("\n📡 Fetching profile for player \(playerId) from profiles endpoint...")
         let (data, response) = try await URLSession.shared.data(for: request)
         try handleResponse(response)
         
         // API 응답 로깅
-        logResponse(data: data, endpoint: "Player Profile")
+        logResponse(data: data, endpoint: "Player Profiles")
+        
+        // JSON 구조 분석 (디버깅용)
+        if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            print("\n📊 Player Profiles JSON Structure:")
+            if let results = json["results"] as? Int {
+                print("Results: \(results)")
+            }
+            if let response = json["response"] as? [[String: Any]], !response.isEmpty {
+                print("Response items: \(response.count)")
+                if let firstPlayer = response.first {
+                    print("Player keys: \(firstPlayer.keys.joined(separator: ", "))")
+                }
+            }
+        }
         
         let decoder = JSONDecoder()
-        let profileResponse = try decoder.decode(PlayerProfileResponse.self, from: data)
         
-        if !profileResponse.errors.isEmpty {
-            throw FootballAPIError.apiError(profileResponse.errors)
+        // 디코딩 시도
+        do {
+            // 응답 구조가 다를 수 있으므로 먼저 일반 구조로 디코딩
+            let profileResponse = try decoder.decode(PlayerProfileResponse.self, from: data)
+            
+            if !profileResponse.errors.isEmpty {
+                throw FootballAPIError.apiError(profileResponse.errors)
+            }
+            
+            guard profileResponse.results > 0,
+                  let profile = profileResponse.response.first else {
+                throw FootballAPIError.apiError(["선수 정보를 찾을 수 없습니다."])
+            }
+            
+            return profile
+            
+        } catch DecodingError.keyNotFound(let key, let context) {
+            print("❌ Profiles decoding error - Key '\(key)' not found: \(context.debugDescription)")
+            print("Coding path: \(context.codingPath)")
+            throw FootballAPIError.decodingError(DecodingError.keyNotFound(key, context))
+        } catch DecodingError.typeMismatch(let type, let context) {
+            print("❌ Profiles decoding error - Type '\(type)' mismatch: \(context.debugDescription)")
+            print("Coding path: \(context.codingPath)")
+            throw FootballAPIError.decodingError(DecodingError.typeMismatch(type, context))
+        } catch {
+            print("❌ Other profiles decoding error: \(error)")
+            throw FootballAPIError.decodingError(error)
         }
-        
-        guard profileResponse.results > 0,
-              let profile = profileResponse.response.first else {
-            throw FootballAPIError.apiError(["선수 정보를 찾을 수 없습니다."])
-        }
-        
-        return profile
     }
     
     func getPlayerCareerStats(playerId: Int) async throws -> [PlayerCareerStats] {
@@ -582,51 +762,131 @@ class FootballAPIService {
         // API 응답 로깅
         logResponse(data: data, endpoint: "Player Career")
         
+        // JSON 구조 분석 (디버깅용)
+        if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            print("\n📊 Player Career JSON Structure:")
+            if let results = json["results"] as? Int {
+                print("Results: \(results)")
+            }
+            if let response = json["response"] as? [[String: Any]], !response.isEmpty {
+                print("Response items: \(response.count)")
+                if let firstTeam = response.first {
+                    print("Team keys: \(firstTeam.keys.joined(separator: ", "))")
+                }
+            }
+        }
+        
         let decoder = JSONDecoder()
-        let careerResponse = try decoder.decode(PlayerCareerResponse.self, from: data)
         
-        if !careerResponse.errors.isEmpty {
-            throw FootballAPIError.apiError(careerResponse.errors)
-        }
-        
-        guard careerResponse.results > 0,
-              !careerResponse.response.isEmpty else {
-            throw FootballAPIError.apiError(["선수 커리어 정보를 찾을 수 없습니다."])
-        }
-        
-        // CareerTeamResponse를 PlayerCareerStats로 변환
-        return careerResponse.response.map { teamResponse in
-            PlayerCareerStats(
-                team: teamResponse.team,
-                seasons: teamResponse.seasons
-            )
+        do {
+            let careerResponse = try decoder.decode(PlayerCareerResponse.self, from: data)
+            
+            if !careerResponse.errors.isEmpty {
+                print("⚠️ API errors: \(careerResponse.errors.joined(separator: ", "))")
+                return [] // 에러가 있지만 빈 배열 반환하여 앱이 계속 작동하도록 함
+            }
+            
+            guard careerResponse.results > 0,
+                  !careerResponse.response.isEmpty else {
+                print("⚠️ No career data found for player \(playerId)")
+                return [] // 데이터가 없지만 빈 배열 반환하여 앱이 계속 작동하도록 함
+            }
+            
+            // CareerTeamResponse를 PlayerCareerStats로 변환
+            return careerResponse.response.map { teamResponse in
+                PlayerCareerStats(
+                    team: teamResponse.team,
+                    seasons: teamResponse.seasons
+                )
+            }
+            
+        } catch DecodingError.keyNotFound(let key, let context) {
+            print("❌ Career decoding error - Key '\(key)' not found: \(context.debugDescription)")
+            print("Coding path: \(context.codingPath)")
+            return [] // 디코딩 에러가 있지만 빈 배열 반환하여 앱이 계속 작동하도록 함
+        } catch DecodingError.typeMismatch(let type, let context) {
+            print("❌ Career decoding error - Type '\(type)' mismatch: \(context.debugDescription)")
+            print("Coding path: \(context.codingPath)")
+            return [] // 디코딩 에러가 있지만 빈 배열 반환하여 앱이 계속 작동하도록 함
+        } catch {
+            print("❌ Other career decoding error: \(error)")
+            throw FootballAPIError.decodingError(error)
         }
     }
     
     func getPlayerSeasonalStats(playerId: Int, season: Int) async throws -> [PlayerSeasonStats] {
-        let endpoint = "/players?id=\(playerId)&season=\(season)"
-        let request = createRequest(endpoint)
+        // 시도할 시즌 목록 (지정된 시즌과 이전 시즌들)
+        let seasons = [season, season-1, season-2].filter { $0 > 0 }
+        var lastError: Error? = nil
         
-        print("\n📡 Fetching seasonal stats for player \(playerId)...")
-        let (data, response) = try await URLSession.shared.data(for: request)
-        try handleResponse(response)
-        
-        // API 응답 로깅
-        logResponse(data: data, endpoint: "Player Seasonal Stats")
-        
-        let decoder = JSONDecoder()
-        let statsResponse = try decoder.decode(PlayerSeasonalStatsResponse.self, from: data)
-        
-        if !statsResponse.errors.isEmpty {
-            throw FootballAPIError.apiError(statsResponse.errors)
+        // 각 시즌을 순차적으로 시도
+        for trySeason in seasons {
+            do {
+                let endpoint = "/players?id=\(playerId)&season=\(trySeason)"
+                let request = createRequest(endpoint)
+                
+                print("\n📡 Fetching seasonal stats for player \(playerId) (season \(trySeason))...")
+                let (data, response) = try await URLSession.shared.data(for: request)
+                try handleResponse(response)
+                
+                // API 응답 로깅
+                logResponse(data: data, endpoint: "Player Seasonal Stats (Season \(trySeason))")
+                
+                // JSON 구조 분석 (디버깅용)
+                if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                    print("\n📊 Player Seasonal Stats JSON Structure:")
+                    if let results = json["results"] as? Int {
+                        print("Results: \(results)")
+                    }
+                }
+                
+                let decoder = JSONDecoder()
+                
+                do {
+                    let statsResponse = try decoder.decode(PlayerSeasonalStatsResponse.self, from: data)
+                    
+                    if !statsResponse.errors.isEmpty {
+                        print("⚠️ API errors: \(statsResponse.errors.joined(separator: ", "))")
+                        continue // 다음 시즌 시도
+                    }
+                    
+                    guard statsResponse.results > 0,
+                          !statsResponse.response.isEmpty else {
+                        print("⚠️ No seasonal stats found for player \(playerId) in season \(trySeason)")
+                        continue // 다음 시즌 시도
+                    }
+                    
+                    print("✅ Successfully loaded seasonal stats for player \(playerId) in season \(trySeason)")
+                    return statsResponse.response
+                    
+                } catch DecodingError.keyNotFound(let key, let context) {
+                    print("❌ Seasonal stats decoding error - Key '\(key)' not found: \(context.debugDescription)")
+                    print("Coding path: \(context.codingPath)")
+                    lastError = DecodingError.keyNotFound(key, context)
+                    continue // 다음 시즌 시도
+                } catch DecodingError.typeMismatch(let type, let context) {
+                    print("❌ Seasonal stats decoding error - Type '\(type)' mismatch: \(context.debugDescription)")
+                    print("Coding path: \(context.codingPath)")
+                    lastError = DecodingError.typeMismatch(type, context)
+                    continue // 다음 시즌 시도
+                } catch {
+                    print("❌ Other seasonal stats decoding error: \(error)")
+                    lastError = error
+                    continue // 다음 시즌 시도
+                }
+            } catch {
+                print("❌ API request error for season \(trySeason): \(error)")
+                lastError = error
+                continue // 다음 시즌 시도
+            }
         }
         
-        guard statsResponse.results > 0,
-              !statsResponse.response.isEmpty else {
+        // 모든 시즌에서 실패한 경우
+        if let error = lastError {
+            throw FootballAPIError.decodingError(error)
+        } else {
             throw FootballAPIError.apiError(["선수 시즌 통계를 찾을 수 없습니다."])
         }
-        
-        return statsResponse.response
     }
     
     // MARK: - Team Squad
@@ -642,13 +902,29 @@ class FootballAPIService {
         logResponse(data: data, endpoint: "Team Squad")
         
         let decoder = JSONDecoder()
-        let squadResponse = try decoder.decode(SquadResponse.self, from: data)
-        
-        if !squadResponse.errors.isEmpty {
-            throw FootballAPIError.apiError(squadResponse.errors)
+        do {
+            let squadResponse = try decoder.decode(SquadResponse.self, from: data)
+            
+            if !squadResponse.errors.isEmpty {
+                throw FootballAPIError.apiError(squadResponse.errors)
+            }
+            
+            // 응답이 비어있는 경우
+            if squadResponse.response.isEmpty {
+                return []
+            }
+            
+            // TeamSquadResponse를 PlayerResponse 배열로 변환
+            return squadResponse.response.first?.toPlayerResponses() ?? []
+            
+        } catch DecodingError.keyNotFound(let key, let context) {
+            print("❌ Squad decoding error - Key '\(key)' not found:", context.debugDescription)
+            // 디코딩 에러 발생 시 빈 배열 반환
+            return []
+        } catch {
+            print("❌ Squad decoding error:", error)
+            throw FootballAPIError.decodingError(error)
         }
-        
-        return squadResponse.response
     }
     
     func getTeamSeasons(teamId: Int) async throws -> [Int] {
@@ -687,14 +963,14 @@ class FootballAPIService {
         self.apiKey = apiKey
     }
     
-    private func createRequest(_ endpoint: String) -> URLRequest {
+    func createRequest(_ endpoint: String) -> URLRequest {
         guard let url = URL(string: baseURL + endpoint) else {
             fatalError("Invalid URL: \(baseURL + endpoint)")
         }
         
         var request = URLRequest(url: url,
-                               cachePolicy: .useProtocolCachePolicy,
-                               timeoutInterval: 10.0)
+                                cachePolicy: .reloadIgnoringLocalCacheData, // 캐시 무시하고 항상 새로 로드
+                                timeoutInterval: 20.0) // 타임아웃 증가
         
         request.addValue(apiKey, forHTTPHeaderField: "x-rapidapi-key")
         request.addValue(host, forHTTPHeaderField: "x-rapidapi-host")
@@ -739,7 +1015,7 @@ class FootballAPIService {
         print("  Per Minute - Limit: \(rateLimitPerMinute), Remaining: \(rateLimitRemainingPerMinute)")
     }
     
-    private func handleResponse(_ response: URLResponse?) throws {
+    func handleResponse(_ response: URLResponse?) throws {
         guard let httpResponse = response as? HTTPURLResponse else {
             throw FootballAPIError.invalidResponse
         }
@@ -764,15 +1040,24 @@ class FootballAPIService {
         
         let currentSeason = 2024
         let calendar = Calendar.current
-        let today = Date()
+        
+        // 현재 날짜를 기준으로 사용
+        let referenceDate = Date()
         
         if season == currentSeason {
-            // 현재 시즌인 경우 시즌 시작일부터 30일 후까지
-            let from = "2023-08-01" // 시즌 시작일
-            let to = dateFormatter.string(from: calendar.date(byAdding: .day, value: 30, to: today) ?? today)
+            // 현재 시즌인 경우 시즌 시작일부터 기준 날짜 기준 전후 15일 범위
+            let from = "2024-08-01" // 시즌 시작일
             
-            print("📅 Current season date range: \(from) ~ \(to)")
-            return (from, to)
+            // 기준 날짜 기준 15일 전
+            let fromDate = calendar.date(byAdding: .day, value: -15, to: referenceDate) ?? referenceDate
+            let toDate = calendar.date(byAdding: .day, value: 15, to: referenceDate) ?? referenceDate
+            
+            let actualFrom = max(fromDate, dateFormatter.date(from: from) ?? fromDate)
+            let actualFromStr = dateFormatter.string(from: actualFrom)
+            let toStr = dateFormatter.string(from: toDate)
+            
+            print("📅 Current season date range: \(actualFromStr) ~ \(toStr)")
+            return (actualFromStr, toStr)
         } else {
             // 과거 시즌인 경우 해당 시즌의 전체 기간
             let fromStr = "\(season)-07-01" // 시즌 시작

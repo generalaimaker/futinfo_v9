@@ -3,6 +3,7 @@ import SwiftUI
 struct PlayerProfileView: View {
     @StateObject private var viewModel: PlayerProfileViewModel
     @Environment(\.dismiss) private var dismiss
+    @ObservedObject private var favoriteService = FavoriteService.shared
     
     init(playerId: Int) {
         _viewModel = StateObject(wrappedValue: PlayerProfileViewModel(playerId: playerId))
@@ -38,7 +39,7 @@ struct PlayerProfileView: View {
                     
                     // 시즌 통계
                     if !viewModel.seasonalStatsFormatted.isEmpty {
-                        SeasonalStatsView(stats: viewModel.seasonalStatsFormatted)
+                        SeasonalStatsView(stats: viewModel.seasonalStatsFormatted, viewModel: viewModel)
                     }
                     
                     // 커리어 히스토리
@@ -52,9 +53,30 @@ struct PlayerProfileView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
-                Button(action: { dismiss() }) {
-                    Image(systemName: "xmark.circle.fill")
-                        .foregroundColor(.gray)
+                if viewModel.isLoading {
+                    ProgressView()
+                } else if let playerProfile = viewModel.playerProfile {
+                    Button(action: {
+                        withAnimation(.spring()) {
+                            if let playerId = playerProfile.player.id,
+                               let playerName = playerProfile.player.name {
+                                favoriteService.toggleFavorite(
+                                    type: .player,
+                                    entityId: playerId,
+                                    name: playerName,
+                                    imageUrl: playerProfile.player.photo
+                                )
+                            }
+                        }
+                    }) {
+                        if let playerId = playerProfile.player.id {
+                            Image(systemName: favoriteService.isFavorite(type: .player, entityId: playerId) ? "star.fill" : "star")
+                                .foregroundColor(favoriteService.isFavorite(type: .player, entityId: playerId) ? .yellow : .gray)
+                        } else {
+                            Image(systemName: "star")
+                                .foregroundColor(.gray)
+                        }
+                    }
                 }
             }
         }
@@ -121,10 +143,16 @@ private struct ProfileHeaderView: View {
 
 private struct SeasonalStatsView: View {
     let stats: [(String, String)]
+    let viewModel: PlayerProfileViewModel?
+    
+    init(stats: [(String, String)], viewModel: PlayerProfileViewModel? = nil) {
+        self.stats = stats
+        self.viewModel = viewModel
+    }
     
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("2023-24 시즌 통계")
+            Text("\(viewModel?.currentSeason ?? "2024-25 시즌") 통계")
                 .font(.headline)
             
             LazyVGrid(columns: [

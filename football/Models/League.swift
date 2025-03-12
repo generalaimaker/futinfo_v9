@@ -1,75 +1,75 @@
 import Foundation
 
 // MARK: - Common Models
-struct Parameters: Codable {
-    let league: String?
-    let season: String?
-    let current: String?
-    let live: String?
-    let next: String?
-    let from: String?
-    let to: String?
+public struct Parameters: Codable {
+    public let league: String?
+    public let season: String?
+    public let current: String?
+    public let live: String?
+    public let next: String?
+    public let from: String?
+    public let to: String?
 }
 
-struct Paging: Codable {
-    let current: Int
-    let total: Int
+public struct Paging: Codable {
+    public let current: Int
+    public let total: Int
 }
 
 // MARK: - League Response
-struct LeaguesResponse: Codable {
-    let get: String
-    let parameters: Parameters
-    let errors: [String]
-    let results: Int
-    let paging: Paging
-    let response: [LeagueDetails]
+public struct LeaguesResponse: Codable {
+    public let get: String
+    public let parameters: Parameters
+    public let errors: [String]
+    public let results: Int
+    public let paging: Paging
+    public let response: [LeagueDetails]
 }
 
 // MARK: - League Details
-struct LeagueDetails: Codable {
-    let league: LeagueInfo
-    let country: Country?
-    let seasons: [Season]?
+public struct LeagueDetails: Codable {
+    public let league: LeagueInfo
+    public let country: Country?
+    public let seasons: [Season]?
 }
 
 // MARK: - League Info
-struct LeagueInfo: Codable {
-    let id: Int
-    let name: String
-    let type: String
-    let logo: String
+public struct LeagueInfo: Codable {
+    public let id: Int
+    public let name: String
+    public let type: String
+    public let logo: String
 }
 
 // MARK: - Country
-struct Country: Codable {
-    let name: String
-    let code: String?
-    let flag: String?
+public struct Country: Codable {
+    public let name: String
+    public let code: String?
+    public let flag: String?
 }
 
 // MARK: - Season
-struct Season: Codable {
-    let year: Int
-    let start: String
-    let end: String
-    let current: Bool
-    let coverage: Coverage?
+public struct Season: Codable {
+    public let year: Int
+    public let start: String
+    public let end: String
+    public let current: Bool
+    public let coverage: Coverage?
 }
 
 // MARK: - Coverage
-struct Coverage: Codable {
-    let fixtures: FixtureCoverage?
-    let standings: Bool?
-    let players: Bool?
-    let topScorers: Bool?
-    let topAssists: Bool?
-    let topCards: Bool?
-    let injuries: Bool?
-    let predictions: Bool?
-    let odds: Bool?
+public struct Coverage: Codable {
+    public let fixtures: FixtureCoverage?
+    public let standings: Bool?
+    public let players: Bool?
+    public let topScorers: Bool?
+    public let topAssists: Bool?
+    public let topCards: Bool?
+    public let injuries: Bool?
+    public let predictions: Bool?
+    public let odds: Bool?
     
-    enum CodingKeys: String, CodingKey {
+    public enum CodingKeys: String, CodingKey {
         case fixtures
         case standings
         case players
@@ -83,13 +83,13 @@ struct Coverage: Codable {
 }
 
 // MARK: - Fixture Coverage
-struct FixtureCoverage: Codable {
-    let events: Bool?
-    let lineups: Bool?
-    let statisticsFixtures: Bool?
-    let statisticsPlayers: Bool?
+public struct FixtureCoverage: Codable {
+    public let events: Bool?
+    public let lineups: Bool?
+    public let statisticsFixtures: Bool?
+    public let statisticsPlayers: Bool?
     
-    enum CodingKeys: String, CodingKey {
+    public enum CodingKeys: String, CodingKey {
         case events
         case lineups
         case statisticsFixtures = "statistics_fixtures"
@@ -98,10 +98,10 @@ struct FixtureCoverage: Codable {
 }
 
 // MARK: - Supported Leagues
-enum SupportedLeagues {
-    static let allLeagues = [39, 140, 135, 78, 2, 3] // Premier League, La Liga, Serie A, Bundesliga, Champions League, Europa League
+public enum SupportedLeagues {
+    public static let allLeagues = [39, 140, 135, 78, 2, 3] // Premier League, La Liga, Serie A, Bundesliga, Champions League, Europa League
     
-    static func getName(_ id: Int) -> String {
+    public static func getName(_ id: Int) -> String {
         switch id {
         case 39:
             return "Premier League"
@@ -120,7 +120,7 @@ enum SupportedLeagues {
         }
     }
     
-    static func getCountryCode(_ id: Int) -> String {
+    public static func getCountryCode(_ id: Int) -> String {
         switch id {
         case 39:
             return "GB" // 잉글랜드
@@ -137,7 +137,7 @@ enum SupportedLeagues {
         }
     }
     
-    static func getCountryName(_ id: Int) -> String {
+    public static func getCountryName(_ id: Int) -> String {
         switch id {
         case 39:
             return "England"

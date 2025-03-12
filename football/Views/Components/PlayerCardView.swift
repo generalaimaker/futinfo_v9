@@ -68,3 +68,49 @@ struct LineupPlayerCardView: View {
         .frame(width: 60)
     }
 }
+
+// TeamProfileView에서 사용하는 PlayerCardView 구현
+struct PlayerCardView: View {
+    let player: PlayerInfo
+    
+    var body: some View {
+        NavigationLink(destination: PlayerProfileView(playerId: player.id ?? 0)) {
+            VStack(spacing: 12) {
+                // 선수 사진
+                AsyncImage(url: URL(string: player.photo ?? "")) { image in
+                    image
+                        .resizable()
+                        .scaledToFit()
+                } placeholder: {
+                    Image(systemName: "person.circle")
+                        .foregroundColor(.gray)
+                }
+                .frame(width: 70, height: 70)
+                .clipShape(Circle())
+                .overlay(
+                    Circle()
+                        .stroke(Color.blue.opacity(0.3), lineWidth: 2)
+                )
+                .shadow(color: Color.black.opacity(0.1), radius: 4, x: 0, y: 2)
+                
+                // 선수 이름
+                Text(player.name ?? "")
+                    .font(.system(.callout, design: .rounded))
+                    .fontWeight(.medium)
+                    .multilineTextAlignment(.center)
+                    .lineLimit(2)
+                    .frame(height: 40)
+                
+                // 국적
+                if let nationality = player.nationality {
+                    Text(nationality)
+                        .font(.system(.caption, design: .rounded))
+                        .foregroundColor(.secondary)
+                }
+            }
+            .frame(width: 100)
+            .padding(.vertical, 8)
+        }
+        .buttonStyle(PlainButtonStyle())
+    }
+}

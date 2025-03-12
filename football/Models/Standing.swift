@@ -3,11 +3,28 @@ import Foundation
 // MARK: - Standings Response
 struct StandingsResponse: Codable {
     let get: String
-    let parameters: Parameters
+    let parameters: FixtureParameters
     let errors: [String]
     let results: Int
-    let paging: Paging
+    let paging: FixturePaging
     let response: [StandingData]
+    
+    // 에러 필드를 딕셔너리로 변환하는 계산 속성 추가
+    var errorsDict: [String: String] {
+        var dict: [String: String] = [:]
+        for error in errors {
+            // 에러 메시지에서 키-값 쌍 추출 시도
+            if let colonIndex = error.firstIndex(of: ":") {
+                let key = String(error[..<colonIndex]).trimmingCharacters(in: .whitespacesAndNewlines)
+                let value = String(error[error.index(after: colonIndex)...]).trimmingCharacters(in: .whitespacesAndNewlines)
+                dict[key] = value
+            } else {
+                // 콜론이 없으면 인덱스를 키로 사용
+                dict["\(dict.count)"] = error
+            }
+        }
+        return dict
+    }
 }
 
 // MARK: - Standing Data

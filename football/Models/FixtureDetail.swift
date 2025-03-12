@@ -282,6 +282,14 @@ struct TeamLineup: Codable {
             player.pos ?? "Unknown"
         }
     }
+    
+    // 추가: 팀 통계 정보 (Codable 프로토콜에서 제외)
+    var teamStats: [TeamPlayersStatistics]?
+    
+    // CodingKeys를 추가하여 teamStats를 인코딩/디코딩에서 제외
+    private enum CodingKeys: String, CodingKey {
+        case team, formation, startXI, substitutes, coach
+    }
 }
 
 struct LineupPlayer: Codable, Identifiable {

@@ -1,6 +1,6 @@
 import Foundation
 
-struct APIPaging: Codable {
+public struct APIPaging: Codable {
     public let current: Int
     public let total: Int
     
@@ -10,7 +10,7 @@ struct APIPaging: Codable {
     }
 }
 
-struct TeamParameters: Codable {
+public struct TeamParameters: Codable {
     public let id: String
     
     public init(id: String) {
@@ -18,7 +18,7 @@ struct TeamParameters: Codable {
     }
 }
 
-struct TeamStatisticsParameters: Codable {
+public struct TeamStatisticsParameters: Codable {
     public let team: String
     public let league: String
     public let season: String
@@ -30,7 +30,7 @@ struct TeamStatisticsParameters: Codable {
     }
 }
 
-struct SquadParameters: Codable {
+public struct SquadParameters: Codable {
     public let team: String
     
     public init(team: String) {
@@ -38,7 +38,7 @@ struct SquadParameters: Codable {
     }
 }
 
-struct PlayerProfileParameters: Codable {
+public struct PlayerProfileParameters: Codable {
     public let id: String
     public let season: String
     
@@ -48,7 +48,7 @@ struct PlayerProfileParameters: Codable {
     }
 }
 
-struct PlayerParameters: Codable {
+public struct PlayerParameters: Codable {
     public let player: String
     
     public init(player: String) {
@@ -56,7 +56,7 @@ struct PlayerParameters: Codable {
     }
 }
 
-struct PlayerStatisticsParameters: Codable {
+public struct PlayerStatisticsParameters: Codable {
     public let id: String
     public let season: String?
     

@@ -151,7 +151,7 @@ final class PlayerProfileViewModel: ObservableObject {
                 formattedStats.append(("키패스", "\(keyPasses)회"))
             }
             if let accuracy = stats.passes?.accuracy {
-                formattedStats.append(("패스 성공률", "\(accuracy)"))
+                formattedStats.append(("패스 성공률", accuracy.displayValue))
             }
             
             // 수비
@@ -198,5 +198,20 @@ final class PlayerProfileViewModel: ObservableObject {
             let secondYear = Int(second.1.split(separator: "-").last ?? "") ?? 0
             return firstYear > secondYear
         }
+    }
+    
+    // 현재 시즌 정보
+    var currentSeason: String {
+        // 선수 통계에서 시즌 정보 가져오기
+        if let statistics = playerProfile?.statistics,
+           let firstStat = statistics.first,
+           let season = firstStat.league?.season {
+            // 시즌 형식: 2024-25
+            let nextYear = (season + 1) % 100
+            return "\(season)-\(nextYear) 시즌"
+        }
+        
+        // 기본값: 현재 시즌 (2024-25)
+        return "2024-25 시즌"
     }
 }

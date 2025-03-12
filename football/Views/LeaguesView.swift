@@ -47,10 +47,7 @@ struct LeaguesView: View {
                         LazyVStack(spacing: 12) {
                             ForEach(viewModel.leagues, id: \.league.id) { league in
                                 NavigationLink(
-                                    destination: StandingsView(
-                                        leagueId: league.league.id,
-                                        leagueName: league.league.name
-                                    )
+                                    destination: LeagueProfileView(leagueId: league.league.id)
                                 ) {
                                     LeagueCell(league: league)
                                         .padding(.horizontal)

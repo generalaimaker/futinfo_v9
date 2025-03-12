@@ -11,6 +11,8 @@ struct TeamProfileView: View {
         _viewModel = StateObject(wrappedValue: TeamProfileViewModel(teamId: teamId, leagueId: leagueId))
     }
     
+    @ObservedObject private var favoriteService = FavoriteService.shared
+    
     var body: some View {
         ScrollView {
             VStack(spacing: 20) {
@@ -73,6 +75,20 @@ struct TeamProfileView: View {
             ToolbarItem(placement: .navigationBarTrailing) {
                 if viewModel.isLoadingProfile || viewModel.isLoadingStats {
                     ProgressView()
+                } else if let team = viewModel.teamProfile?.team {
+                    Button(action: {
+                        withAnimation(.spring()) {
+                            favoriteService.toggleFavorite(
+                                type: .team,
+                                entityId: team.id,
+                                name: team.name,
+                                imageUrl: team.logo
+                            )
+                        }
+                    }) {
+                        Image(systemName: favoriteService.isFavorite(type: .team, entityId: team.id) ? "star.fill" : "star")
+                            .foregroundColor(favoriteService.isFavorite(type: .team, entityId: team.id) ? .yellow : .gray)
+                    }
                 }
             }
         }

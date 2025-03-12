@@ -1,9 +1,23 @@
 import Foundation
 
 // MARK: - Player Profile Data
-struct PlayerProfileData: Codable {
+struct PlayerProfileData: Codable, Identifiable, Hashable {
     let player: PlayerInfo      // 기존 PlayerInfo 모델 재사용
     let statistics: [PlayerSeasonStats]?  // API 응답의 statistics 배열과 일치 (옵셔널)
+    
+    var id: Int {
+        return player.id ?? 0
+    }
+    
+    // Hashable 구현
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(player.id)
+    }
+    
+    // Equatable 구현 (Hashable은 Equatable을 상속함)
+    static func == (lhs: PlayerProfileData, rhs: PlayerProfileData) -> Bool {
+        return lhs.player.id == rhs.player.id
+    }
 }
 
 // MARK: - Player Career Stats

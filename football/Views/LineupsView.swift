@@ -122,7 +122,7 @@ fileprivate struct LineupPlayerStatRow: View {
                         if let passes = stats.passes {
                             HStack(spacing: 20) {
                                 LineupStatItem(title: "패스 시도", value: "\(passes.total ?? 0)")
-                                LineupStatItem(title: "성공률", value: "\(passes.accuracy ?? "0")%")
+                                LineupStatItem(title: "성공률", value: passes.accuracy?.displayValue ?? "0%")
                                 LineupStatItem(title: "키패스", value: "\(passes.key ?? 0)")
                             }
                         }
@@ -162,77 +162,7 @@ fileprivate struct LineupPlayerStatRow: View {
     }
 }
 
-// MARK: - Formation View
-struct FormationView: View {
-    let lineup: TeamLineup
-    
-    var body: some View {
-        GeometryReader { geometry in
-            ZStack {
-                // 축구장 배경
-                Color(.systemGray6)
-                    .overlay(
-                        VStack(spacing: 0) {
-                            // 필드 라인
-                            Rectangle()
-                                .stroke(Color.white, lineWidth: 1)
-                                .overlay(
-                                    VStack(spacing: 0) {
-                                        // 센터 서클
-                                        Circle()
-                                            .stroke(Color.white, lineWidth: 1)
-                                            .frame(width: 80)
-                                            .position(x: geometry.size.width/2, y: geometry.size.height/2)
-                                        
-                                        // 페널티 에어리어
-                                        ForEach([0.2, 0.8], id: \.self) { y in
-                                            Rectangle()
-                                                .stroke(Color.white, lineWidth: 1)
-                                                .frame(width: geometry.size.width * 0.4, height: geometry.size.height * 0.2)
-                                                .position(x: geometry.size.width/2, y: geometry.size.height * y)
-                                        }
-                                    }
-                                )
-                        }
-                    )
-                
-                // 포메이션 라인
-                ForEach(0..<lineup.formationArray.count, id: \.self) { row in
-                    let yPosition = CGFloat(row + 1) * geometry.size.height / CGFloat(lineup.formationArray.count + 1)
-                    HStack(spacing: 0) {
-                        ForEach(0..<lineup.formationArray[row], id: \.self) { _ in
-                            Rectangle()
-                                .stroke(Color.white.opacity(0.3), lineWidth: 1)
-                                .frame(width: geometry.size.width / CGFloat(lineup.formationArray[row] + 1),
-                                       height: geometry.size.height / CGFloat(lineup.formationArray.count + 1))
-                        }
-                    }
-                    .position(x: geometry.size.width / 2, y: yPosition)
-                }
-                
-                // 선수 배치
-                ForEach(lineup.startXI) { player in
-                    if let gridPosition = player.gridPosition {
-                        NavigationLink(destination: PlayerProfileView(playerId: player.player.id)) {
-                            PlayerDot(
-                                number: player.number,
-                                name: player.name,
-                                position: player.pos ?? "",
-                                stats: lineup.playersByPosition[player.pos ?? ""]?.count ?? 0
-                            )
-                        }
-                        .position(
-                            x: CGFloat(gridPosition.x) * geometry.size.width / 5,
-                            y: CGFloat(gridPosition.y) * geometry.size.height / 6
-                        )
-                    }
-                }
-            }
-            .clipShape(RoundedRectangle(cornerRadius: 16))
-        }
-        .padding()
-    }
-}
+// FormationView는 Components/FormationView.swift에서 정의됨
 
 // MARK: - Player Components
 struct PlayerDot: View {

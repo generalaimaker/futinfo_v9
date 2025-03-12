@@ -13,60 +13,89 @@ class LeaguesViewModel: ObservableObject {
         errorMessage = nil
         
         Task {
-            do {
-                print("Loading leagues...")
-                var fetchedLeagues = try await service.getCurrentLeagues()
-                
-                // 리그별 이름과 국가 정보 수정
-                fetchedLeagues = fetchedLeagues.map { league in
-                    if league.league.id == 39 {
-                        // Premier League - 잉글랜드 국기 적용
-                        return LeagueDetails(
-                            league: league.league,
-                            country: Country(name: "England", code: "GB-ENG", flag: nil),
-                            seasons: league.seasons
-                        )
-                    } else if league.league.id == 2 {
-                        // Champions League 수정
-                        let modifiedLeagueInfo = LeagueInfo(
-                            id: league.league.id,
-                            name: "Champions League",
-                            type: league.league.type,
-                            logo: league.league.logo
-                        )
-                        
-                        return LeagueDetails(
-                            league: modifiedLeagueInfo,
-                            country: Country(name: "UEFA", code: "EU", flag: nil),
-                            seasons: league.seasons
-                        )
-                    } else if league.league.id == 3 {
-                        // Europa League 수정
-                        let modifiedLeagueInfo = LeagueInfo(
-                            id: league.league.id,
-                            name: "Europa League",
-                            type: league.league.type,
-                            logo: league.league.logo
-                        )
-                        
-                        return LeagueDetails(
-                            league: modifiedLeagueInfo,
-                            country: Country(name: "UEFA", code: "EU", flag: nil),
-                            seasons: league.seasons
-                        )
-                    }
-                    return league
-                }
-                
-                leagues = fetchedLeagues
-                
-                if leagues.isEmpty {
-                    errorMessage = "표시할 리그가 없습니다."
-                }
-            } catch {
-                errorMessage = "리그 정보를 불러오는데 실패했습니다: \(error.localizedDescription)"
-                print("Load Leagues Error: \(error)")
+            print("Loading leagues...")
+            
+            // API 호출 대신 하드코딩된 리그 목록 사용
+            var hardcodedLeagues: [LeagueDetails] = []
+            
+            // Premier League
+            hardcodedLeagues.append(LeagueDetails(
+                league: LeagueInfo(
+                    id: 39,
+                    name: "Premier League",
+                    type: "League",
+                    logo: "https://media.api-sports.io/football/leagues/39.png"
+                ),
+                country: Country(name: "England", code: "GB-ENG", flag: nil),
+                seasons: nil
+            ))
+            
+            // La Liga
+            hardcodedLeagues.append(LeagueDetails(
+                league: LeagueInfo(
+                    id: 140,
+                    name: "La Liga",
+                    type: "League",
+                    logo: "https://media.api-sports.io/football/leagues/140.png"
+                ),
+                country: Country(name: "Spain", code: "ES", flag: nil),
+                seasons: nil
+            ))
+            
+            // Serie A
+            hardcodedLeagues.append(LeagueDetails(
+                league: LeagueInfo(
+                    id: 135,
+                    name: "Serie A",
+                    type: "League",
+                    logo: "https://media.api-sports.io/football/leagues/135.png"
+                ),
+                country: Country(name: "Italy", code: "IT", flag: nil),
+                seasons: nil
+            ))
+            
+            // Bundesliga
+            hardcodedLeagues.append(LeagueDetails(
+                league: LeagueInfo(
+                    id: 78,
+                    name: "Bundesliga",
+                    type: "League",
+                    logo: "https://media.api-sports.io/football/leagues/78.png"
+                ),
+                country: Country(name: "Germany", code: "DE", flag: nil),
+                seasons: nil
+            ))
+            
+            // Champions League
+            hardcodedLeagues.append(LeagueDetails(
+                league: LeagueInfo(
+                    id: 2,
+                    name: "Champions League",
+                    type: "Cup",
+                    logo: "https://media.api-sports.io/football/leagues/2.png"
+                ),
+                country: Country(name: "UEFA", code: "EU", flag: nil),
+                seasons: nil
+            ))
+            
+            // Europa League
+            hardcodedLeagues.append(LeagueDetails(
+                league: LeagueInfo(
+                    id: 3,
+                    name: "Europa League",
+                    type: "Cup",
+                    logo: "https://media.api-sports.io/football/leagues/3.png"
+                ),
+                country: Country(name: "UEFA", code: "EU", flag: nil),
+                seasons: nil
+            ))
+            
+            leagues = hardcodedLeagues
+            
+            if leagues.isEmpty {
+                errorMessage = "표시할 리그가 없습니다."
             }
+            
             isLoading = false
         }
     }
