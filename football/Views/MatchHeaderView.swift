@@ -2,6 +2,10 @@ import SwiftUI
 
 struct MatchHeaderView: View {
     let fixture: Fixture
+    let viewModel: FixtureDetailViewModel
+    let service = FootballAPIService.shared
+    // 경기 목록에서 사용하는 ViewModel 추가
+    let fixturesViewModel = FixturesOverviewViewModel()
     
     private var isLive: Bool {
         ["1H", "2H", "HT", "ET", "P"].contains(fixture.fixture.status.short)
@@ -72,14 +76,72 @@ struct MatchHeaderView: View {
                             .padding(.vertical, 12)
                     } else {
                         VStack(spacing: 6) {
-                            HStack(spacing: 20) {
-                                Text("\(fixture.goals?.home ?? 0)")
-                                Text("-")
-                                Text("\(fixture.goals?.away ?? 0)")
+                            VStack(spacing: 4) {
+                                // 정규 시간 스코어
+                                HStack(spacing: 20) {
+                                    Text("\(fixture.goals?.home ?? 0)")
+                                    Text("-")
+                                    Text("\(fixture.goals?.away ?? 0)")
+                                }
+                                .font(.system(size: 44, weight: .bold, design: .rounded))
+                                
+                                // 합산 스코어 및 승부차기 결과 표시
+                                VStack(spacing: 4) {
+                                    // 합산 스코어 표시 개선 - 경기 목록에서 사용하는 방식 그대로 사용
+                                    Group {
+                                        if let fixture = viewModel.currentFixture, [2, 3].contains(fixture.league.id) {
+                                            HStack(spacing: 8) {
+                                                Text("합산")
+                                                    .font(.system(.caption, design: .rounded))
+                                                    .foregroundColor(.gray)
+                                                
+                                                // 경기 목록에서 사용하는 ViewModel 사용
+                                                AggregateScoreView(fixture: fixture, fixturesViewModel: fixturesViewModel)
+                                            }
+                                            .padding(.vertical, 4)
+                                        }
+                                    }
+                                    
+                                    // 승부차기 결과 (있는 경우)
+                                    if fixture.fixture.status.short == "PEN" {
+                                        HStack(spacing: 8) {
+                                            Text("승부차기")
+                                                .font(.system(.caption, design: .rounded))
+                                                .foregroundColor(.gray)
+                                            
+                                            // 임시 데이터 (실제로는 API에서 가져와야 함)
+                                            let penaltyHome = 5
+                                            let penaltyAway = 4
+                                            
+                                            Text("\(penaltyHome) - \(penaltyAway)")
+                                                .font(.system(.caption, design: .rounded))
+                                                .fontWeight(.bold)
+                                                .foregroundColor(.red)
+                                                .padding(.horizontal, 8)
+                                                .padding(.vertical, 2)
+                                                .background(Color.red.opacity(0.1))
+                                                .cornerRadius(4)
+                                        }
+                                    }
+                                }
                             }
-                            .font(.system(size: 44, weight: .bold, design: .rounded))
                             
-                            if let elapsed = fixture.fixture.status.elapsed {
+                            // 경기 상태 표시 개선
+                            if ["AET", "PEN"].contains(fixture.fixture.status.short) {
+                                // 연장 종료 또는 승부차기 종료 표시
+                                Text(fixture.fixture.status.short == "AET" ? "연장 종료" : "승부차기 종료")
+                                    .font(.system(.callout, design: .rounded))
+                                    .fontWeight(.medium)
+                                    .foregroundColor(fixture.fixture.status.short == "AET" ? .orange : .red)
+                                    .padding(.horizontal, 16)
+                                    .padding(.vertical, 6)
+                                    .background(
+                                        (fixture.fixture.status.short == "AET" ? Color.orange : Color.red)
+                                            .opacity(0.1)
+                                    )
+                                    .clipShape(Capsule())
+                            } else if let elapsed = fixture.fixture.status.elapsed {
+                                // 일반 경기 시간 표시
                                 Text("\(elapsed)'")
                                     .font(.system(.callout, design: .rounded))
                                     .fontWeight(.medium)
@@ -138,6 +200,46 @@ struct MatchHeaderView: View {
         .padding(.horizontal)
         .padding(.vertical, 12)
         .background(Color(.systemBackground))
+    }
+}
+
+// 합산 스코어 표시를 위한 뷰
+struct AggregateScoreView: View {
+    let fixture: Fixture
+    let fixturesViewModel: FixturesOverviewViewModel
+    @State private var aggregateScore: (home: Int, away: Int)? = nil
+    
+    var body: some View {
+        Group {
+            if let score = aggregateScore {
+                Text("\(score.home) - \(score.away)")
+                    .font(.system(.subheadline, design: .rounded))
+                    .fontWeight(.bold)
+                    .foregroundColor(.blue)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 2)
+                    .background(Color.blue.opacity(0.1))
+                    .cornerRadius(4)
+            } else {
+                Text("계산 중...")
+                    .font(.system(.caption, design: .rounded))
+                    .foregroundColor(.gray)
+            }
+        }
+        .onAppear {
+            loadAggregateScore()
+        }
+    }
+    
+    private func loadAggregateScore() {
+        Task {
+            if let score = await fixturesViewModel.calculateAggregateScore(fixture: fixture) {
+                await MainActor.run {
+                    self.aggregateScore = score
+                    print("🏆 AggregateScoreView - 합산 결과 계산 완료: \(score.home)-\(score.away)")
+                }
+            }
+        }
     }
 }
 
