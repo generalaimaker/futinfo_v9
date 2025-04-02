@@ -9,14 +9,35 @@ extension Array {
 
 // MARK: - 경기 일정 로딩 뷰
 struct FixturesLoadingView: View {
+    @State private var loadingText = "경기 일정을 불러오는 중"
+    @State private var dotCount = 0
+    
     var body: some View {
         VStack(spacing: 12) {
             ProgressView()
                 .scaleEffect(1.5)
-            Text("경기 일정을 불러오는 중...")
+            
+            Text("\(loadingText)\(String(repeating: ".", count: dotCount))")
                 .foregroundColor(.secondary)
+                .animation(.easeInOut, value: dotCount)
+                .onAppear {
+                    // 로딩 애니메이션 시작
+                    startLoadingAnimation()
+                }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+    
+    private func startLoadingAnimation() {
+        // 로딩 애니메이션 타이머
+        let timer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { _ in
+            withAnimation {
+                dotCount = (dotCount + 1) % 4
+            }
+        }
+        
+        // 뷰가 사라질 때 타이머 정리
+        RunLoop.current.add(timer, forMode: .common)
     }
 }
 
@@ -260,7 +281,8 @@ struct FixturesMainContentView: View {
 
 struct FixturesOverviewView: View {
     @StateObject private var viewModel = FixturesOverviewViewModel()
-    @State private var selectedDateIndex = 7 // "오늘" 기본 선택 (14일 중 중앙)
+    @State private var selectedDateIndex = 5 // "오늘" 기본 선택 (10일 중 중앙)
+    @State private var showClearCacheAlert = false // 캐시 정리 확인 알림 표시 여부
     
     var body: some View {
         NavigationView {
@@ -279,15 +301,37 @@ struct FixturesOverviewView: View {
             .navigationTitle("일정")
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(action: {
-                        Task {
-                            await viewModel.fetchFixtures()
+                    HStack(spacing: 16) {
+                        // 캐시 정리 버튼
+                        Button(action: {
+                            // 캐시 정리 확인 알림 표시
+                            showClearCacheAlert = true
+                        }) {
+                            Image(systemName: "trash")
+                                .foregroundColor(.red)
                         }
-                    }) {
-                        Image(systemName: "arrow.clockwise")
+                        .disabled(viewModel.isLoading)
+                        
+                        // 새로고침 버튼
+                        Button(action: {
+                            Task {
+                                await viewModel.fetchFixtures()
+                            }
+                        }) {
+                            Image(systemName: "arrow.clockwise")
+                        }
+                        .disabled(viewModel.isLoading)
                     }
-                    .disabled(viewModel.isLoading)
                 }
+            }
+            .alert("캐시 정리", isPresented: $showClearCacheAlert) {
+                Button("취소", role: .cancel) {}
+                Button("정리", role: .destructive) {
+                    // 모든 캐시 정리
+                    viewModel.clearAllCaches()
+                }
+            } message: {
+                Text("모든 캐시를 정리하시겠습니까? 앱 성능이 일시적으로 저하될 수 있습니다.")
             }
         }
         .task {
@@ -377,21 +421,50 @@ struct FixturePageView: View {
                 }
                 
                 // 리그별 일정 (우선순위 순서대로)
-                let prioritizedLeagues = [39, 140, 135, 78, 2, 3]
-                ForEach(prioritizedLeagues, id: \.self) { leagueId in
-                    let leagueFixtures: [Fixture] = {
-                        guard let fixturesForDate = viewModel.fixtures[date] else { return [] }
-                        
-                        // 즐겨찾기 팀 경기는 제외
-                        let nonFavoriteFixtures = fixturesForDate.filter { fixture in
-                            !favoriteFixtures.contains(fixture)
-                        }
-                        
-                        // 특정 리그의 경기만 필터링
-                        return nonFavoriteFixtures.filter { $0.league.id == leagueId }
-                    }()
+                let prioritizedLeagues = [
+                    // 주요 리그
+                    39, 140, 135, 78, 61, // 프리미어 리그, 라리가, 세리에 A, 분데스리가, 리그 1
                     
-                    if !leagueFixtures.isEmpty {
+                    // UEFA 대회
+                    2, 3, 4, 5, // 챔피언스 리그, 유로파 리그, 컨퍼런스 리그, 유로 챔피언십
+                    
+                    // 국제대회 - 월드컵 및 예선
+                    1, 31, 32, 33, 34, 35, 36, // 월드컵, 유럽/아시아/아프리카/북중미/남미/오세아니아 예선
+                    
+                    // 국제대회 - 대륙별 대회
+                    9, 10, 11, 12, 13, // 유럽/남미/아시아/아프리카/북중미 챔피언십
+                    
+                    // 주요 컵 대회
+                    45, 143, 137, 66, 81, // FA컵, 코파 델 레이, 코파 이탈리아, 쿠프 드 프랑스, DFB 포칼
+                    
+                    // 기타 리그
+                    144, 88, 94, 71, 848, 207 // 벨기에, 네덜란드, 포르투갈, 브라질, ACL, K리그
+                ]
+                
+                // 리그별 경기 그룹화
+                let fixturesByLeague: [Int: [Fixture]] = {
+                    guard let fixturesForDate = viewModel.fixtures[date] else { return [:] }
+                    
+                    // 즐겨찾기 팀 경기는 제외
+                    let nonFavoriteFixtures = fixturesForDate.filter { fixture in
+                        !favoriteFixtures.contains(fixture)
+                    }
+                    
+                    // 리그별로 그룹화
+                    var result: [Int: [Fixture]] = [:]
+                    for fixture in nonFavoriteFixtures {
+                        let leagueId = fixture.league.id
+                        if result[leagueId] == nil {
+                            result[leagueId] = []
+                        }
+                        result[leagueId]?.append(fixture)
+                    }
+                    return result
+                }()
+                
+                // 우선순위 순서대로 리그 표시
+                ForEach(prioritizedLeagues, id: \.self) { leagueId in
+                    if let leagueFixtures = fixturesByLeague[leagueId], !leagueFixtures.isEmpty {
                         VStack(alignment: .leading, spacing: 8) {
                             HStack {
                                 Image(systemName: "trophy")
@@ -399,12 +472,50 @@ struct FixturePageView: View {
                                 // 리그 이름 표시
                                 let leagueName: String = {
                                     switch leagueId {
+                                    // 주요 리그
                                     case 39: return "프리미어 리그"
                                     case 140: return "라리가"
                                     case 135: return "세리에 A"
                                     case 78: return "분데스리가"
+                                    case 61: return "리그 1"
+                                    
+                                    // UEFA 대회
                                     case 2: return "챔피언스 리그"
                                     case 3: return "유로파 리그"
+                                    case 4: return "컨퍼런스 리그"
+                                    case 5: return "유로 챔피언십"
+                                    
+                                    // 국제대회 - 월드컵 및 예선
+                                    case 1: return "FIFA 월드컵"
+                                    case 31: return "유럽 월드컵 예선"
+                                    case 32: return "아시아 월드컵 예선"
+                                    case 33: return "아프리카 월드컵 예선"
+                                    case 34: return "북중미 월드컵 예선"
+                                    case 35: return "남미 월드컵 예선"
+                                    case 36: return "오세아니아 월드컵 예선"
+                                    
+                                    // 국제대회 - 대륙별 대회
+                                    case 9: return "유럽 챔피언십"
+                                    case 10: return "코파 아메리카"
+                                    case 11: return "아시안컵"
+                                    case 12: return "아프리카컵"
+                                    case 13: return "골드컵"
+                                    
+                                    // 주요 컵 대회
+                                    case 45: return "FA컵"
+                                    case 143: return "코파 델 레이"
+                                    case 137: return "코파 이탈리아"
+                                    case 66: return "쿠프 드 프랑스"
+                                    case 81: return "DFB 포칼"
+                                    
+                                    // 기타 리그
+                                    case 144: return "벨기에 프로 리그"
+                                    case 88: return "에레디비시"
+                                    case 94: return "프리메이라 리가"
+                                    case 71: return "브라질 세리에 A"
+                                    case 848: return "아시안 챔피언스 리그"
+                                    case 207: return "K리그"
+                                    
                                     default: return "리그 \(leagueId)"
                                     }
                                 }()
@@ -426,60 +537,74 @@ struct FixturePageView: View {
                 }
                 
                 // 경기 일정 표시 로직 개선
-                let hasFixtures = !(viewModel.fixtures[date]?.isEmpty ?? true)
+                let fixtures = viewModel.fixtures[date] ?? []
                 let isLoading = viewModel.loadingDates.contains(date)
                 
-                if !hasFixtures {
-                    if isLoading {
-                        // 로딩 중
-                        VStack(spacing: 12) {
-                            ProgressView()
-                                .scaleEffect(1.2)
-                            Text("경기 일정을 불러오는 중...")
-                                .foregroundColor(.secondary)
-                        }
-                        .frame(maxWidth: .infinity, alignment: .center)
-                        .padding(.top, 50)
-                    } else {
-                        // 경기 없음
-                        VStack(spacing: 12) {
-                            Image(systemName: "calendar.badge.exclamationmark")
-                                .font(.system(size: 40))
-                                .foregroundColor(.gray)
-                                .padding(.bottom, 8)
-                            
-                            Text("경기 일정이 없습니다")
+                if fixtures.isEmpty && !isLoading {
+                    // 경기 데이터가 없고 로딩 중이 아닌 경우, 빈 응답 메시지 표시
+                    VStack(spacing: 16) {
+                        Image(systemName: "calendar.badge.exclamationmark")
+                            .font(.system(size: 50))
+                            .foregroundColor(.gray)
+                        
+                        // 서버에서 제공한 빈 응답 메시지가 있으면 표시, 없으면 기본 메시지 표시
+                        if let emptyMessage = viewModel.emptyDates[date] {
+                            Text(emptyMessage)
                                 .font(.headline)
                                 .foregroundColor(.gray)
-                            
-                            Button(action: {
-                                Task {
-                                    await viewModel.loadFixturesForDate(date)
-                                }
-                            }) {
-                                Text("새로고침")
-                                    .font(.subheadline)
-                                    .padding(.horizontal, 16)
-                                    .padding(.vertical, 8)
-                                    .background(Color.blue)
-                                    .foregroundColor(.white)
-                                    .cornerRadius(8)
-                            }
-                            .padding(.top, 12)
+                                .multilineTextAlignment(.center)
+                        } else {
+                            Text("예정된 경기가 없습니다")
+                                .font(.headline)
+                                .foregroundColor(.gray)
                         }
-                        .padding(.top, 50)
-                        .frame(maxWidth: .infinity, alignment: .center)
+                        
+                        // 새로고침 버튼 추가
+                        Button(action: {
+                            Task {
+                                await viewModel.loadFixturesForDate(date, forceRefresh: true)
+                            }
+                        }) {
+                            Label("새로고침", systemImage: "arrow.clockwise")
+                                .font(.subheadline)
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 8)
+                                .background(Color.blue.opacity(0.1))
+                                .foregroundColor(.blue)
+                                .cornerRadius(8)
+                        }
+                        .padding(.top, 8)
                     }
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.top, 100)
+                } else if isLoading && fixtures.isEmpty {
+                    // 로딩 중이고 데이터가 없는 경우
+                    VStack(spacing: 12) {
+                        ProgressView()
+                            .scaleEffect(1.2)
+                        
+                        // 로딩 텍스트 애니메이션
+                        LoadingTextView(baseText: "경기 일정을 불러오는 중")
+                            .foregroundColor(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.top, 50)
                 }
             }
             .padding(.horizontal, 20)
             .padding(.bottom, 20)
         }
+        .task {
+            // 현재 날짜가 선택된 날짜인 경우에만 데이터 로드
+            if Calendar.current.isDate(date, inSameDayAs: viewModel.selectedDate) &&
+               (viewModel.fixtures[date]?.isEmpty ?? true) {
+                await viewModel.loadFixturesForDate(date)
+            }
+        }
         .onAppear {
             // 현재 페이지가 선택된 경우에만 데이터 로드 시도
             if index == selectedIndex {
-                // 데이터가 없거나 비어있는 경우에만 로드
-                let hasData = viewModel.fixtures[date]?.isEmpty == false
+                let fixtures = viewModel.fixtures[date] ?? []
                 let isLoading = viewModel.loadingDates.contains(date)
                 
                 let dateFormatter = DateFormatter()
@@ -487,54 +612,68 @@ struct FixturePageView: View {
                 dateFormatter.timeZone = TimeZone.current
                 
                 print("📱 페이지 등장 - 날짜: \(dateFormatter.string(from: date)), 인덱스: \(index), 선택된 인덱스: \(selectedIndex)")
-                print("📱 페이지 등장 - 데이터 있음: \(hasData), 로딩 중: \(isLoading)")
+                print("📱 페이지 등장 - 데이터 있음: \(!fixtures.isEmpty), 로딩 중: \(isLoading)")
                 
-                // 데이터가 없는 경우 처리
-                if !hasData {
-                    if !isLoading {
-                        print("📱 페이지 등장 시 데이터 로드: \(dateFormatter.string(from: date))")
-                        Task {
-                            // 실제 API에서 데이터 로드
-                            await viewModel.loadFixturesForDate(date)
-                            
-                            // 데이터 로드 후 상태 확인
-                            await MainActor.run {
-                                let hasDataAfterLoad = viewModel.fixtures[date]?.isEmpty == false
-                                print("📱 페이지 등장 - 데이터 로드 후 상태: \(hasDataAfterLoad ? "데이터 있음" : "데이터 없음")")
-                                
-                                // 데이터 로드 후에도 데이터가 없으면 영어 팀명으로 테스트 데이터 생성
-                                if !hasDataAfterLoad {
-                                    print("📱 페이지 등장 - 데이터 로드 후에도 데이터 없음, 영어 팀명으로 테스트 데이터 생성")
-                                    let testFixtures = viewModel.createEnglishTeamTestFixtures(for: date)
-                                    viewModel.fixtures[date] = testFixtures
-                                }
-                            }
-                        }
-                    } else {
-                        print("📱 페이지 등장: 로딩 중 - \(dateFormatter.string(from: date))")
+                // 항상 최신 데이터를 보여주기 위해 API 호출 시도
+                if !isLoading {
+                    print("📱 페이지 등장 시 데이터 로드: \(dateFormatter.string(from: date))")
+                    Task {
+                        // 실제 API에서 데이터 로드
+                        await viewModel.loadFixturesForDate(date)
                         
-                        // 로딩 중이지만 데이터가 없는 경우, 잠시 대기 후 확인
-                        Task {
-                            // 잠시 대기 후 데이터 확인
-                            try? await Task.sleep(nanoseconds: 500_000_000) // 0.5초 대기
+                        // 데이터 로드 후 상태 확인
+                        await MainActor.run {
+                            let hasDataAfterLoad = viewModel.fixtures[date]?.isEmpty == false
+                            print("📱 페이지 등장 - 데이터 로드 후 상태: \(hasDataAfterLoad ? "데이터 있음" : "데이터 없음")")
                             
-                            await MainActor.run {
-                                if viewModel.fixtures[date] == nil || viewModel.fixtures[date]!.isEmpty {
-                                    print("📱 페이지 등장 - 로딩 중이지만 데이터 없음, 영어 팀명으로 테스트 데이터 생성")
-                                    let testFixtures = viewModel.createEnglishTeamTestFixtures(for: date)
-                                    viewModel.fixtures[date] = testFixtures
-                                }
+                            // 데이터 로드 후에도 데이터가 없으면 빈 배열 유지 (테스트 데이터 생성하지 않음)
+                            if !hasDataAfterLoad {
+                                print("📱 페이지 등장 - 데이터 로드 후에도 데이터 없음, 해당 날짜에 경기가 없습니다")
+                                // 빈 배열 유지 (이미 설정되어 있음)
                             }
                         }
                     }
                 } else {
-                    print("📱 페이지 등장: 이미 데이터 있음 - \(dateFormatter.string(from: date))")
+                    print("📱 페이지 등장: 로딩 중 - \(dateFormatter.string(from: date))")
+                    
+                    // 로딩 중이면 로딩 상태만 표시하고 테스트 데이터를 생성하지 않음
+                    if fixtures.isEmpty {
+                        print("📱 페이지 등장 - 로딩 중이므로 로딩 상태만 표시")
+                        // 빈 배열 유지 (이미 설정되어 있음)
+                    }
                 }
             }
         }
     }
 }
 
+
+// MARK: - 로딩 텍스트 뷰
+struct LoadingTextView: View {
+    let baseText: String
+    @State private var dotCount = 0
+    
+    var body: some View {
+        Text("\(baseText)\(String(repeating: ".", count: dotCount))")
+            .animation(.easeInOut, value: dotCount)
+            .onAppear {
+                // 로딩 애니메이션 시작
+                startLoadingAnimation()
+            }
+    }
+    
+    private func startLoadingAnimation() {
+        // 로딩 애니메이션 타이머
+        let timer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { _ in
+            withAnimation {
+                dotCount = (dotCount + 1) % 4
+            }
+        }
+        
+        // 뷰가 사라질 때 타이머 정리
+        RunLoop.current.add(timer, forMode: .common)
+    }
+}
 
 // MARK: - 경기 카드 뷰
 struct FixtureCardView: View {
@@ -569,7 +708,8 @@ struct FixtureCardView: View {
                         isLive: ["1H", "2H", "HT", "ET", "BT", "P"].contains(fixture.fixture.status.short),
                         elapsed: fixture.fixture.status.elapsed,
                         status: fixture.fixture.status.short,
-                        fixture: fixture
+                        fixture: fixture,
+                        viewModel: viewModel
                     )
                     
                     // 원정팀
@@ -596,8 +736,6 @@ struct FixtureCardView: View {
         dateFormatter.dateFormat = "HH:mm"
         return dateFormatter.string(from: date)
     }
-    
-    // 시간 포맷팅 메서드만 유지
 }
 
 // MARK: - 팀 정보 뷰 (간소화 버전)
@@ -606,15 +744,7 @@ struct FixtureTeamView: View {
     
     var body: some View {
         VStack(spacing: 8) {
-            AsyncImage(url: URL(string: team.logo)) { image in
-                image
-                    .resizable()
-                    .scaledToFit()
-            } placeholder: {
-                Image(systemName: "sportscourt")
-                    .foregroundColor(.gray)
-            }
-            .frame(width: 30, height: 30)
+            TeamLogoView(logoUrl: team.logo, size: 30)
             
             Text(team.name)
                 .font(.caption)
@@ -725,6 +855,7 @@ struct ScoreView: View {
     let elapsed: Int?
     let status: String
     let fixture: Fixture  // 추가: fixture 파라미터
+    let viewModel: FixturesOverviewViewModel  // 추가: viewModel 파라미터
     
     // 임시 승부차기 스코어 (실제로는 API에서 가져와야 함)
     private var penaltyScores: (home: Int, away: Int)? {
@@ -735,60 +866,67 @@ struct ScoreView: View {
         return nil
     }
     
-    // 임시 합산 스코어 (실제로는 API에서 가져와야 함)
-    private var aggregateScores: (home: Int, away: Int)? {
-        // 챔피언스리그(2)나 유로파리그(3)의 토너먼트 경기인 경우 합산 스코어 표시
-        if [2, 3].contains(fixture.league.id) && isTournamentMatch(fixture.league.round) {
-            // 현재 경기 스코어
-            let currentHomeScore = fixture.goals?.home ?? 0
-            let currentAwayScore = fixture.goals?.away ?? 0
+    // 합산 스코어 계산 로직 - ViewModel 사용
+    @State private var aggregateScores: (home: Int, away: Int)?
+    @State private var isLoadingAggregateScore: Bool = false
+    
+    // 합산 스코어 계산 함수
+    private func calculateAggregateScore() {
+        // 챔피언스리그(2)나 유로파리그(3)의 경기인 경우에만 합산 스코어 표시
+        if [2, 3].contains(fixture.league.id) {
+            print("🏆 ScoreView - 챔피언스/유로파 경기 감지: \(fixture.league.id), 이름: \(fixture.league.name), 라운드: \(fixture.league.round)")
             
-            // 1차전 경기인 경우
-            if isFirstLegMatch(fixture.league.round) {
-                // 1차전 경기는 합산 스코어를 표시하지 않음
-                return nil
-            }
+            // 로딩 상태 설정
+            isLoadingAggregateScore = true
+            aggregateScores = nil
             
-            // 2차전 경기인 경우
-            if isSecondLegMatch(fixture.league.round) {
-                // 1차전 경기 스코어 (실제로는 API에서 가져와야 함)
-                // 여기서는 라운드 정보와 팀 ID를 기반으로 가상의 1차전 스코어를 생성
-                let firstLegHomeScore = getFirstLegScore(fixture: fixture, isHome: true)
-                let firstLegAwayScore = getFirstLegScore(fixture: fixture, isHome: false)
+            // 비동기로 정확한 합산 스코어 계산
+            Task {
+                print("🏆 ScoreView - 합산 스코어 계산 시작: \(fixture.fixture.id)")
                 
-                // 합산 스코어 계산
-                let homeAggregate = currentHomeScore + firstLegAwayScore // 홈팀의 현재 스코어 + 1차전 원정 스코어
-                let awayAggregate = currentAwayScore + firstLegHomeScore // 원정팀의 현재 스코어 + 1차전 홈 스코어
-                
-                return (homeAggregate, awayAggregate)
+                if let calculatedScores = await viewModel.calculateAggregateScore(fixture: fixture) {
+                    // UI 스레드에서 업데이트
+                    await MainActor.run {
+                        print("🏆 ScoreView - 정확한 합산 스코어 계산 결과: \(calculatedScores.home)-\(calculatedScores.away)")
+                        aggregateScores = calculatedScores
+                        isLoadingAggregateScore = false
+                    }
+                } else {
+                    await MainActor.run {
+                        print("🏆 ScoreView - 합산 스코어 계산 실패")
+                        isLoadingAggregateScore = false
+                    }
+                }
             }
-            
-            // 다른 토너먼트 경기 (예: 결승전)
-            return nil
         }
-        return nil
     }
     
     // 토너먼트 경기인지 확인하는 함수
     private func isTournamentMatch(_ round: String) -> Bool {
         // 예: "Round of 16", "Quarter-finals", "Semi-finals", "Final" 등
         let tournamentRounds = ["16", "8", "quarter", "semi", "final", "1st leg", "2nd leg"]
-        return tournamentRounds.contains { round.lowercased().contains($0.lowercased()) }
+        let isMatch = tournamentRounds.contains { round.lowercased().contains($0.lowercased()) }
+        print("🏆 isTournamentMatch: \(round) -> \(isMatch)")
+        return isMatch
     }
     
     // 1차전 경기인지 확인하는 함수
     private func isFirstLegMatch(_ round: String) -> Bool {
         // 예: "Round of 16 - 1st Leg", "Quarter-finals - 1st Leg" 등
-        return round.lowercased().contains("1st leg") ||
-               round.lowercased().contains("first leg")
+        let isFirstLeg = round.lowercased().contains("1st leg") ||
+                        round.lowercased().contains("first leg")
+        print("🏆 isFirstLegMatch: \(round) -> \(isFirstLeg)")
+        return isFirstLeg
     }
     
     // 2차전 경기인지 확인하는 함수
     private func isSecondLegMatch(_ round: String) -> Bool {
         // 예: "Round of 16 - 2nd Leg", "Quarter-finals - 2nd Leg" 등
-        return round.lowercased().contains("2nd leg") ||
-               round.lowercased().contains("second leg") ||
-               round.lowercased().contains("return leg")
+        let isSecondLeg = round.lowercased().contains("2nd leg") ||
+                         round.lowercased().contains("second leg") ||
+                         round.lowercased().contains("return leg")
+        print("🏆 isSecondLegMatch: \(round) -> \(isSecondLeg)")
+        return isSecondLeg
     }
     
     // 1차전 경기 스코어를 가져오는 함수 (실제로는 API에서 가져와야 함)
@@ -819,13 +957,6 @@ struct ScoreView: View {
             return 2
         }
         return 1
-    }
-    
-    // 토너먼트 라운드인지 확인하는 함수
-    private func isTournamentRound(_ round: String) -> Bool {
-        // 예: "Round of 16", "Quarter-finals", "Semi-finals", "Final" 등
-        let tournamentRounds = ["16", "8", "quarter", "semi", "final"]
-        return tournamentRounds.contains { round.lowercased().contains($0.lowercased()) }
     }
     
     var body: some View {
@@ -882,14 +1013,40 @@ struct ScoreView: View {
             }
             .font(.title3.bold())
             
-            // 합산 스코어 (있는 경우)
-            if let aggregate = aggregateScores {
-                Text("(\(aggregate.home):\(aggregate.away))")
-                    .font(.caption)
-                    .foregroundColor(.gray)
+            // 합산 스코어 표시
+            Group {
+                if isLoadingAggregateScore {
+                    // 로딩 중 표시
+                    Text("합산 계산 중...")
+                        .font(.caption)
+                        .foregroundColor(.gray)
+                        .padding(.horizontal, 4)
+                        .padding(.vertical, 2)
+                } else if let aggregate = aggregateScores {
+                    // 합산 스코어 표시 (계산 완료)
+                    Text("합산 \(aggregate.home):\(aggregate.away)")
+                        .font(.caption)
+                        .fontWeight(.bold)
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 3)
+                        .background(Color.blue)
+                        .cornerRadius(4)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 4)
+                                .stroke(Color.white, lineWidth: 1)
+                        )
+                        .shadow(color: Color.black.opacity(0.2), radius: 2, x: 0, y: 1)
+                }
             }
         }
-        .frame(width: 60)
+        .frame(width: 70)
+        .onAppear {
+            // 합산 스코어 계산 시작
+            if [2, 3].contains(fixture.league.id) {
+                print("🏆 ScoreView onAppear - 리그 ID: \(fixture.league.id), 라운드: \(fixture.league.round)")
+                calculateAggregateScore()
+            }
+        }
     }
 }
-

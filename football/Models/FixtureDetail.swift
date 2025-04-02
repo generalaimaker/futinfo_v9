@@ -1,15 +1,58 @@
 import Foundation
 import SwiftUI
 
+// MARK: - Injuries
+struct InjuriesResponse: Codable {
+    let get: String
+    let parameters: ResponseParameters
+    let errors: [String]
+    let results: Int
+    let paging: ResponsePaging
+    let response: [InjuryData]
+}
+
+struct InjuryData: Codable {
+    let player: InjuryPlayer
+    let team: Team
+    let fixture: InjuryFixture?
+    let league: InjuryLeague?
+}
+
+struct InjuryPlayer: Codable {
+    let id: Int
+    let name: String
+    let photo: String?
+    let type: String
+    let reason: String?
+    let position: String?
+}
+
+struct InjuryFixture: Codable {
+    let id: Int?
+    let date: String?
+}
+
+struct InjuryLeague: Codable {
+    let id: Int?
+    let name: String?
+    let season: Int?
+}
+
+struct InjuryInfo: Codable {
+    let type: String
+    let reason: String?
+    let date: String?
+}
+
 
 
 // MARK: - Events
 struct FixtureEventResponse: Codable {
     let get: String
-    let parameters: Parameters
+    let parameters: ResponseParameters
     let errors: [String]
     let results: Int
-    let paging: Paging
+    let paging: ResponsePaging
     let response: [FixtureEvent]
 }
 
@@ -100,6 +143,23 @@ enum EventCategory {
     case substitution
     case `var`(VarType)
     case other
+    
+    // 골 이벤트인지 확인하는 속성
+    var isGoal: Bool {
+        switch self {
+        case .goal(_): return true
+        case .var(.goal): return true
+        default: return false
+        }
+    }
+    
+    // 자책골인지 확인하는 속성
+    var isOwnGoal: Bool {
+        switch self {
+        case .goal(.own): return true
+        default: return false
+        }
+    }
 }
 
 struct EventTime: Codable {
@@ -122,10 +182,10 @@ struct EventPlayer: Codable {
 // MARK: - Statistics
 struct FixtureStatisticsResponse: Codable {
     let get: String
-    let parameters: Parameters
+    let parameters: ResponseParameters
     let errors: [String]
     let results: Int
-    let paging: Paging
+    let paging: ResponsePaging
     let response: [TeamStatistics]
 }
 
@@ -230,10 +290,10 @@ public enum StatisticValue: Codable {
 // MARK: - Fixture Players Statistics
 struct FixturePlayersResponse: Codable {
     let get: String
-    let parameters: Parameters
+    let parameters: ResponseParameters
     let errors: [String]
     let results: Int
-    let paging: Paging
+    let paging: ResponsePaging
     let response: [TeamPlayersStatistics]
 }
 
@@ -257,10 +317,10 @@ struct FixturePlayerStats: Codable, Identifiable {
 // MARK: - Lineups
 struct FixtureLineupResponse: Codable {
     let get: String
-    let parameters: Parameters
+    let parameters: ResponseParameters
     let errors: [String]
     let results: Int
-    let paging: Paging
+    let paging: ResponsePaging
     let response: [TeamLineup]
 }
 

@@ -3,10 +3,10 @@ import Foundation
 // MARK: - Fixture Response
 public struct FixturesResponse: Codable {
     public let get: String
-    public let parameters: FixtureParameters
+    public let parameters: ResponseParameters
     public let errors: [String]  // 원래 타입으로 되돌림
     public let results: Int
-    public let paging: FixturePaging
+    public let paging: ResponsePaging
     public let response: [Fixture]
     
     // 에러 필드를 딕셔너리로 변환하는 계산 속성 추가
@@ -27,30 +27,9 @@ public struct FixturesResponse: Codable {
     }
 }
 
-// MARK: - Fixture Parameters
-public struct FixtureParameters: Codable {
-    public let league: String?
-    public let date: String?
-    public let season: String?
-    
-    // 추가 필드가 있을 수 있으므로 CodingKeys를 사용하지 않는 디코딩 허용
-    public init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        league = try container.decodeIfPresent(String.self, forKey: .league)
-        date = try container.decodeIfPresent(String.self, forKey: .date)
-        season = try container.decodeIfPresent(String.self, forKey: .season)
-    }
-    
-    enum CodingKeys: String, CodingKey {
-        case league, date, season
-    }
-}
-
-// MARK: - Fixture Paging
-public struct FixturePaging: Codable {
-    public let current: Int
-    public let total: Int
-}
+// 기존 타입과의 호환성을 위한 타입 별칭
+public typealias FixtureParameters = ResponseParameters
+public typealias FixturePaging = ResponsePaging
 
 // MARK: - Fixture
 public struct Fixture: Codable, Identifiable, Hashable {

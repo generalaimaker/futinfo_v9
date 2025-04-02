@@ -9,21 +9,21 @@ struct MatchSummaryView: View {
     private var dateFormatter: DateFormatter {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ssZ"
-        formatter.timeZone = TimeZone(identifier: fixture.fixture.timezone)
         return formatter
     }
     
-    private var localTimeFormatter: DateFormatter {
+    private var userTimeFormatter: DateFormatter {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy년 M월 d일 (E) HH:mm"
         formatter.locale = Locale(identifier: "ko_KR")
-        formatter.timeZone = TimeZone(identifier: fixture.fixture.timezone)
+        // 사용자의 현재 시스템 시간대 사용
+        formatter.timeZone = TimeZone.current
         return formatter
     }
     
-    private var formattedLocalTime: String {
+    private var formattedUserTime: String {
         guard let date = dateFormatter.date(from: fixture.fixture.date) else { return "" }
-        return localTimeFormatter.string(from: date)
+        return userTimeFormatter.string(from: date)
     }
     
     private var keyEvents: [(Int, [FixtureEvent])] {
@@ -53,108 +53,6 @@ struct MatchSummaryView: View {
     
     var body: some View {
         VStack(spacing: 24) {
-            // 기본 정보
-            VStack(spacing: 20) {
-                Text("기본 정보")
-                    .font(.headline)
-                    .foregroundColor(.primary)
-                
-                VStack(spacing: 16) {
-                    // 현지 시간
-                    HStack(spacing: 12) {
-                        Image(systemName: "clock.fill")
-                            .font(.system(size: 20))
-                            .foregroundColor(.blue)
-                            .frame(width: 28)
-                        
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("현지 시간")
-                                .font(.subheadline)
-                                .foregroundColor(.gray)
-                            Text(formattedLocalTime)
-                                .font(.system(.body, design: .rounded))
-                                .fontWeight(.medium)
-                        }
-                        
-                        Spacer()
-                    }
-                    
-                    Divider()
-                    
-                    // 리그 및 라운드
-                    HStack(spacing: 12) {
-                        Image(systemName: "trophy.fill")
-                            .font(.system(size: 20))
-                            .foregroundColor(.yellow)
-                            .frame(width: 28)
-                        
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("대회")
-                                .font(.subheadline)
-                                .foregroundColor(.gray)
-                            Text("\(fixture.league.name)")
-                                .font(.system(.body, design: .rounded))
-                                .fontWeight(.medium)
-                            Text("\(fixture.league.round)")
-                                .font(.subheadline)
-                                .foregroundColor(.gray)
-                        }
-                        
-                        Spacer()
-                    }
-                    
-                    Divider()
-                    
-                    // 경기장
-                    if let venueName = fixture.fixture.venue.name {
-                        HStack(spacing: 12) {
-                            Image(systemName: "mappin.circle.fill")
-                                .font(.system(size: 20))
-                                .foregroundColor(.red)
-                                .frame(width: 28)
-                            
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("경기장")
-                                    .font(.subheadline)
-                                    .foregroundColor(.gray)
-                                Text(venueName)
-                                    .font(.system(.body, design: .rounded))
-                                    .fontWeight(.medium)
-                            }
-                            
-                            Spacer()
-                        }
-                        
-                        Divider()
-                    }
-                    
-                    // 심판
-                    if let referee = fixture.fixture.referee {
-                        HStack(spacing: 12) {
-                            Image(systemName: "person.fill")
-                                .font(.system(size: 20))
-                                .foregroundColor(.purple)
-                                .frame(width: 28)
-                            
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("심판")
-                                    .font(.subheadline)
-                                    .foregroundColor(.gray)
-                                Text(referee)
-                                    .font(.system(.body, design: .rounded))
-                                    .fontWeight(.medium)
-                            }
-                            
-                            Spacer()
-                        }
-                    }
-                }
-                .padding()
-                .background(Color(.systemBackground))
-                .cornerRadius(16)
-                .shadow(color: Color.black.opacity(0.05), radius: 10, y: 5)
-            }
-            
             // 주요 이벤트
             VStack(spacing: 16) {
                 Text("주요 이벤트")
@@ -273,73 +171,169 @@ struct MatchSummaryView: View {
                 }
             }
             
-            // 최근 폼
-            if let homeForm = viewModel.homeTeamForm,
-               let awayForm = viewModel.awayTeamForm {
+            // 최근 폼 - 항상 표시
+            VStack(spacing: 16) {
+                Text("최근 폼")
+                    .font(.headline)
+                
                 VStack(spacing: 16) {
-                    Text("최근 폼")
-                        .font(.headline)
-                    
-                    VStack(spacing: 16) {
-                        // 홈팀 - 최근 폼 영역에서도 팀 프로필로 이동하지 않음
-                        HStack {
-                            // 홈팀 로고
-                            AsyncImage(url: URL(string: fixture.teams.home.logo)) { image in
-                                image
-                                    .resizable()
-                                    .scaledToFit()
-                                    .frame(width: 32, height: 32)
-                            } placeholder: {
-                                Image(systemName: "sportscourt")
-                                    .font(.system(size: 24))
-                                    .foregroundColor(.gray)
-                            }
-                            
-                            Text(fixture.teams.home.name)
-                                .font(.system(.body, design: .rounded))
-                                .fontWeight(.medium)
-                            
-                            Spacer()
-                            
+                    // 홈팀 - 최근 폼 영역에서도 팀 프로필로 이동하지 않음
+                    HStack {
+                        // 홈팀 로고
+                        AsyncImage(url: URL(string: fixture.teams.home.logo)) { image in
+                            image
+                                .resizable()
+                                .scaledToFit()
+                                .frame(width: 32, height: 32)
+                        } placeholder: {
+                            Image(systemName: "sportscourt")
+                                .font(.system(size: 24))
+                                .foregroundColor(.gray)
+                        }
+                        
+                        Text(fixture.teams.home.name)
+                            .font(.system(.body, design: .rounded))
+                            .fontWeight(.medium)
+                        
+                        Spacer()
+                        
+                        if let homeForm = viewModel.homeTeamForm {
                             HStack(spacing: 8) {
                                 ForEach(Array(homeForm.results.enumerated()), id: \.offset) { _, result in
                                     FormIndicator(result: result)
                                 }
                             }
+                        } else {
+                            // 폼 데이터가 없는 경우 로딩 표시
+                            Text("데이터 로드 중...")
+                                .font(.caption)
+                                .foregroundColor(.gray)
+                        }
+                    }
+                    
+                    // 원정팀 - 최근 폼 영역에서도 팀 프로필로 이동하지 않음
+                    HStack {
+                        // 원정팀 로고
+                        AsyncImage(url: URL(string: fixture.teams.away.logo)) { image in
+                            image
+                                .resizable()
+                                .scaledToFit()
+                                .frame(width: 32, height: 32)
+                        } placeholder: {
+                            Image(systemName: "sportscourt")
+                                .font(.system(size: 24))
+                                .foregroundColor(.gray)
                         }
                         
-                        // 원정팀 - 최근 폼 영역에서도 팀 프로필로 이동하지 않음
-                        HStack {
-                            // 원정팀 로고
-                            AsyncImage(url: URL(string: fixture.teams.away.logo)) { image in
-                                image
-                                    .resizable()
-                                    .scaledToFit()
-                                    .frame(width: 32, height: 32)
-                            } placeholder: {
-                                Image(systemName: "sportscourt")
-                                    .font(.system(size: 24))
-                                    .foregroundColor(.gray)
-                            }
-                            
-                            Text(fixture.teams.away.name)
-                                .font(.system(.body, design: .rounded))
-                                .fontWeight(.medium)
-                            
-                            Spacer()
-                            
+                        Text(fixture.teams.away.name)
+                            .font(.system(.body, design: .rounded))
+                            .fontWeight(.medium)
+                        
+                        Spacer()
+                        
+                        if let awayForm = viewModel.awayTeamForm {
                             HStack(spacing: 8) {
                                 ForEach(Array(awayForm.results.enumerated()), id: \.offset) { _, result in
                                     FormIndicator(result: result)
                                 }
                             }
+                        } else {
+                            // 폼 데이터가 없는 경우 로딩 표시
+                            Text("데이터 로드 중...")
+                                .font(.caption)
+                                .foregroundColor(.gray)
                         }
                     }
-                    .padding()
-                    .background(Color(.systemBackground))
-                    .cornerRadius(16)
-                    .shadow(color: Color.black.opacity(0.05), radius: 10, y: 5)
                 }
+                .padding()
+                .background(Color(.systemBackground))
+                .cornerRadius(16)
+                .shadow(color: Color.black.opacity(0.05), radius: 10, y: 5)
+            }
+            .onAppear {
+                // 폼 데이터 로드 시도
+                if viewModel.homeTeamForm == nil || viewModel.awayTeamForm == nil {
+                    Task {
+                        await viewModel.loadTeamForms()
+                    }
+                }
+            }
+            
+            // 기본 정보 (맨 하단에 배치)
+            VStack(spacing: 16) {
+                Text("기본 정보")
+                    .font(.headline)
+                
+                VStack(spacing: 16) {
+                    // 경기 시간
+                    HStack(spacing: 12) {
+                        Image(systemName: "clock.fill")
+                            .font(.system(size: 20))
+                            .foregroundColor(.blue)
+                            .frame(width: 28)
+                        
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("경기 시간")
+                                .font(.subheadline)
+                                .foregroundColor(.gray)
+                            Text(formattedUserTime)
+                                .font(.system(.body, design: .rounded))
+                                .fontWeight(.medium)
+                        }
+                        
+                        Spacer()
+                    }
+                    
+                    Divider()
+                    
+                    // 경기장
+                    if let venueName = fixture.fixture.venue.name {
+                        HStack(spacing: 12) {
+                            Image(systemName: "mappin.circle.fill")
+                                .font(.system(size: 20))
+                                .foregroundColor(.red)
+                                .frame(width: 28)
+                            
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("경기장")
+                                    .font(.subheadline)
+                                    .foregroundColor(.gray)
+                                Text(venueName)
+                                    .font(.system(.body, design: .rounded))
+                                    .fontWeight(.medium)
+                            }
+                            
+                            Spacer()
+                        }
+                        
+                        Divider()
+                    }
+                    
+                    // 심판
+                    if let referee = fixture.fixture.referee {
+                        HStack(spacing: 12) {
+                            Image(systemName: "person.fill")
+                                .font(.system(size: 20))
+                                .foregroundColor(.purple)
+                                .frame(width: 28)
+                            
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("심판")
+                                    .font(.subheadline)
+                                    .foregroundColor(.gray)
+                                Text(referee)
+                                    .font(.system(.body, design: .rounded))
+                                    .fontWeight(.medium)
+                            }
+                            
+                            Spacer()
+                        }
+                    }
+                }
+                .padding()
+                .background(Color(.systemBackground))
+                .cornerRadius(16)
+                .shadow(color: Color.black.opacity(0.05), radius: 10, y: 5)
             }
         }
         .padding(.horizontal)

@@ -3,12 +3,15 @@ import Foundation
 // MARK: - Team Trophy Response
 struct TeamTrophyResponse: Codable {
     let get: String
-    let parameters: Parameters
+    let parameters: ResponseParameters
     let errors: [String]
     let results: Int
-    let paging: Paging
+    let paging: ResponsePaging
     let response: [TeamTrophy]
 }
+
+// APIErrorCheckable 프로토콜 준수
+extension TeamTrophyResponse: ResponseErrorCheckable {}
 
 struct TeamTrophy: Codable, Identifiable {
     let league: String

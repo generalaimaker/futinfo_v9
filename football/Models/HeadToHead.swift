@@ -2,10 +2,10 @@ import Foundation
 
 struct HeadToHeadResponse: Codable {
     let get: String
-    let parameters: Parameters
+    let parameters: ResponseParameters
     let errors: [String]
     let results: Int
-    let paging: Paging
+    let paging: ResponsePaging
     let response: [Fixture]  // 기존 Fixture 모델 재사용
 }
 
