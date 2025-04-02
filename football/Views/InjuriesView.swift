@@ -148,19 +148,19 @@ struct InjuryPlayerCard: View {
                         .foregroundColor(.white)
                         .cornerRadius(4)
                     
+                    // 부상 설명 (빨간색 박스에 표시)
+                    if let reason = injury.injury.reason {
+                        Text(reason)
+                            .font(.caption)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 2)
+                            .background(Color.red.opacity(0.8))
+                            .foregroundColor(.white)
+                            .cornerRadius(4)
+                    }
+                    
                     // 부상 유형
                     Text(injury.injury.type)
-                        .font(.caption)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 2)
-                        .background(Color.red.opacity(0.8))
-                        .foregroundColor(.white)
-                        .cornerRadius(4)
-                }
-                
-                // 부상 설명
-                if let reason = injury.injury.reason {
-                    Text(reason)
                         .font(.caption)
                         .foregroundColor(.gray)
                 }
@@ -168,18 +168,7 @@ struct InjuryPlayerCard: View {
             
             Spacer()
             
-            // 복귀 예정일
-            if let date = injury.injury.date {
-                VStack(alignment: .trailing, spacing: 4) {
-                    Text("복귀 예정")
-                        .font(.caption)
-                        .foregroundColor(.gray)
-                    
-                    Text(formatDate(date))
-                        .font(.caption)
-                        .fontWeight(.medium)
-                }
-            }
+            // API에서 복귀 예정일을 제공하지 않으므로 표시하지 않음
         }
         .padding(12)
         .background(Color(.systemGray6))

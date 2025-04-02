@@ -50,6 +50,33 @@ struct FixtureDetailView: View {
                             Button(action: {
                                 withAnimation(.easeInOut(duration: 0.3)) {
                                     selectedTab = index
+                                    
+                                    // 탭 변경 시 필요한 데이터 로드
+                                    if isUpcoming {
+                                        switch index {
+                                        case 0: // 정보 탭
+                                            Task {
+                                                // 팀 폼 데이터 로드
+                                                await viewModel.loadTeamForms()
+                                                // 순위 정보 로드
+                                                await viewModel.loadStandings()
+                                            }
+                                        case 1: // 부상 탭
+                                            Task {
+                                                await viewModel.loadInjuries()
+                                            }
+                                        case 2: // 순위 탭
+                                            Task {
+                                                await viewModel.loadStandings()
+                                            }
+                                        case 3: // 상대전적 탭
+                                            Task {
+                                                await viewModel.loadHeadToHead()
+                                            }
+                                        default:
+                                            break
+                                        }
+                                    }
                                 }
                             }) {
                                 VStack(spacing: 8) {
@@ -176,7 +203,42 @@ struct FixtureDetailView: View {
         }
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
+            // 기본 데이터 로드
             viewModel.loadAllData()
+            
+            // 초기 선택된 탭에 필요한 데이터 명시적으로 로드
+            if isUpcoming {
+                // 정보 탭이 기본 선택되어 있으므로 즉시 데이터 로드 시작
+                if selectedTab == 0 {
+                    loadInfoTabData()
+                }
+                
+                // 지연된 데이터 로드 시도 예약
+                scheduleDelayedDataLoad(delay: 1)
+                scheduleDelayedDataLoad(delay: 2)
+            }
+        }
+    }
+    
+    // 정보 탭 데이터 로드 함수
+    private func loadInfoTabData() {
+        Task {
+            print("🔄 FixtureDetailView - 정보 탭 데이터 로드 시작")
+            // 팀 폼 데이터 로드 (강제 로드)
+            await viewModel.loadTeamForms()
+            // 순위 정보 로드 (강제 로드)
+            await viewModel.loadStandings()
+            print("✅ FixtureDetailView - 정보 탭 데이터 로드 완료")
+        }
+    }
+    
+    // 지연된 데이터 로드 예약 함수
+    private func scheduleDelayedDataLoad(delay: Double) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+            if selectedTab == 0 && (viewModel.homeTeamForm == nil || viewModel.awayTeamForm == nil || viewModel.standings.isEmpty) {
+                print("⏱️ FixtureDetailView - \(delay)초 후 정보 탭 데이터 재로드")
+                loadInfoTabData()
+            }
         }
     }
 }

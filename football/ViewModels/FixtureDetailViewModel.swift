@@ -307,7 +307,7 @@ class FixtureDetailViewModel: ObservableObject {
                     injury: PlayerInjury.Injury(
                         type: injury.player.type,
                         reason: injury.player.reason,
-                        date: injury.fixture?.date
+                        date: nil // API에서 복귀 예정일을 제공하지 않으므로 nil로 설정
                     )
                 )
                 
@@ -353,17 +353,27 @@ class FixtureDetailViewModel: ObservableObject {
         let homeTeamId = fixture.teams.home.id
         let awayTeamId = fixture.teams.away.id
         
-        if homeTeamForm != nil && awayTeamForm != nil {
-            isLoadingForm = false
-            return
-        }
+        // 이미 데이터가 있어도 강제로 다시 로드
+        // if homeTeamForm != nil && awayTeamForm != nil {
+        //     isLoadingForm = false
+        //     return
+        // }
         
         await withTaskGroup(of: Void.self) { group in
             group.addTask { await self.loadTeamForm(teamId: homeTeamId, isHome: true) }
             group.addTask { await self.loadTeamForm(teamId: awayTeamId, isHome: false) }
         }
         
+        // 데이터 로드 후 UI 업데이트를 위해 약간의 지연 추가
+        try? await Task.sleep(nanoseconds: 500_000_000) // 0.5초 대기
+        
         isLoadingForm = false
+        
+        // 데이터가 없으면 다시 시도
+        if homeTeamForm == nil || awayTeamForm == nil {
+            print("⚠️ 팀 폼 데이터 누락, 다시 시도")
+            await retryLoadTeamForms(homeTeamId: homeTeamId, awayTeamId: awayTeamId)
+        }
     }
     
     // 1차전 경기 찾기
@@ -454,10 +464,22 @@ class FixtureDetailViewModel: ObservableObject {
             // API에서 순위 정보 가져오기
             let standingsData = try await service.getStandings(leagueId: leagueId, season: season)
             
+            // 데이터 로드 후 UI 업데이트를 위해 약간의 지연 추가
+            try? await Task.sleep(nanoseconds: 500_000_000) // 0.5초 대기
+            
             await MainActor.run {
                 self.standings = standingsData
                 self.isLoadingStandings = false
                 print("✅ 순위 정보 로드 완료: \(standingsData.count)개")
+                
+                // 데이터가 비어있으면 다시 시도
+                if self.standings.isEmpty {
+                    print("⚠️ 순위 정보 데이터 누락, 다시 시도")
+                    Task {
+                        try? await Task.sleep(nanoseconds: 1_000_000_000) // 1초 대기
+                        await self.loadStandings()
+                    }
+                }
             }
         } catch {
             await MainActor.run {
