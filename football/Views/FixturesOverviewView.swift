@@ -123,10 +123,22 @@ struct FixturesDateTabsView: View {
                                 selectedDateIndex = index
                                 viewModel.selectedDate = viewModel.dateTabs[index].date
                                 
-                                // 선택된 날짜에 대한 경기 일정 로드
-                                Task {
-                                    await viewModel.loadFixturesForDate(viewModel.dateTabs[index].date)
+                        // 선택된 날짜에 대한 경기 일정 로드
+                        Task {
+                            // 현재 선택된 날짜 로드
+                            await viewModel.loadFixturesForDate(viewModel.dateTabs[index].date)
+                            
+                            // 다음 날짜들의 경기 일정도 미리 로드 (UX 향상)
+                            if index + 1 < viewModel.dateTabs.count {
+                                // 다음 날짜 로드
+                                await viewModel.loadFixturesForDate(viewModel.dateTabs[index + 1].date)
+                                
+                                // 그 다음 날짜도 로드
+                                if index + 2 < viewModel.dateTabs.count {
+                                    await viewModel.loadFixturesForDate(viewModel.dateTabs[index + 2].date)
                                 }
+                            }
+                        }
                                 
                                 // 날짜 범위 업데이트 (필요한 경우)
                                 let isNearStart = index < 3
@@ -218,6 +230,20 @@ struct FixturesPageTabView: View {
             } else if newValue > viewModel.dateTabs.count - 4 {
                 // 오른쪽 끝에 가까워지면 미래 날짜 추가
                 viewModel.extendDateRange(forward: true)
+            }
+            
+            // 선택된 날짜가 변경되면 다음 날짜들의 경기 일정도 미리 로드 (UX 향상)
+            Task {
+                // 다음 날짜들의 경기 일정 미리 로드
+                if newValue + 1 < viewModel.dateTabs.count {
+                    // 다음 날짜 로드
+                    await viewModel.loadFixturesForDate(viewModel.dateTabs[newValue + 1].date)
+                    
+                    // 그 다음 날짜도 로드
+                    if newValue + 2 < viewModel.dateTabs.count {
+                        await viewModel.loadFixturesForDate(viewModel.dateTabs[newValue + 2].date)
+                    }
+                }
             }
         }
     }
