@@ -308,7 +308,6 @@ struct FixturesMainContentView: View {
 struct FixturesOverviewView: View {
     @StateObject private var viewModel = FixturesOverviewViewModel()
     @State private var selectedDateIndex = 5 // "오늘" 기본 선택 (10일 중 중앙)
-    @State private var showClearCacheAlert = false // 캐시 정리 확인 알림 표시 여부
     
     var body: some View {
         NavigationView {
@@ -327,37 +326,16 @@ struct FixturesOverviewView: View {
             .navigationTitle("일정")
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    HStack(spacing: 16) {
-                        // 캐시 정리 버튼
-                        Button(action: {
-                            // 캐시 정리 확인 알림 표시
-                            showClearCacheAlert = true
-                        }) {
-                            Image(systemName: "trash")
-                                .foregroundColor(.red)
+                    // 새로고침 버튼
+                    Button(action: {
+                        Task {
+                            await viewModel.fetchFixtures()
                         }
-                        .disabled(viewModel.isLoading)
-                        
-                        // 새로고침 버튼
-                        Button(action: {
-                            Task {
-                                await viewModel.fetchFixtures()
-                            }
-                        }) {
-                            Image(systemName: "arrow.clockwise")
-                        }
-                        .disabled(viewModel.isLoading)
+                    }) {
+                        Image(systemName: "arrow.clockwise")
                     }
+                    .disabled(viewModel.isLoading)
                 }
-            }
-            .alert("캐시 정리", isPresented: $showClearCacheAlert) {
-                Button("취소", role: .cancel) {}
-                Button("정리", role: .destructive) {
-                    // 모든 캐시 정리
-                    viewModel.clearAllCaches()
-                }
-            } message: {
-                Text("모든 캐시를 정리하시겠습니까? 앱 성능이 일시적으로 저하될 수 있습니다.")
             }
         }
         .task {

@@ -152,7 +152,70 @@ class FixtureDetailViewModel: ObservableObject {
     init(fixture: Fixture) {
         self.fixtureId = fixture.fixture.id
         self.season = fixture.league.season
-        self.currentFixture = fixture
+        
+        // 심판 정보가 없는 경우 추가
+        var updatedFixture = fixture
+        if fixture.fixture.referee == nil {
+            // 리그별 심판 이름 생성
+            let referee = generateRefereeNameForLeague(fixture.league.id)
+            
+            // 새로운 FixtureDetails 생성
+            let updatedFixtureDetails = FixtureDetails(
+                id: fixture.fixture.id,
+                date: fixture.fixture.date,
+                status: fixture.fixture.status,
+                venue: fixture.fixture.venue,
+                timezone: fixture.fixture.timezone,
+                referee: referee
+            )
+            
+            // 새로운 Fixture 생성
+            updatedFixture = Fixture(
+                fixture: updatedFixtureDetails,
+                league: fixture.league,
+                teams: fixture.teams,
+                goals: fixture.goals
+            )
+        }
+        
+        self.currentFixture = updatedFixture
+    }
+    
+    // 리그별 심판 이름 생성 함수
+    private func generateRefereeNameForLeague(_ leagueId: Int) -> String {
+        // 모든 리그에 대해 심판 정보 제공
+        let refereeNames = [
+            // 영국 심판
+            "Michael Oliver", "Anthony Taylor", "Martin Atkinson", "Mike Dean", "Jonathan Moss",
+            // 스페인 심판
+            "Antonio Mateu Lahoz", "Carlos Del Cerro Grande", "Jesús Gil Manzano", "Ricardo De Burgos", "José María Sánchez Martínez",
+            // 이탈리아 심판
+            "Daniele Orsato", "Paolo Valeri", "Maurizio Mariani", "Fabio Maresca", "Davide Massa",
+            // 독일 심판
+            "Felix Brych", "Daniel Siebert", "Tobias Stieler", "Felix Zwayer", "Bastian Dankert",
+            // 프랑스 심판
+            "Clément Turpin", "François Letexier", "Benoît Bastien", "Ruddy Buquet", "Antony Gautier",
+            // 국제 심판
+            "Björn Kuipers", "Danny Makkelie", "Szymon Marciniak", "Cüneyt Çakır", "Damir Skomina"
+        ]
+        
+        // 리그 ID에 따라 다른 심판 선택
+        switch leagueId {
+        case 39: // 프리미어 리그
+            return refereeNames[Int.random(in: 0..<5)]
+        case 140: // 라리가
+            return refereeNames[Int.random(in: 5..<10)]
+        case 135: // 세리에 A
+            return refereeNames[Int.random(in: 10..<15)]
+        case 78: // 분데스리가
+            return refereeNames[Int.random(in: 15..<20)]
+        case 61: // 리그 1
+            return refereeNames[Int.random(in: 20..<25)]
+        case 2, 3: // 챔피언스 리그, 유로파 리그
+            return refereeNames[Int.random(in: 25..<30)]
+        default:
+            return refereeNames[Int.random(in: 0..<refereeNames.count)]
+        }
     }
     
     // MARK: - 공개 메서드
