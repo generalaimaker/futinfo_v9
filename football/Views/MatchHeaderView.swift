@@ -503,12 +503,25 @@ struct TeamInfoView: View {
     private var goalScorersContentView: some View {
         if viewModel.isLoadingEvents {
             loadingView
-        } else if viewModel.events.isEmpty && hasGoals {
-            Text("득점자 정보를 불러올 수 없습니다.")
-                .font(.system(.caption2, design: .rounded))
-                .foregroundColor(.secondary)
-        } else {
+        } else if !filteredTeamGoals.isEmpty {
+            // 득점자 정보가 있는 경우
             goalScorersView
+        } else if hasGoals {
+            // 득점은 있지만 이벤트 데이터가 없는 경우 로딩 시도
+            VStack {
+                Text("득점자 정보 로드 중...")
+                    .font(.system(.caption2, design: .rounded))
+                    .foregroundColor(.secondary)
+                    .onAppear {
+                        // 득점자 정보 다시 로드 시도
+                        Task {
+                            await loadEventData()
+                        }
+                    }
+            }
+        } else {
+            // 득점이 없는 경우 빈 뷰
+            EmptyView()
         }
     }
     
