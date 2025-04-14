@@ -40,6 +40,18 @@ struct FixtureDetailView: View {
                                 }
                             }
                         }
+                        
+                        // 경기 이벤트 데이터 자동 로드
+                        Task {
+                            await viewModel.loadEvents()
+                        }
+                    }
+                    .navigationDestination(isPresented: $viewModel.showTeamProfile) {
+                        if let teamId = viewModel.selectedTeamId, let leagueId = viewModel.selectedLeagueId {
+                            TeamProfileView(teamId: teamId, leagueId: leagueId)
+                        } else {
+                            Text("팀 정보를 불러올 수 없습니다")
+                        }
                     }
                 
                 // 탭 컨트롤
@@ -141,6 +153,15 @@ struct FixtureDetailView: View {
                     case 0: // 경기요약 탭
                         if viewModel.isLoadingEvents || viewModel.isLoadingStats {
                             ProgressView()
+                                .onAppear {
+                                    // 맨 오브 더 매치 데이터 로드 시도
+                                    if viewModel.matchPlayerStats.isEmpty {
+                                        Task {
+                                            print("🔄 FixtureDetailView - 맨 오브 더 매치 데이터 로드 시작")
+                                            await viewModel.loadMatchPlayerStats()
+                                        }
+                                    }
+                                }
                         } else {
                             MatchSummaryView(
                                 fixture: fixture,
@@ -148,6 +169,15 @@ struct FixtureDetailView: View {
                                 statistics: viewModel.statistics,
                                 viewModel: viewModel
                             )
+                            .onAppear {
+                                // 맨 오브 더 매치 데이터 로드 시도
+                                if viewModel.manOfTheMatch == nil {
+                                    Task {
+                                        print("🔄 FixtureDetailView - 맨 오브 더 매치 데이터 로드 시작")
+                                        await viewModel.loadMatchPlayerStats()
+                                    }
+                                }
+                            }
                         }
                     case 1: // 통계 탭
                         if viewModel.isLoadingStats {
@@ -204,7 +234,9 @@ struct FixtureDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
             // 기본 데이터 로드
-            viewModel.loadAllData()
+            Task {
+                await viewModel.loadAllData()
+            }
             
             // 초기 선택된 탭에 필요한 데이터 명시적으로 로드
             if isUpcoming {

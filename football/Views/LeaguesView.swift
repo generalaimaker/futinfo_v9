@@ -64,12 +64,20 @@ struct LeaguesView: View {
             .navigationTitle("리그")
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(action: {
-                        viewModel.loadLeagues()
-                    }) {
-                        Image(systemName: "arrow.clockwise")
+                    HStack(spacing: 16) {
+                        // 검색 버튼
+                        NavigationLink(destination: SearchView()) {
+                            Image(systemName: "magnifyingglass")
+                        }
+                        
+                        // 새로고침 버튼
+                        Button(action: {
+                            viewModel.loadLeagues()
+                        }) {
+                            Image(systemName: "arrow.clockwise")
+                        }
+                        .disabled(viewModel.isLoading)
                     }
-                    .disabled(viewModel.isLoading)
                 }
             }
         }

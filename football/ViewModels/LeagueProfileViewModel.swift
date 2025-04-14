@@ -34,6 +34,10 @@ class LeagueProfileViewModel: ObservableObject {
         self.leagueId = leagueId
     }
     
+    // MARK: - 토너먼트 데이터
+    @Published var tournamentFixtures: [Fixture] = []
+    @Published var tournamentRounds: [String] = []
+    
     // MARK: - 데이터 로드 메서드
     
     func loadLeagueDetails() async {
@@ -41,7 +45,18 @@ class LeagueProfileViewModel: ObservableObject {
         error = nil
         
         do {
-            leagueDetails = try await service.getLeagueDetails(leagueId: leagueId, season: selectedSeason)
+            // 하드코딩된 리그 목록에서 리그 정보 찾기
+            let hardcodedLeagues = LeaguesViewModel().leagues
+            
+            // 리그 ID로 리그 정보 찾기
+            if let league = hardcodedLeagues.first(where: { $0.league.id == leagueId }) {
+                leagueDetails = league
+                print("✅ 하드코딩된 리그 정보 사용: \(league.league.name)")
+            } else {
+                // 하드코딩된 리그 정보가 없으면 API 호출
+                print("⚠️ 하드코딩된 리그 정보 없음, API 호출 시도")
+                leagueDetails = try await service.getLeagueDetails(leagueId: leagueId, season: selectedSeason)
+            }
         } catch {
             self.error = error
             print("Error loading league details: \(error)")
@@ -69,7 +84,7 @@ class LeagueProfileViewModel: ObservableObject {
         error = nil
         
         do {
-            let allFixtures = try await service.getFixtures(leagueId: leagueId, season: selectedSeason)
+            let allFixtures = try await service.getFixtures(leagueId: leagueId, season: selectedSeason, from: nil, to: nil)
             
             // 날짜 기준으로 경기 분류
             let dateFormatter = DateFormatter()
@@ -364,16 +379,110 @@ class LeagueProfileViewModel: ObservableObject {
         }
     }
     
+    // 토너먼트 데이터 로드
+    func loadTournamentData() async {
+        isLoading = true
+        error = nil
+        
+        do {
+            // 컵대회 ID 확인 (챔피언스리그, 유로파리그, 주요 컵대회)
+            let cupCompetitionIds = [2, 3, 45, 143, 137, 66, 81]
+            
+            // 현재 리그가 컵대회인지 확인
+            let isCupCompetition = cupCompetitionIds.contains(leagueId)
+            
+            if isCupCompetition {
+                // 모든 경기 가져오기
+                let allFixtures = try await service.getFixtures(leagueId: leagueId, season: selectedSeason, from: nil, to: nil)
+                
+                // 라운드 정보 추출 및 정렬
+                var rounds = Set<String>()
+                for fixture in allFixtures {
+                    // fixture.league.round는 옵셔널이 아니므로 바로 사용
+                    rounds.insert(fixture.league.round)
+                }
+                
+                // 라운드 정렬 로직
+                let sortedRounds = Array(rounds).sorted { round1, round2 in
+                    // 결승전은 항상 마지막에
+                    if round1.contains("Final") && !round2.contains("Final") {
+                        return false
+                    }
+                    if !round1.contains("Final") && round2.contains("Final") {
+                        return true
+                    }
+                    
+                    // 준결승은 결승 바로 전에
+                    if round1.contains("Semi") && !round2.contains("Semi") && !round2.contains("Final") {
+                        return false
+                    }
+                    if !round1.contains("Semi") && round2.contains("Semi") {
+                        return true
+                    }
+                    
+                    // 8강은 준결승 바로 전에
+                    if round1.contains("Quarter") && !round2.contains("Quarter") && !round2.contains("Semi") && !round2.contains("Final") {
+                        return false
+                    }
+                    if !round1.contains("Quarter") && round2.contains("Quarter") {
+                        return true
+                    }
+                    
+                    // 16강, 32강, 64강 순서로 정렬
+                    if round1.contains("Round of") && round2.contains("Round of") {
+                        // 숫자 부분만 추출
+                        if let range1 = round1.range(of: "Round of (\\d+)", options: .regularExpression),
+                           let range2 = round2.range(of: "Round of (\\d+)", options: .regularExpression) {
+                            
+                            let numberStr1 = round1[range1].replacingOccurrences(of: "Round of ", with: "")
+                            let numberStr2 = round2[range2].replacingOccurrences(of: "Round of ", with: "")
+                            
+                            if let number1 = Int(numberStr1), let number2 = Int(numberStr2) {
+                                return number1 < number2
+                            }
+                        }
+                    }
+                    
+                    // 조별리그는 항상 먼저
+                    if round1.contains("Group") && !round2.contains("Group") {
+                        return true
+                    }
+                    if !round1.contains("Group") && round2.contains("Group") {
+                        return false
+                    }
+                    
+                    // 기본 알파벳 순서
+                    return round1 < round2
+                }
+                
+                tournamentRounds = sortedRounds
+                tournamentFixtures = allFixtures
+                
+                print("✅ 토너먼트 데이터 로드 완료: \(tournamentRounds.count) 라운드, \(tournamentFixtures.count) 경기")
+            } else {
+                // 컵대회가 아닌 경우 빈 데이터 설정
+                tournamentRounds = []
+                tournamentFixtures = []
+                print("ℹ️ 컵대회가 아니므로 토너먼트 데이터 없음")
+            }
+        } catch {
+            self.error = error
+            print("Error loading tournament data: \(error)")
+        }
+        
+        isLoading = false
+    }
+    
     // 선택된 탭에 따라 필요한 데이터만 로드
     func loadDataForTab(_ tab: Int) async {
         switch tab {
-        case 0: // 순위 탭
-            if standings.isEmpty {
-                await loadStandings()
-            }
-        case 1: // 경기 탭
+        case 0: // 경기 탭
             if upcomingFixtures.isEmpty && pastFixtures.isEmpty && todayFixtures.isEmpty {
                 await loadFixtures()
+            }
+        case 1: // 토너먼트 탭
+            if tournamentRounds.isEmpty && tournamentFixtures.isEmpty {
+                await loadTournamentData()
             }
         case 2: // 선수 통계 탭
             if topScorers.isEmpty && topAssists.isEmpty {
@@ -382,6 +491,10 @@ class LeagueProfileViewModel: ObservableObject {
         case 3: // 팀 통계 탭
             if teamStats.isEmpty {
                 await loadTeamStats()
+            }
+        case 4: // 순위 탭
+            if standings.isEmpty {
+                await loadStandings()
             }
         default:
             break

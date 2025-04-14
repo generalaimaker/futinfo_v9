@@ -2,13 +2,58 @@ import Foundation
 import SwiftUI
 
 // MARK: - Injuries
-struct InjuriesResponse: Codable {
+struct InjuriesResponse: Codable, APIErrorCheckable { // APIErrorCheckable 채택
     let get: String
-    let parameters: ResponseParameters
-    let errors: [String]
+    let parameters: ResponseParameters // APIResponseTypes.swift에 정의됨
+    let errors: Any
     let results: Int
-    let paging: ResponsePaging
+    let paging: APIPaging // ResponsePaging -> APIPaging 수정
     let response: [InjuryData]
+    
+    // 사용자 정의 디코더 추가
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        get = try container.decode(String.self, forKey: .get)
+        parameters = try container.decode(ResponseParameters.self, forKey: .parameters)
+        
+        // errors 필드 디코딩 (Any 타입으로 변경)
+        if let errorArray = try? container.decode([String].self, forKey: .errors) {
+            errors = errorArray
+        } else if let errorDict = try? container.decode([String: String].self, forKey: .errors) {
+            errors = errorDict
+        } else {
+            errors = []
+        }
+        
+        results = try container.decode(Int.self, forKey: .results)
+        paging = try container.decode(APIPaging.self, forKey: .paging)
+        response = try container.decode([InjuryData].self, forKey: .response)
+    }
+    
+    // 사용자 정의 인코더 추가
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(get, forKey: .get)
+        try container.encode(parameters, forKey: .parameters)
+        
+        // errors 필드 인코딩
+        if let errorArray = errors as? [String] {
+            try container.encode(errorArray, forKey: .errors)
+        } else if let errorDict = errors as? [String: String] {
+            try container.encode(errorDict, forKey: .errors)
+        } else {
+            try container.encode([] as [String], forKey: .errors)
+        }
+        
+        try container.encode(results, forKey: .results)
+        try container.encode(paging, forKey: .paging)
+        try container.encode(response, forKey: .response)
+    }
+    
+    // CodingKeys 열거형 추가
+    private enum CodingKeys: String, CodingKey {
+        case get, parameters, errors, results, paging, response
+    }
 }
 
 struct InjuryData: Codable {
@@ -47,13 +92,58 @@ struct InjuryInfo: Codable {
 
 
 // MARK: - Events
-struct FixtureEventResponse: Codable {
+struct FixtureEventResponse: Codable, APIErrorCheckable { // APIErrorCheckable 채택
     let get: String
-    let parameters: ResponseParameters
-    let errors: [String]
+    let parameters: ResponseParameters // APIResponseTypes.swift에 정의됨
+    let errors: Any
     let results: Int
-    let paging: ResponsePaging
+    let paging: APIPaging // ResponsePaging -> APIPaging 수정
     let response: [FixtureEvent]
+    
+    // 사용자 정의 디코더 추가
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        get = try container.decode(String.self, forKey: .get)
+        parameters = try container.decode(ResponseParameters.self, forKey: .parameters)
+        
+        // errors 필드 디코딩 (Any 타입으로 변경)
+        if let errorArray = try? container.decode([String].self, forKey: .errors) {
+            errors = errorArray
+        } else if let errorDict = try? container.decode([String: String].self, forKey: .errors) {
+            errors = errorDict
+        } else {
+            errors = []
+        }
+        
+        results = try container.decode(Int.self, forKey: .results)
+        paging = try container.decode(APIPaging.self, forKey: .paging)
+        response = try container.decode([FixtureEvent].self, forKey: .response)
+    }
+    
+    // 사용자 정의 인코더 추가
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(get, forKey: .get)
+        try container.encode(parameters, forKey: .parameters)
+        
+        // errors 필드 인코딩
+        if let errorArray = errors as? [String] {
+            try container.encode(errorArray, forKey: .errors)
+        } else if let errorDict = errors as? [String: String] {
+            try container.encode(errorDict, forKey: .errors)
+        } else {
+            try container.encode([] as [String], forKey: .errors)
+        }
+        
+        try container.encode(results, forKey: .results)
+        try container.encode(paging, forKey: .paging)
+        try container.encode(response, forKey: .response)
+    }
+    
+    // CodingKeys 열거형 추가
+    private enum CodingKeys: String, CodingKey {
+        case get, parameters, errors, results, paging, response
+    }
 }
 
 struct FixtureEvent: Codable, Identifiable {
@@ -180,13 +270,58 @@ struct EventPlayer: Codable {
 }
 
 // MARK: - Statistics
-struct FixtureStatisticsResponse: Codable {
+struct FixtureStatisticsResponse: Codable, APIErrorCheckable { // APIErrorCheckable 채택
     let get: String
-    let parameters: ResponseParameters
-    let errors: [String]
+    let parameters: ResponseParameters // APIResponseTypes.swift에 정의됨
+    let errors: Any
     let results: Int
-    let paging: ResponsePaging
+    let paging: APIPaging // ResponsePaging -> APIPaging 수정
     let response: [TeamStatistics]
+    
+    // 사용자 정의 디코더 추가
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        get = try container.decode(String.self, forKey: .get)
+        parameters = try container.decode(ResponseParameters.self, forKey: .parameters)
+        
+        // errors 필드 디코딩 (Any 타입으로 변경)
+        if let errorArray = try? container.decode([String].self, forKey: .errors) {
+            errors = errorArray
+        } else if let errorDict = try? container.decode([String: String].self, forKey: .errors) {
+            errors = errorDict
+        } else {
+            errors = []
+        }
+        
+        results = try container.decode(Int.self, forKey: .results)
+        paging = try container.decode(APIPaging.self, forKey: .paging)
+        response = try container.decode([TeamStatistics].self, forKey: .response)
+    }
+    
+    // 사용자 정의 인코더 추가
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(get, forKey: .get)
+        try container.encode(parameters, forKey: .parameters)
+        
+        // errors 필드 인코딩
+        if let errorArray = errors as? [String] {
+            try container.encode(errorArray, forKey: .errors)
+        } else if let errorDict = errors as? [String: String] {
+            try container.encode(errorDict, forKey: .errors)
+        } else {
+            try container.encode([] as [String], forKey: .errors)
+        }
+        
+        try container.encode(results, forKey: .results)
+        try container.encode(paging, forKey: .paging)
+        try container.encode(response, forKey: .response)
+    }
+    
+    // CodingKeys 열거형 추가
+    private enum CodingKeys: String, CodingKey {
+        case get, parameters, errors, results, paging, response
+    }
 }
 
 public struct TeamStatistics: Codable {
@@ -288,13 +423,58 @@ public enum StatisticValue: Codable {
 }
 
 // MARK: - Fixture Players Statistics
-struct FixturePlayersResponse: Codable {
+struct FixturePlayersResponse: Codable, APIErrorCheckable { // APIErrorCheckable 채택
     let get: String
-    let parameters: ResponseParameters
-    let errors: [String]
+    let parameters: ResponseParameters // APIResponseTypes.swift에 정의됨
+    let errors: Any
     let results: Int
-    let paging: ResponsePaging
+    let paging: APIPaging // ResponsePaging -> APIPaging 수정
     let response: [TeamPlayersStatistics]
+    
+    // 사용자 정의 디코더 추가
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        get = try container.decode(String.self, forKey: .get)
+        parameters = try container.decode(ResponseParameters.self, forKey: .parameters)
+        
+        // errors 필드 디코딩 (Any 타입으로 변경)
+        if let errorArray = try? container.decode([String].self, forKey: .errors) {
+            errors = errorArray
+        } else if let errorDict = try? container.decode([String: String].self, forKey: .errors) {
+            errors = errorDict
+        } else {
+            errors = []
+        }
+        
+        results = try container.decode(Int.self, forKey: .results)
+        paging = try container.decode(APIPaging.self, forKey: .paging)
+        response = try container.decode([TeamPlayersStatistics].self, forKey: .response)
+    }
+    
+    // 사용자 정의 인코더 추가
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(get, forKey: .get)
+        try container.encode(parameters, forKey: .parameters)
+        
+        // errors 필드 인코딩
+        if let errorArray = errors as? [String] {
+            try container.encode(errorArray, forKey: .errors)
+        } else if let errorDict = errors as? [String: String] {
+            try container.encode(errorDict, forKey: .errors)
+        } else {
+            try container.encode([] as [String], forKey: .errors)
+        }
+        
+        try container.encode(results, forKey: .results)
+        try container.encode(paging, forKey: .paging)
+        try container.encode(response, forKey: .response)
+    }
+    
+    // CodingKeys 열거형 추가
+    private enum CodingKeys: String, CodingKey {
+        case get, parameters, errors, results, paging, response
+    }
 }
 
 struct TeamPlayersStatistics: Codable {
@@ -315,13 +495,58 @@ struct FixturePlayerStats: Codable, Identifiable {
 
 
 // MARK: - Lineups
-struct FixtureLineupResponse: Codable {
+struct FixtureLineupResponse: Codable, APIErrorCheckable { // APIErrorCheckable 채택
     let get: String
-    let parameters: ResponseParameters
-    let errors: [String]
+    let parameters: ResponseParameters // APIResponseTypes.swift에 정의됨
+    let errors: Any
     let results: Int
-    let paging: ResponsePaging
+    let paging: APIPaging // ResponsePaging -> APIPaging 수정
     let response: [TeamLineup]
+    
+    // 사용자 정의 디코더 추가
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        get = try container.decode(String.self, forKey: .get)
+        parameters = try container.decode(ResponseParameters.self, forKey: .parameters)
+        
+        // errors 필드 디코딩 (Any 타입으로 변경)
+        if let errorArray = try? container.decode([String].self, forKey: .errors) {
+            errors = errorArray
+        } else if let errorDict = try? container.decode([String: String].self, forKey: .errors) {
+            errors = errorDict
+        } else {
+            errors = []
+        }
+        
+        results = try container.decode(Int.self, forKey: .results)
+        paging = try container.decode(APIPaging.self, forKey: .paging)
+        response = try container.decode([TeamLineup].self, forKey: .response)
+    }
+    
+    // 사용자 정의 인코더 추가
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(get, forKey: .get)
+        try container.encode(parameters, forKey: .parameters)
+        
+        // errors 필드 인코딩
+        if let errorArray = errors as? [String] {
+            try container.encode(errorArray, forKey: .errors)
+        } else if let errorDict = errors as? [String: String] {
+            try container.encode(errorDict, forKey: .errors)
+        } else {
+            try container.encode([] as [String], forKey: .errors)
+        }
+        
+        try container.encode(results, forKey: .results)
+        try container.encode(paging, forKey: .paging)
+        try container.encode(response, forKey: .response)
+    }
+    
+    // CodingKeys 열거형 추가
+    private enum CodingKeys: String, CodingKey {
+        case get, parameters, errors, results, paging, response
+    }
 }
 
 struct TeamLineup: Codable {

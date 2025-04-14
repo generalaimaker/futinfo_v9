@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import UIKit
 
 // MARK: - 부상 선수 모델
 struct PlayerInjury: Identifiable {
@@ -7,14 +8,14 @@ struct PlayerInjury: Identifiable {
     let player: InjuredPlayer
     let team: Team
     let injury: Injury
-    
+
     struct InjuredPlayer {
         let id: Int
         let name: String
         let photo: String
         let position: String?
     }
-    
+
     struct Injury {
         let type: String
         let reason: String?
@@ -29,12 +30,12 @@ extension FixtureChartData {
         let total = homeValue + awayValue
         return total > 0 ? (homeValue / total) * 100 : 50
     }
-    
+
     var awayPercentage: Double {
         let total = homeValue + awayValue
         return total > 0 ? (awayValue / total) * 100 : 50
     }
-    
+
     // 카테고리 정보 추가
     var category: StatisticCategory {
         switch label {
@@ -50,7 +51,7 @@ extension FixtureChartData {
             return .other
         }
     }
-    
+
     // 한글 타이틀
     var koreanTitle: String {
         switch label {
@@ -109,7 +110,8 @@ class FixtureDetailViewModel: ObservableObject {
     @Published var team2Stats: HeadToHeadStats?
     @Published var homeTeamForm: TeamForm?
     @Published var awayTeamForm: TeamForm?
-    
+    @Published var manOfTheMatch: FixturePlayerStats?
+
     @Published var isLoadingForm = false
     @Published var isLoadingEvents = false
     @Published var isLoadingStats = false
@@ -118,133 +120,288 @@ class FixtureDetailViewModel: ObservableObject {
     @Published var isLoadingMatchStats = false
     @Published var isLoadingHeadToHead = false
     @Published var isLoadingStandings = false
-    
+
     @Published var selectedStatisticType: StatisticType?
     @Published var selectedTeamId: Int?
     @Published var selectedPlayerId: Int?
-    
+    @Published var selectedLeagueId: Int?
+    @Published var showTeamProfile = false
+
     @Published var errorMessage: String?
     @Published var standings: [Standing] = []
-    
+
     // 합산 스코어 결과 저장
     @Published var aggregateScoreResult: (home: Int, away: Int)?
-    
+
     // 부상 선수 정보
     @Published var homeTeamInjuries: [PlayerInjury] = []
     @Published var awayTeamInjuries: [PlayerInjury] = []
     @Published var isLoadingInjuries = false
-    
+
     // MARK: - 프라이빗 속성
     private let service = FootballAPIService.shared
     private let fixtureId: Int
     private let season: Int
     public var currentFixture: Fixture?
-    
+
     // 캐싱을 위한 프로퍼티
     private var firstLegMatchCache: [Int: Fixture] = [:]
-    
+
     // 팀 폼 로드 요청 상태 추적을 위한 프로퍼티
     private var isLoadingTeamForm: [Int: Bool] = [:]
     private var teamFormLoadAttempts: [Int: Int] = [:]
     private let maxTeamFormLoadAttempts = 2
     
+    // 자동 새로고침 관련 프로퍼티
+    private var refreshTimer: Timer?
+    private let liveMatchRefreshInterval: TimeInterval = 30 // 진행 중인 경기는 30초마다 새로고침
+    private let upcomingMatchRefreshInterval: TimeInterval = 300 // 예정된 경기는 5분마다 새로고침
+    private var isAutoRefreshEnabled = true
+
     // MARK: - 초기화
     init(fixture: Fixture) {
         self.fixtureId = fixture.fixture.id
         self.season = fixture.league.season
         self.currentFixture = fixture
+        
+        // 앱 생명주기 이벤트 관찰 설정
+        setupAppLifecycleObservers()
+        
+        // 자동 새로고침 시작
+        startAutoRefresh()
     }
     
-    // MARK: - 공개 메서드
+    deinit {
+        // 타이머 정리 - deinit에서는 동기적으로 처리
+        refreshTimer?.invalidate()
+        refreshTimer = nil
+        
+        // 앱 생명주기 관찰자 제거
+        #if os(iOS)
+        NotificationCenter.default.removeObserver(self)
+        #endif
+    }
     
+    // 앱 생명주기 이벤트 관찰 설정
+    private func setupAppLifecycleObservers() {
+        #if os(iOS)
+        // iOS에서는 NotificationCenter를 통해 앱 생명주기 이벤트 관찰
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(appWillEnterForeground),
+            name: UIApplication.willEnterForegroundNotification,
+            object: nil
+        )
+        
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(appDidEnterBackground),
+            name: UIApplication.didEnterBackgroundNotification,
+            object: nil
+        )
+        #endif
+    }
+    
+    // 앱이 포그라운드로 돌아올 때 호출
+    @objc private func appWillEnterForeground() {
+        print("📱 앱이 포그라운드로 돌아옴 (FixtureDetailViewModel)")
+        
+        // 데이터 새로고침 - Task를 사용하여 비동기 작업 실행
+        Task {
+            await refreshData()
+        }
+        
+        // 자동 새로고침 재시작 - 동기 메서드이므로 직접 호출
+        startAutoRefresh()
+    }
+    
+    // 앱이 백그라운드로 갈 때 호출
+    @objc private func appDidEnterBackground() {
+        print("📱 앱이 백그라운드로 이동 (FixtureDetailViewModel)")
+        
+        // 자동 새로고침 중지 - 동기 메서드이므로 직접 호출
+        stopAutoRefresh()
+    }
+    
+    // 자동 새로고침 시작
+    private func startAutoRefresh() {
+        // 자동 새로고침이 비활성화된 경우 종료
+        guard isAutoRefreshEnabled else {
+            print("⚠️ 자동 새로고침이 비활성화되어 있습니다.")
+            return
+        }
+        
+        // 이미 타이머가 실행 중이면 중지
+        stopAutoRefresh()
+        
+        // 경기 상태에 따라 새로고침 간격 결정
+        var refreshInterval: TimeInterval
+        
+        if let fixture = currentFixture {
+            // 경기 상태에 따른 새로고침 간격 설정
+            switch fixture.fixture.status.short {
+            case "1H", "2H", "HT", "ET", "P", "BT": // 진행 중인 경기
+                refreshInterval = liveMatchRefreshInterval
+                print("⏱️ 진행 중인 경기 자동 새로고침 타이머 시작 (간격: \(liveMatchRefreshInterval)초)")
+            case "NS": // 예정된 경기
+                refreshInterval = upcomingMatchRefreshInterval
+                print("⏱️ 예정된 경기 자동 새로고침 타이머 시작 (간격: \(upcomingMatchRefreshInterval)초)")
+            default: // 종료된 경기 등
+                // 종료된 경기는 자동 새로고침 불필요
+                print("⏱️ 종료된 경기는 자동 새로고침이 필요하지 않습니다.")
+                return
+            }
+        } else {
+            // 경기 정보가 없는 경우 기본값 사용
+            refreshInterval = upcomingMatchRefreshInterval
+            print("⏱️ 경기 정보 없음, 기본 자동 새로고침 타이머 시작 (간격: \(upcomingMatchRefreshInterval)초)")
+        }
+        
+        // 새 타이머 생성
+        refreshTimer = Timer.scheduledTimer(withTimeInterval: refreshInterval, repeats: true) { [weak self] _ in
+            guard let self = self else { return }
+            
+            print("⏱️ 자동 새로고침 실행")
+            // MainActor에서 실행하도록 수정
+            Task { @MainActor in
+                await self.refreshData()
+            }
+        }
+    }
+    
+    // 자동 새로고침 중지
+    private func stopAutoRefresh() {
+        refreshTimer?.invalidate()
+        refreshTimer = nil
+    }
+    
+    // 데이터 새로고침
+    private func refreshData() async {
+        // 현재 경기 상태 확인
+        if let fixture = currentFixture {
+            // 경기 상태에 따라 다른 데이터 새로고침
+            switch fixture.fixture.status.short {
+            case "1H", "2H", "HT", "ET", "P", "BT": // 진행 중인 경기
+                // 이벤트, 통계 새로고침
+                print("🔄 진행 중인 경기 데이터 새로고침 시작")
+                // 비동기 작업이 있는 메서드 호출
+                await self.loadEvents()
+                await self.loadStatistics()
+            case "NS": // 예정된 경기
+                // 부상 정보, 팀 폼 새로고침
+                print("🔄 예정된 경기 데이터 새로고침 시작")
+                await self.loadInjuries()
+                await self.loadTeamForms()
+            case "FT", "AET", "PEN": // 종료된 경기
+                // 종료된 경기는 새로고침 불필요
+                print("🔄 종료된 경기는 데이터 새로고침이 필요하지 않습니다.")
+            default:
+                // 기타 상태는 모든 데이터 새로고침
+                print("🔄 기타 상태 경기 데이터 새로고침 시작")
+                await self.loadAllData()
+            }
+        } else {
+            // 경기 정보가 없는 경우 모든 데이터 새로고침
+            print("🔄 경기 정보 없음, 모든 데이터 새로고침 시작")
+            await self.loadAllData()
+        }
+    }
+
+    // MARK: - 공개 메서드
+
     // 통계 타입 필터링
     func filterByStatisticType(_ type: StatisticType?) {
         selectedStatisticType = type
     }
-    
+
     // 현재 경기가 토너먼트 경기인지 확인하는 함수
     public func isTournamentMatch(_ round: String) -> Bool {
         // 예: "Round of 16", "Quarter-finals", "Semi-finals", "Final" 등
         let tournamentRounds = ["16", "8", "quarter", "semi", "final", "1st leg", "2nd leg"]
         return tournamentRounds.contains { round.lowercased().contains($0.lowercased()) }
     }
-    
+
     // 모든 데이터 로드
-    func loadAllData() {
-        Task {
-            print("🔄 모든 데이터 로드 시작")
-            
-            // 경기 예정인 경우와 경기 결과인 경우에 따라 다른 데이터 로드
-            if let fixture = currentFixture, fixture.fixture.status.short == "NS" {
-                // 경기 예정인 경우: 팀 폼, 상대전적, 부상, 순위 정보 로드
-                await withTaskGroup(of: Void.self) { group in
-                    group.addTask { 
-                        print("🔄 팀 폼 로드 시작")
-                        await self.loadTeamForms() 
-                    }
-                    group.addTask { 
-                        print("🔄 상대전적 로드 시작")
-                        await self.loadHeadToHead() 
-                    }
-                    group.addTask { 
-                        print("🔄 부상 정보 로드 시작")
-                        await self.loadInjuries() 
-                    }
-                    group.addTask { 
-                        print("🔄 순위 정보 로드 시작")
-                        await self.loadStandings() 
-                    }
+    func loadAllData() async {
+        print("🔄 모든 데이터 로드 시작")
+
+        // 경기 예정인 경우와 경기 결과인 경우에 따라 다른 데이터 로드
+        if let fixture = currentFixture, fixture.fixture.status.short == "NS" {
+            // 경기 예정인 경우: 팀 폼, 상대전적, 부상, 순위 정보 로드
+            await withTaskGroup(of: Void.self) { group in
+                group.addTask {
+                    print("🔄 팀 폼 로드 시작")
+                    await self.loadTeamForms()
                 }
-                print("✅ 경기 예정 데이터 로드 완료")
-            } else {
-                // 경기 결과인 경우: 이벤트, 통계, 선수 통계, 라인업, 상대전적 로드
-                await withTaskGroup(of: Void.self) { group in
-                    group.addTask { 
-                        print("🔄 경기 이벤트 로드 시작")
-                        await self.loadEvents() 
-                    }
-                    group.addTask { 
-                        print("🔄 경기 통계 로드 시작")
-                        await self.loadStatistics() 
-                    }
-                    group.addTask { 
-                        print("🔄 팀 폼 로드 시작")
-                        await self.loadTeamForms() 
-                    }
-                    group.addTask { 
-                        print("🔄 상대전적 로드 시작")
-                        await self.loadHeadToHead() 
-                    }
+                group.addTask {
+                    print("🔄 상대전적 로드 시작")
+                    await self.loadHeadToHead()
                 }
-                
-                print("🔄 선수 통계 로드 시작")
-                await loadMatchPlayerStats()
-                
-                if !matchPlayerStats.isEmpty {
-                    print("🔄 라인업 로드 시작")
-                    await loadLineups()
+                group.addTask {
+                    print("🔄 부상 정보 로드 시작")
+                    await self.loadInjuries()
                 }
-                
-                print("✅ 경기 결과 데이터 로드 완료")
+                group.addTask {
+                    print("🔄 순위 정보 로드 시작")
+                    await self.loadStandings()
+                }
             }
+            print("✅ 경기 예정 데이터 로드 완료")
+        } else {
+            // 경기 결과인 경우: 맨 오브 더 매치 데이터를 먼저 로드
+            print("🔄 맨 오브 더 매치 데이터 로드 시작")
+            await loadMatchPlayerStats()
+
+            // 이벤트, 통계, 라인업, 상대전적 로드
+            await withTaskGroup(of: Void.self) { group in
+                group.addTask {
+                    print("🔄 경기 이벤트 로드 시작")
+                    await self.loadEvents()
+                }
+                group.addTask {
+                    print("🔄 경기 통계 로드 시작")
+                    await self.loadStatistics()
+                }
+                group.addTask {
+                    print("🔄 팀 폼 로드 시작")
+                    await self.loadTeamForms()
+                }
+                group.addTask {
+                    print("🔄 상대전적 로드 시작")
+                    await self.loadHeadToHead()
+                    // loadHeadToHead 완료 후 합산 스코어 계산 호출 보장
+                    print("✅ 상대전적 로드 완료, 합산 스코어 계산 시작")
+                    _ = await self.calculateAggregateScore() // loadHeadToHead 다음에 호출
+                }
+            }
+            // TaskGroup이 완료될 때까지 기다림
+            // await group.waitForAll() // TaskGroup은 자동으로 기다림
+
+            // 라인업 로드는 맨 오브 더 매치 데이터 로드 후에 진행
+            if !matchPlayerStats.isEmpty {
+                print("🔄 라인업 로드 시작")
+                await loadLineups()
+            }
+
+            print("✅ 경기 결과 데이터 로드 완료")
         }
     }
-    
+
     // 이벤트 로드
     public func loadEvents() async {
         isLoadingEvents = true
-        
+
         do {
             // API에서 경기 이벤트 가져오기
             let fixtureEvents = try await service.getFixtureEvents(fixtureId: fixtureId)
-            
+
             // 이벤트 시간 순으로 정렬
             let sortedEvents = fixtureEvents.sorted { (event1, event2) -> Bool in
                 let time1 = event1.time.elapsed + (event1.time.extra ?? 0)
                 let time2 = event2.time.elapsed + (event2.time.extra ?? 0)
                 return time1 < time2
             }
-            
+
             await MainActor.run {
                 self.events = sortedEvents
                 self.isLoadingEvents = false
@@ -258,42 +415,42 @@ class FixtureDetailViewModel: ObservableObject {
             }
         }
     }
-    
+
     // 부상 선수 정보 로드
     public func loadInjuries() async {
         isLoadingInjuries = true
-        
+
         guard let fixture = currentFixture else {
             isLoadingInjuries = false
             return
         }
-        
+
         // 홈팀과 원정팀 ID
         let homeTeamId = fixture.teams.home.id
         let awayTeamId = fixture.teams.away.id
         let fixtureId = fixture.fixture.id
         let season = fixture.league.season
-        
+
         do {
             // 1. 경기 ID로 부상 정보 조회
             var injuryData = try await service.getInjuries(fixtureId: fixtureId)
-            
+
             // 2. 경기 ID로 조회한 결과가 없으면 팀 ID와 시즌으로 조회
             if injuryData.isEmpty {
                 // 홈팀 부상 정보 조회
                 let homeTeamInjuries = try await service.getInjuries(teamId: homeTeamId, season: season)
-                
+
                 // 원정팀 부상 정보 조회
                 let awayTeamInjuries = try await service.getInjuries(teamId: awayTeamId, season: season)
-                
+
                 // 두 팀의 부상 정보 합치기
                 injuryData = homeTeamInjuries + awayTeamInjuries
             }
-            
+
             // 부상 정보를 홈팀과 원정팀으로 분류
             var homeInjuries: [PlayerInjury] = []
             var awayInjuries: [PlayerInjury] = []
-            
+
             for injury in injuryData {
                 // PlayerInjury 객체 생성
                 let playerInjury = PlayerInjury(
@@ -310,7 +467,7 @@ class FixtureDetailViewModel: ObservableObject {
                         date: nil // API에서 복귀 예정일을 제공하지 않으므로 nil로 설정
                     )
                 )
-                
+
                 // 홈팀과 원정팀으로 분류
                 if injury.team.id == homeTeamId {
                     homeInjuries.append(playerInjury)
@@ -318,7 +475,7 @@ class FixtureDetailViewModel: ObservableObject {
                     awayInjuries.append(playerInjury)
                 }
             }
-            
+
             await MainActor.run {
                 self.homeTeamInjuries = homeInjuries
                 self.awayTeamInjuries = awayInjuries
@@ -330,148 +487,141 @@ class FixtureDetailViewModel: ObservableObject {
                 self.errorMessage = "부상 정보를 불러오는 중 오류가 발생했습니다: \(error.localizedDescription)"
                 self.isLoadingInjuries = false
                 print("❌ 부상 정보 로드 실패: \(error.localizedDescription)")
-                
+
                 // 오류 발생 시 빈 배열로 설정
                 self.homeTeamInjuries = []
                 self.awayTeamInjuries = []
             }
         }
     }
-    
+
     // 팀 폼 데이터 로드
     public func loadTeamForms() async {
         guard !isLoadingForm else { return }
-        
+
         isLoadingForm = true
         errorMessage = nil
-        
+
         guard let fixture = currentFixture else {
             isLoadingForm = false
             return
         }
-        
+
         let homeTeamId = fixture.teams.home.id
         let awayTeamId = fixture.teams.away.id
-        
+
         // 이미 데이터가 있어도 강제로 다시 로드
         // if homeTeamForm != nil && awayTeamForm != nil {
         //     isLoadingForm = false
         //     return
         // }
-        
+
         await withTaskGroup(of: Void.self) { group in
             group.addTask { await self.loadTeamForm(teamId: homeTeamId, isHome: true) }
             group.addTask { await self.loadTeamForm(teamId: awayTeamId, isHome: false) }
         }
-        
+
         // 데이터 로드 후 UI 업데이트를 위해 약간의 지연 추가
         try? await Task.sleep(nanoseconds: 500_000_000) // 0.5초 대기
-        
+
         isLoadingForm = false
-        
+
         // 데이터가 없으면 다시 시도
         if homeTeamForm == nil || awayTeamForm == nil {
             print("⚠️ 팀 폼 데이터 누락, 다시 시도")
             await retryLoadTeamForms(homeTeamId: homeTeamId, awayTeamId: awayTeamId)
         }
     }
-    
-    // 1차전 경기 찾기
-    public func findFirstLegMatch() -> Fixture? {
-        guard let fixture = currentFixture else { return nil }
-        
-        // 챔피언스리그(2)나 유로파리그(3)가 아니면 nil 반환
-        if ![2, 3].contains(fixture.league.id) {
-            return nil
-        }
-        
-        // 현재 경기가 2차전인지 확인
-        let isSecondLeg = fixture.league.round.lowercased().contains("2nd leg")
-        if !isSecondLeg {
-            return nil
-        }
-        
-        // 1차전 경기 찾기
-        return headToHeadFixtures.first { match in
-            // 같은 시즌, 같은 리그의 경기
-            let isSameSeason = match.league.season == fixture.league.season
-            let isSameLeague = match.league.id == fixture.league.id
-            
-            // 1차전인지 확인
-            let isFirstLeg = match.league.round.lowercased().contains("1st leg")
-            
-            // 같은 팀들의 경기인지 확인
-            let sameTeams = (match.teams.home.id == fixture.teams.home.id && 
-                            match.teams.away.id == fixture.teams.away.id) ||
-                           (match.teams.home.id == fixture.teams.away.id && 
-                            match.teams.away.id == fixture.teams.home.id)
-            
-            // 현재 경기보다 이전에 열린 경기인지 확인
-            let isEarlierMatch = match.fixture.date < fixture.fixture.date
-            
-            return isSameSeason && isSameLeague && isFirstLeg && sameTeams && isEarlierMatch
-        }
-    }
-    
-    // 합산 스코어 계산
+
+    // 합산 스코어 계산 (재수정: findFirstLegMatch 결과에만 의존, 라운드 이름 검사 제거)
     public func calculateAggregateScore() async -> (home: Int, away: Int)? {
-        guard let fixture = currentFixture else { return nil }
-        
-        // 1차전 경기 찾기
-        if let firstLegMatch = findFirstLegMatch() {
-            // 1차전 스코어
-            let firstLegHomeGoals = firstLegMatch.goals?.home ?? 0
-            let firstLegAwayGoals = firstLegMatch.goals?.away ?? 0
-            
-            // 2차전 스코어 (현재 경기)
-            let secondLegHomeGoals = fixture.goals?.home ?? 0
-            let secondLegAwayGoals = fixture.goals?.away ?? 0
-            
-            // 1차전과 2차전의 홈/원정이 반대인 경우
-            if firstLegMatch.teams.home.id == fixture.teams.away.id {
-                // 현재 홈팀의 합산 스코어 = 현재 홈팀 골 + 1차전 원정팀 골
-                let homeAggregate = secondLegHomeGoals + firstLegAwayGoals
-                // 현재 원정팀의 합산 스코어 = 현재 원정팀 골 + 1차전 홈팀 골
-                let awayAggregate = secondLegAwayGoals + firstLegHomeGoals
-                
-                return (homeAggregate, awayAggregate)
-            } else {
-                // 1차전과 2차전의 홈/원정이 같은 경우 (드문 경우)
-                let homeAggregate = secondLegHomeGoals + firstLegHomeGoals
-                let awayAggregate = secondLegAwayGoals + firstLegAwayGoals
-                
-                return (homeAggregate, awayAggregate)
-            }
+        guard let fixture = currentFixture else {
+            print("🏆 FixtureDetailViewModel - 합산 스코어 계산: 현재 경기 정보 없음")
+            return nil
         }
-        
-        return nil
+
+        // 챔피언스리그(2) 또는 유로파리그(3)인지 확인
+        guard [2, 3].contains(fixture.league.id) else {
+            // print("🏆 FixtureDetailViewModel - 합산 스코어 계산: 대상 리그 아님 (ID: \(fixture.league.id))")
+            await MainActor.run { self.aggregateScoreResult = nil } // 대상 리그 아니면 nil 설정
+            return nil
+        }
+
+        print("🏆 FixtureDetailViewModel - 합산 스코어 계산 시도 (fixture: \(fixture.fixture.id))")
+        do {
+            // FootballAPIService를 직접 호출하여 1차전 찾기
+            print("  -> Calling service.findFirstLegMatch...")
+            if let firstLegMatch = try await service.findFirstLegMatch(fixture: fixture) {
+                // 1차전을 찾았다는 것은 현재 경기가 2차전임을 의미 (findFirstLegMatch 로직에 따라)
+                print("  -> 1차전 찾음: \(firstLegMatch.fixture.id). 현재 경기는 2차전으로 간주하여 합산 진행.")
+                let firstLegHomeGoals = firstLegMatch.goals?.home ?? 0
+                let firstLegAwayGoals = firstLegMatch.goals?.away ?? 0
+                let secondLegHomeGoals = fixture.goals?.home ?? 0
+                let secondLegAwayGoals = fixture.goals?.away ?? 0
+
+                var homeAggregate: Int
+                var awayAggregate: Int
+
+                // 홈/원정 팀 순서 확인
+                if firstLegMatch.teams.home.id == fixture.teams.away.id {
+                    homeAggregate = secondLegHomeGoals + firstLegAwayGoals
+                    awayAggregate = secondLegAwayGoals + firstLegHomeGoals
+                    print("  -> 합산 완료 (홈/원정 반대): \(homeAggregate) - \(awayAggregate)")
+                } else {
+                    homeAggregate = secondLegHomeGoals + firstLegHomeGoals
+                    awayAggregate = secondLegAwayGoals + firstLegAwayGoals
+                    print("  -> 합산 완료 (홈/원정 동일): \(homeAggregate) - \(awayAggregate)")
+                }
+                let result = (home: homeAggregate, away: awayAggregate)
+                await MainActor.run {
+                    print("🔄 aggregateScoreResult 업데이트 (2차전 합산): \(result)")
+                    self.aggregateScoreResult = result
+                }
+                return result
+            } else {
+                // findFirstLegMatch가 nil을 반환: 1차전을 못 찾았거나, 현재 경기가 1차전/단판 등 합산 대상 아님
+                print("  -> 1차전 경기를 찾지 못함 (API 결과 또는 합산 대상 아님)")
+                await MainActor.run {
+                    print("🔄 aggregateScoreResult 업데이트 (1차전 못찾음/해당없음): nil")
+                    self.aggregateScoreResult = nil
+                }
+                return nil
+            }
+        } catch {
+            print("❌ FixtureDetailViewModel - 1차전 찾기 중 에러: \(error.localizedDescription)")
+             await MainActor.run {
+                 print("🔄 aggregateScoreResult 업데이트 (에러): nil")
+                 self.aggregateScoreResult = nil // 에러 시 합산 불가
+             }
+            return nil
+        }
     }
-    
+
     // 순위 정보 로드
     public func loadStandings() async {
         isLoadingStandings = true
         errorMessage = nil
-        
+
         guard let fixture = currentFixture else {
             isLoadingStandings = false
             return
         }
-        
+
         let leagueId = fixture.league.id
         let season = fixture.league.season
-        
+
         do {
             // API에서 순위 정보 가져오기
             let standingsData = try await service.getStandings(leagueId: leagueId, season: season)
-            
+
             // 데이터 로드 후 UI 업데이트를 위해 약간의 지연 추가
             try? await Task.sleep(nanoseconds: 500_000_000) // 0.5초 대기
-            
+
             await MainActor.run {
                 self.standings = standingsData
                 self.isLoadingStandings = false
                 print("✅ 순위 정보 로드 완료: \(standingsData.count)개")
-                
+
                 // 데이터가 비어있으면 다시 시도
                 if self.standings.isEmpty {
                     print("⚠️ 순위 정보 데이터 누락, 다시 시도")
@@ -489,23 +639,23 @@ class FixtureDetailViewModel: ObservableObject {
             }
         }
     }
-    
+
     // MARK: - 프라이빗 메서드
-    
+
     // 통계 로드
     public func loadStatistics() async {
         isLoadingStats = true
-        
+
         do {
             // 1. 기본 통계 가져오기
             let teamStats = try await service.getFixtureStatistics(fixtureId: fixtureId)
-            
+
             // 2. 하프 통계 가져오기
             let halfStats = try await service.getFixtureHalfStatistics(fixtureId: fixtureId)
-            
+
             // 3. 차트 데이터 생성
             let chartData = createChartData(from: teamStats)
-            
+
             await MainActor.run {
                 self.statistics = teamStats
                 self.halfStatistics = halfStats
@@ -521,16 +671,16 @@ class FixtureDetailViewModel: ObservableObject {
             }
         }
     }
-    
+
     // 차트 데이터 생성
     private func createChartData(from statistics: [TeamStatistics]) -> [FixtureChartData] {
         guard statistics.count >= 2 else { return [] }
-        
+
         let homeTeam = statistics[0]
         let awayTeam = statistics[1]
-        
+
         var chartDataArray: [FixtureChartData] = []
-        
+
         // 통계 타입 매핑
         let statisticTypes: [StatisticType] = [
             .shotsOnGoal,
@@ -549,17 +699,17 @@ class FixtureDetailViewModel: ObservableObject {
             .offsides,
             .saves
         ]
-        
+
         // 각 통계 타입에 대해 차트 데이터 생성
         for type in statisticTypes {
             // 차트 데이터 생성
             let chartData = FixtureChartData(type: type, homeStats: homeTeam, awayStats: awayTeam)
             chartDataArray.append(chartData)
         }
-        
+
         return chartDataArray
     }
-    
+
     // 통계 값을 숫자로 변환
     private func getNumericValue(from value: StatisticValue) -> Double {
         switch value {
@@ -579,20 +729,20 @@ class FixtureDetailViewModel: ObservableObject {
             return doubleValue
         }
     }
-    
+
     // 라인업 로드
     public func loadLineups() async {
         isLoadingLineups = true
-        
+
         do {
             // API에서 라인업 정보 가져오기
             let lineupData = try await service.getFixtureLineups(fixtureId: fixtureId)
-            
+
             await MainActor.run {
                 self.lineups = lineupData
                 self.isLoadingLineups = false
                 print("✅ 라인업 정보 로드 완료: \(lineupData.count)팀")
-                
+
                 // 탑 플레이어 추출
                 self.extractTopPlayers()
             }
@@ -604,11 +754,11 @@ class FixtureDetailViewModel: ObservableObject {
             }
         }
     }
-    
+
     // 탑 플레이어 추출
     private func extractTopPlayers() {
         var topPlayersList: [PlayerProfileData] = []
-        
+
         // 각 팀의 라인업에서 주요 선수 추출
         for lineup in lineups {
             // 스타팅 멤버에서 주요 선수 추출
@@ -616,9 +766,9 @@ class FixtureDetailViewModel: ObservableObject {
                 if isKeyPlayer(player: player, in: lineup.team) {
                     // PlayerProfileData 생성
                     let playerProfile = createPlayerProfile(from: player)
-                    
+
                     topPlayersList.append(playerProfile)
-                    
+
                     // 최대 6명까지만 추출
                     if topPlayersList.count >= 6 {
                         break
@@ -626,10 +776,10 @@ class FixtureDetailViewModel: ObservableObject {
                 }
             }
         }
-        
+
         self.topPlayers = topPlayersList
     }
-    
+
     // PlayerProfileData 생성
     private func createPlayerProfile(from player: LineupPlayer) -> PlayerProfileData {
         return PlayerProfileData(
@@ -649,26 +799,29 @@ class FixtureDetailViewModel: ObservableObject {
             statistics: []
         )
     }
-    
+
     // 주요 선수 판별
     private func isKeyPlayer(player: LineupPlayer, in team: Team) -> Bool {
         // 여기서는 간단히 구현 (실제로는 더 복잡한 로직이 필요할 수 있음)
         // 예: 캡틴, 스타 플레이어 등을 판별
         return true
     }
-    
+
     // 선수 통계 로드
     public func loadMatchPlayerStats() async {
         isLoadingMatchStats = true
-        
+
         do {
             // API에서 선수 통계 가져오기
             let playerStats = try await service.getFixturePlayersStatistics(fixtureId: fixtureId)
-            
+
             await MainActor.run {
                 self.matchPlayerStats = playerStats
                 self.isLoadingMatchStats = false
                 print("✅ 선수 통계 로드 완료: \(playerStats.count)팀")
+
+                // 맨 오브 더 매치 선정
+                self.selectManOfTheMatch()
             }
         } catch {
             await MainActor.run {
@@ -678,27 +831,103 @@ class FixtureDetailViewModel: ObservableObject {
             }
         }
     }
-    
+
+    // 맨 오브 더 매치 선정 함수
+    private func selectManOfTheMatch() {
+        guard !matchPlayerStats.isEmpty else { return }
+
+        // 모든 선수 통계 수집
+        var allPlayers: [FixturePlayerStats] = []
+
+        for teamStats in matchPlayerStats {
+            // 선수 통계 추가
+            allPlayers.append(contentsOf: teamStats.players)
+        }
+
+        // 선수가 없으면 종료
+        guard !allPlayers.isEmpty else { return }
+
+        // 승리한 팀 ID 찾기
+        var winningTeamId: Int? = nil
+        if let fixture = currentFixture,
+           let homeGoals = fixture.goals?.home,
+           let awayGoals = fixture.goals?.away {
+            if homeGoals > awayGoals {
+                winningTeamId = fixture.teams.home.id
+            } else if homeGoals < awayGoals {
+                winningTeamId = fixture.teams.away.id
+            }
+        }
+
+        // 승리한 팀의 선수만 필터링 (승리한 팀이 있는 경우)
+        var candidatePlayers = allPlayers
+        if let winningTeamId = winningTeamId {
+            let winningTeamPlayers = allPlayers.filter { player in
+                return player.team?.id == winningTeamId
+            }
+
+            // 승리한 팀에 선수가 있으면 해당 선수들만 사용
+            if !winningTeamPlayers.isEmpty {
+                candidatePlayers = winningTeamPlayers
+            }
+        }
+
+        // 평점 기준으로 정렬
+        let sortedPlayers = candidatePlayers.sorted { player1, player2 in
+            // 평점 비교
+            let rating1 = Double(player1.statistics.first?.games?.rating ?? "0") ?? 0
+            let rating2 = Double(player2.statistics.first?.games?.rating ?? "0") ?? 0
+
+            if rating1 != rating2 {
+                return rating1 > rating2
+            }
+
+            // 평점이 같으면 득점 비교
+            let goals1 = player1.statistics.first?.goals?.total ?? 0
+            let goals2 = player2.statistics.first?.goals?.total ?? 0
+
+            if goals1 != goals2 {
+                return goals1 > goals2
+            }
+
+            // 득점도 같으면 어시스트 비교
+            let assists1 = player1.statistics.first?.goals?.assists ?? 0
+            let assists2 = player2.statistics.first?.goals?.assists ?? 0
+
+            return assists1 > assists2
+        }
+
+        // 가장 높은 평점의 선수를 맨 오브 더 매치로 선정
+        if let bestPlayer = sortedPlayers.first {
+            self.manOfTheMatch = bestPlayer
+            print("✅ 맨 오브 더 매치 선정: \(bestPlayer.player.name ?? "Unknown")")
+        } else {
+            // 선수가 없는 경우 첫 번째 선수를 선택
+            self.manOfTheMatch = allPlayers.first
+            print("⚠️ 최적의 선수를 찾을 수 없어 첫 번째 선수를 맨 오브 더 매치로 선정: \(allPlayers.first?.player.name ?? "Unknown")")
+        }
+    }
+
     // 상대전적 로드
     public func loadHeadToHead() async {
         isLoadingHeadToHead = true
-        
+
         guard let fixture = currentFixture else {
             isLoadingHeadToHead = false
             return
         }
-        
+
         let team1Id = fixture.teams.home.id
         let team2Id = fixture.teams.away.id
-        
+
         do {
             // API에서 상대전적 가져오기
             let h2hFixtures = try await service.getHeadToHead(team1Id: team1Id, team2Id: team2Id, last: 10)
-            
+
             // 상대전적 통계 계산
             let team1Stats = HeadToHeadStats(fixtures: h2hFixtures, teamId: team1Id)
             let team2Stats = HeadToHeadStats(fixtures: h2hFixtures, teamId: team2Id)
-            
+
             await MainActor.run {
                 self.headToHeadFixtures = h2hFixtures
                 self.team1Stats = team1Stats
@@ -714,27 +943,27 @@ class FixtureDetailViewModel: ObservableObject {
             }
         }
     }
-    
+
     // 개별 팀 폼 로드
     private func loadTeamForm(teamId: Int, isHome: Bool) async {
         // 이미 로드 중인지 확인
         if isLoadingTeamForm[teamId] == true {
             return
         }
-        
+
         // 로드 중 상태로 설정
         isLoadingTeamForm[teamId] = true
-        
+
         // 로드 시도 횟수 증가
         teamFormLoadAttempts[teamId] = (teamFormLoadAttempts[teamId] ?? 0) + 1
-        
+
         do {
             // API에서 팀 경기 일정 가져오기 (최근 5경기)
             let fixtures = try await service.getTeamFixtures(teamId: teamId, season: season, last: 5)
-            
+
             // 팀 폼 생성
             let teamForm = createTeamForm(from: fixtures, teamId: teamId)
-            
+
             await MainActor.run {
                 // 홈/원정 팀에 따라 설정
                 if isHome {
@@ -742,7 +971,7 @@ class FixtureDetailViewModel: ObservableObject {
                 } else {
                     self.awayTeamForm = teamForm
                 }
-                
+
                 // 로드 완료
                 self.isLoadingTeamForm[teamId] = false
                 print("✅ 팀 폼 로드 완료: 팀 ID \(teamId)")
@@ -752,7 +981,7 @@ class FixtureDetailViewModel: ObservableObject {
                 // 로드 실패
                 self.isLoadingTeamForm[teamId] = false
                 print("❌ 팀 폼 로드 실패: 팀 ID \(teamId) - \(error.localizedDescription)")
-                
+
                 // 최대 시도 횟수 이내인 경우 재시도
                 if let attempts = self.teamFormLoadAttempts[teamId], attempts < self.maxTeamFormLoadAttempts {
                     print("🔄 팀 폼 로드 재시도: 팀 ID \(teamId) - 시도 \(attempts)/\(self.maxTeamFormLoadAttempts)")
@@ -764,29 +993,29 @@ class FixtureDetailViewModel: ObservableObject {
             }
         }
     }
-    
+
     // 팀 폼 생성
     private func createTeamForm(from fixtures: [Fixture], teamId: Int) -> TeamForm {
         var results: [TeamForm.MatchResult] = []
-        
+
         // 최근 5경기 결과 추출
         for fixture in fixtures.prefix(5) {
             // 경기가 완료된 경우에만 계산
-            guard fixture.fixture.status.short == "FT" || 
-                  fixture.fixture.status.short == "AET" || 
+            guard fixture.fixture.status.short == "FT" ||
+                  fixture.fixture.status.short == "AET" ||
                   fixture.fixture.status.short == "PEN" else {
                 continue
             }
-            
+
             // 골 정보가 있는지 확인
             guard let homeGoals = fixture.goals?.home,
                   let awayGoals = fixture.goals?.away else {
                 continue
             }
-            
+
             // 팀 ID에 따라 결과 계산
             var result: TeamForm.MatchResult
-            
+
             if fixture.teams.home.id == teamId {
                 if homeGoals > awayGoals {
                     result = .win
@@ -804,25 +1033,25 @@ class FixtureDetailViewModel: ObservableObject {
                     result = .draw
                 }
             }
-            
+
             // 폼 결과 추가
             results.append(result)
         }
-        
+
         // 팀 폼 생성
         return TeamForm(
             teamId: teamId,
             results: results
         )
     }
-    
+
     // 팀 폼 데이터 로드 재시도
     private func retryLoadTeamForms(homeTeamId: Int, awayTeamId: Int) async {
         // 홈팀 폼 로드 재시도
         if homeTeamForm == nil {
             await loadTeamForm(teamId: homeTeamId, isHome: true)
         }
-        
+
         // 원정팀 폼 로드 재시도
         if awayTeamForm == nil {
             await loadTeamForm(teamId: awayTeamId, isHome: false)

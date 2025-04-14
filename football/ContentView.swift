@@ -1,36 +1,45 @@
 import SwiftUI
 
+import SwiftUI
+
 struct ContentView: View {
     @State private var selectedTab = 2 // "일정" 탭 기본 선택
     @StateObject private var favoriteService = FavoriteService.shared
-    
+    @State private var showingSearchView = false // 검색 뷰 표시 상태
+
     var body: some View {
         TabView(selection: $selectedTab) {
+            // 각 탭 뷰에 검색 버튼 추가
             CommunityView()
+                .addSearchToolbar(isPresented: $showingSearchView)
                 .tabItem {
                     Label("커뮤", systemImage: "bubble.left.and.bubble.right.fill")
                 }
                 .tag(0)
-            
+
             LeaguesView()
+                .addSearchToolbar(isPresented: $showingSearchView)
                 .tabItem {
                     Label("리그", systemImage: "trophy.fill")
                 }
                 .tag(1)
-            
+
             FixturesOverviewView()
+                .addSearchToolbar(isPresented: $showingSearchView)
                 .tabItem {
                     Label("일정", systemImage: "calendar")
                 }
                 .tag(2)
-            
+
             NewsView()
+                .addSearchToolbar(isPresented: $showingSearchView)
                 .tabItem {
                     Label("뉴스", systemImage: "newspaper.fill")
                 }
                 .tag(3)
-            
+
             SettingsView()
+                .addSearchToolbar(isPresented: $showingSearchView)
                 .tabItem {
                     Label("설정", systemImage: "gearshape.fill")
                 }
@@ -38,8 +47,38 @@ struct ContentView: View {
         }
         .accentColor(.blue)
         .environmentObject(favoriteService)
+        // 검색 뷰를 시트로 표시
+        .sheet(isPresented: $showingSearchView) {
+            SearchView()
+        }
     }
 }
+
+// 검색 버튼을 추가하는 ViewModifier
+struct SearchToolbarModifier: ViewModifier {
+    @Binding var isPresented: Bool
+
+    func body(content: Content) -> some View {
+        content
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button {
+                        isPresented = true
+                    } label: {
+                        Image(systemName: "magnifyingglass")
+                    }
+                }
+            }
+    }
+}
+
+// View 확장을 통해 쉽게 적용 가능하도록 함
+extension View {
+    func addSearchToolbar(isPresented: Binding<Bool>) -> some View {
+        self.modifier(SearchToolbarModifier(isPresented: isPresented))
+    }
+}
+
 
 // 더미 뷰 (추후 구현 예정)
 struct CommunityView: View {
@@ -47,6 +86,8 @@ struct CommunityView: View {
         NavigationView {
             Text("커뮤니티 화면")
                 .navigationTitle("커뮤니티")
+            // 검색 버튼 추가 (ViewModifier 사용)
+            // .addSearchToolbar(isPresented: <#Binding<Bool>#>) // ContentView에서 바인딩 전달 필요
         }
     }
 }
@@ -56,13 +97,15 @@ struct NewsView: View {
         NavigationView {
             Text("뉴스 화면")
                 .navigationTitle("뉴스")
+            // 검색 버튼 추가 (ViewModifier 사용)
+            // .addSearchToolbar(isPresented: <#Binding<Bool>#>) // ContentView에서 바인딩 전달 필요
         }
     }
 }
 
 struct SettingsView: View {
     @EnvironmentObject var favoriteService: FavoriteService
-    
+
     var body: some View {
         NavigationView {
             List {

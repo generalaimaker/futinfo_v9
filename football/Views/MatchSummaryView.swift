@@ -53,6 +53,41 @@ struct MatchSummaryView: View {
     
     var body: some View {
         VStack(spacing: 24) {
+            // 맨 오브 더 매치
+            if let motm = viewModel.manOfTheMatch {
+                ManOfTheMatchView(player: motm)
+                    .onAppear {
+                        print("✅ 맨 오브 더 매치 뷰 등장: \(motm.player.name ?? "Unknown")")
+                    }
+            } else {
+                // 맨 오브 더 매치가 없는 경우 로딩 표시
+                VStack(spacing: 16) {
+                    Text("맨 오브 더 매치")
+                        .font(.headline)
+                    
+                    VStack {
+                        ProgressView()
+                            .padding()
+                        Text("맨 오브 더 매치 선정 중...")
+                            .font(.subheadline)
+                            .foregroundColor(.gray)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(Color(.systemBackground))
+                    .cornerRadius(16)
+                    .shadow(color: Color.black.opacity(0.1), radius: 5, y: 2)
+                    .onAppear {
+                        // 맨 오브 더 매치 로드 시도
+                        if viewModel.matchPlayerStats.isEmpty {
+                            Task {
+                                await viewModel.loadMatchPlayerStats()
+                            }
+                        }
+                    }
+                }
+            }
+            
             // 주요 이벤트
             VStack(spacing: 16) {
                 Text("주요 이벤트")
@@ -396,5 +431,202 @@ struct TimelineLine: View {
     var body: some View {
         Rectangle()
             .fill(Color.gray.opacity(0.2))
+    }
+}
+
+// MARK: - 맨 오브 더 매치 뷰
+struct ManOfTheMatchView: View {
+    let player: FixturePlayerStats
+    
+    private var playerRating: String {
+        player.statistics.first?.games?.rating ?? "-"
+    }
+    
+    private var playerGoals: Int {
+        player.statistics.first?.goals?.total ?? 0
+    }
+    
+    private var playerAssists: Int {
+        player.statistics.first?.goals?.assists ?? 0
+    }
+    
+    private var playerShots: Int {
+        player.statistics.first?.shots?.total ?? 0
+    }
+    
+    private var playerShotsOnTarget: Int {
+        player.statistics.first?.shots?.on ?? 0
+    }
+    
+    private var playerPasses: Int {
+        player.statistics.first?.passes?.total ?? 0
+    }
+    
+    private var playerKeyPasses: Int {
+        player.statistics.first?.passes?.key ?? 0
+    }
+    
+    private var playerDribbles: Int {
+        player.statistics.first?.dribbles?.success ?? 0
+    }
+    
+    private var playerTackles: Int {
+        player.statistics.first?.tackles?.total ?? 0
+    }
+    
+    private var playerPosition: String {
+        player.statistics.first?.games?.position ?? "-"
+    }
+    
+    private var playerTeamName: String {
+        player.team?.name ?? "-"
+    }
+    
+    private var playerTeamLogo: String {
+        player.team?.logo ?? ""
+    }
+    
+    private var playerHighlights: [(String, String)] {
+        var highlights: [(String, String)] = []
+        
+        if playerGoals > 0 {
+            highlights.append(("⚽️", "\(playerGoals)골"))
+        }
+        
+        if playerAssists > 0 {
+            highlights.append(("🅰️", "\(playerAssists)어시스트"))
+        }
+        
+        if playerKeyPasses > 0 {
+            highlights.append(("🔑", "키패스 \(playerKeyPasses)회"))
+        }
+        
+        if playerDribbles > 0 {
+            highlights.append(("🏃‍♂️", "드리블 성공 \(playerDribbles)회"))
+        }
+        
+        if playerTackles > 0 {
+            highlights.append(("🛡️", "태클 \(playerTackles)회"))
+        }
+        
+        if playerShotsOnTarget > 0 {
+            highlights.append(("🎯", "유효슈팅 \(playerShotsOnTarget)회"))
+        }
+        
+        return highlights
+    }
+    
+    var body: some View {
+        VStack(spacing: 16) {
+            Text("맨 오브 더 매치")
+                .font(.headline)
+            
+            VStack(spacing: 20) {
+                // 선수 정보 헤더
+                HStack(spacing: 16) {
+                    // 선수 사진
+                    AsyncImage(url: URL(string: player.player.photo ?? "")) { image in
+                        image
+                            .resizable()
+                            .scaledToFit()
+                            .clipShape(Circle())
+                    } placeholder: {
+                        Image(systemName: "person.circle.fill")
+                            .resizable()
+                            .scaledToFit()
+                            .foregroundColor(.gray)
+                    }
+                    .frame(width: 80, height: 80)
+                    .overlay(
+                        Circle()
+                            .stroke(Color.yellow, lineWidth: 3)
+                            .shadow(color: .yellow.opacity(0.5), radius: 5)
+                    )
+                    
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(player.player.name ?? "Unknown")
+                            .font(.title3)
+                            .fontWeight(.bold)
+                        
+                        HStack(spacing: 8) {
+                            // 팀 로고
+                            AsyncImage(url: URL(string: playerTeamLogo)) { image in
+                                image
+                                    .resizable()
+                                    .scaledToFit()
+                            } placeholder: {
+                                Image(systemName: "sportscourt")
+                                    .foregroundColor(.gray)
+                            }
+                            .frame(width: 20, height: 20)
+                            
+                            Text(playerTeamName)
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                        }
+                        
+                        HStack(spacing: 8) {
+                            Text(playerPosition)
+                                .font(.caption)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 2)
+                                .background(Color.blue.opacity(0.1))
+                                .cornerRadius(4)
+                            
+                            // 평점
+                            HStack(spacing: 2) {
+                                Image(systemName: "star.fill")
+                                    .foregroundColor(.yellow)
+                                    .font(.caption)
+                                
+                                Text(playerRating)
+                                    .font(.caption.bold())
+                            }
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 2)
+                            .background(Color.yellow.opacity(0.1))
+                            .cornerRadius(4)
+                        }
+                    }
+                    
+                    Spacer()
+                }
+                
+                // 주요 활약
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("주요 활약")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                    
+                    LazyVGrid(columns: [
+                        GridItem(.flexible()),
+                        GridItem(.flexible())
+                    ], spacing: 12) {
+                        ForEach(playerHighlights, id: \.0) { icon, text in
+                            HStack(spacing: 8) {
+                                Text(icon)
+                                    .font(.subheadline)
+                                
+                                Text(text)
+                                    .font(.subheadline)
+                                    .fontWeight(.medium)
+                            }
+                            .padding(.vertical, 6)
+                            .padding(.horizontal, 10)
+                            .background(Color.gray.opacity(0.1))
+                            .cornerRadius(8)
+                        }
+                    }
+                }
+            }
+            .padding()
+            .background(Color(.systemBackground))
+            .cornerRadius(16)
+            .shadow(color: Color.yellow.opacity(0.2), radius: 10, y: 5)
+            .overlay(
+                RoundedRectangle(cornerRadius: 16)
+                    .stroke(Color.yellow.opacity(0.3), lineWidth: 1)
+            )
+        }
     }
 }

@@ -96,12 +96,13 @@ struct MatchHeaderView: View {
                             VStack(spacing: 4) {
                                 // 정규 시간 스코어
                                 HStack(spacing: 8) {
-                                    Text("\(fixture.goals?.home ?? 0)")
+                                    // 경기 상태가 NS일 경우 "-" 표시, 아닐 경우 스코어 표시 (nil이면 0)
+                                    Text(fixture.fixture.status.short == "NS" ? "-" : "\(fixture.goals?.home ?? 0)")
                                         .frame(width: 28, alignment: .trailing)
                                         .lineLimit(1)
                                         .minimumScaleFactor(0.8)
-                                    Text("-")
-                                    Text("\(fixture.goals?.away ?? 0)")
+                                    Text(":") // 구분자를 "-"에서 ":"로 변경
+                                    Text(fixture.fixture.status.short == "NS" ? "-" : "\(fixture.goals?.away ?? 0)")
                                         .frame(width: 28, alignment: .leading)
                                         .lineLimit(1)
                                         .minimumScaleFactor(0.8)
@@ -110,21 +111,48 @@ struct MatchHeaderView: View {
                                 
                                 // 합산 스코어 및 승부차기 결과 표시
                                 VStack(spacing: 4) {
-                                    // 합산 스코어 표시 개선 - 경기 목록에서 사용하는 방식 그대로 사용
+                                    // 합산 스코어 표시 개선 - ViewModel의 aggregateScoreResult 사용
                                     Group {
-                                        if let fixture = viewModel.currentFixture, [2, 3].contains(fixture.league.id) {
-                                            HStack(spacing: 8) {
+                                        // ViewModel의 aggregateScoreResult 값이 있으면 표시
+                                        if let aggregate = viewModel.aggregateScoreResult {
+                                            HStack(spacing: 4) { // 간격 조정
                                                 Text("합산")
                                                     .font(.system(.caption, design: .rounded))
                                                     .foregroundColor(.gray)
-                                                
-                                                // 경기 목록에서 사용하는 ViewModel 사용
-                                                AggregateScoreView(fixture: fixture, fixturesViewModel: fixturesViewModel)
+                                                Text("\(aggregate.home) - \(aggregate.away)") // 형식 변경
+                                                    .font(.system(.caption, design: .rounded)) // 폰트 크기 조정
+                                                    .fontWeight(.bold)
+                                                    .foregroundColor(.blue)
+                                                    .padding(.horizontal, 6) // 패딩 조정
+                                                    .padding(.vertical, 3) // 패딩 조정
+                                                    .background(Color.blue.opacity(0.1))
+                                                    .cornerRadius(4)
                                             }
-                                            .padding(.vertical, 4)
                                         }
+                                        // aggregateScoreResult가 nil이고, 경기가 종료되었으며, 대상 리그인 경우 현재 스코어를 '합산'으로 표시
+                                        else if let fixture = viewModel.currentFixture,
+                                                ["FT", "AET", "PEN"].contains(fixture.fixture.status.short), // 경기 종료 확인
+                                                [2, 3].contains(fixture.league.id) // 대상 리그 확인
+                                        {
+                                            HStack(spacing: 4) { // 간격 조정
+                                                Text("합산")
+                                                    .font(.system(.caption, design: .rounded))
+                                                    .foregroundColor(.gray)
+                                                // 현재 경기 스코어 표시
+                                                Text("\(fixture.goals?.home ?? 0) - \(fixture.goals?.away ?? 0)")
+                                                    .font(.system(.caption, design: .rounded)) // 폰트 크기 조정
+                                                    .fontWeight(.bold)
+                                                    .foregroundColor(.blue) // 스타일 통일
+                                                    .padding(.horizontal, 6) // 패딩 조정
+                                                    .padding(.vertical, 3) // 패딩 조정
+                                                    .background(Color.blue.opacity(0.1)) // 스타일 통일
+                                                    .cornerRadius(4)
+                                            }
+                                        }
+                                        // 그 외의 경우 (예: 경기 전, 대상 리그 아님)는 아무것도 표시하지 않음
                                     }
-                                    
+                                    // .onAppear 제거: ViewModel에서 계산된 결과를 사용하므로 중복 호출 불필요
+
                                     // 승부차기 결과 (있는 경우)
                                     if fixture.fixture.status.short == "PEN" {
                                         HStack(spacing: 8) {
@@ -188,7 +216,7 @@ struct MatchHeaderView: View {
         .padding(.vertical, 12)
         .background(Color(.systemBackground))
     }
-}
+} // MatchHeaderView 닫는 중괄호 추가
 
 // 득점자 정보를 표시하는 별도의 뷰
 struct GoalScorersView: View {
@@ -336,86 +364,87 @@ struct DummyGoalScorersView: View {
         return goals.sorted { $0.time.elapsed < $1.time.elapsed }
     }
 }
-// 합산 스코어 표시를 위한 뷰
-struct AggregateScoreView: View {
-    let fixture: Fixture
-    let fixturesViewModel: FixturesOverviewViewModel
-    @State private var aggregateScore: (home: Int, away: Int)? = nil
-    
-    var body: some View {
-        aggregateScoreContent
-            .onAppear {
-                loadAggregateScore()
-            }
-    }
-    
-    // 조건부 로직을 별도의 계산 속성으로 분리
-    @ViewBuilder
-    private var aggregateScoreContent: some View {
-        if let score = aggregateScore {
-            Text("\(score.home) - \(score.away)")
-                .font(.system(.subheadline, design: .rounded))
-                .fontWeight(.bold)
-                .foregroundColor(.blue)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 2)
-                .background(Color.blue.opacity(0.1))
-                .cornerRadius(4)
-        } else {
-            Text("계산 중...")
-                .font(.system(.caption, design: .rounded))
-                .foregroundColor(.gray)
-        }
-    }
-    
-    private func loadAggregateScore() {
-        Task {
-            if let score = await fixturesViewModel.calculateAggregateScore(fixture: fixture) {
-                await MainActor.run {
-                    self.aggregateScore = score
-                    print("🏆 AggregateScoreView - 합산 결과 계산 완료: \(score.home)-\(score.away)")
-                }
-            }
-        }
-    }
-}
 
 struct TeamInfoView: View {
     let team: Team
     let isWinner: Bool
     let fixture: Fixture
     let viewModel: FixtureDetailViewModel
+    @State private var isPressed = false
+    @State private var showTeamProfile = false
     
     var body: some View {
-        NavigationLink(destination: TeamProfileView(teamId: team.id, leagueId: fixture.league.id)) {
+        VStack(spacing: 12) {
             VStack(spacing: 12) {
-                // 팀 로고
+                // 팀 로고 - 직접 탭 제스처 추가
                 teamLogoView
+                    .overlay(
+                        Text("팀 프로필")
+                            .font(.system(.caption2, design: .rounded))
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 2)
+                            .background(Color.blue.opacity(0.8))
+                            .cornerRadius(8)
+                            .opacity(isPressed ? 1.0 : 0.0)
+                    )
+                    .scaleEffect(isPressed ? 1.05 : 1.0)
+                    .onTapGesture {
+                        withAnimation(.easeInOut(duration: 0.15)) {
+                            isPressed = true
+                        }
+                        
+                        // 0.15초 후 원래 상태로 복귀하고 팀 프로필로 이동
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                            withAnimation(.easeInOut(duration: 0.15)) {
+                                isPressed = false
+                            }
+                            
+                            // 팀 프로필로 이동
+                            showTeamProfile = true
+                        }
+                    }
                 
                 // 팀 이름 및 승리 표시
                 teamNameView
-                
-                // 득점자 정보 표시
-                goalScorersContainerView
-                    .padding(.top, 4)
-                    .animation(.easeInOut(duration: 0.3), value: viewModel.events.count)
-                    .animation(.easeInOut(duration: 0.3), value: viewModel.isLoadingEvents)
-                    .onAppear {
-                        Task {
-                            await loadEventData()
-                        }
-                    }
-                    .onChange(of: viewModel.isLoadingEvents) { oldValue, newValue in
-                        print("🔄 isLoadingEvents 변경 감지: \(newValue)")
-                    }
-                    .onChange(of: viewModel.events.count) { oldValue, newValue in
-                        print("🔄 events 변경 감지: \(newValue)개")
+                    .onTapGesture {
+                        showTeamProfile = true
                     }
             }
-            .padding(.vertical, 12)
-            .contentShape(Rectangle())
+            
+            // 득점자 정보 표시 - 별도의 VStack으로 분리
+            goalScorersContainerView
+                .padding(.top, 4)
+                .animation(.easeInOut(duration: 0.3), value: viewModel.events.count)
+                .animation(.easeInOut(duration: 0.3), value: viewModel.isLoadingEvents)
+                .onAppear {
+                    Task {
+                        await loadEventData()
+                    }
+                }
+                .onChange(of: viewModel.isLoadingEvents) { oldValue, newValue in
+                    print("🔄 isLoadingEvents 변경 감지: \(newValue)")
+                }
+                .onChange(of: viewModel.events.count) { oldValue, newValue in
+                    print("🔄 events 변경 감지: \(newValue)개")
+                }
         }
-        .buttonStyle(PlainButtonStyle()) // 기본 버튼 스타일 제거
+        .padding(.vertical, 12)
+        .contentShape(Rectangle())
+        .background(
+            NavigationLink(value: team.id) {
+                EmptyView()
+            }
+            .opacity(0) // 링크를 숨김
+        )
+        .onChange(of: showTeamProfile) { _, newValue in
+            if newValue {
+                // 팀 프로필로 이동
+                viewModel.selectedTeamId = team.id
+                viewModel.selectedLeagueId = fixture.league.id
+                viewModel.showTeamProfile = true
+            }
+        }
     }
     
     // 팀 로고 뷰
@@ -446,7 +475,7 @@ struct TeamInfoView: View {
                 .fill(Color(.systemBackground))
                 .frame(width: 80, height: 80)
                 .shadow(color: isWinner ? Color.blue.opacity(0.2) : Color.black.opacity(0.05),
-                       radius: isWinner ? 12 : 8)
+                        radius: isWinner ? 12 : 8)
                 .zIndex(0)
             
             CachedImageView(
@@ -465,6 +494,12 @@ struct TeamInfoView: View {
                     .frame(width: 80, height: 80)
                     .zIndex(1)
             }
+            
+            // 탭 가능함을 나타내는 시각적 힌트
+            Circle()
+                .strokeBorder(Color.blue.opacity(isPressed ? 0.5 : 0.2), lineWidth: isPressed ? 3 : 1)
+                .frame(width: 80, height: 80)
+                .zIndex(1)
         }
     }
     
@@ -482,6 +517,69 @@ struct TeamInfoView: View {
         }
     }
     
+    // 득점이 있는지 확인하는 계산 속성
+    private var hasGoals: Bool {
+        return (team.id == fixture.teams.home.id && (fixture.goals?.home ?? 0) > 0) ||
+        (team.id == fixture.teams.away.id && (fixture.goals?.away ?? 0) > 0)
+    }
+    
+    // 팀의 득점 이벤트 필터링
+    private var filteredTeamGoals: [FixtureEvent] {
+        // 이벤트 데이터가 비어있는지 확인
+        if viewModel.events.isEmpty {
+            return []
+        }
+        
+        // 골 이벤트만 필터링
+        let goalEvents = viewModel.events.filter { $0.type.lowercased() == "goal" }
+        
+        // 현재 팀의 골 이벤트 필터링 (자책골 로직 수정)
+        let teamGoals = goalEvents.filter { event in
+            // 일반 골: 현재 팀(self.team)이 득점한 경우
+            let isNormalGoal = event.team.id == self.team.id && !event.detail.lowercased().contains("own")
+            
+            // 자책골: 상대 팀(event.team.id != self.team.id)이 자책골을 넣어서 현재 팀(self.team)이 득점한 경우
+            let isOwnGoalForThisTeam = event.team.id != self.team.id && event.detail.lowercased().contains("own")
+            
+            return isNormalGoal || isOwnGoalForThisTeam
+        }
+        
+        return teamGoals
+    }
+    
+    // 로딩 뷰
+    private var loadingView: some View {
+        HStack(spacing: 4) {
+            ProgressView()
+                .scaleEffect(0.7)
+            Text("득점자 정보 로딩 중...")
+                .font(.system(.caption2, design: .rounded))
+                .foregroundColor(.secondary)
+        }
+        .transition(.opacity.combined(with: .scale))
+    }
+    
+    // 득점자 정보 뷰
+    private var goalScorersView: some View {
+        // 득점 시간 순으로 정렬
+        let sortedGoals = filteredTeamGoals.sorted { $0.time.elapsed < $1.time.elapsed }
+        
+        // 득점자 정보 직접 표시
+        return VStack(spacing: 4) {
+            if !sortedGoals.isEmpty {
+                // 실제 득점자 데이터가 있는 경우
+                ForEach(sortedGoals.prefix(3), id: \.id) { event in
+                    goalEventRow(for: event)
+                }
+            } else if hasGoals {
+                // 득점은 있지만 이벤트 데이터가 없는 경우
+                Text("득점자 정보 로드 중...")
+                    .font(.system(.caption2, design: .rounded))
+                    .foregroundColor(.secondary)
+            }
+        }
+    }
+    
     // 득점자 정보 컨테이너 뷰
     @ViewBuilder
     private var goalScorersContainerView: some View {
@@ -490,12 +588,6 @@ struct TeamInfoView: View {
                 goalScorersContentView
             }
         }
-    }
-    
-    // 득점이 있는지 확인하는 계산 속성
-    private var hasGoals: Bool {
-        return (team.id == fixture.teams.home.id && (fixture.goals?.home ?? 0) > 0) ||
-               (team.id == fixture.teams.away.id && (fixture.goals?.away ?? 0) > 0)
     }
     
     // 득점자 정보 내용 뷰
@@ -522,45 +614,6 @@ struct TeamInfoView: View {
         } else {
             // 득점이 없는 경우 빈 뷰
             EmptyView()
-        }
-    }
-    
-    // 로딩 뷰
-    private var loadingView: some View {
-        HStack(spacing: 4) {
-            ProgressView()
-                .scaleEffect(0.7)
-            Text("득점자 정보 로딩 중...")
-                .font(.system(.caption2, design: .rounded))
-                .foregroundColor(.secondary)
-        }
-        .transition(.opacity.combined(with: .scale))
-    }
-    
-    // 득점자 정보 뷰
-    private var goalScorersView: some View {
-        // 득점 시간 순으로 정렬
-        let sortedGoals = filteredTeamGoals.sorted { $0.time.elapsed < $1.time.elapsed }
-        
-        print("🔍 \(team.name)의 정렬된 골 이벤트 수: \(sortedGoals.count)")
-        
-        // 득점자 정보 직접 표시
-        return VStack(spacing: 4) {
-            if !sortedGoals.isEmpty {
-                // 실제 득점자 데이터가 있는 경우
-                ForEach(sortedGoals.prefix(3), id: \.id) { event in
-                    goalEventRow(for: event)
-                }
-            } else if hasGoals {
-                // 득점은 있지만 이벤트 데이터가 없는 경우
-                Text("득점자 정보 로드 중...")
-                    .font(.system(.caption2, design: .rounded))
-                    .foregroundColor(.secondary)
-            }
-        }
-        .onAppear {
-            // 디버그 로그 추가 - 득점자 정보 확인
-            logGoalEvents(filteredTeamGoals)
         }
     }
     
@@ -592,50 +645,6 @@ struct TeamInfoView: View {
         .transition(.opacity.combined(with: .scale))
     }
     
-    // 팀의 득점 이벤트 필터링
-    private var filteredTeamGoals: [FixtureEvent] {
-        // 이벤트 데이터가 비어있는지 확인
-        if viewModel.events.isEmpty {
-            print("⚠️ 이벤트 데이터가 비어있습니다.")
-            return []
-        }
-        
-        // 골 이벤트만 필터링
-        let goalEvents = viewModel.events.filter { $0.type.lowercased() == "goal" }
-        print("⚽️ 전체 골 이벤트 수: \(goalEvents.count)")
-        
-        // 현재 팀의 골 이벤트 필터링
-        let teamGoals = goalEvents.filter { event in
-            // 일반 골: 현재 팀이 득점한 경우
-            let isNormalGoal = event.team.id == team.id && !event.detail.lowercased().contains("own")
-            
-            // 자책골: 상대 팀이 자책골을 넣은 경우
-            let isOwnGoal = event.team.id != team.id && event.detail.lowercased().contains("own")
-            
-            return isNormalGoal || isOwnGoal
-        }
-        
-        print("⚽️ 팀 \(team.name)의 골 이벤트 수: \(teamGoals.count)")
-        for goal in teamGoals {
-            print("  - 득점자: \(goal.player.name ?? "알 수 없음"), 시간: \(goal.time.elapsed)분, 상세: \(goal.detail)")
-        }
-        
-        return teamGoals
-    }
-    
-    // 골 이벤트 생성 헬퍼 함수
-    private func createGoalEvent(name: String, minute: Int, detail: String = "Normal Goal") -> FixtureEvent {
-        return FixtureEvent(
-            time: EventTime(elapsed: minute, extra: nil),
-            team: team,
-            player: EventPlayer(id: Int.random(in: 1000...9999), name: name),
-            assist: nil,
-            type: "Goal",
-            detail: detail,
-            comments: nil
-        )
-    }
-    
     // 득점자 정보 로깅
     private func logGoalEvents(_ teamGoals: [FixtureEvent]) {
         print("⚽️ 팀 \(team.name)의 골 이벤트 수: \(teamGoals.count)")
@@ -646,47 +655,15 @@ struct TeamInfoView: View {
     
     // 이벤트 데이터 로드
     private func loadEventData() async {
-        print("🔄 MatchHeaderView - 이벤트 데이터 로드 시작 - 팀: \(team.name)")
-        
-        // 항상 이벤트 데이터를 새로 로드하여 최신 데이터 사용
-        await viewModel.loadEvents()
-        
-        // 골 이벤트 로깅
-        let goalEvents = viewModel.events.filter { $0.type.lowercased() == "goal" }
-        print("⚽️ 전체 골 이벤트 수: \(goalEvents.count)")
-        
-        // 팀별 골 이벤트 로깅
-        let homeGoals = goalEvents.filter { $0.team.id == fixture.teams.home.id }
-        let awayGoals = goalEvents.filter { $0.team.id == fixture.teams.away.id }
-        print("⚽️ 홈팀(\(fixture.teams.home.name)) 골 이벤트 수: \(homeGoals.count)")
-        print("⚽️ 원정팀(\(fixture.teams.away.name)) 골 이벤트 수: \(awayGoals.count)")
-        
-        // 현재 팀의 골 이벤트 필터링
-        let teamGoals = goalEvents.filter { event in
-            // 일반 골: 현재 팀이 득점한 경우
-            let isNormalGoal = event.team.id == team.id && !event.detail.lowercased().contains("own")
-            
-            // 자책골: 상대 팀이 자책골을 넣은 경우
-            let isOwnGoal = event.team.id != team.id && event.detail.lowercased().contains("own")
-            
-            return isNormalGoal || isOwnGoal
-        }
-        
-        print("🔍 \(team.name)의 골 이벤트 수: \(teamGoals.count)")
-        for goal in teamGoals {
-            print("  - 득점자: \(goal.player.name ?? "알 수 없음"), 시간: \(goal.time.elapsed)분, 상세: \(goal.detail)")
+        // 이벤트 데이터가 이미 로드되어 있는지 확인
+        if viewModel.events.isEmpty {
+            // 이벤트 데이터가 없으면 로드
+            await viewModel.loadEvents()
         }
         
         // 이벤트 데이터 로드 후 UI 업데이트 강제
         await MainActor.run {
-            print("🔄 UI 업데이트 강제 - 팀: \(team.name), 이벤트 수: \(viewModel.events.count)")
             viewModel.objectWillChange.send()
-            
-            // 추가 UI 업데이트 강제 (SwiftUI 뷰 갱신 보장)
-            Task {
-                try? await Task.sleep(nanoseconds: 100_000_000) // 0.1초 대기
-                viewModel.objectWillChange.send()
-            }
         }
     }
 }

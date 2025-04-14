@@ -66,6 +66,18 @@ class LeaguesViewModel: ObservableObject {
                 seasons: nil
             ))
             
+            // Ligue 1
+            hardcodedLeagues.append(LeagueDetails(
+                league: LeagueInfo(
+                    id: 61,
+                    name: "Ligue 1",
+                    type: "League",
+                    logo: "https://media.api-sports.io/football/leagues/61.png"
+                ),
+                country: Country(name: "France", code: "FR", flag: nil),
+                seasons: nil
+            ))
+            
             // Champions League
             hardcodedLeagues.append(LeagueDetails(
                 league: LeagueInfo(
@@ -87,6 +99,66 @@ class LeaguesViewModel: ObservableObject {
                     logo: "https://media.api-sports.io/football/leagues/3.png"
                 ),
                 country: Country(name: "UEFA", code: "EU", flag: nil),
+                seasons: nil
+            ))
+            
+            // FA Cup
+            hardcodedLeagues.append(LeagueDetails(
+                league: LeagueInfo(
+                    id: 45,
+                    name: "FA Cup",
+                    type: "Cup",
+                    logo: "https://media.api-sports.io/football/leagues/45.png"
+                ),
+                country: Country(name: "England", code: "GB-ENG", flag: nil),
+                seasons: nil
+            ))
+            
+            // Copa del Rey
+            hardcodedLeagues.append(LeagueDetails(
+                league: LeagueInfo(
+                    id: 143,
+                    name: "Copa del Rey",
+                    type: "Cup",
+                    logo: "https://media.api-sports.io/football/leagues/143.png"
+                ),
+                country: Country(name: "Spain", code: "ES", flag: nil),
+                seasons: nil
+            ))
+            
+            // Coppa Italia
+            hardcodedLeagues.append(LeagueDetails(
+                league: LeagueInfo(
+                    id: 137,
+                    name: "Coppa Italia",
+                    type: "Cup",
+                    logo: "https://media.api-sports.io/football/leagues/137.png"
+                ),
+                country: Country(name: "Italy", code: "IT", flag: nil),
+                seasons: nil
+            ))
+            
+            // Coupe de France
+            hardcodedLeagues.append(LeagueDetails(
+                league: LeagueInfo(
+                    id: 66,
+                    name: "Coupe de France",
+                    type: "Cup",
+                    logo: "https://media.api-sports.io/football/leagues/66.png"
+                ),
+                country: Country(name: "France", code: "FR", flag: nil),
+                seasons: nil
+            ))
+            
+            // DFB Pokal
+            hardcodedLeagues.append(LeagueDetails(
+                league: LeagueInfo(
+                    id: 81,
+                    name: "DFB Pokal",
+                    type: "Cup",
+                    logo: "https://media.api-sports.io/football/leagues/81.png"
+                ),
+                country: Country(name: "Germany", code: "DE", flag: nil),
                 seasons: nil
             ))
             

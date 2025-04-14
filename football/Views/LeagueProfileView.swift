@@ -2,7 +2,7 @@ import SwiftUI
 
 struct LeagueProfileView: View {
     @StateObject private var viewModel: LeagueProfileViewModel
-    @State private var selectedTab = 0 // 0: 순위, 1: 경기, 2: 선수통계, 3: 팀통계
+    @State private var selectedTab = 0 // 0: 경기, 1: 토너먼트, 2: 선수통계, 3: 팀통계, 4: 순위
     @State private var selectedSeason: Int = 2024
     
     let seasons = [2024, 2023, 2022, 2021, 2020]
@@ -28,10 +28,6 @@ struct LeagueProfileView: View {
             
             // 탭 선택
             TabView(selection: $selectedTab) {
-                // 순위 탭
-                StandingsTabView(standings: viewModel.standings, leagueId: leagueId)
-                    .tag(0)
-                
                 // 경기 탭
                 LeagueFixturesTabView(
                     upcomingFixtures: viewModel.upcomingFixtures,
@@ -39,6 +35,15 @@ struct LeagueProfileView: View {
                     todayFixtures: viewModel.todayFixtures,
                     formatDate: viewModel.formatDate,
                     getMatchStatus: viewModel.getMatchStatus
+                )
+                .tag(0)
+                
+                // 토너먼트 탭
+                TournamentTabView(
+                    leagueId: leagueId,
+                    rounds: viewModel.tournamentRounds,
+                    fixtures: viewModel.tournamentFixtures,
+                    formatDate: viewModel.formatDate
                 )
                 .tag(1)
                 
@@ -60,6 +65,10 @@ struct LeagueProfileView: View {
                     topCleanSheetTeams: viewModel.topCleanSheetTeams
                 )
                 .tag(3)
+                
+                // 순위 탭
+                StandingsTabView(standings: viewModel.standings, leagueId: leagueId)
+                    .tag(4)
             }
             .tabViewStyle(PageTabViewStyle(indexDisplayMode: .never))
         }
@@ -79,7 +88,7 @@ struct LeagueProfileView: View {
                 await viewModel.loadDataForTab(newValue)
                 
                 // 경기 탭으로 변경된 경우 최근 경기로 스크롤하기 위해 약간의 지연 추가
-                if newValue == 1 && !viewModel.pastFixtures.isEmpty {
+                if newValue == 0 && !viewModel.pastFixtures.isEmpty {
                     // 데이터가 로드된 후 0.5초 후에 스크롤 위치 조정 (뷰가 완전히 로드된 후)
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                         // 이 시점에서는 FixturesTabView의 onAppear가 호출되어 스크롤 위치가 조정됨
@@ -92,7 +101,7 @@ struct LeagueProfileView: View {
             Task {
                 // 초기에는 필수 데이터만 로드
                 await viewModel.loadLeagueDetails()
-                await viewModel.loadStandings() // 기본 탭이 순위 탭이므로
+                await viewModel.loadFixtures() // 기본 탭이 경기 탭이므로
             }
         }
     }
@@ -223,7 +232,7 @@ struct CustomTabBar: View {
     @Binding var selectedTab: Int
     @Namespace private var animation
     
-    private let tabs = ["순위", "경기", "선수 통계", "팀 통계"]
+    private let tabs = ["경기", "토너먼트", "선수 통계", "팀 통계", "순위"]
     
     var body: some View {
         VStack(spacing: 0) {

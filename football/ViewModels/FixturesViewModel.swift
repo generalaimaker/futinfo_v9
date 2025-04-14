@@ -61,7 +61,7 @@ class FixturesViewModel: ObservableObject {
         Task {
             do {
                 print("Loading fixtures...")
-                fixtures = try await service.getFixtures(leagueId: leagueId, season: selectedSeason)
+                fixtures = try await service.getFixtures(leagueId: leagueId, season: selectedSeason, from: nil, to: nil)
                 
                 if fixtures.isEmpty {
                     errorMessage = "표시할 경기가 없습니다."

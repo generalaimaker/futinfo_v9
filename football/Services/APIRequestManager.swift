@@ -89,6 +89,10 @@ class APIRequestManager {
                 fixedEndpoint.removeFirst()
             }
             
+            // 검색 관련 엔드포인트 처리 (추가)
+            let searchEndpoints = ["coachs", "leagues", "teams", "players", "venues"]
+            let isSearchEndpoint = searchEndpoints.contains { fixedEndpoint.starts(with: $0) }
+            
             // Firebase Functions 엔드포인트를 Rapid API 엔드포인트로 변환
             if endpoint == "getFixtures" || endpoint.starts(with: "getFixtures?") {
                 fixedEndpoint = "fixtures"
@@ -103,10 +107,17 @@ class APIRequestManager {
             } else if endpoint == "injuries" || endpoint.starts(with: "injuries") || endpoint.starts(with: "/injuries") {
                 // injuries 엔드포인트는 그대로 유지 (슬래시로 시작하는 경우도 처리)
                 fixedEndpoint = "injuries"
+            } else if endpoint.contains("teams/statistics") || endpoint.contains("/teams/statistics") {
+                // teams/statistics 엔드포인트 처리
+                fixedEndpoint = "teams/statistics"
+            } else if endpoint.contains("players/squads") || endpoint.contains("/players/squads") {
+                // players/squads 엔드포인트 처리
+                fixedEndpoint = "players/squads"
             } else if !endpoint.starts(with: "fixtures") && !endpoint.starts(with: "leagues") && 
                       !endpoint.starts(with: "teams") && !endpoint.starts(with: "players") && 
                       !endpoint.starts(with: "standings") && !endpoint.starts(with: "/standings") &&
-                      !endpoint.starts(with: "injuries") && !endpoint.starts(with: "/injuries") {
+                      !endpoint.starts(with: "injuries") && !endpoint.starts(with: "/injuries") &&
+                      !isSearchEndpoint { // 검색 엔드포인트가 아닌 경우에만 fixtures/ 추가
                 // 이미 fixtures가 포함되어 있는지 확인
                 if !endpoint.contains("fixtures") {
                     fixedEndpoint = "fixtures/\(endpoint)"
@@ -406,8 +417,10 @@ class APIRequestManager {
             modifiedJson["response"] = []
             print("➕ 'response' 필드 추가")
         } else if let response = modifiedJson["response"], !(response is [Any]) {
-            // response 필드가 배열이 아닌 경우 빈 배열로 대체
+            // response 필드가 배열이 아닌 경우
             print("⚠️ 'response' 필드가 배열이 아님, 빈 배열로 대체")
+            
+            // 빈 배열로 대체
             modifiedJson["response"] = []
         }
         

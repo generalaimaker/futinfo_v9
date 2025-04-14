@@ -326,15 +326,22 @@ struct FixturesOverviewView: View {
             .navigationTitle("일정")
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    // 새로고침 버튼
-                    Button(action: {
-                        Task {
-                            await viewModel.fetchFixtures()
+                    HStack(spacing: 16) {
+                        // 검색 버튼
+                        NavigationLink(destination: SearchView()) {
+                            Image(systemName: "magnifyingglass")
                         }
-                    }) {
-                        Image(systemName: "arrow.clockwise")
+                        
+                        // 새로고침 버튼
+                        Button(action: {
+                            Task {
+                                await viewModel.fetchFixtures()
+                            }
+                        }) {
+                            Image(systemName: "arrow.clockwise")
+                        }
+                        .disabled(viewModel.isLoading)
                     }
-                    .disabled(viewModel.isLoading)
                 }
             }
         }
@@ -705,17 +712,17 @@ struct FixtureCardView: View {
                     // 홈팀
                     FixtureTeamView(team: fixture.teams.home)
                     
-                    // 스코어
-                    ScoreView(
+                    // 스코어 (FixtureCell의 ScoreView 사용)
+                    FixtureCell.ScoreView(
                         homeScore: fixture.goals?.home,
                         awayScore: fixture.goals?.away,
                         isLive: ["1H", "2H", "HT", "ET", "BT", "P"].contains(fixture.fixture.status.short),
                         elapsed: fixture.fixture.status.elapsed,
                         status: fixture.fixture.status.short,
-                        fixture: fixture,
-                        viewModel: viewModel
+                        fixture: fixture
+                        // viewModel 파라미터 제거 (FixtureCell.ScoreView는 ViewModel 불필요)
                     )
-                    
+
                     // 원정팀
                     FixtureTeamView(team: fixture.teams.away)
                 }
@@ -851,7 +858,7 @@ struct StatusBadgeView: View {
     }
 }
 
-// MARK: - 스코어 뷰
+/* MARK: - 스코어 뷰 (FixtureCell의 ScoreView를 사용하므로 주석 처리)
 struct ScoreView: View {
     let homeScore: Int?
     let awayScore: Int?
@@ -1054,3 +1061,4 @@ struct ScoreView: View {
         }
     }
 }
+*/

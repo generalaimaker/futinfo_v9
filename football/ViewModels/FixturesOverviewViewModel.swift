@@ -1,5 +1,6 @@
 import Foundation
 import Combine
+import UIKit
 
 @MainActor
 class FixturesOverviewViewModel: ObservableObject {
@@ -27,7 +28,16 @@ class FixturesOverviewViewModel: ObservableObject {
     // 캐싱 관련 변수
     private var cachedFixtures: [String: [Fixture]] = [:] // 날짜 문자열을 키로 사용
     private var cacheDates: [String: Date] = [:] // 캐시 저장 시간 기록
-    private let cacheExpirationHours: Double = 6 // 캐시 만료 시간 (6시간)
+    private let cacheExpirationMinutes: Double = 15 // 캐시 만료 시간 (15분으로 단축)
+    
+    // 경기 상태별 캐시 만료 시간 (분 단위)
+    private let liveMatchCacheMinutes: Double = 5 // 진행 중인 경기는 5분
+    private let upcomingMatchCacheMinutes: Double = 15 // 예정된 경기는 15분
+    private let finishedMatchCacheMinutes: Double = 60 // 종료된 경기는 1시간
+    
+    // 자동 새로고침 타이머
+    private var refreshTimer: Timer?
+    private let autoRefreshInterval: TimeInterval = 60 // 1분마다 자동 새로고침
     
     // 개발 모드에서 백그라운드 로드 활성화 여부
     #if DEBUG
@@ -62,7 +72,7 @@ class FixturesOverviewViewModel: ObservableObject {
     public func getLabelForDate(_ date: Date) -> String {
         let today = calendar.startOfDay(for: Date())
         
-        if calendar.isDate(date, inSameDayAs: today) {
+        if calendar.isDate(date,inSameDayAs: today) {
             return "오늘"
         }
         
@@ -155,7 +165,107 @@ class FixturesOverviewViewModel: ObservableObject {
             }
             
             isLoading = false
+            
+            // 자동 새로고침 시작
+            startAutoRefresh()
         }
+        
+        // 앱 생명주기 이벤트 관찰 설정
+        setupAppLifecycleObservers()
+    }
+    
+    // 앱 생명주기 이벤트 관찰 설정
+    private func setupAppLifecycleObservers() {
+        #if os(iOS)
+        // iOS에서는 NotificationCenter를 통해 앱 생명주기 이벤트 관찰
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(appWillEnterForeground),
+            name: UIApplication.willEnterForegroundNotification,
+            object: nil
+        )
+        
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(appDidEnterBackground),
+            name: UIApplication.didEnterBackgroundNotification,
+            object: nil
+        )
+        #endif
+    }
+    
+    // 앱이 포그라운드로 돌아올 때 호출
+    @objc private func appWillEnterForeground() {
+        print("📱 앱이 포그라운드로 돌아옴")
+        
+        // 현재 선택된 날짜의 데이터 새로고침
+        Task {
+            // do-catch 블록 제거
+            await self.loadFixturesForDate(selectedDate, forceRefresh: true)
+            
+            // 오늘 날짜의 데이터도 새로고침 (선택된 날짜가 오늘이 아닌 경우)
+            let today = calendar.startOfDay(for: Date())
+            if !calendar.isDate(selectedDate, inSameDayAs: today) {
+                await self.loadFixturesForDate(today, forceRefresh: true)
+            }
+            
+            // 자동 새로고침 재시작
+            startAutoRefresh()
+        }
+    }
+    
+    // 앱이 백그라운드로 갈 때 호출
+    @objc private func appDidEnterBackground() {
+        print("📱 앱이 백그라운드로 이동")
+        
+        // 자동 새로고침 중지
+        stopAutoRefresh()
+        
+        // 진행 중인 작업 취소
+        Task {
+            // do-catch 블록 제거
+            // 로딩 중인 날짜에 대한 작업 취소
+            for date in loadingDates {
+                print("⚠️ 백그라운드 전환으로 작업 취소: \(self.formatDateForAPI(date))")
+                // 로딩 중인 날짜 목록에서 제거
+                self.loadingDates.remove(date)
+            }
+        }
+    }
+    
+    // 자동 새로고침 시작
+    private func startAutoRefresh() {
+        // 이미 타이머가 실행 중이면 중지
+        stopAutoRefresh()
+        
+        print("⏱️ 자동 새로고침 타이머 시작 (간격: \(autoRefreshInterval)초)")
+        
+        // 새 타이머 생성
+        refreshTimer = Timer.scheduledTimer(withTimeInterval: autoRefreshInterval, repeats: true) { [weak self] _ in
+            guard let self = self else { return }
+            
+            // 현재 선택된 날짜의 데이터 새로고침
+            Task {
+                print("⏱️ 자동 새로고침 실행")
+                
+                // 현재 선택된 날짜가 오늘이거나 미래 날짜인 경우에만 새로고침
+                let today = self.calendar.startOfDay(for: Date())
+                if self.calendar.compare(self.selectedDate, to: today, toGranularity: .day) != .orderedAscending {
+                    await self.loadFixturesForDate(self.selectedDate,forceRefresh: true)
+                }
+                
+                // 오늘 날짜의 데이터도 새로고침 (선택된 날짜가 오늘이 아닌 경우)
+                if !self.calendar.isDate(self.selectedDate, inSameDayAs: today) {
+                    await self.loadFixturesForDate(today, forceRefresh: true)
+                }
+            }
+        }
+    }
+    
+    // 자동 새로고침 중지
+    private func stopAutoRefresh() {
+        refreshTimer?.invalidate()
+        refreshTimer = nil
     }
     
     // 제한된 날짜 범위에 대한 경기 일정 로드 (리소스 사용 최적화)
@@ -204,20 +314,65 @@ class FixturesOverviewViewModel: ObservableObject {
         }
     }
     
-    // 캐시 만료 여부 확인
+    // 캐시 만료 여부 확인 (경기 상태별 캐시 정책 적용)
     private func isCacheExpired(for dateKey: String) -> Bool {
         guard let cacheDate = cacheDates[dateKey] else {
             return true // 캐시 날짜가 없으면 만료된 것으로 간주
         }
         
         let now = Date()
-        let expirationInterval = cacheExpirationHours * 60 * 60 // 초 단위로 변환
         
-        // 현재 시간과 캐시 저장 시간의 차이가 만료 시간보다 크면 만료된 것으로 간주
-        let isExpired = now.timeIntervalSince(cacheDate) > expirationInterval
-        if isExpired {
-            print("⏰ 캐시 만료됨: \(dateKey) (저장 시간: \(cacheDate), 현재: \(now))")
+        // 해당 날짜의 경기 목록 가져오기
+        if let fixturesForDate = cachedFixtures[dateKey] {
+            // 경기가 있는 경우 경기 상태에 따라 다른 캐시 만료 시간 적용
+            if !fixturesForDate.isEmpty {
+                // 진행 중인 경기가 있는지 확인
+                let hasLiveMatches = fixturesForDate.contains { fixture in
+                    ["1H", "2H", "HT", "ET", "P"].contains(fixture.fixture.status.short)
+                }
+                
+                // 예정된 경기가 있는지 확인
+                let hasUpcomingMatches = fixturesForDate.contains { fixture in
+                    fixture.fixture.status.short == "NS"
+                }
+                
+                // 경기 상태에 따른 캐시 만료 시간 결정
+                var expirationMinutes: Double
+                
+                if hasLiveMatches {
+                    // 진행 중인 경기가 있으면 짧은 캐시 시간 적용
+                    expirationMinutes = liveMatchCacheMinutes
+                    print("⏱️ 진행 중인 경기가 있어 짧은 캐시 시간 적용: \(liveMatchCacheMinutes)분")
+                } else if hasUpcomingMatches {
+                    // 예정된 경기가 있으면 중간 캐시 시간 적용
+                    expirationMinutes = upcomingMatchCacheMinutes
+                    print("⏱️ 예정된 경기가 있어 중간 캐시 시간 적용: \(upcomingMatchCacheMinutes)분")
+                } else {
+                    // 모든 경기가 종료된 경우 긴 캐시 시간 적용
+                    expirationMinutes = finishedMatchCacheMinutes
+                    print("⏱️ 모든 경기가 종료되어 긴 캐시 시간 적용: \(finishedMatchCacheMinutes)분")
+                }
+                
+                // 캐시 만료 여부 확인
+                let expirationInterval = expirationMinutes * 60 // 초 단위로 변환
+                let isExpired = now.timeIntervalSince(cacheDate) > expirationInterval
+                
+                if isExpired {
+                    print("⏰ 캐시 만료됨: \(dateKey) (저장 시간: \(cacheDate), 현재: \(now), 만료 시간: \(expirationMinutes)분)")
+                }
+                
+                return isExpired
+            }
         }
+        
+        // 경기가 없는 경우 기본 캐시 만료 시간 적용
+        let expirationInterval = cacheExpirationMinutes * 60 // 초 단위로 변환
+        let isExpired = now.timeIntervalSince(cacheDate) > expirationInterval
+        
+        if isExpired {
+            print("⏰ 캐시 만료됨: \(dateKey) (저장 시간: \(cacheDate), 현재: \(now), 기본 만료 시간: \(cacheExpirationMinutes)분)")
+        }
+        
         return isExpired
     }
     
@@ -245,7 +400,7 @@ class FixturesOverviewViewModel: ObservableObject {
         
         // 현재 선택된 날짜의 데이터 다시 로드
         Task {
-            await loadFixturesForDate(selectedDate, forceRefresh: true)
+            await self.loadFixturesForDate(selectedDate, forceRefresh: true)
         }
     }
     
@@ -325,7 +480,7 @@ class FixturesOverviewViewModel: ObservableObject {
                 Task {
                     // 새로 추가된 날짜 중 앞쪽 3일에 대해서만 경기 일정 로드
                     for date in newDates.prefix(3) {
-                        await loadFixturesForDate(date, forceRefresh: false)
+                        await self.loadFixturesForDate(date, forceRefresh: false)
                     }
                 }
             }
@@ -348,7 +503,7 @@ class FixturesOverviewViewModel: ObservableObject {
                 Task {
                     // 새로 추가된 날짜 중 뒤쪽 3일에 대해서만 경기 일정 로드
                     for date in newDates.suffix(3) {
-                        await loadFixturesForDate(date, forceRefresh: false)
+                        await self.loadFixturesForDate(date, forceRefresh: false)
                     }
                 }
             }
@@ -359,13 +514,12 @@ class FixturesOverviewViewModel: ObservableObject {
     private func loadCachedFixtures() {
         // 경기 일정 캐시 로드
         if let cachedData = UserDefaults.standard.data(forKey: "cachedFixtures") {
-            do {
-                let decoder = JSONDecoder()
-                let decodedCache = try decoder.decode([String: [Fixture]].self, from: cachedData)
+            // try? 사용하여 에러 처리 (catch 블록 제거)
+            if let decodedCache = try? JSONDecoder().decode([String: [Fixture]].self, from: cachedData) {
                 self.cachedFixtures = decodedCache
                 print("✅ 캐시된 경기 일정 로드 성공: \(decodedCache.count) 날짜")
-            } catch {
-                print("❌ 캐시된 경기 일정 로드 실패: \(error.localizedDescription)")
+            } else {
+                print("❌ 캐시된 경기 일정 로드 실패")
                 // 캐시 로드 실패 시 캐시 초기화
                 self.cachedFixtures = [:]
                 UserDefaults.standard.removeObject(forKey: "cachedFixtures")
@@ -374,13 +528,12 @@ class FixturesOverviewViewModel: ObservableObject {
         
         // 캐시 날짜 로드
         if let cachedDatesData = UserDefaults.standard.data(forKey: "cacheDates") {
-            do {
-                let decoder = JSONDecoder()
-                let decodedDates = try decoder.decode([String: Date].self, from: cachedDatesData)
+            // try? 사용하여 에러 처리 (catch 블록 제거)
+            if let decodedDates = try? JSONDecoder().decode([String: Date].self, from: cachedDatesData) {
                 self.cacheDates = decodedDates
                 print("✅ 캐시 날짜 로드 성공: \(decodedDates.count) 항목")
-            } catch {
-                print("❌ 캐시 날짜 로드 실패: \(error.localizedDescription)")
+            } else {
+                print("❌ 캐시 날짜 로드 실패")
                 // 캐시 로드 실패 시 캐시 초기화
                 self.cacheDates = [:]
                 UserDefaults.standard.removeObject(forKey: "cacheDates")
@@ -393,19 +546,22 @@ class FixturesOverviewViewModel: ObservableObject {
         // 캐시 저장 시간 기록
         cacheDates[dateKey] = Date()
         
-        do {
-            // 경기 일정 캐시 저장
-            let encoder = JSONEncoder()
-            let encodedCache = try encoder.encode(cachedFixtures)
+        // try? 사용하여 에러 처리 (catch 블록 제거)
+        let encoder = JSONEncoder()
+        
+        // 경기 일정 캐시 저장
+        if let encodedCache = try? encoder.encode(cachedFixtures) {
             UserDefaults.standard.set(encodedCache, forKey: "cachedFixtures")
             
             // 캐시 날짜 저장
-            let encodedDates = try encoder.encode(cacheDates)
-            UserDefaults.standard.set(encodedDates, forKey: "cacheDates")
-            
-            print("✅ 캐시된 경기 일정 저장 성공: \(dateKey)")
-        } catch {
-            print("❌ 캐시된 경기 일정 저장 실패: \(error.localizedDescription)")
+            if let encodedDates = try? encoder.encode(cacheDates) {
+                UserDefaults.standard.set(encodedDates, forKey: "cacheDates")
+                print("✅ 캐시된 경기 일정 저장 성공: \(dateKey)")
+            } else {
+                print("❌ 캐시 날짜 저장 실패")
+            }
+        } else {
+            print("❌ 캐시된 경기 일정 저장 실패")
         }
     }
     
@@ -508,7 +664,7 @@ class FixturesOverviewViewModel: ObservableObject {
                 print("📊 리그 \(leagueId) 받은 경기 수: \(fixturesForLeague.count)")
                 print("📊 누적 경기 수: \(allFixtures.count)개 (리그 \(leagueId) 추가 후)")
                 
-            } catch {
+            } catch let error {
                 print("❌ 리그 \(leagueId) API 요청 오류: \(error.localizedDescription)")
                 failedLeagues.append(leagueId)
                 
@@ -606,6 +762,7 @@ class FixturesOverviewViewModel: ObservableObject {
         isLoading = false
     }
     
+    /* // FixtureDetailViewModel과 FixtureCell.ScoreView에서 처리하므로 주석 처리
     // 합산 스코어 계산 (챔피언스리그, 유로파리그 등의 2차전 경기에서 사용)
     public func calculateAggregateScore(fixture: Fixture) async -> (home: Int, away: Int)? {
         // 챔피언스리그(2)나 유로파리그(3)의 경기인 경우에만 합산 스코어 계산
@@ -647,9 +804,10 @@ class FixturesOverviewViewModel: ObservableObject {
         print("🏆 합산 스코어 계산 - 1차전: \(firstLegHomeScore)-\(firstLegAwayScore), 2차전: \(currentHomeScore)-\(currentAwayScore)")
         print("🏆 합산 스코어 계산 - 최종 합산: \(aggregateHomeScore)-\(aggregateAwayScore)")
         
-        return (home: aggregateHomeScore, away: aggregateAwayScore)
+//        return (home: aggregateHomeScore, away: aggregateAwayScore)
     }
-    
+    */
+
     // 특정 리그에 대한 더미 경기 일정 생성 함수
     private func createDummyFixturesForLeague(leagueId: Int, date: String, season: Int) -> [Fixture] {
         print("🔄 리그 \(leagueId)에 대한 더미 경기 일정 생성 시작")
@@ -1152,7 +1310,7 @@ class FixturesOverviewViewModel: ObservableObject {
                     // 로딩 중인 날짜 목록에서 제거
                     loadingDates.remove(date)
                 }
-            } catch {
+            } catch let error {
                 // 작업이 취소되었는지 확인
                 if Task.isCancelled {
                     print("⚠️ 작업이 취소되었습니다: \(dateString)")

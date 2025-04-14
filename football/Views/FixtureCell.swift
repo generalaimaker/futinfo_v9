@@ -125,73 +125,65 @@ struct FixtureCell: View {
             print("🏆 FixtureCell - 합산 스코어 계산 시작: \(fixture.fixture.id)")
             
             // 로딩 상태 설정
+            // 로딩 상태 설정
             isLoadingAggregateScore = true
-            
-            // 현재 경기 스코어
+            // 로딩 상태 설정
+            await MainActor.run { isLoadingAggregateScore = true } // Ensure UI update for loading
+
+            let service = FootballAPIService.shared
+            let isFinished = fixture.fixture.status.short == "FT" || fixture.fixture.status.short == "AET" || fixture.fixture.status.short == "PEN"
             let currentHomeScore = homeScore ?? 0
             let currentAwayScore = awayScore ?? 0
-            
-            // FootballAPIService 인스턴스 생성
-            let service = FootballAPIService.shared
-            
-            // 1차전 경기 찾기 시도
-            var firstLegMatch: Fixture?
+            print("🏆 FixtureCell - \(fixture.fixture.id): isFinished=\(isFinished), currentScore=\(currentHomeScore)-\(currentAwayScore)")
+
+            var finalAggregate: (home: Int, away: Int)? = nil // Temporary variable to store result
+
             do {
-                firstLegMatch = try await service.findFirstLegMatch(fixture: fixture)
-            } catch {
-                print("🏆 FixtureCell - 1차전 경기 찾기 실패: \(error.localizedDescription)")
-            }
-            
-            // 1차전 경기 스코어
-            var firstLegHomeScore = 0
-            var firstLegAwayScore = 0
-            
-            if let firstLeg = firstLegMatch {
-                // 실제 1차전 경기 데이터 사용
-                firstLegHomeScore = firstLeg.goals?.home ?? 0
-                firstLegAwayScore = firstLeg.goals?.away ?? 0
-                print("🏆 FixtureCell - 1차전 실제 스코어: \(firstLegHomeScore)-\(firstLegAwayScore)")
-                print("🏆 FixtureCell - 1차전 경기 ID: \(firstLeg.fixture.id)")
-                print("🏆 FixtureCell - 1차전 홈팀: \(firstLeg.teams.home.name), 원정팀: \(firstLeg.teams.away.name)")
-                
-                // 1차전 경기에서 홈팀과 원정팀이 현재 경기와 반대인지 확인
-                let isReversed = firstLeg.teams.home.id == fixture.teams.away.id &&
-                                 firstLeg.teams.away.id == fixture.teams.home.id
-                
-                // 합산 스코어 계산
-                var homeAggregate: Int
-                var awayAggregate: Int
-                
-                if isReversed {
-                    // 1차전에서는 홈/원정이 반대이므로 스코어도 반대로 계산
-                    homeAggregate = currentHomeScore + firstLegAwayScore
-                    awayAggregate = currentAwayScore + firstLegHomeScore
-                    print("🏆 FixtureCell - 반대 팀 구성으로 합산 스코어 계산")
+                print("🏆 FixtureCell - \(fixture.fixture.id): Attempting to find 1st leg...")
+                let firstLeg = try await service.findFirstLegMatch(fixture: fixture)
+                print("🏆 FixtureCell - \(fixture.fixture.id): findFirstLegMatch result: \(firstLeg == nil ? "Not Found" : "Found (\(firstLeg!.fixture.id))")")
+
+                if let firstLeg = firstLeg {
+                    // 2nd Leg logic
+                    print("🏆 FixtureCell - 2차전 합산 시도 (1차전 ID: \(firstLeg.fixture.id))")
+                    let firstLegHomeScore = firstLeg.goals?.home ?? 0
+                    let firstLegAwayScore = firstLeg.goals?.away ?? 0
+                    let isReversed = firstLeg.teams.home.id == fixture.teams.away.id
+                    let homeAggregate = currentHomeScore + (isReversed ? firstLegAwayScore : firstLegHomeScore)
+                    let awayAggregate = currentAwayScore + (isReversed ? firstLegHomeScore : firstLegAwayScore)
+                    print("🏆 FixtureCell - 합산 결과: \(homeAggregate)-\(awayAggregate)")
+                    finalAggregate = (home: homeAggregate, away: awayAggregate)
                 } else {
-                    // 같은 팀 구성인 경우 (드문 경우)
-                    homeAggregate = currentHomeScore + firstLegHomeScore
-                    awayAggregate = currentAwayScore + firstLegAwayScore
-                    print("🏆 FixtureCell - 같은 팀 구성으로 합산 스코어 계산")
+                    // 1st Leg or Single Match logic
+                    if isFinished {
+                        print("🏆 FixtureCell - 1차전 또는 단판 결과 표시 (fixture: \(fixture.fixture.id))")
+                        finalAggregate = (home: currentHomeScore, away: currentAwayScore)
+                    } else {
+                        print("🏆 FixtureCell - 1차전 진행 중 또는 예정 (합산 스코어 없음, fixture: \(fixture.fixture.id))")
+                        finalAggregate = nil
+                    }
                 }
-                
-                print("🏆 FixtureCell - 합산 스코어 계산 결과 - 홈: \(homeAggregate), 원정: \(awayAggregate)")
-                
-                // UI 스레드에서 업데이트
-                await MainActor.run {
-                    aggregateScores = (homeAggregate, awayAggregate)
-                    isLoadingAggregateScore = false
+            } catch {
+                // Error finding 1st leg
+                print("🏆 FixtureCell - 1차전 찾기 에러: \(error.localizedDescription) (fixture: \(fixture.fixture.id))")
+                if isFinished {
+                    print("🏆 FixtureCell - 에러 발생, 현재 경기 결과만 표시 (fixture: \(fixture.fixture.id))")
+                    finalAggregate = (home: currentHomeScore, away: currentAwayScore)
+                } else {
+                    finalAggregate = nil
                 }
-            } else {
-                // 1차전 경기를 찾지 못한 경우
-                print("🏆 FixtureCell - 1차전 경기를 찾지 못함")
-                await MainActor.run {
-                    aggregateScores = nil
-                    isLoadingAggregateScore = false
-                }
+            }
+
+            // Update state variables on MainActor AFTER all calculation logic
+            await MainActor.run {
+                self.aggregateScores = finalAggregate
+                self.isLoadingAggregateScore = false
+                print("🏆 FixtureCell - \(fixture.fixture.id): Final aggregateScores state set to: \(finalAggregate == nil ? "nil" : "\(finalAggregate!.home)-\(finalAggregate!.away)")")
             }
         }
-        
-        // 토너먼트 경기인지 확인하는 함수
+
+
+        // 토너먼트 경기인지 확인하는 함수 (참고용, 현재 로직에서는 직접 사용 안 함)
         private func isTournamentMatch(_ round: String) -> Bool {
             // 예: "Round of 16", "Quarter-finals", "Semi-finals", "Final" 등
             let tournamentRounds = ["16", "8", "quarter", "semi", "final", "1st leg", "2nd leg"]
@@ -261,10 +253,10 @@ struct FixtureCell: View {
                 
                 // 정규 시간 스코어
                 HStack(spacing: 8) {
-                    // 항상 숫자가 표시되도록 수정
-                    Text("\(homeScore ?? 0)")
+                    // 경기 상태가 NS일 경우 "-" 표시, 아닐 경우 스코어 표시 (nil이면 0)
+                    Text(status == "NS" ? "-" : "\(homeScore ?? 0)")
                     Text(":")
-                    Text("\(awayScore ?? 0)")
+                    Text(status == "NS" ? "-" : "\(awayScore ?? 0)")
                 }
                 .font(.title3.bold())
                 .onAppear {
@@ -275,11 +267,15 @@ struct FixtureCell: View {
                     if [2, 3].contains(fixture.league.id) {
                         print("🏆 ScoreView onAppear - 리그 ID: \(fixture.league.id), 라운드: \(fixture.league.round)")
                         Task {
+                            // do-catch 제거: calculateAggregateScore 내부에서 에러 처리
                             await calculateAggregateScore()
+                            print("🏆 ScoreView Task - calculateAggregateScore 호출 완료 (fixture: \(fixture.fixture.id))")
+                            // 에러는 calculateAggregateScore 내부에서 print됨
+                            // 에러는 calculateAggregateScore 내부에서 print됨
                         }
                     }
                 }
-                
+
                 // 합산 스코어 표시
                 Group {
                     if isLoadingAggregateScore {
@@ -304,6 +300,14 @@ struct FixtureCell: View {
                                     .stroke(Color.white, lineWidth: 1)
                             )
                             .shadow(color: Color.black.opacity(0.2), radius: 1, x: 0, y: 1)
+                    } else {
+                        // 로딩이 끝났는데 aggregateScores가 nil인 경우 (실패 또는 해당 없음)
+                        // 여기에 로그를 추가하여 실패 메시지 출처 확인
+                        let _ = print("🏆 ScoreView - 최종 합산 스코어 nil (fixture: \(fixture.fixture.id), round: \(fixture.league.round))")
+                        // 필요하다면 여기에 사용자에게 보여줄 메시지 추가 가능
+                        // Text("정보 없음")
+                        //     .font(.caption)
+                        //     .foregroundColor(.gray)
                     }
                 }
             }

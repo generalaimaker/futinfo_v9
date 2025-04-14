@@ -1,13 +1,58 @@
 import Foundation
 
 // MARK: - Team Profile Response
-struct TeamProfileResponse: Codable {
+struct TeamProfileResponse: Codable, APIErrorCheckable { // APIErrorCheckable 추가
     let get: String
     let parameters: TeamParameters
-    let errors: [String]
+    let errors: Any
     let results: Int
     let paging: APIPaging
     let response: [TeamProfile]
+    
+    // 사용자 정의 디코더 추가
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        get = try container.decode(String.self, forKey: .get)
+        parameters = try container.decode(TeamParameters.self, forKey: .parameters)
+        
+        // errors 필드 디코딩 (Any 타입으로 변경)
+        if let errorArray = try? container.decode([String].self, forKey: .errors) {
+            errors = errorArray
+        } else if let errorDict = try? container.decode([String: String].self, forKey: .errors) {
+            errors = errorDict
+        } else {
+            errors = []
+        }
+        
+        results = try container.decode(Int.self, forKey: .results)
+        paging = try container.decode(APIPaging.self, forKey: .paging)
+        response = try container.decode([TeamProfile].self, forKey: .response)
+    }
+    
+    // 사용자 정의 인코더 추가
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(get, forKey: .get)
+        try container.encode(parameters, forKey: .parameters)
+        
+        // errors 필드 인코딩
+        if let errorArray = errors as? [String] {
+            try container.encode(errorArray, forKey: .errors)
+        } else if let errorDict = errors as? [String: String] {
+            try container.encode(errorDict, forKey: .errors)
+        } else {
+            try container.encode([] as [String], forKey: .errors)
+        }
+        
+        try container.encode(results, forKey: .results)
+        try container.encode(paging, forKey: .paging)
+        try container.encode(response, forKey: .response)
+    }
+    
+    // CodingKeys 열거형 추가
+    private enum CodingKeys: String, CodingKey {
+        case get, parameters, errors, results, paging, response
+    }
 }
 
 // MARK: - Team Profile
@@ -41,13 +86,148 @@ struct VenueInfo: Codable {
 }
 
 // MARK: - Team Statistics Response
-struct TeamStatisticsResponse: Codable {
+struct TeamStatisticsResponse: Codable, APIErrorCheckable { // APIErrorCheckable 추가
     let get: String
     let parameters: TeamStatisticsParameters
-    let errors: [String]
+    let errors: Any
     let results: Int
     let paging: APIPaging
     let response: TeamSeasonStatistics
+    
+    // 디코딩 오류 디버깅을 위한 사용자 정의 디코더 추가
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        get = try container.decode(String.self, forKey: .get)
+        parameters = try container.decode(TeamStatisticsParameters.self, forKey: .parameters)
+        
+        // errors 필드 디코딩 (Any 타입으로 변경)
+        if let errorArray = try? container.decode([String].self, forKey: .errors) {
+            errors = errorArray
+        } else if let errorDict = try? container.decode([String: String].self, forKey: .errors) {
+            errors = errorDict
+        } else {
+            errors = []
+        }
+        
+        results = try container.decode(Int.self, forKey: .results)
+        paging = try container.decode(APIPaging.self, forKey: .paging)
+        
+        // response 필드 디코딩 시도
+        do {
+            // 원본 JSON 데이터 확인
+            if let jsonData = try? JSONSerialization.data(withJSONObject: decoder.userInfo[.originalJSON] ?? [:]),
+               let jsonString = String(data: jsonData, encoding: .utf8) {
+                print("📝 TeamStatisticsResponse 원본 JSON: \(jsonString.prefix(100))...")
+            }
+            
+            // 먼저 객체로 디코딩 시도
+            do {
+                response = try container.decode(TeamSeasonStatistics.self, forKey: .response)
+                print("✅ TeamStatisticsResponse: 단일 객체로 디코딩 성공")
+                return
+            } catch {
+                print("⚠️ 단일 객체 디코딩 실패: \(error)")
+                
+                // 배열로 디코딩 시도
+                if let responseArray = try? container.decode([TeamSeasonStatistics].self, forKey: .response),
+                   let firstItem = responseArray.first {
+                    response = firstItem
+                    print("✅ TeamStatisticsResponse: 배열에서 첫 번째 항목 사용")
+                    return
+                }
+                
+                // 빈 배열인 경우 처리
+                if let responseArray = try? container.decode([String].self, forKey: .response), responseArray.isEmpty {
+                    print("⚠️ TeamStatisticsResponse: 빈 배열 감지")
+                    throw error
+                }
+                
+                // 원시 JSON 데이터 확인
+                if let responseValue = try? container.decodeIfPresent(AnyDecodable.self, forKey: .response) {
+                    print("📊 Response 값 타입: \(type(of: responseValue.value))")
+                    if let dict = responseValue.value as? [String: Any] {
+                        print("📊 Response 키: \(dict.keys.joined(separator: ", "))")
+                    }
+                }
+                
+                throw error
+            }
+        } catch {
+            print("❌ TeamStatisticsResponse 디코딩 오류: \(error)")
+            
+            // 빈 객체 생성
+            response = TeamSeasonStatistics(
+                league: TeamLeagueInfo(id: 0, name: "Unknown", country: nil, logo: "", flag: nil, season: 0),
+                team: TeamStatisticsInfo(id: 0, name: "Unknown", logo: ""),
+                form: nil,
+                fixtures: nil,
+                goals: nil,
+                biggest: nil,
+                clean_sheets: nil,
+                failed_to_score: nil,
+                penalty: nil,
+                lineups: nil,
+                cards: nil
+            )
+        }
+    }
+    
+    // 사용자 정의 인코더 추가
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(get, forKey: .get)
+        try container.encode(parameters, forKey: .parameters)
+        
+        // errors 필드 인코딩
+        if let errorArray = errors as? [String] {
+            try container.encode(errorArray, forKey: .errors)
+        } else if let errorDict = errors as? [String: String] {
+            try container.encode(errorDict, forKey: .errors)
+        } else {
+            try container.encode([] as [String], forKey: .errors)
+        }
+        
+        try container.encode(results, forKey: .results)
+        try container.encode(paging, forKey: .paging)
+        try container.encode(response, forKey: .response)
+    }
+    
+    // CodingKeys 열거형 추가
+    private enum CodingKeys: String, CodingKey {
+        case get, parameters, errors, results, paging, response
+    }
+}
+
+// 원시 JSON 데이터 처리를 위한 유틸리티
+struct AnyDecodable: Decodable {
+    let value: Any
+    
+    init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        
+        if container.decodeNil() {
+            self.value = NSNull()
+        } else if let bool = try? container.decode(Bool.self) {
+            self.value = bool
+        } else if let int = try? container.decode(Int.self) {
+            self.value = int
+        } else if let double = try? container.decode(Double.self) {
+            self.value = double
+        } else if let string = try? container.decode(String.self) {
+            self.value = string
+        } else if let array = try? container.decode([AnyDecodable].self) {
+            self.value = array.map { $0.value }
+        } else if let dict = try? container.decode([String: AnyDecodable].self) {
+            self.value = dict.mapValues { $0.value }
+        } else {
+            throw DecodingError.dataCorruptedError(in: container, debugDescription: "Cannot decode value")
+        }
+    }
+}
+
+// 디코더 사용자 정보 키
+extension CodingUserInfoKey {
+    static let originalJSON = CodingUserInfoKey(rawValue: "originalJSON")!
 }
 
 // MARK: - Team League Info
