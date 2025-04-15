@@ -194,7 +194,7 @@ struct FixtureEvent: Codable, Identifiable {
             switch type {
             case .normal: return "⚽️"
             case .penalty: return "🎯"
-            case .own: return "🔄⚽️"
+            case .own: return "💢⚽️"
             }
         case .card(let type):
             switch type {

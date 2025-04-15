@@ -4,16 +4,16 @@ struct SearchView: View {
     @StateObject private var viewModel = SearchViewModel()
     @Environment(\.dismiss) var dismiss // 화면 닫기
     
-    // 검색 종류 열거형
+    // 검색 종류 열거형 (리그, 감독 제거)
     enum SearchType: String, CaseIterable {
         case all = "전체"
         case team = "팀"
         case player = "선수"
-        case league = "리그"
-        case coach = "감독"
+        // case league = "리그" // 제거
+        // case coach = "감독" // 제거
     }
-    
-    // 선택된 검색 종류
+
+    // 선택된 검색 종류 (기본값 .all 유지)
     @State private var selectedSearchType: SearchType = .all
 
     var body: some View {
@@ -38,11 +38,11 @@ struct SearchView: View {
                     }
                 }
                 
-                // 선수 검색 시 리그 선택 옵션
-                if selectedSearchType == .player {
-                    leagueSelectionView
-                }
-                
+                // 선수 검색 시 리그 선택 옵션 제거
+                // if selectedSearchType == .player {
+                //     leagueSelectionView
+                // }
+
                 // 검색 결과 목록
                 List {
                     // 검색 결과가 있을 때만 섹션 표시
@@ -83,51 +83,9 @@ struct SearchView: View {
             viewModel.selectedSearchType = selectedSearchType
         }
     }
-    
-    // 리그 선택 뷰
-    private var leagueSelectionView: some View {
-        VStack(alignment: .leading) {
-            Text("리그 선택:")
-                .font(.subheadline)
-                .foregroundColor(.gray)
-                .padding(.horizontal)
-                .padding(.top, 4)
-            
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 10) {
-                    ForEach(viewModel.popularLeagues, id: \.id) { league in
-                        Button(action: {
-                            viewModel.selectedLeagueIdForPlayerSearch = league.id
-                            // 검색어가 있으면 새로운 리그로 다시 검색
-                            if !viewModel.searchText.isEmpty {
-                                Task {
-                                    await viewModel.performSearch(query: viewModel.searchText)
-                                }
-                            }
-                        }) {
-                            HStack {
-                                if let url = URL(string: league.logo) {
-                                    CachedImageView(url: url, placeholder: Image(systemName: "trophy.fill"), failureImage: Image(systemName: "trophy.fill"), contentMode: .fit)
-                                        .frame(width: 20, height: 20)
-                                }
-                                
-                                Text(league.name)
-                                    .font(.caption)
-                                    .lineLimit(1)
-                            }
-                            .padding(.vertical, 6)
-                            .padding(.horizontal, 10)
-                            .background(viewModel.selectedLeagueIdForPlayerSearch == league.id ? Color.blue.opacity(0.2) : Color.gray.opacity(0.1))
-                            .cornerRadius(15)
-                        }
-                        .buttonStyle(PlainButtonStyle())
-                    }
-                }
-                .padding(.horizontal)
-            }
-            .frame(height: 40)
-        }
-    }
+
+    // 리그 선택 뷰 제거
+    // private var leagueSelectionView: some View { ... }
 
     // 검색 결과 섹션
     private var searchResultsSection: some View {
@@ -155,9 +113,7 @@ struct SearchView: View {
         case .team(let teamProfile):
             // TeamProfileView로 이동 (리그 ID는 임시값 또는 nil 전달)
             TeamProfileView(teamId: teamProfile.team.id, leagueId: nil)
-        case .league(let leagueDetails):
-            // LeagueProfileView로 이동
-            LeagueProfileView(leagueId: leagueDetails.league.id)
+        // .league 케이스 완전 제거
         case .player(let playerProfileData):
             // PlayerProfileView로 이동 (playerId가 nil이 아닐 경우에만)
             if let playerId = playerProfileData.player.id {
@@ -166,9 +122,9 @@ struct SearchView: View {
                 // playerId가 nil인 경우 에러 또는 대체 뷰 표시
                 Text("선수 정보를 불러올 수 없습니다.")
             }
-        case .coach(let coachInfo):
-            // 감독 상세 뷰 (구현 필요 시)
-            Text("\(coachInfo.name) 감독 상세 정보")
+        // @unknown default 추가하여 모든 케이스 처리 보장
+        @unknown default:
+            Text("알 수 없는 검색 결과 타입")
         }
     }
 }
@@ -213,9 +169,10 @@ struct SearchResultRow: View {
     private var placeholderImage: Image {
         switch item {
         case .team: return Image(systemName: "shield.lefthalf.filled")
-        case .league: return Image(systemName: "trophy.fill")
         case .player: return Image(systemName: "person.fill")
-        case .coach: return Image(systemName: "figure.stand")
+        // @unknown default 추가하여 모든 케이스 처리 보장
+        @unknown default:
+            return Image(systemName: "questionmark.circle") // 기본 이미지
         }
     }
 }

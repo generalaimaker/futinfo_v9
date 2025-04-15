@@ -144,30 +144,23 @@ class FootballAPIService {
 
     // 요청 생성 (파라미터 지원 추가)
     func createRequest(_ endpoint: String, parameters: [String: String]? = nil) -> URLRequest {
-        var urlString = baseURL + endpoint
+        var components = URLComponents(string: baseURL + endpoint)
+        var queryItems: [URLQueryItem] = components?.queryItems ?? []
 
-        // 파라미터가 있고 URL에 이미 쿼리 파라미터가 없는 경우
-        if let parameters = parameters, !parameters.isEmpty, !endpoint.contains("?") {
-             urlString += "?"
-             urlString += parameters.map { key, value in
-                 // URL 인코딩 적용
-                 let encodedKey = key.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? key
-                 let encodedValue = value.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? value
-                 return "\(encodedKey)=\(encodedValue)"
-             }.joined(separator: "&")
-         }
-         // 파라미터가 있고 URL에 이미 쿼리 파라미터가 있는 경우
-         else if let parameters = parameters, !parameters.isEmpty {
-             urlString += "&"
-             urlString += parameters.map { key, value in
-                 let encodedKey = key.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? key
-                 let encodedValue = value.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? value
-                 return "\(encodedKey)=\(encodedValue)"
-             }.joined(separator: "&")
-         }
+        // 파라미터 추가 (개별 키/값 인코딩)
+        if let parameters = parameters {
+            for (key, value) in parameters {
+                // 값만 인코딩 (키는 일반적으로 인코딩 불필요)
+                let encodedValue = value.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)
+                queryItems.append(URLQueryItem(name: key, value: encodedValue))
+            }
+        }
 
-        guard let url = URL(string: urlString) else {
-            fatalError("Invalid URL: \(urlString)")
+        // 기존 쿼리 아이템과 병합 (중복 제거는 필요 시 추가)
+        components?.queryItems = queryItems
+
+        guard let url = components?.url else {
+            fatalError("Invalid URL components: \(String(describing: components))")
         }
 
         var request = URLRequest(url: url,
@@ -1370,47 +1363,89 @@ class FootballAPIService {
         return response.response
     }
 
-    // 선수 프로필 가져오기 (캐싱 적용) - 수정: 올바른 엔드포인트 및 파라미터 사용
+    // 선수 시즌 목록 가져오기 (캐싱 적용)
+    func getPlayerSeasons(playerId: Int) async throws -> [Int] {
+        let parameters = ["player": String(playerId)]
+        // PlayerSeasonsResponse 구조체는 APIResponseTypes.swift 또는 유사 파일로 이동했다고 가정
+
+        // PlayerSeasonsResponse 타입을 직접 사용 (구조체 정의는 다른 파일에 있어야 함)
+        let response: PlayerSeasonsResponse = try await performRequest(
+            endpoint: "/players/seasons",
+            parameters: parameters,
+            cachePolicy: .long // Seasons list changes infrequently
+        )
+        return response.response.sorted(by: >) // Return sorted seasons (latest first)
+    }
+
+    // 선수 프로필 가져오기 (캐싱 적용) - 수정: 가장 최신 시즌 정보 우선 조회
     func getPlayerProfile(playerId: Int) async throws -> PlayerProfileData {
-        // 현재 시즌 가져오기
+        var latestSeason: Int? = nil
+        var seasonsTried: [Int] = [] // Track seasons attempted
+
+        // 1. 선수가 활동한 시즌 목록 가져오기
+        do {
+            let seasons = try await getPlayerSeasons(playerId: playerId)
+            latestSeason = seasons.first // getPlayerSeasons already sorts descending
+            if let season = latestSeason {
+                print("🔍 선수 시즌 목록 조회 성공: ID \(playerId), 최신 시즌 \(season)")
+                seasonsTried.append(season) // Add latest season to tried list
+            } else {
+                print("⚠️ 선수 시즌 목록 없음: ID \(playerId)")
+            }
+        } catch {
+            print("❌ 선수 시즌 목록 조회 실패: ID \(playerId), 오류: \(error.localizedDescription)")
+            // 시즌 목록 조회 실패 시, 현재 시즌 기준으로 폴백 시도
+        }
+
+        // 2. 최신 시즌 또는 현재 시즌 기준으로 프로필 조회 시도
+        // getCurrentSeason 호출에 await 추가
         let currentSeason = await SearchViewModel.getCurrentSeason()
-        
-        // 시도할 시즌 목록 (최신 시즌부터)
-        let seasons = [currentSeason, currentSeason - 1, currentSeason - 2]
+        let seasonToTry = latestSeason ?? currentSeason
+        if !seasonsTried.contains(seasonToTry) { // Avoid retrying if latestSeason was already tried
+             seasonsTried.append(seasonToTry)
+        }
+
         var lastError: Error? = nil
-        
-        // 각 시즌을 순차적으로 시도
-        for season in seasons {
+
+        // 시도할 시즌 목록 (최신 시즌 -> 현재 시즌 -> 과거 시즌 순)
+        // getCurrentSeason 호출에 await 추가
+        let fallbackSeasons = [currentSeason - 1, currentSeason - 2]
+        let seasonsToAttempt = seasonsTried + fallbackSeasons.filter { !seasonsTried.contains($0) } // Combine and remove duplicates
+
+        print("🔍 선수 프로필 조회 시도 순서: ID \(playerId), 시즌 \(seasonsToAttempt)")
+
+        for season in seasonsToAttempt {
             do {
                 let parameters = ["id": String(playerId), "season": String(season)]
-                print("🔍 선수 프로필 조회 시도: ID \(playerId), 시즌 \(season)")
-                
+                print("   -> 시도 중: 시즌 \(season)")
                 let response: PlayerProfileResponse = try await performRequest(
-                    endpoint: "players", // 슬래시 제거 및 올바른 엔드포인트 사용
+                    endpoint: "players",
                     parameters: parameters,
                     cachePolicy: .medium
                 )
-                
-                guard response.results > 0,
-                      let profile = response.response.first else {
-                    print("⚠️ 선수 프로필 없음 (ID: \(playerId), 시즌: \(season))")
+
+                guard response.results > 0, let profile = response.response.first else {
+                    print("   ⚠️ 선수 프로필 없음 (시즌: \(season))")
+                    lastError = FootballAPIError.apiError(["선수 정보를 찾을 수 없습니다 (시즌: \(season))"]) // Store specific error
                     continue // 다음 시즌 시도
                 }
-                
-                print("✅ 선수 프로필 조회 성공: \(profile.player.name ?? "Unknown")")
-                return profile
+
+                print("✅ 선수 프로필 조회 성공: \(profile.player.name ?? "Unknown") (시즌: \(season))")
+                return profile // 성공 시 반환
             } catch {
-                print("❌ 선수 프로필 조회 실패 (ID: \(playerId), 시즌: \(season)): \(error.localizedDescription)")
-                lastError = error
+                print("   ❌ 선수 프로필 조회 실패 (시즌: \(season)): \(error.localizedDescription)")
+                lastError = error // Store the last encountered error
                 continue // 다음 시즌 시도
             }
         }
-        
+
         // 모든 시즌에서 실패한 경우
+        print("❌ 모든 시즌에서 선수 프로필 조회 실패 (ID: \(playerId))")
         if let error = lastError {
-            print("❌ 모든 시즌에서 선수 프로필 조회 실패 (ID: \(playerId))")
-            throw FootballAPIError.decodingError(error)
+            // 마지막 에러가 디코딩 에러 등 다른 에러일 수 있으므로 FootballAPIError로 래핑하지 않음
+             throw error
         } else {
+            // 특정 에러 없이 결과가 없었던 경우
             throw FootballAPIError.apiError(["선수 정보를 찾을 수 없습니다."])
         }
     }
@@ -1497,15 +1532,15 @@ class FootballAPIService {
 
     // MARK: - Search Methods
 
-    // 팀 검색 (수정: 엔드포인트 경로 및 특수 문자 처리)
+    // 팀 검색 (수정: 공백 제거 로직 제거)
     func searchTeams(query: String) async throws -> [TeamProfile] {
-        // 검색어 인코딩 (URL 인코딩 적용)
+        // 검색어 인코딩 (특수문자 처리)
         let encodedQuery = encodeSearchQuery(query)
         let parameters = ["search": encodedQuery]
-        
-        // 로그 추가
-        print("🔍 팀 검색 시작: \(query) (인코딩: \(encodedQuery))")
-        
+
+        // 로그 수정: API로 전송될 최종 파라미터 값 로깅
+        print("🔍 팀 검색 시작: \(query) (API 전송 파라미터 search=\(encodedQuery))")
+
         do {
             let response: TeamProfileResponse = try await performRequest(
                 endpoint: "teams", // 슬래시 제거
@@ -1550,17 +1585,17 @@ class FootballAPIService {
         }
     }
 
-    // 선수 검색 (특정 리그 내) (수정: 엔드포인트 경로, 파라미터 및 특수 문자 처리)
+    // 선수 검색 (수정: 공백 제거 로직 제거)
     func searchPlayers(query: String, leagueId: Int, season: Int) async throws -> [PlayerProfileData] {
-        // 검색어 인코딩 (URL 인코딩 적용)
+        // 검색어 인코딩 (특수문자 처리)
         let encodedQuery = encodeSearchQuery(query)
-        
-        // 파라미터 수정: API 문서에 따라 search 파라미터 사용
+
+        // 파라미터 수정: league 파라미터 다시 추가
         let parameters = ["search": encodedQuery, "league": String(leagueId), "season": String(season)]
-        
-        // 로그 추가
-        print("🔍 선수 검색 시작: \(query) (인코딩: \(encodedQuery)), 리그: \(leagueId), 시즌: \(season)")
-        
+
+        // 로그 수정: API로 전송될 최종 파라미터 값 로깅
+        print("🔍 선수 검색 시작: \(query) (API 전송 파라미터 search=\(encodedQuery), league=\(leagueId), season=\(season))")
+
         do {
             // 올바른 엔드포인트 경로 사용
             let response: PlayerProfileResponse = try await performRequest(
@@ -1603,13 +1638,14 @@ class FootballAPIService {
         }
     }
     
-    // 검색어 인코딩 함수 (특수 문자 처리)
+    // 검색어 인코딩 함수 (특수 문자 처리 완화)
     private func encodeSearchQuery(_ query: String) -> String {
-        // 알파벳, 숫자, 공백만 허용하는 정규식
-        let regex = try! NSRegularExpression(pattern: "[^a-zA-Z0-9\\s]", options: [])
+        // 허용할 특수 문자를 포함하여 정규식 수정 (예: 하이픈, 아포스트로피, 점 허용)
+        // 필요에 따라 허용 문자 추가/제거
+        let regex = try! NSRegularExpression(pattern: "[^a-zA-Z0-9\\s-'.]", options: []) // 허용 문자 추가
         let range = NSRange(location: 0, length: query.utf16.count)
         let sanitized = regex.stringByReplacingMatches(in: query, options: [], range: range, withTemplate: "")
-        
+
         // 공백이 2개 이상 연속된 경우 하나로 치환
         let multipleSpacesRegex = try! NSRegularExpression(pattern: "\\s{2,}", options: [])
         let sanitizedWithSingleSpaces = multipleSpacesRegex.stringByReplacingMatches(
