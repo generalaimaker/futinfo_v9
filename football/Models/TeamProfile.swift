@@ -92,7 +92,7 @@ struct TeamStatisticsResponse: Codable, APIErrorCheckable { // APIErrorCheckable
     let errors: Any
     let results: Int
     let paging: APIPaging
-    let response: TeamSeasonStatistics
+    let response: [TeamSeasonStatistics]
     
     // 디코딩 오류 디버깅을 위한 사용자 정의 디코더 추가
     init(from decoder: Decoder) throws {
@@ -120,26 +120,26 @@ struct TeamStatisticsResponse: Codable, APIErrorCheckable { // APIErrorCheckable
                 print("📝 TeamStatisticsResponse 원본 JSON: \(jsonString.prefix(100))...")
             }
             
-            // 먼저 객체로 디코딩 시도
+            // 배열로 디코딩 시도
             do {
-                response = try container.decode(TeamSeasonStatistics.self, forKey: .response)
-                print("✅ TeamStatisticsResponse: 단일 객체로 디코딩 성공")
+                response = try container.decode([TeamSeasonStatistics].self, forKey: .response)
+                print("✅ TeamStatisticsResponse: 배열로 디코딩 성공")
                 return
             } catch {
-                print("⚠️ 단일 객체 디코딩 실패: \(error)")
-                
-                // 배열로 디코딩 시도
-                if let responseArray = try? container.decode([TeamSeasonStatistics].self, forKey: .response),
-                   let firstItem = responseArray.first {
-                    response = firstItem
-                    print("✅ TeamStatisticsResponse: 배열에서 첫 번째 항목 사용")
-                    return
-                }
+                print("⚠️ 배열 디코딩 실패: \(error)")
                 
                 // 빈 배열인 경우 처리
                 if let responseArray = try? container.decode([String].self, forKey: .response), responseArray.isEmpty {
                     print("⚠️ TeamStatisticsResponse: 빈 배열 감지")
-                    throw error
+                    response = []
+                    return
+                }
+                
+                // 단일 객체로 디코딩 시도 (이전 API 버전과의 호환성을 위해)
+                if let singleItem = try? container.decode(TeamSeasonStatistics.self, forKey: .response) {
+                    response = [singleItem]
+                    print("✅ TeamStatisticsResponse: 단일 객체를 배열로 변환")
+                    return
                 }
                 
                 // 원시 JSON 데이터 확인
@@ -155,20 +155,8 @@ struct TeamStatisticsResponse: Codable, APIErrorCheckable { // APIErrorCheckable
         } catch {
             print("❌ TeamStatisticsResponse 디코딩 오류: \(error)")
             
-            // 빈 객체 생성
-            response = TeamSeasonStatistics(
-                league: TeamLeagueInfo(id: 0, name: "Unknown", country: nil, logo: "", flag: nil, season: 0),
-                team: TeamStatisticsInfo(id: 0, name: "Unknown", logo: ""),
-                form: nil,
-                fixtures: nil,
-                goals: nil,
-                biggest: nil,
-                clean_sheets: nil,
-                failed_to_score: nil,
-                penalty: nil,
-                lineups: nil,
-                cards: nil
-            )
+            // 빈 배열 생성
+            response = []
         }
     }
     

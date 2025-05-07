@@ -297,8 +297,10 @@ struct FixturesMainContentView: View {
             
             // 로딩 오버레이 (초기 로드 중에만 표시)
             if viewModel.isLoading && isInitialLoad {
-                FixturesLoadingView()
-                    .background(Color(.systemBackground).opacity(0.8))
+                // 스켈레톤 UI로 대체하여 더 나은 사용자 경험 제공
+                FixtureSkeletonView()
+                    .padding(.horizontal)
+                    .background(Color(.systemBackground).opacity(0.9))
                     .transition(.opacity)
             }
         }
@@ -589,17 +591,11 @@ struct FixturePageView: View {
                     .frame(maxWidth: .infinity, alignment: .center)
                     .padding(.top, 100)
                 } else if isLoading && fixtures.isEmpty {
-                    // 로딩 중이고 데이터가 없는 경우
-                    VStack(spacing: 12) {
-                        ProgressView()
-                            .scaleEffect(1.2)
-                        
-                        // 로딩 텍스트 애니메이션
-                        LoadingTextView(baseText: "경기 일정을 불러오는 중")
-                            .foregroundColor(.secondary)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .center)
-                    .padding(.top, 50)
+                    // 로딩 중이고 데이터가 없는 경우 스켈레톤 UI 표시
+                    FixtureSkeletonView()
+                        .padding(.horizontal)
+                        .frame(maxWidth: .infinity)
+                        .padding(.top, 20)
                 }
             }
             .padding(.horizontal, 20)

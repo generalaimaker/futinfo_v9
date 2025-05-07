@@ -113,7 +113,9 @@ struct SearchView: View {
         case .team(let teamProfile):
             // TeamProfileView로 이동 (리그 ID는 임시값 또는 nil 전달)
             TeamProfileView(teamId: teamProfile.team.id, leagueId: nil)
-        // .league 케이스 완전 제거
+        case .league(let leagueDetails):
+            // 리그 프로필 뷰로 이동
+            Text("리그 정보: \(leagueDetails.league.name)")
         case .player(let playerProfileData):
             // PlayerProfileView로 이동 (playerId가 nil이 아닐 경우에만)
             if let playerId = playerProfileData.player.id {
@@ -122,9 +124,9 @@ struct SearchView: View {
                 // playerId가 nil인 경우 에러 또는 대체 뷰 표시
                 Text("선수 정보를 불러올 수 없습니다.")
             }
-        // @unknown default 추가하여 모든 케이스 처리 보장
-        @unknown default:
-            Text("알 수 없는 검색 결과 타입")
+        case .coach(let coachInfo):
+            // 감독 정보 뷰로 이동
+            Text("감독 정보: \(coachInfo.name)")
         }
     }
 }
@@ -136,7 +138,7 @@ struct SearchResultRow: View {
     var body: some View {
         HStack(spacing: 12) {
             // 로고 이미지
-            CachedImageView(url: item.logoURL, placeholder: placeholderImage, failureImage: placeholderImage, contentMode: .fit)
+            CachedImageView(url: item.logoURL, placeholder: placeholderImage, failureImage: placeholderImage, contentMode: SwiftUI.ContentMode.fit)
                 .frame(width: 40, height: 40)
                 .clipShape(Circle()) // 원형 클리핑
 
@@ -170,9 +172,8 @@ struct SearchResultRow: View {
         switch item {
         case .team: return Image(systemName: "shield.lefthalf.filled")
         case .player: return Image(systemName: "person.fill")
-        // @unknown default 추가하여 모든 케이스 처리 보장
-        @unknown default:
-            return Image(systemName: "questionmark.circle") // 기본 이미지
+        case .league: return Image(systemName: "trophy.fill")
+        case .coach: return Image(systemName: "person.text.rectangle.fill")
         }
     }
 }

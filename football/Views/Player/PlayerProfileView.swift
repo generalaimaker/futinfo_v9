@@ -129,9 +129,9 @@ private struct ProfileHeaderView: View {
             
             // 기본 정보
             HStack(spacing: 20) {
-                InfoItem(title: "국적", value: nationality)
-                InfoItem(title: "나이", value: age)
-                InfoItem(title: "신체", value: physicalInfo)
+                PlayerInfoItem(title: "국적", value: nationality)
+                PlayerInfoItem(title: "나이", value: age)
+                PlayerInfoItem(title: "신체", value: physicalInfo)
             }
         }
         .padding()
@@ -210,7 +210,7 @@ private struct CareerHistoryView: View {
     }
 }
 
-private struct InfoItem: View {
+private struct PlayerInfoItem: View {
     let title: String
     let value: String
     

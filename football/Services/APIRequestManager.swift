@@ -3,6 +3,12 @@ import Foundation
 class APIRequestManager {
     static let shared = APIRequestManager()
     
+    // API 요청 통계 추적을 위한 변수
+    private var requestCount: Int = 0
+    private var rateLimitHitCount: Int = 0
+    private var requestStartTimes: [String: Date] = [:]
+    private var requestsPerEndpoint: [String: Int] = [:]
+    
     private let operationQueue: OperationQueue
     private var requestsInProgress: [String: URLSessionDataTask] = [:]
     private let requestsLock = NSLock()
@@ -19,6 +25,26 @@ class APIRequestManager {
         // 동시 요청 수를 2로 증가하여 성능 향상
         operationQueue.maxConcurrentOperationCount = 2
         operationQueue.qualityOfService = .userInitiated
+        
+        // 1분마다 요청 통계 출력
+        Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
+            self?.logRequestStatistics()
+        }
+    }
+    
+    // 요청 통계 로깅
+    private func logRequestStatistics() {
+        print("📊 API 요청 통계 (1분 간격):")
+        print("   - 총 요청 수: \(requestCount)")
+        print("   - Rate Limit 발생 횟수: \(rateLimitHitCount)")
+        print("   - 현재 진행 중인 요청 수: \(requestsInProgress.count)")
+        
+        // 엔드포인트별 요청 수 (상위 5개만)
+        let sortedEndpoints = requestsPerEndpoint.sorted { $0.value > $1.value }.prefix(5)
+        print("   - 엔드포인트별 요청 수 (상위 5개):")
+        for (endpoint, count) in sortedEndpoints {
+            print("     * \(endpoint): \(count)회")
+        }
     }
     
     // 요청 키 생성 (중복 요청 방지)
@@ -47,6 +73,13 @@ class APIRequestManager {
         completion: @escaping (Result<Data, Error>) -> Void
     ) {
         let requestKey = self.requestKey(for: endpoint, parameters: parameters)
+        
+        // 요청 통계 업데이트 (락 사용)
+        requestsLock.lock()
+        requestCount += 1
+        requestStartTimes[requestKey] = Date()
+        requestsPerEndpoint[endpoint] = (requestsPerEndpoint[endpoint] ?? 0) + 1
+        requestsLock.unlock()
         
         // 1. 이미 진행 중인 요청인지 확인
         if getExistingTask(for: requestKey) != nil {
@@ -233,6 +266,40 @@ class APIRequestManager {
                     
                     // 429 오류 (Rate Limit) 처리
                     if httpResponse.statusCode == 429 {
+                        self.rateLimitHitCount += 1
+                        
+                        // 요청 간격 및 패턴 분석을 위한 로그
+                        print("⚠️ API 요청 제한 발생 (총 \(self.rateLimitHitCount)회)")
+                        print("   - 요청 키: \(requestKey)")
+                        print("   - 엔드포인트: \(endpoint)")
+                        
+                        self.requestsLock.lock()
+                        let startTime = self.requestStartTimes[requestKey]
+                        self.requestsLock.unlock()
+                        
+                        if let startTime = startTime {
+                            let duration = Date().timeIntervalSince(startTime)
+                            print("   - 요청 소요 시간: \(String(format: "%.2f", duration))초")
+                        }
+                        
+                        // 현재 진행 중인 요청 수 및 엔드포인트 로깅
+                        self.requestsLock.lock()
+                        let currentRequests = self.requestsInProgress.count
+                        let endpointCounts = self.requestsPerEndpoint
+                        self.requestsLock.unlock()
+                        
+                        print("   - 현재 진행 중인 요청 수: \(currentRequests)")
+                        print("   - 엔드포인트별 요청 수 (상위 3개):")
+                        for (endpoint, count) in endpointCounts.sorted(by: { $0.value > $1.value }).prefix(3) {
+                            print("     * \(endpoint): \(count)회")
+                        }
+                        
+                        // 헤더 정보 로깅
+                        print("   - 응답 헤더:")
+                        for (key, value) in httpResponse.allHeaderFields {
+                            print("     * \(key): \(value)")
+                        }
+                        
                         print("⚠️ Rate limit exceeded. Waiting before retrying...")
                         completion(.failure(FootballAPIError.rateLimitExceeded))
                         return

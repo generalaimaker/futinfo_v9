@@ -14,6 +14,10 @@ class FixturesOverviewViewModel: ObservableObject {
     // 빈 응답 처리를 위한 상태 변수
     @Published var emptyDates: [Date: String] = [:] // 날짜별 빈 응답 메시지
     
+    // 라이브 경기 관련 변수
+    @Published var liveMatches: [Fixture] = []
+    @Published var lastLiveUpdateTime: String = "업데이트 정보 없음"
+    
     // 날짜 탭 관련 변수
     @Published var visibleDateRange: [Date] = []
     @Published var allDateRange: [Date] = []
@@ -51,7 +55,11 @@ class FixturesOverviewViewModel: ObservableObject {
     
     private let service = FootballAPIService.shared
     private let requestManager = APIRequestManager.shared
+    private let liveMatchService = LiveMatchService.shared
     private let dateFormatter = DateFormatter()
+    
+    // 라이브 경기 상태 목록
+    private let liveStatuses = ["1H", "2H", "HT", "ET", "P", "BT", "LIVE"]
     
     // 날짜 탭 데이터 - 동적으로 생성
     var dateTabs: [(date: Date, label: String)] {
@@ -113,6 +121,9 @@ class FixturesOverviewViewModel: ObservableObject {
         // 캐시된 데이터 로드
         loadCachedFixtures()
         
+        // 라이브 경기 업데이트 구독
+        setupLiveMatchesSubscription()
+        
         // 오늘 날짜 확인 (시간대 고려)
         let now = Date()
         let today = calendar.startOfDay(for: now)
@@ -136,25 +147,22 @@ class FixturesOverviewViewModel: ObservableObject {
             print("📱 앱 시작 시 데이터 없음: 경기 일정을 불러오는 중...")
         }
         
-        // 앱 시작 시 경기 일정 로드 (백그라운드에서 진행)
+        // 앱 시작 시 경기 일정 미리 로드 (프리로딩)
         Task {
             // 로딩 상태 설정
             isLoading = true
             
-            // 오늘 날짜에 대한 경기 일정 로드 (캐시 만료 시에만 새로고침)
-            print("📱 앱 시작 시 오늘 날짜 데이터 로드 시작 (백그라운드)")
-            let isCacheExpired = isCacheExpired(for: dateString)
-            await loadFixturesForDate(today, forceRefresh: isCacheExpired)
+            // 오늘 날짜에 대한 경기 일정 로드 (캐시 우선 로딩)
+            print("📱 앱 시작 시 오늘 날짜 데이터 프리로딩 시작")
+            await preloadFixturesWithFallback(for: today)
             
-            // 데이터 로드 후 상태 확인
-            await MainActor.run {
-                let hasData = fixtures[today]?.isEmpty == false
-                print("📱 앱 시작 시 오늘 날짜 데이터 로드 완료: \(hasData ? "데이터 있음" : "데이터 없음")")
-                
-                if hasData {
-                    print("📱 오늘 날짜 데이터 있음: \(fixtures[today]?.count ?? 0)개")
-                }
-            }
+            // 내일 날짜에 대한 경기 일정 미리 로드
+            let tomorrow = calendar.date(byAdding: .day, value: 1, to: today)!
+            await preloadFixturesWithFallback(for: tomorrow)
+            
+            // 어제 날짜에 대한 경기 결과 미리 로드
+            let yesterday = calendar.date(byAdding: .day, value: -1, to: today)!
+            await preloadFixturesWithFallback(for: yesterday)
             
             // 백그라운드 로드가 활성화된 경우에만 추가 데이터 로드
             if enableBackgroundLoad {
@@ -172,6 +180,106 @@ class FixturesOverviewViewModel: ObservableObject {
         
         // 앱 생명주기 이벤트 관찰 설정
         setupAppLifecycleObservers()
+    }
+    
+    // 캐시 우선 로딩 + 나중에 새로고침 전략을 사용한 프리로딩 메서드
+    @MainActor
+    private func preloadFixturesWithFallback(for date: Date) async {
+        let dateString = formatDateForAPI(date)
+        
+        // 1. 먼저 캐시된 데이터가 있으면 즉시 표시 (UI 빠르게 업데이트)
+        if let cachedData = cachedFixtures[dateString], !cachedData.isEmpty {
+            fixtures[date] = cachedData
+            print("✅ 캐시 데이터로 빠르게 UI 업데이트: \(dateString) (\(cachedData.count)개)")
+        } else {
+            // 캐시된 데이터가 없으면 빈 배열 설정 (스켈레톤 UI 표시 가능)
+            fixtures[date] = []
+        }
+        
+        // 2. 캐시 만료 여부 확인
+        let isCacheExpired = isCacheExpired(for: dateString)
+        
+        // 3. 캐시가 만료되었거나 데이터가 없는 경우에만 API 호출
+        if isCacheExpired || fixtures[date]?.isEmpty == true {
+            do {
+                // API에서 최신 데이터 가져오기
+                let fixturesForDate = try await fetchFixturesForDate(date, forceRefresh: true)
+                
+                // UI 업데이트
+                fixtures[date] = fixturesForDate
+                
+                // 캐시 업데이트
+                cachedFixtures[dateString] = fixturesForDate
+                saveCachedFixtures(for: dateString)
+                
+                print("✅ API에서 최신 데이터로 업데이트: \(dateString) (\(fixturesForDate.count)개)")
+            } catch {
+                print("❌ 최신 데이터 업데이트 실패: \(error.localizedDescription)")
+                
+                // 에러 발생 시 빈 응답 메시지 설정
+                if fixtures[date]?.isEmpty == true {
+                    emptyDates[date] = "경기 일정을 불러오는데 실패했습니다."
+                }
+            }
+        } else {
+            print("✅ 캐시가 유효하므로 API 호출 생략: \(dateString)")
+        }
+    }
+    
+    // 라이브 경기 업데이트 구독 설정
+    private func setupLiveMatchesSubscription() {
+        // NotificationCenter를 사용하여 CoreData 변경 감지 (Swift 6 호환성을 위해 publisher 대신 addObserver 사용)
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleCoreDataChanges),
+            name: .NSManagedObjectContextObjectsDidChange,
+            object: nil
+        )
+        
+        // 초기 라이브 경기 로드
+        Task {
+            await updateLiveMatches()
+        }
+    }
+    
+    // CoreData 변경 처리 메서드
+    @objc private func handleCoreDataChanges() {
+        Task { @MainActor in
+            await updateLiveMatches()
+        }
+    }
+    
+    // 라이브 경기 목록 업데이트
+    @MainActor
+    private func updateLiveMatches() async {
+        // LiveMatchService에서 라이브 경기 목록 가져오기
+        self.liveMatches = liveMatchService.liveMatches
+        self.lastLiveUpdateTime = liveMatchService.getLastUpdateTimeString()
+        
+        // 현재 선택된 날짜에 라이브 경기가 있는지 확인하고 업데이트
+        if let currentDateFixtures = fixtures[selectedDate] {
+            // 현재 날짜의 경기 ID 목록
+            let currentFixtureIds = Set(currentDateFixtures.map { $0.fixture.id })
+            
+            // 라이브 경기 중 현재 날짜에 해당하는 경기만 필터링
+            let updatedLiveFixtures = liveMatches.filter { currentFixtureIds.contains($0.fixture.id) }
+            
+            if !updatedLiveFixtures.isEmpty {
+                // 라이브 경기가 있으면 현재 날짜의 경기 목록 업데이트
+                var updatedFixtures = currentDateFixtures
+                
+                // 라이브 경기 정보로 업데이트
+                for liveFixture in updatedLiveFixtures {
+                    if let index = updatedFixtures.firstIndex(where: { $0.fixture.id == liveFixture.fixture.id }) {
+                        updatedFixtures[index] = liveFixture
+                    }
+                }
+                
+                // 경기 목록 업데이트
+                fixtures[selectedDate] = updatedFixtures
+                print("✅ 현재 날짜의 라이브 경기 업데이트 완료: \(updatedLiveFixtures.count)개")
+            }
+        }
     }
     
     // 앱 생명주기 이벤트 관찰 설정
@@ -211,6 +319,12 @@ class FixturesOverviewViewModel: ObservableObject {
             
             // 자동 새로고침 재시작
             startAutoRefresh()
+            
+            // 라이브 경기 폴링 재시작
+            liveMatchService.startLivePolling()
+            
+            // 라이브 경기 업데이트
+            await updateLiveMatches()
         }
     }
     
@@ -220,6 +334,9 @@ class FixturesOverviewViewModel: ObservableObject {
         
         // 자동 새로고침 중지
         stopAutoRefresh()
+        
+        // 라이브 경기 폴링 중지
+        liveMatchService.stopLivePolling()
         
         // 진행 중인 작업 취소
         Task {
@@ -244,20 +361,10 @@ class FixturesOverviewViewModel: ObservableObject {
         refreshTimer = Timer.scheduledTimer(withTimeInterval: autoRefreshInterval, repeats: true) { [weak self] _ in
             guard let self = self else { return }
             
-            // 현재 선택된 날짜의 데이터 새로고침
-            Task {
-                print("⏱️ 자동 새로고침 실행")
-                
-                // 현재 선택된 날짜가 오늘이거나 미래 날짜인 경우에만 새로고침
-                let today = self.calendar.startOfDay(for: Date())
-                if self.calendar.compare(self.selectedDate, to: today, toGranularity: .day) != .orderedAscending {
-                    await self.loadFixturesForDate(self.selectedDate,forceRefresh: true)
-                }
-                
-                // 오늘 날짜의 데이터도 새로고침 (선택된 날짜가 오늘이 아닌 경우)
-                if !self.calendar.isDate(self.selectedDate, inSameDayAs: today) {
-                    await self.loadFixturesForDate(today, forceRefresh: true)
-                }
+            // MainActor에서 실행되도록 보장
+            Task { @MainActor in
+                // 자동 새로고침 로직을 별도의 메서드로 분리
+                self.performAutoRefresh()
             }
         }
     }
@@ -266,6 +373,44 @@ class FixturesOverviewViewModel: ObservableObject {
     private func stopAutoRefresh() {
         refreshTimer?.invalidate()
         refreshTimer = nil
+    }
+    
+    // 자동 새로고침 실행 (별도의 메서드로 분리)
+    @MainActor
+    private func performAutoRefresh() {
+        print("⏱️ 자동 새로고침 실행")
+        
+        // 현재 선택된 날짜가 오늘이거나 미래 날짜인 경우에만 새로고침
+        let today = self.calendar.startOfDay(for: Date())
+        
+        // 날짜 비교 결과를 변수에 저장
+        let dateCompareResult = self.calendar.compare(self.selectedDate, to: today, toGranularity: .day)
+        if dateCompareResult != .orderedAscending {
+            // 선택된 날짜 데이터 로드
+            refreshSelectedDateData()
+        }
+        
+        // 오늘 날짜의 데이터도 새로고침 (선택된 날짜가 오늘이 아닌 경우)
+        let isSameDay = self.calendar.isDate(self.selectedDate, inSameDayAs: today)
+        if !isSameDay {
+            // 오늘 날짜 데이터 로드
+            refreshTodayData()
+        }
+    }
+    
+    // 선택된 날짜 데이터 새로고침
+    private func refreshSelectedDateData() {
+        Task {
+            await self.loadFixturesForDate(self.selectedDate, forceRefresh: true)
+        }
+    }
+    
+    // 오늘 날짜 데이터 새로고침
+    private func refreshTodayData() {
+        let today = self.calendar.startOfDay(for: Date())
+        Task {
+            await self.loadFixturesForDate(today, forceRefresh: true)
+        }
     }
     
     // 제한된 날짜 범위에 대한 경기 일정 로드 (리소스 사용 최적화)
@@ -695,15 +840,26 @@ class FixturesOverviewViewModel: ObservableObject {
             return dummyFixtures
         }
         
-        // 팔로잉하는 팀의 경기가 최상단에 오도록 정렬
+        // 라이브 경기와 팔로잉하는 팀의 경기가 최상단에 오도록 정렬
         allFixtures.sort { fixture1, fixture2 in
+            // 첫 번째 경기가 라이브인지 확인
+            let isFixture1Live = liveStatuses.contains(fixture1.fixture.status.short)
+            
+            // 두 번째 경기가 라이브인지 확인
+            let isFixture2Live = liveStatuses.contains(fixture2.fixture.status.short)
+            
+            // 라이브 경기가 먼저 오도록 정렬
+            if isFixture1Live != isFixture2Live {
+                return isFixture1Live && !isFixture2Live
+            }
+            
             // 첫 번째 경기에 팔로잉하는 팀이 있는지 확인
-            let isTeam1Following = favoriteService.isFavorite(type: .team, entityId: fixture1.teams.home.id) || 
-                                  favoriteService.isFavorite(type: .team, entityId: fixture1.teams.away.id)
+            let isTeam1Following = favoriteService.isFavorite(type: .team, entityId: fixture1.teams.home.id) ||
+                                   favoriteService.isFavorite(type: .team, entityId: fixture1.teams.away.id)
             
             // 두 번째 경기에 팔로잉하는 팀이 있는지 확인
-            let isTeam2Following = favoriteService.isFavorite(type: .team, entityId: fixture2.teams.home.id) || 
-                                  favoriteService.isFavorite(type: .team, entityId: fixture2.teams.away.id)
+            let isTeam2Following = favoriteService.isFavorite(type: .team, entityId: fixture2.teams.home.id) ||
+                                   favoriteService.isFavorite(type: .team, entityId: fixture2.teams.away.id)
             
             // 둘 다 팔로잉하는 팀이거나 둘 다 아닌 경우 날짜순으로 정렬
             if isTeam1Following == isTeam2Following {

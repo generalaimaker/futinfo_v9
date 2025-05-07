@@ -60,6 +60,7 @@ struct TeamTrophy: Codable, Identifiable {
     let country: String
     let season: String
     let place: String
+    var totalCount: Int = 1 // 총 우승 횟수 추가 (기본값 1로 설정)
     
     var id: String { "\(league)-\(season)-\(place)" }
 }

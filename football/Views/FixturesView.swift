@@ -65,13 +65,10 @@ struct FixturesView: View {
                     
                     // 경기 목록
                     if viewModel.isLoading {
-                        VStack(spacing: 12) {
-                            ProgressView()
-                                .scaleEffect(1.5)
-                            Text("경기 일정을 불러오는 중...")
-                                .foregroundColor(.secondary)
-                        }
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        // 스켈레톤 UI 표시 (로딩 중에 더 나은 사용자 경험 제공)
+                        FixtureSkeletonView()
+                            .padding(.horizontal)
+                            .frame(maxWidth: .infinity)
                     } else if let errorMessage = viewModel.errorMessage {
                         VStack(spacing: 16) {
                             Image(systemName: "exclamationmark.triangle")

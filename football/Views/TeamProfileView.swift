@@ -68,19 +68,20 @@ struct TeamProfileView: View {
     var body: some View {
         TabView(selection: $selectedTab) {
             // 첫 번째 탭: 팀 정보
-            TeamInfoTabView(viewModel: viewModel, showFullSquad: { selectedTab = 1 })
+            TeamInfoTabView(showFullSquad: { selectedTab = 1 })
                 .tabItem {
                     Label("팀 정보", systemImage: "shield.fill")
                 }
                 .tag(0)
             
             // 두 번째 탭: 선수단
-            TeamSquadTabView(viewModel: viewModel)
+            TeamSquadTabView()
                 .tabItem {
                     Label("선수단", systemImage: "person.3.fill")
                 }
                 .tag(1)
         }
+        .environmentObject(viewModel)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
@@ -104,8 +105,97 @@ struct TeamProfileView: View {
             }
         }
         .task {
+            // 데이터가 로드되지 않은 경우에만 로드
             if viewModel.teamProfile == nil {
-                await viewModel.loadAllData()
+                print("🔄 TeamProfileView: 팀 데이터 로드 시작")
+                
+                // 리그 ID가 없는 경우 (검색에서 접근한 경우)
+                if viewModel.selectedLeagueId == nil {
+                    print("🔄 TeamProfileView: 리그 ID 없음, 자동 탐색 시작")
+                    
+                    // 팀의 기본 리그 ID 찾기 및 데이터 로드
+                    do {
+                        // 팀의 현재 시즌 경기 가져오기 (forceRefresh: true로 설정하여 캐시를 무시하고 최신 데이터 가져오기)
+                        let fixtures = try await viewModel.service.getTeamFixtures(
+                            teamId: viewModel.teamId,
+                            season: viewModel.selectedSeason,
+                            forceRefresh: true
+                        )
+                        print("📊 팀 경기 데이터 로드 성공: \(fixtures.count)개 경기")
+                        
+                        // 주요 리그 ID 목록 (우선순위 순)
+                        let majorLeagueIds = [
+                            39,   // 프리미어 리그 (영국)
+                            140,  // 라리가 (스페인)
+                            135,  // 세리에 A (이탈리아)
+                            78,   // 분데스리가 (독일)
+                            61,   // 리그 앙 (프랑스)
+                            2,    // UEFA 챔피언스 리그
+                            3     // UEFA 유로파 리그
+                        ]
+                        
+                        // 팀이 참가하는 모든 리그 ID 수집 및 카운트
+                        var leagueCounts: [Int: (count: Int, name: String)] = [:]
+                        for fixture in fixtures {
+                            let leagueId = fixture.league.id
+                            if let existing = leagueCounts[leagueId] {
+                                leagueCounts[leagueId] = (existing.count + 1, fixture.league.name)
+                            } else {
+                                leagueCounts[leagueId] = (1, fixture.league.name)
+                            }
+                        }
+                        
+                        // 리그 선택 로직
+                        var selectedId: Int? = nil
+                        
+                        // 가장 많은 경기를 가진 주요 리그 찾기
+                        for leagueId in majorLeagueIds {
+                            if let info = leagueCounts[leagueId], info.count > 0 {
+                                selectedId = leagueId
+                                print("✅ 주요 리그 발견: ID \(leagueId), 이름: \(info.name), 경기 수: \(info.count)")
+                                break
+                            }
+                        }
+                        
+                        // 주요 리그가 없으면 가장 많은 경기를 가진 리그 선택
+                        if selectedId == nil {
+                            let sortedLeagues = leagueCounts.sorted { $0.value.count > $1.value.count }
+                            if let firstLeague = sortedLeagues.first {
+                                selectedId = firstLeague.key
+                                print("⚠️ 주요 리그 없음, 가장 많은 경기 리그 선택: ID \(firstLeague.key), 이름: \(firstLeague.value.name), 경기 수: \(firstLeague.value.count)")
+                            }
+                        }
+                        
+                        // 선택된 리그 ID로 데이터 로드
+                        if let leagueId = selectedId {
+                            print("✅ 팀의 기본 리그 ID 찾기 성공: 리그 ID \(leagueId)")
+                            viewModel.selectedLeagueId = leagueId
+                        } else {
+                            print("❌ 팀의 리그를 찾을 수 없음")
+                            
+                            // 기본 리그 ID 사용 (프리미어 리그)
+                            let defaultLeagueId = 39
+                            print("⚠️ 기본 리그 ID 사용: \(defaultLeagueId) (프리미어 리그)")
+                            viewModel.selectedLeagueId = defaultLeagueId
+                        }
+                    } catch {
+                        print("❌ 팀의 기본 리그 ID 찾기 실패: \(error.localizedDescription)")
+                        
+                        // 에러 발생 시 기본 리그 ID 사용 (프리미어 리그)
+                        let defaultLeagueId = 39
+                        print("⚠️ 기본 리그 ID 사용: \(defaultLeagueId) (프리미어 리그)")
+                        viewModel.selectedLeagueId = defaultLeagueId
+                    }
+                }
+                
+                // 모든 데이터 로드 (ViewModel의 loadAllData 메서드 호출)
+                // 이 메서드는 리그 ID가 있는 경우와 없는 경우 모두 처리
+                for _ in 1...3 { // 최대 3번 재시도
+                    await viewModel.loadAllData()
+                    break // 성공하면 반복문 종료
+                }
+                
+                print("✅ TeamProfileView: 팀 데이터 로드 완료")
             }
         }
     }
@@ -113,8 +203,8 @@ struct TeamProfileView: View {
 
 // MARK: - Team Header Section (완전 개선)
 struct TeamHeaderSection: View {
-    let profile: TeamProfile?
-    
+    @EnvironmentObject var viewModel: TeamProfileViewModel
+
     var body: some View {
         ZStack(alignment: .top) {
             // 상단 배경
@@ -130,15 +220,15 @@ struct TeamHeaderSection: View {
                         .frame(height: 60)
                     
                     // 팀 이름
-                    Text(profile?.team.name ?? "팀 이름")
+                    Text(viewModel.teamProfile?.team.name ?? "팀 이름")
                         .font(.title)
                         .fontWeight(.bold)
                         .foregroundColor(.primary)
                     
                     // 팀 정보
                     HStack(spacing: 10) {
-                        Text(profile?.team.country ?? "국가")
-                        if let founded = profile?.team.founded {
+                        Text(viewModel.teamProfile?.team.country ?? "국가")
+                        if let founded = viewModel.teamProfile?.team.founded {
                             Text("• 창단: \(founded)년")
                         }
                     }
@@ -171,7 +261,7 @@ struct TeamHeaderSection: View {
                 .shadow(color: .black.opacity(0.2), radius: 5, x: 0, y: 2)
             
             // 팀 로고
-            if let logoUrl = profile?.team.logo, let url = URL(string: logoUrl) {
+            if let logoUrl = viewModel.teamProfile?.team.logo, let url = URL(string: logoUrl) {
                 AsyncImage(url: url) { image in
                     image
                         .resizable()
@@ -191,275 +281,237 @@ struct TeamHeaderSection: View {
     }
 }
 
-// MARK: - Season Picker Section
-struct SeasonPickerSection: View {
-    let seasons: [Int]
-    @Binding var selectedSeason: Int
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("시즌")
-                .font(.headline)
-
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 12) {
-                    ForEach(seasons, id: \.self) { season in
-                        Button(action: {
-                            selectedSeason = season
-                        }) {
-                            Text("\(season)-\((season + 1) % 100)")
-                                .padding(.horizontal, 16)
-                                .padding(.vertical, 8)
-                                .background(
-                                    selectedSeason == season ?
-                                    Color.blue : Color(.systemGray6)
-                                )
-                                .foregroundColor(
-                                    selectedSeason == season ?
-                                    .white : .primary
-                                )
-                                .cornerRadius(20)
-                        }
-                    }
-                }
-            }
-        }
-        .padding()
-        .background(Color(.systemBackground))
-        .cornerRadius(15)
-        .shadow(radius: 5)
-    }
-}
-
 // MARK: - Statistics Section
 struct StatisticsSection: View {
-    let stats: TeamSeasonStatistics
+    @EnvironmentObject var viewModel: TeamProfileViewModel
 
     var body: some View {
-        VStack(spacing: 16) {
-            let league = stats.league
-            HStack(spacing: 12) {
-                AsyncImage(url: URL(string: league.logo)) { image in
-                    image.resizable().scaledToFit()
-                } placeholder: {
-                    Circle().fill(Color.gray.opacity(0.3))
-                }
-                .frame(width: 40, height: 40)
-                .clipShape(Circle())
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(league.name)
-                        .font(.headline)
-                        .fontWeight(.medium)
-                    Text("\(league.season)-\((league.season + 1) % 100) 시즌")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                }
-
-                Spacer()
-
-                AsyncImage(url: URL(string: league.flag ?? "")) { image in
-                    image.resizable().scaledToFit()
-                } placeholder: {
-                    EmptyView()
-                }
-                .frame(width: 30, height: 20)
-                .clipShape(RoundedRectangle(cornerRadius: 4))
-            }
-            .padding()
-            .background(.thinMaterial)
-            .cornerRadius(15)
-            .shadow(radius: 3, y: 2)
-
-            if let fixtures = stats.fixtures {
-                VStack(alignment: .leading, spacing: 16) {
-                    Text("경기 기록")
-                        .font(.headline)
-                        .padding(.horizontal)
-
-                    HStack(spacing: 12) {
-                        ImprovedStatBox(title: "총 경기", value: "\(fixtures.played.total)", icon: "figure.soccer", color: .gray)
-                        ImprovedStatBox(title: "승", value: "\(fixtures.wins.total)", icon: "checkmark.circle.fill", color: .green)
-                        ImprovedStatBox(title: "무", value: "\(fixtures.draws.total)", icon: "minus.circle.fill", color: .orange)
-                        ImprovedStatBox(title: "패", value: "\(fixtures.loses.total)", icon: "xmark.circle.fill", color: .red)
+        if let stats = viewModel.teamStatistics {
+            VStack(spacing: 16) {
+                let league = stats.league
+                HStack(spacing: 12) {
+                    AsyncImage(url: URL(string: league.logo)) { image in
+                        image.resizable().scaledToFit()
+                    } placeholder: {
+                        Circle().fill(Color.gray.opacity(0.3))
                     }
-                    .padding(.horizontal)
-
-                    VStack(spacing: 12) {
-                        Text("홈 / 원정 기록")
+                    .frame(width: 40, height: 40)
+                    .clipShape(Circle())
+                    
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(league.name)
+                            .font(.headline)
+                            .fontWeight(.medium)
+                        Text("\(league.season)-\((league.season + 1) % 100) 시즌")
                             .font(.subheadline)
                             .foregroundColor(.secondary)
+                    }
+                    
+                    Spacer()
+                    
+                    AsyncImage(url: URL(string: league.flag ?? "")) { image in
+                        image.resizable().scaledToFit()
+                    } placeholder: {
+                        EmptyView()
+                    }
+                    .frame(width: 30, height: 20)
+                    .clipShape(RoundedRectangle(cornerRadius: 4))
+                }
+                .padding()
+                .background(.thinMaterial)
+                .cornerRadius(15)
+                .shadow(radius: 3, y: 2)
+                
+                if let fixtures = stats.fixtures {
+                    VStack(alignment: .leading, spacing: 16) {
+                        Text("경기 기록")
+                            .font(.headline)
                             .padding(.horizontal)
-
+                        
                         HStack(spacing: 12) {
-                            VStack(alignment: .leading, spacing: 8) {
-                                Text("🏠 홈")
-                                    .font(.caption)
-                                    .fontWeight(.medium)
-                                StatRow(title: "승", value: "\(fixtures.wins.home)")
-                                StatRow(title: "무", value: "\(fixtures.draws.home)")
-                                StatRow(title: "패", value: "\(fixtures.loses.home)")
-                            }
-                            .padding()
-                            .background(Color.green.opacity(0.1))
-                            .cornerRadius(10)
-
-                            VStack(alignment: .leading, spacing: 8) {
-                                Text("✈️ 원정")
-                                    .font(.caption)
-                                    .fontWeight(.medium)
-                                StatRow(title: "승", value: "\(fixtures.wins.away)")
-                                StatRow(title: "무", value: "\(fixtures.draws.away)")
-                                StatRow(title: "패", value: "\(fixtures.loses.away)")
-                            }
-                            .padding()
-                            .background(Color.blue.opacity(0.1))
-                            .cornerRadius(10)
+                            ImprovedStatBox(title: "총 경기", value: "\(fixtures.played.total)", icon: "figure.soccer", color: .gray)
+                            ImprovedStatBox(title: "승", value: "\(fixtures.wins.total)", icon: "checkmark.circle.fill", color: .green)
+                            ImprovedStatBox(title: "무", value: "\(fixtures.draws.total)", icon: "minus.circle.fill", color: .orange)
+                            ImprovedStatBox(title: "패", value: "\(fixtures.loses.total)", icon: "xmark.circle.fill", color: .red)
                         }
                         .padding(.horizontal)
-                    }
-
-                    Chart {
-                        BarMark(
-                            x: .value("결과", "승"),
-                            y: .value("횟수", fixtures.wins.total)
-                        )
-                        .foregroundStyle(.green)
-                        .annotation(position: .top) {
-                            Text("\(fixtures.wins.total)")
-                                .font(.caption2)
+                        
+                        VStack(spacing: 12) {
+                            Text("홈 / 원정 기록")
+                                .font(.subheadline)
                                 .foregroundColor(.secondary)
-                        }
-
-                        BarMark(
-                            x: .value("결과", "무"),
-                            y: .value("횟수", fixtures.draws.total)
-                        )
-                        .foregroundStyle(.orange)
-                        .annotation(position: .top) {
-                            Text("\(fixtures.draws.total)")
-                                .font(.caption2)
-                                .foregroundColor(.secondary)
-                        }
-
-                        BarMark(
-                            x: .value("결과", "패"),
-                            y: .value("횟수", fixtures.loses.total)
-                        )
-                        .foregroundStyle(.red)
-                        .annotation(position: .top) {
-                            Text("\(fixtures.loses.total)")
-                                .font(.caption2)
-                                .foregroundColor(.secondary)
-                        }
-                    }
-                    .frame(height: 100)
-                    .chartXAxis(.hidden)
-                    .padding(.horizontal)
-                    .padding(.top, 8)
-                }
-                .padding(.vertical)
-                .background(.regularMaterial)
-                .cornerRadius(15)
-                .shadow(radius: 3, y: 2)
-            }
-
-            if let goals = stats.goals {
-                VStack(alignment: .leading, spacing: 16) {
-                    Text("득실점")
-                        .font(.headline)
-                        .padding(.horizontal)
-
-                    HStack(spacing: 12) {
-                        ImprovedStatBox(
-                            title: "총 득점",
-                            value: "\(goals.for.total.total)",
-                            subvalue: "평균 \(goals.for.average.total)",
-                            icon: "soccerball.inverse",
-                            color: .blue
-                        )
-                        ImprovedStatBox(
-                            title: "총 실점",
-                            value: "\(goals.against.total.total)",
-                            subvalue: "평균 \(goals.against.average.total)",
-                            icon: "shield.lefthalf.filled",
-                            color: .red
-                        )
-                    }
-                    .padding(.horizontal)
-
-                    VStack(spacing: 12) {
-                        Text("홈 / 원정 득실점")
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
+                                .padding(.horizontal)
+                            
+                            HStack(spacing: 12) {
+                                VStack(alignment: .leading, spacing: 8) {
+                                    Text("🏠 홈")
+                                        .font(.caption)
+                                        .fontWeight(.medium)
+                                    StatRow(title: "승", value: "\(fixtures.wins.home)")
+                                    StatRow(title: "무", value: "\(fixtures.draws.home)")
+                                    StatRow(title: "패", value: "\(fixtures.loses.home)")
+                                }
+                                .padding()
+                                .background(Color.green.opacity(0.1))
+                                .cornerRadius(10)
+                                
+                                VStack(alignment: .leading, spacing: 8) {
+                                    Text("✈️ 원정")
+                                        .font(.caption)
+                                        .fontWeight(.medium)
+                                    StatRow(title: "승", value: "\(fixtures.wins.away)")
+                                    StatRow(title: "무", value: "\(fixtures.draws.away)")
+                                    StatRow(title: "패", value: "\(fixtures.loses.away)")
+                                }
+                                .padding()
+                                .background(Color.blue.opacity(0.1))
+                                .cornerRadius(10)
+                            }
                             .padding(.horizontal)
-
+                        }
+                        
+                        Chart {
+                            BarMark(
+                                x: .value("결과", "승"),
+                                y: .value("횟수", fixtures.wins.total)
+                            )
+                            .foregroundStyle(.green)
+                            .annotation(position: .top) {
+                                Text("\(fixtures.wins.total)")
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+                            }
+                            
+                            BarMark(
+                                x: .value("결과", "무"),
+                                y: .value("횟수", fixtures.draws.total)
+                            )
+                            .foregroundStyle(.orange)
+                            .annotation(position: .top) {
+                                Text("\(fixtures.draws.total)")
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+                            }
+                            
+                            BarMark(
+                                x: .value("결과", "패"),
+                                y: .value("횟수", fixtures.loses.total)
+                            )
+                            .foregroundStyle(.red)
+                            .annotation(position: .top) {
+                                Text("\(fixtures.loses.total)")
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                        .frame(height: 100)
+                        .chartXAxis(.hidden)
+                        .padding(.horizontal)
+                        .padding(.top, 8)
+                    }
+                    .padding(.vertical)
+                    .background(.regularMaterial)
+                    .cornerRadius(15)
+                    .shadow(radius: 3, y: 2)
+                }
+                
+                if let goals = stats.goals {
+                    VStack(alignment: .leading, spacing: 16) {
+                        Text("득실점")
+                            .font(.headline)
+                            .padding(.horizontal)
+                        
                         HStack(spacing: 12) {
-                            VStack(alignment: .leading, spacing: 8) {
-                                Text("🏠 홈")
-                                    .font(.caption)
-                                    .fontWeight(.medium)
-                                StatRow(title: "득점", value: "\(goals.for.total.home)")
-                                StatRow(title: "실점", value: "\(goals.against.total.home)")
+                            ImprovedStatBox(
+                                title: "총 득점",
+                                value: "\(goals.for.total.total)",
+                                subvalue: "평균 \(goals.for.average.total)",
+                                icon: "soccerball.inverse",
+                                color: .blue
+                            )
+                            ImprovedStatBox(
+                                title: "총 실점",
+                                value: "\(goals.against.total.total)",
+                                subvalue: "평균 \(goals.against.average.total)",
+                                icon: "shield.lefthalf.filled",
+                                color: .red
+                            )
+                        }
+                        .padding(.horizontal)
+                        
+                        VStack(spacing: 12) {
+                            Text("홈 / 원정 득실점")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                                .padding(.horizontal)
+                            
+                            HStack(spacing: 12) {
+                                VStack(alignment: .leading, spacing: 8) {
+                                    Text("🏠 홈")
+                                        .font(.caption)
+                                        .fontWeight(.medium)
+                                    StatRow(title: "득점", value: "\(goals.for.total.home)")
+                                    StatRow(title: "실점", value: "\(goals.against.total.home)")
+                                }
+                                .padding()
+                                .background(Color.blue.opacity(0.1))
+                                .cornerRadius(10)
+                                
+                                VStack(alignment: .leading, spacing: 8) {
+                                    Text("✈️ 원정")
+                                        .font(.caption)
+                                        .fontWeight(.medium)
+                                    StatRow(title: "득점", value: "\(goals.for.total.away)")
+                                    StatRow(title: "실점", value: "\(goals.against.total.away)")
+                                }
+                                .padding()
+                                .background(Color.purple.opacity(0.1))
+                                .cornerRadius(10)
                             }
-                            .padding()
-                            .background(Color.blue.opacity(0.1))
-                            .cornerRadius(10)
-
-                            VStack(alignment: .leading, spacing: 8) {
-                                Text("✈️ 원정")
-                                    .font(.caption)
-                                    .fontWeight(.medium)
-                                StatRow(title: "득점", value: "\(goals.for.total.away)")
-                                StatRow(title: "실점", value: "\(goals.against.total.away)")
-                            }
-                            .padding()
-                            .background(Color.purple.opacity(0.1))
-                            .cornerRadius(10)
+                            .padding(.horizontal)
+                        }
+                    }
+                    .padding(.vertical)
+                    .background(.regularMaterial)
+                    .cornerRadius(15)
+                    .shadow(radius: 3, y: 2)
+                }
+                
+                if let penalty = stats.penalty {
+                    VStack(alignment: .leading, spacing: 16) {
+                        Text("페널티킥")
+                            .font(.headline)
+                            .padding(.horizontal)
+                        
+                        HStack(spacing: 12) {
+                            ImprovedStatBox(
+                                title: "성공",
+                                value: "\(penalty.scored.total)",
+                                subvalue: penalty.scored.percentage,
+                                icon: "checkmark.circle.fill",
+                                color: .green
+                            )
+                            ImprovedStatBox(
+                                title: "실패",
+                                value: "\(penalty.missed.total)",
+                                subvalue: penalty.missed.percentage,
+                                icon: "xmark.circle.fill",
+                                color: .red
+                            )
+                            ImprovedStatBox(
+                                title: "총 시도",
+                                value: "\(penalty.total)",
+                                icon: "target",
+                                color: .gray
+                            )
                         }
                         .padding(.horizontal)
                     }
+                    .padding(.vertical)
+                    .background(.regularMaterial)
+                    .cornerRadius(15)
+                    .shadow(radius: 3, y: 2)
                 }
-                .padding(.vertical)
-                .background(.regularMaterial)
-                .cornerRadius(15)
-                .shadow(radius: 3, y: 2)
-            }
-
-            if let penalty = stats.penalty {
-                VStack(alignment: .leading, spacing: 16) {
-                    Text("페널티킥")
-                        .font(.headline)
-                        .padding(.horizontal)
-
-                    HStack(spacing: 12) {
-                        ImprovedStatBox(
-                            title: "성공",
-                            value: "\(penalty.scored.total)",
-                            subvalue: penalty.scored.percentage,
-                            icon: "checkmark.circle.fill",
-                            color: .green
-                        )
-                        ImprovedStatBox(
-                            title: "실패",
-                            value: "\(penalty.missed.total)",
-                            subvalue: penalty.missed.percentage,
-                            icon: "xmark.circle.fill",
-                            color: .red
-                        )
-                        ImprovedStatBox(
-                            title: "총 시도",
-                            value: "\(penalty.total)",
-                            icon: "target",
-                            color: .gray
-                        )
-                    }
-                    .padding(.horizontal)
-                }
-                .padding(.vertical)
-                .background(.regularMaterial)
-                .cornerRadius(15)
-                .shadow(radius: 3, y: 2)
             }
         }
     }
@@ -501,7 +553,7 @@ struct ImprovedStatBox: View {
 
 // MARK: - Venue Section (리뉴얼)
 struct VenueSection: View {
-    let venue: VenueInfo
+    @EnvironmentObject var viewModel: TeamProfileViewModel
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -509,53 +561,55 @@ struct VenueSection: View {
                 .font(.headline)
                 .padding(.horizontal)
 
-            if let imageUrl = venue.image, let url = URL(string: imageUrl) {
-                AsyncImage(url: url) { image in
-                    image
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
-                        .frame(height: 200)
-                        .clipped()
-                        .cornerRadius(10)
-                } placeholder: {
-                    Rectangle()
-                        .fill(Color.gray.opacity(0.3))
-                        .frame(height: 200)
-                        .cornerRadius(10)
-                        .overlay(Image(systemName: "sportscourt.fill").font(.largeTitle).foregroundColor(.gray))
+            if let venue = viewModel.teamProfile?.venue {
+                if let imageUrl = venue.image, let url = URL(string: imageUrl) {
+                    AsyncImage(url: url) { image in
+                        image
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                            .frame(height: 200)
+                            .clipped()
+                            .cornerRadius(10)
+                    } placeholder: {
+                        Rectangle()
+                            .fill(Color.gray.opacity(0.3))
+                            .frame(height: 200)
+                            .cornerRadius(10)
+                            .overlay(Image(systemName: "sportscourt.fill").font(.largeTitle).foregroundColor(.gray))
+                    }
+                    .padding(.horizontal)
+                }
+
+                VStack(alignment: .leading, spacing: 12) {
+                    if let name = venue.name {
+                        Text(name)
+                            .font(.title3)
+                            .fontWeight(.semibold)
+                    }
+                    if let city = venue.city {
+                        Text(city)
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                    }
+
+                    Divider()
+
+                    HStack(spacing: 16) {
+                        if let capacity = venue.capacity {
+                            TeamInfoItem(icon: "person.3.fill", label: "수용 인원", value: "\(capacity.formatted())명", color: .blue)
+                        }
+                        if let surface = venue.surface {
+                            TeamInfoItem(icon: "leaf.fill", label: "구장 표면", value: surface, color: .green)
+                        }
+                        Spacer()
+                    }
+
+                    if let address = venue.address {
+                        TeamInfoItem(icon: "mappin.circle.fill", label: "주소", value: address, color: .red)
+                    }
                 }
                 .padding(.horizontal)
             }
-
-            VStack(alignment: .leading, spacing: 12) {
-                if let name = venue.name {
-                    Text(name)
-                        .font(.title3)
-                        .fontWeight(.semibold)
-                }
-                if let city = venue.city {
-                    Text(city)
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                }
-
-                Divider()
-
-                HStack(spacing: 16) {
-                    if let capacity = venue.capacity {
-                        InfoItem(icon: "person.3.fill", label: "수용 인원", value: "\(capacity.formatted())명", color: .blue)
-                    }
-                    if let surface = venue.surface {
-                        InfoItem(icon: "leaf.fill", label: "구장 표면", value: surface, color: .green)
-                    }
-                    Spacer()
-                }
-
-                if let address = venue.address {
-                    InfoItem(icon: "mappin.circle.fill", label: "주소", value: address, color: .red)
-                }
-            }
-            .padding(.horizontal)
         }
         .padding(.vertical)
         .background(.regularMaterial)
@@ -565,7 +619,7 @@ struct VenueSection: View {
 }
 
 // 경기장 정보 항목을 위한 Helper View
-struct InfoItem: View {
+struct TeamInfoItem: View {
     let icon: String
     let label: String
     let value: String
@@ -668,8 +722,7 @@ struct RecentMatchCard: View {
 
 // MARK: - Form Section (리뉴얼)
 struct FormSection: View {
-    let recentFixtures: [Fixture]?
-    let currentTeamId: Int
+    @EnvironmentObject var viewModel: TeamProfileViewModel
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -677,11 +730,27 @@ struct FormSection: View {
                 .font(.headline)
                 .padding(.horizontal)
 
-            if let fixtures = recentFixtures, !fixtures.isEmpty {
+            // 안전하게 접근
+            if let fixtures = viewModel.recentFixtures, !fixtures.isEmpty {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 12) {
-                        ForEach(fixtures.prefix(5)) { fixture in
-                            RecentMatchCard(fixture: fixture, currentTeamId: currentTeamId)
+                        // 시간순으로 정렬 (과거 -> 최근)
+                        // 최근 5경기만 표시하고, 완료된 경기만 표시
+                        let completedFixtures = fixtures
+                            .filter { $0.fixture.status.short == "FT" || $0.fixture.status.short == "AET" || $0.fixture.status.short == "PEN" }
+                            .sorted(by: { $0.fixture.date > $1.fixture.date })
+                            .prefix(5)
+                        
+                        if completedFixtures.isEmpty {
+                            Text("최근 완료된 경기가 없습니다")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                                .frame(maxWidth: .infinity, alignment: .center)
+                                .padding()
+                        } else {
+                            ForEach(Array(completedFixtures.reversed()), id: \.fixture.id) { fixture in
+                                RecentMatchCard(fixture: fixture, currentTeamId: viewModel.teamId)
+                            }
                         }
                     }
                     .padding(.horizontal)
@@ -791,86 +860,246 @@ struct StatRow: View {
 
 // MARK: - Standing Section (리뉴얼)
 struct StandingSection: View {
-    let standing: TeamStanding
-    let rankChange: Int = 0
-
-    var rankChangeIcon: (name: String, color: Color) {
-        switch rankChange {
-        case 1...: return ("arrow.up", .green)
-        case ..<0: return ("arrow.down", .red)
-        default: return ("minus", .gray)
-        }
-    }
+    @EnvironmentObject var viewModel: TeamProfileViewModel
+    @State private var showFullStandings = false
 
     var body: some View {
+        standingContent
+    }
+    
+    @ViewBuilder
+    private var standingContent: some View {
+        // 로딩 중인 경우 로딩 표시
+        if viewModel.isLoadingStandings {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("현재 순위")
+                    .font(.headline)
+                    .padding(.horizontal)
+                
+                ProgressView("순위 정보 로딩 중...")
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding()
+                    .background(.regularMaterial)
+                    .cornerRadius(15)
+                    .shadow(radius: 3, y: 2)
+            }
+        }
+        // 팀 순위 정보가 있거나 리그 순위 정보가 있는 경우 표시
+        else if viewModel.teamStanding != nil || (viewModel.leagueStandings?.isEmpty == false) {
+            standingView()
+        }
+        // 로딩이 완료되었지만 데이터가 없는 경우 메시지 표시
+        else {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("현재 순위")
+                    .font(.headline)
+                    .padding(.horizontal)
+                
+                Text("순위 정보를 불러올 수 없습니다.")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding()
+                    .background(.regularMaterial)
+                    .cornerRadius(15)
+                    .shadow(radius: 3, y: 2)
+            }
+        }
+    }
+    
+    private func standingView() -> some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("현재 순위")
                 .font(.headline)
                 .padding(.horizontal)
 
-            HStack(spacing: 16) {
-                VStack(alignment: .center, spacing: 4) {
-                    HStack(alignment: .firstTextBaseline, spacing: 2) {
-                        Text("\(standing.rank)")
-                            .font(.system(size: 40, weight: .bold, design: .rounded))
-                            .foregroundColor(.primary)
-                        Image(systemName: rankChangeIcon.name)
-                            .font(.caption)
-                            .foregroundColor(rankChangeIcon.color)
-                    }
-                    Text("순위")
-                        .font(.caption)
+            // 테이블 형식의 순위 표시
+            VStack(spacing: 0) {
+                // 테이블 헤더
+                tableHeader
+                
+                // 팀 순위 표시 (3개 팀)
+                if viewModel.isLoadingStandings == true {
+                    ProgressView("순위 정보 로딩 중...")
+                        .frame(maxWidth: .infinity, alignment: .center)
+                        .padding()
+                } else if let standings = viewModel.leagueStandings, standings.isEmpty {
+                    Text("순위 정보를 불러올 수 없습니다.")
+                        .font(.subheadline)
                         .foregroundColor(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .center)
+                        .padding()
+                } else {
+                    standingTeamsList
                 }
-                .frame(width: 80)
-
-                Divider().frame(height: 50)
-
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack {
-                        Label("승점", systemImage: "sum")
-                            .labelStyle(.titleAndIcon)
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                        Spacer()
-                        Text("\(standing.points)")
-                            .fontWeight(.semibold)
-                    }
-                    HStack {
-                        Label("득실차", systemImage: "arrow.left.arrow.right")
-                            .labelStyle(.titleAndIcon)
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                        Spacer()
-                        Text("\(standing.goalsDiff > 0 ? "+" : "")\(standing.goalsDiff)")
-                            .fontWeight(.semibold)
-                            .foregroundColor(standing.goalsDiff > 0 ? .blue : (standing.goalsDiff < 0 ? .red : .primary))
-                    }
-                    HStack {
-                        Label("경기", systemImage: "figure.soccer")
-                            .labelStyle(.titleAndIcon)
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                        Spacer()
-                        Text("\(standing.all.win)승 \(standing.all.draw)무 \(standing.all.lose)패")
-                            .fontWeight(.semibold)
-                            .foregroundColor(.primary)
-                    }
+                
+                // 전체 순위 보기 버튼 (리그 순위가 있는 경우에만 표시)
+                if let standings = viewModel.leagueStandings, !standings.isEmpty {
+                    fullStandingsButton
                 }
-                .padding(.leading, 8)
             }
-            .padding()
-            .frame(maxWidth: .infinity)
             .background(.regularMaterial)
             .cornerRadius(15)
             .shadow(radius: 3, y: 2)
         }
+        .sheet(isPresented: $showFullStandings) {
+            standingsSheet
+        }
+    }
+    
+    private var tableHeader: some View {
+        HStack {
+            Text("순위")
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .frame(width: 40, alignment: .center)
+            
+            Text("팀")
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            
+            Text("경기")
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .frame(width: 40, alignment: .center)
+            
+            Text("승점")
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .frame(width: 40, alignment: .center)
+        }
+        .padding(.horizontal)
+        .padding(.vertical, 8)
+        .background(Color.gray.opacity(0.1))
+    }
+    
+    private var standingTeamsList: some View {
+        let nearbyTeams = viewModel.getNearbyTeams()
+        let currentTeamId = viewModel.teamId
+        
+        return ForEach(nearbyTeams, id: \.rank) { teamStanding in
+            StandingTeamRow(
+                teamStanding: teamStanding,
+                isCurrentTeam: teamStanding.team.id == currentTeamId
+            )
+        }
+    }
+    
+    private var fullStandingsButton: some View {
+        Button(action: {
+            showFullStandings = true
+        }) {
+            HStack {
+                Text("전체 순위 보기")
+                    .font(.subheadline)
+                    .foregroundColor(.blue)
+                
+                Image(systemName: "chevron.right")
+                    .font(.caption)
+                    .foregroundColor(.blue)
+            }
+            .frame(maxWidth: .infinity, alignment: .center)
+            .padding(.vertical, 12)
+        }
+        .background(Color.gray.opacity(0.05))
+        .cornerRadius(8)
+    }
+    
+    private var standingsSheet: some View {
+        NavigationView {
+            if viewModel.leagueStandings?.isEmpty != false {
+                Text("순위 정보를 불러오는 중입니다...")
+                    .navigationTitle("리그 순위")
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .navigationBarTrailing) {
+                            Button("닫기") {
+                                showFullStandings = false
+                            }
+                        }
+                    }
+            } else {
+                FullStandingsView(standings: viewModel.leagueStandings ?? [], teamId: viewModel.teamId)
+                    .navigationTitle("리그 순위")
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .navigationBarTrailing) {
+                            Button("닫기") {
+                                showFullStandings = false
+                            }
+                        }
+                    }
+            }
+        }
+    }
+    
+    
+}
+
+// 전체 순위 보기 뷰
+struct FullStandingsView: View {
+    let standings: [Standing]
+    let teamId: Int
+    
+    var body: some View {
+        List {
+            ForEach(standings, id: \.rank) { standing in
+                HStack {
+                    Text("\(standing.rank)")
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                        .frame(width: 30)
+                    
+                    HStack(spacing: 8) {
+                        AsyncImage(url: URL(string: standing.team.logo)) { image in
+                            image.resizable().scaledToFit()
+                        } placeholder: {
+                            Circle().fill(Color.gray.opacity(0.3))
+                        }
+                        .frame(width: 30, height: 30)
+                        
+                        Text(standing.team.name)
+                            .font(.subheadline)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    
+                    Text("\(standing.all.played)")
+                        .font(.subheadline)
+                        .frame(width: 30)
+                    
+                    Text("\(standing.all.win)")
+                        .font(.subheadline)
+                        .frame(width: 30)
+                    
+                    Text("\(standing.all.draw)")
+                        .font(.subheadline)
+                        .frame(width: 30)
+                    
+                    Text("\(standing.all.lose)")
+                        .font(.subheadline)
+                        .frame(width: 30)
+                    
+                    Text("\(standing.points)")
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                        .frame(width: 30)
+                }
+                .padding(.vertical, 4)
+                .listRowBackground(
+                    standing.team.id == teamId ?
+                    Color.blue.opacity(0.1) : Color.clear
+                )
+            }
+        }
+        .listStyle(PlainListStyle())
     }
 }
 
+
 // MARK: - Squad Section (리뉴얼)
 struct SquadSection: View {
-    let squadGroups: [SquadGroup]
+    @EnvironmentObject var viewModel: TeamProfileViewModel
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -878,7 +1107,7 @@ struct SquadSection: View {
                 .font(.headline)
                 .padding(.horizontal)
 
-            ForEach(squadGroups) { group in
+            ForEach(viewModel.squadByPosition) { group in
                 PositionGroupView(group: group)
             }
         }
@@ -927,100 +1156,6 @@ struct PlayerRowView: View {
     }
 }
 
-// MARK: - Team History Section (리뉴얼)
-struct TeamHistorySection: View {
-    let history: [TeamHistory]
-    let trophies: [TeamTrophy]?
-
-    // 트로피를 그룹화한 계산 속성
-    private var groupedTrophies: [String: [TeamTrophy]] {
-        guard let trophies = trophies else { return [:] }
-        return Dictionary(grouping: trophies, by: { $0.place })
-    }
-
-    // 트로피 순서를 정의한 상수
-    private let placeOrder = ["Winner", "Runner-up", "기타"]
-
-    // Chart 데이터를 계산 속성으로 분리
-    private var chartData: [(season: String, position: Int)] {
-        history.compactMap { seasonData in
-            if let position = Int(seasonData.leaguePosition) {
-                return (season: String(seasonData.season), position: position)
-            }
-            return nil
-        }
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("역대 성적 및 트로피")
-                .font(.headline)
-                .padding(.horizontal)
-
-            if let trophies = trophies, !trophies.isEmpty {
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("주요 트로피")
-                        .font(.subheadline)
-                        .fontWeight(.medium)
-                        .foregroundColor(.secondary)
-                        .padding(.horizontal)
-
-                    ForEach(placeOrder, id: \.self) { place in
-                        if let group = groupedTrophies[place], !group.isEmpty {
-                            HStack {
-                                Text(trophyGroupTitle(place))
-                                    .font(.caption)
-                                    .fontWeight(.semibold)
-                                Spacer()
-                            }
-                            .padding(.horizontal)
-
-                            ScrollView(.horizontal, showsIndicators: false) {
-                                HStack(spacing: 10) {
-                                    ForEach(group) { trophy in
-                                        TrophyCard(trophy: trophy)
-                                    }
-                                }
-                                .padding(.horizontal)
-                                .padding(.bottom, 8)
-                            }
-                        }
-                    }
-                }
-                Divider().padding(.horizontal)
-            }
-
-            if history.isEmpty {
-                Text("역대 성적 데이터 로딩 중...")
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .center)
-                    .padding()
-            } else {
-                Text("시즌별 리그 순위")
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-                    .foregroundColor(.secondary)
-                    .padding(.horizontal)
-
-                // Chart를 별도 뷰로 분리
-                HistoryChartView(chartData: chartData)
-            }
-        }
-        .padding(.vertical)
-        .background(.regularMaterial)
-        .cornerRadius(15)
-        .shadow(radius: 3, y: 2)
-    }
-
-    private func trophyGroupTitle(_ place: String) -> String {
-        switch place {
-        case "Winner": return "🥇 우승"
-        case "Runner-up": return "🥈 준우승"
-        default: return "기타"
-        }
-    }
-}
 
 // MARK: - History Chart View
 struct HistoryChartView: View {
@@ -1030,9 +1165,14 @@ struct HistoryChartView: View {
     private var maxPosition: Int {
         chartData.map { $0.position }.max() ?? 1
     }
+    
+    // 시즌 데이터를 시간순으로 정렬 (과거 -> 최근)
+    private var sortedChartData: [(season: String, position: Int)] {
+        chartData.sorted { Int($0.season) ?? 0 < Int($1.season) ?? 0 }
+    }
 
     var body: some View {
-        Chart(chartData, id: \.season) { data in
+        Chart(sortedChartData, id: \.season) { data in
             LineMark(
                 x: .value("시즌", data.season),
                 y: .value("순위", data.position)
@@ -1048,6 +1188,16 @@ struct HistoryChartView: View {
                 AxisValueLabel {
                     if let intValue = value.as(Int.self) {
                         Text("\(intValue)위")
+                    }
+                }
+            }
+        }
+        .chartXAxis {
+            AxisMarks { value in
+                AxisValueLabel {
+                    if let season = value.as(String.self) {
+                        Text(season)
+                            .font(.caption)
                     }
                 }
             }
@@ -1131,45 +1281,26 @@ struct ErrorView: View {
 
 // MARK: - Team Info Tab View
 struct TeamInfoTabView: View {
-    @ObservedObject var viewModel: TeamProfileViewModel
+    @EnvironmentObject var viewModel: TeamProfileViewModel // @EnvironmentObject로 변경
     var showFullSquad: () -> Void // 전체 스쿼드 보기 액션
     
     var body: some View {
         ScrollView {
             VStack(spacing: 20) {
                 // 팀 헤더
-                TeamHeaderSection(profile: viewModel.teamProfile)
+                TeamHeaderSection()
                 
                 // 다음 예정된 경기
-                UpcomingFixtureSection(
-                    fixture: viewModel.upcomingFixture,
-                    currentTeamId: viewModel.teamId
-                )
-
+                UpcomingFixtureSection()
+                
                 if let errorMessage = viewModel.errorMessage {
                     ErrorView(message: errorMessage)
                 } else {
-                    // 시즌 선택
-                    SeasonPickerSection(
-                        seasons: viewModel.seasons,
-                        selectedSeason: $viewModel.selectedSeason
-                    )
-
                     // 현재 순위
-                    if let standing = viewModel.teamStanding {
-                        StandingSection(standing: standing)
-                    }
-
-                    // 주요 통계
-                    if let stats = viewModel.teamStatistics {
-                        StatisticsSection(stats: stats)
-                    }
-
+                    StandingSection()
+                    
                     // 최근 폼 (리뉴얼된 FormSection 사용)
-                    FormSection(
-                        recentFixtures: viewModel.recentFixtures,
-                        currentTeamId: viewModel.teamId
-                    )
+                    FormSection()
                     
                     // 주요 선수 (최대 3명)
                     if !viewModel.squadByPosition.isEmpty {
@@ -1240,17 +1371,52 @@ struct TeamInfoTabView: View {
                     }
 
                     // 역대 성적
-                    if viewModel.isLoadingStats || viewModel.isLoadingTrophies {
+                    if viewModel.isLoadingStats {
                         ProgressView("역대 성적 로딩 중...")
                             .frame(maxWidth: .infinity)
                             .padding()
                             .background(Color(.systemBackground))
                             .cornerRadius(12)
                     } else {
-                        // 트로피 정보 표시 (트로피 데이터가 있는 모든 팀)
-                        if let trophies = viewModel.trophies,
-                           !trophies.isEmpty {
-                            TeamTrophyView(trophies: trophies)
+                        // 트로피 정보 표시
+                        if viewModel.isLoadingTrophies {
+                            // 트로피 로딩 중 표시
+                            VStack(spacing: 12) {
+                                Text("트로피")
+                                    .font(.headline)
+                                    .padding(.horizontal)
+                                
+                                ProgressView("트로피 정보 로딩 중...")
+                                    .frame(maxWidth: .infinity, alignment: .center)
+                                    .padding()
+                            }
+                            .padding(.vertical)
+                            .background(.regularMaterial)
+                            .cornerRadius(15)
+                            .shadow(radius: 3, y: 2)
+                        } else {
+                            // 트로피 정보 표시 (트로피 데이터가 있는 모든 팀)
+                            let trophies = viewModel.trophies ?? []
+                            if !trophies.isEmpty {
+                                TeamTrophyView(trophies: trophies)
+                            } else {
+                                // 트로피 데이터가 없는 경우 메시지 표시
+                                VStack(spacing: 12) {
+                                    Text("트로피")
+                                        .font(.headline)
+                                        .padding(.horizontal)
+                                    
+                                    Text("트로피 정보가 없습니다")
+                                        .font(.subheadline)
+                                        .foregroundColor(.secondary)
+                                        .frame(maxWidth: .infinity, alignment: .center)
+                                        .padding()
+                                }
+                                .padding(.vertical)
+                                .background(.regularMaterial)
+                                .cornerRadius(15)
+                                .shadow(radius: 3, y: 2)
+                            }
                         }
                         
                         // 역대 성적 정보 표시
@@ -1260,8 +1426,8 @@ struct TeamInfoTabView: View {
                                     .font(.headline)
                                     .padding(.horizontal)
                                 
-                                // 역대 성적 차트
-                                HistoryChartView(chartData: viewModel.teamHistory.compactMap { seasonData in
+                                // 역대 성적 차트 (최대 5개 시즌만 표시)
+                                HistoryChartView(chartData: viewModel.teamHistory.prefix(5).compactMap { seasonData in
                                     if let position = Int(seasonData.leaguePosition) {
                                         return (season: String(seasonData.season), position: position)
                                     }
@@ -1281,9 +1447,7 @@ struct TeamInfoTabView: View {
                     }
 
                     // 경기장 정보
-                    if let venue = viewModel.teamProfile?.venue {
-                        VenueSection(venue: venue)
-                    }
+                    VenueSection()
                 }
             }
             .padding()
@@ -1397,7 +1561,7 @@ struct TeamInfoTabView: View {
 
 // MARK: - Team Squad Tab View
 struct TeamSquadTabView: View {
-    @ObservedObject var viewModel: TeamProfileViewModel
+    @EnvironmentObject var viewModel: TeamProfileViewModel
     
     var body: some View {
         ScrollView {
@@ -1655,3 +1819,48 @@ struct EnhancedPlayerCardView: View {
 }
 
 
+
+// MARK: - Standing Team Row
+struct StandingTeamRow: View {
+    let teamStanding: Standing
+    let isCurrentTeam: Bool
+    
+    var body: some View {
+        HStack {
+            Text("\(teamStanding.rank)")
+                .font(.subheadline)
+                .fontWeight(.medium)
+                .frame(width: 40, alignment: .center)
+            
+            HStack(spacing: 8) {
+                AsyncImage(url: URL(string: teamStanding.team.logo)) { image in
+                    image.resizable().scaledToFit()
+                } placeholder: {
+                    Circle().fill(Color.gray.opacity(0.3))
+                }
+                .frame(width: 24, height: 24)
+                
+                Text(teamStanding.team.name)
+                    .font(.subheadline)
+                    .lineLimit(1)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            
+            Text("\(teamStanding.all.played)")
+                .font(.subheadline)
+                .frame(width: 40, alignment: .center)
+            
+            Text("\(teamStanding.points)")
+                .font(.subheadline)
+                .fontWeight(.semibold)
+                .frame(width: 40, alignment: .center)
+        }
+        .padding(.horizontal)
+        .padding(.vertical, 10)
+        .background(
+            isCurrentTeam ?
+            Color.blue.opacity(0.1) : Color.clear
+        )
+        .cornerRadius(4)
+    }
+}
