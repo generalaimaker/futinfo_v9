@@ -232,8 +232,8 @@ struct GoalScorersView: View {
     @ViewBuilder
     private var goalScorersContent: some View {
         if !sortedGoals.isEmpty {
-            // 실제 득점자 데이터가 있는 경우
-            ForEach(sortedGoals.prefix(3), id: \.id) { event in
+            // 실제 득점자 데이터가 있는 경우 - 모든 득점자 표시 (prefix 제한 제거)
+            ForEach(sortedGoals, id: \.id) { event in
                 goalEventRow(for: event)
             }
         } else if (team.id == fixture.teams.home.id && (fixture.goals?.home ?? 0) > 0) ||
@@ -252,23 +252,33 @@ struct GoalScorersView: View {
     @ViewBuilder
     private func goalEventRow(for event: FixtureEvent) -> some View {
         HStack(spacing: 4) {
+            // 연장전 여부 확인
+            let timeText = event.isExtraTime ? "\(event.time.elapsed)' (연장)" : "\(event.time.elapsed)'"
+            
             // 자책골인 경우 다른 아이콘 사용
             if event.detail.lowercased().contains("own") {
                 Text("🔄⚽️")
                     .font(.caption2)
-                Text("\(event.player.name ?? "알 수 없음") \(event.time.elapsed)' (자책골)")
+                Text("\(event.player.name ?? "알 수 없음") \(timeText) (자책골)")
                     .font(.system(.caption2, design: .rounded))
                     .foregroundColor(.secondary)
-            } else if event.detail.lowercased().contains("penalty") {
+            } else if event.detail.lowercased().contains("penalty") && !event.detail.lowercased().contains("won") && !event.detail.lowercased().contains("missed") {
+                // 페널티로 득점한 경우 (페널티 획득만 한 경우와 놓친 경우 제외)
                 Text("🎯")
                     .font(.caption2)
-                Text("\(event.player.name ?? "알 수 없음") \(event.time.elapsed)' (페널티)")
+                Text("\(event.player.name ?? "알 수 없음") \(timeText) (페널티)")
                     .font(.system(.caption2, design: .rounded))
                     .foregroundColor(.secondary)
             } else {
-                Text("⚽️")
-                    .font(.caption2)
-                Text("\(event.player.name ?? "알 수 없음") \(event.time.elapsed)'")
+                // 일반 골 (연장전 여부에 따라 다른 아이콘 사용)
+                if event.isExtraTime {
+                    Text("⚽️🕒")
+                        .font(.caption2)
+                } else {
+                    Text("⚽️")
+                        .font(.caption2)
+                }
+                Text("\(event.player.name ?? "알 수 없음") \(timeText)")
                     .font(.system(.caption2, design: .rounded))
                     .foregroundColor(.secondary)
             }
@@ -371,7 +381,7 @@ struct TeamInfoView: View {
     let fixture: Fixture
     let viewModel: FixtureDetailViewModel
     @State private var isPressed = false
-    @State private var showTeamProfile = false
+    @State private var forceUpdate = false // 강제 업데이트를 위한 상태 변수
     
     var body: some View {
         VStack(spacing: 12) {
@@ -400,15 +410,29 @@ struct TeamInfoView: View {
                                 isPressed = false
                             }
                             
-                            // 팀 프로필로 이동
-                            showTeamProfile = true
+                            // 팀 프로필로 이동 (NotificationCenter 사용)
+                            print("🔄 TeamInfoView - 팀 프로필로 이동 요청: 팀 ID \(team.id), 리그 ID \(fixture.league.id)")
+                            NotificationCenter.default.post(
+                                name: NSNotification.Name("ShowTeamProfile"),
+                                object: nil,
+                                userInfo: ["teamId": team.id, "leagueId": fixture.league.id]
+                            )
+                            
+                            // UI 업데이트 강제 (득점자 정보 표시를 위해)
+                            viewModel.objectWillChange.send()
                         }
                     }
                 
                 // 팀 이름 및 승리 표시
                 teamNameView
                     .onTapGesture {
-                        showTeamProfile = true
+                        // 팀 프로필로 이동 (NotificationCenter 사용)
+                        print("🔄 TeamInfoView - 팀 이름 탭: 팀 ID \(team.id), 리그 ID \(fixture.league.id)")
+                        NotificationCenter.default.post(
+                            name: NSNotification.Name("ShowTeamProfile"),
+                            object: nil,
+                            userInfo: ["teamId": team.id, "leagueId": fixture.league.id]
+                        )
                     }
             }
             
@@ -417,34 +441,65 @@ struct TeamInfoView: View {
                 .padding(.top, 4)
                 .animation(.easeInOut(duration: 0.3), value: viewModel.events.count)
                 .animation(.easeInOut(duration: 0.3), value: viewModel.isLoadingEvents)
+                .animation(.easeInOut(duration: 0.3), value: forceUpdate) // 강제 업데이트 애니메이션
                 .onAppear {
-                    Task {
-                        await loadEventData()
+                    // 이벤트 로드 완료 알림 관찰 설정
+                    NotificationCenter.default.addObserver(forName: NSNotification.Name("EventsDidLoad"), object: nil, queue: .main) { _ in
+                        print("📣 TeamInfoView - 이벤트 로드 완료 알림 수신")
+                        // 강제 업데이트 트리거
+                        forceUpdate.toggle()
                     }
+                    
+                    // 즉시 이벤트 데이터 로드 시도
+                    Task {
+                        print("🔄 TeamInfoView - 이벤트 데이터 로드 시도 시작")
+                        await loadEventData()
+                        
+                        // 약간의 지연 후 다시 한번 UI 업데이트 시도
+                        try? await Task.sleep(nanoseconds: 500_000_000) // 0.5초
+                        await MainActor.run {
+                            viewModel.objectWillChange.send()
+                            forceUpdate.toggle() // 강제 업데이트 트리거
+                        }
+                        
+                        // 추가 지연 후 한 번 더 시도
+                        try? await Task.sleep(nanoseconds: 1_000_000_000) // 1초
+                        await MainActor.run {
+                            viewModel.objectWillChange.send()
+                            forceUpdate.toggle() // 강제 업데이트 트리거
+                        }
+                        
+                        // 최종 지연 후 한 번 더 시도
+                        try? await Task.sleep(nanoseconds: 2_000_000_000) // 2초
+                        await MainActor.run {
+                            viewModel.objectWillChange.send()
+                            forceUpdate.toggle() // 강제 업데이트 트리거
+                            print("✅ TeamInfoView - 최종 UI 업데이트 완료")
+                        }
+                    }
+                }
+                .onDisappear {
+                    // 관찰자 제거
+                    NotificationCenter.default.removeObserver(self, name: NSNotification.Name("EventsDidLoad"), object: nil)
                 }
                 .onChange(of: viewModel.isLoadingEvents) { oldValue, newValue in
                     print("🔄 isLoadingEvents 변경 감지: \(newValue)")
+                    if !newValue && viewModel.events.count > 0 {
+                        // 로딩이 완료되고 이벤트가 있으면 UI 업데이트 강제
+                        viewModel.objectWillChange.send()
+                    }
                 }
                 .onChange(of: viewModel.events.count) { oldValue, newValue in
                     print("🔄 events 변경 감지: \(newValue)개")
+                    // UI 업데이트 강제
+                    if newValue > 0 {
+                        viewModel.objectWillChange.send()
+                    }
                 }
         }
         .padding(.vertical, 12)
         .contentShape(Rectangle())
-        .background(
-            NavigationLink(value: team.id) {
-                EmptyView()
-            }
-            .opacity(0) // 링크를 숨김
-        )
-        .onChange(of: showTeamProfile) { _, newValue in
-            if newValue {
-                // 팀 프로필로 이동
-                viewModel.selectedTeamId = team.id
-                viewModel.selectedLeagueId = fixture.league.id
-                viewModel.showTeamProfile = true
-            }
-        }
+        // NavigationLink 제거 (NotificationCenter로 대체)
     }
     
     // 팀 로고 뷰
@@ -523,17 +578,22 @@ struct TeamInfoView: View {
         (team.id == fixture.teams.away.id && (fixture.goals?.away ?? 0) > 0)
     }
     
-    // 팀의 득점 이벤트 필터링
+    // 팀의 득점 이벤트 필터링 (개선된 버전)
     private var filteredTeamGoals: [FixtureEvent] {
         // 이벤트 데이터가 비어있는지 확인
         if viewModel.events.isEmpty {
             return []
         }
         
-        // 골 이벤트만 필터링
-        let goalEvents = viewModel.events.filter { $0.type.lowercased() == "goal" }
+        // 실제 득점된 골 이벤트만 필터링
+        let goalEvents = viewModel.events.filter { event in
+            // isActualGoal 속성 사용
+            return event.isActualGoal
+        }
         
-        // 현재 팀의 골 이벤트 필터링 (자책골 로직 수정)
+        print("⚽️ 전체 골 이벤트 수: \(goalEvents.count)개")
+        
+        // 현재 팀의 골 이벤트 필터링 (자책골 로직 포함)
         let teamGoals = goalEvents.filter { event in
             // 일반 골: 현재 팀(self.team)이 득점한 경우
             let isNormalGoal = event.team.id == self.team.id && !event.detail.lowercased().contains("own")
@@ -542,6 +602,22 @@ struct TeamInfoView: View {
             let isOwnGoalForThisTeam = event.team.id != self.team.id && event.detail.lowercased().contains("own")
             
             return isNormalGoal || isOwnGoalForThisTeam
+        }
+        
+        // 득점자 정보 로깅
+        print("⚽️ 팀 \(team.name)의 골 이벤트 \(teamGoals.count)개")
+        for (index, goal) in teamGoals.enumerated() {
+            let timeInfo = goal.time.elapsed > 90 ? "\(goal.time.elapsed)' (연장)" : "\(goal.time.elapsed)'"
+            print("  [\(index+1)] \(goal.player.name ?? "알 수 없음") - \(timeInfo) - \(goal.detail)")
+        }
+        
+        // 연장전 득점자 확인 및 로깅
+        let extraTimeGoals = teamGoals.filter { $0.isExtraTime }
+        if !extraTimeGoals.isEmpty {
+            print("⚽️🕒 팀 \(team.name)의 연장전 득점 이벤트 \(extraTimeGoals.count)개")
+            for (index, goal) in extraTimeGoals.enumerated() {
+                print("  [\(index+1)] \(goal.player.name ?? "알 수 없음") (\(goal.time.elapsed)' 연장) - \(goal.detail)")
+            }
         }
         
         return teamGoals
@@ -567,8 +643,8 @@ struct TeamInfoView: View {
         // 득점자 정보 직접 표시
         return VStack(spacing: 4) {
             if !sortedGoals.isEmpty {
-                // 실제 득점자 데이터가 있는 경우
-                ForEach(sortedGoals.prefix(3), id: \.id) { event in
+                // 실제 득점자 데이터가 있는 경우 - 모든 득점자 표시 (prefix 제한 제거)
+                ForEach(sortedGoals, id: \.id) { event in
                     goalEventRow(for: event)
                 }
             } else if hasGoals {
@@ -617,27 +693,37 @@ struct TeamInfoView: View {
         }
     }
     
-    // 각 골 이벤트에 대한 행을 생성하는 함수
+    // 각 골 이벤트에 대한 행을 생성하는 함수 (개선된 버전)
     @ViewBuilder
     private func goalEventRow(for event: FixtureEvent) -> some View {
         HStack(spacing: 4) {
+            // 연장전 여부 확인 (isExtraTime 속성 사용)
+            let timeText = event.isExtraTime ? "\(event.time.elapsed)' (연장)" : "\(event.time.elapsed)'"
+            
             // 자책골인 경우 다른 아이콘 사용
             if event.detail.lowercased().contains("own") {
                 Text("🔄⚽️")
                     .font(.caption2)
-                Text("\(event.player.name ?? "알 수 없음") \(event.time.elapsed)' (자책골)")
+                Text("\(event.player.name ?? "알 수 없음") \(timeText) (자책골)")
                     .font(.system(.caption2, design: .rounded))
                     .foregroundColor(.secondary)
-            } else if event.detail.lowercased().contains("penalty") {
+            } else if event.detail.lowercased().contains("penalty") && !event.detail.lowercased().contains("won") && !event.detail.lowercased().contains("missed") {
+                // 페널티로 득점한 경우 (페널티 획득만 한 경우와 놓친 경우 제외)
                 Text("🎯")
                     .font(.caption2)
-                Text("\(event.player.name ?? "알 수 없음") \(event.time.elapsed)' (페널티)")
+                Text("\(event.player.name ?? "알 수 없음") \(timeText) (페널티)")
                     .font(.system(.caption2, design: .rounded))
                     .foregroundColor(.secondary)
             } else {
-                Text("⚽️")
-                    .font(.caption2)
-                Text("\(event.player.name ?? "알 수 없음") \(event.time.elapsed)'")
+                // 일반 골 (연장전 여부에 따라 다른 아이콘 사용)
+                if event.isExtraTime {
+                    Text("⚽️🕒")
+                        .font(.caption2)
+                } else {
+                    Text("⚽️")
+                        .font(.caption2)
+                }
+                Text("\(event.player.name ?? "알 수 없음") \(timeText)")
                     .font(.system(.caption2, design: .rounded))
                     .foregroundColor(.secondary)
             }
@@ -653,17 +739,117 @@ struct TeamInfoView: View {
         }
     }
     
-    // 이벤트 데이터 로드
+    // 이벤트 데이터 로드 (강화된 버전)
     private func loadEventData() async {
+        print("🔄 TeamInfoView - loadEventData 호출됨 (팀: \(team.name))")
+        
         // 이벤트 데이터가 이미 로드되어 있는지 확인
         if viewModel.events.isEmpty {
-            // 이벤트 데이터가 없으면 로드
-            await viewModel.loadEvents()
+            print("🔄 TeamInfoView - 이벤트 데이터가 비어있어 로드 시작")
+            
+            // 이벤트 데이터가 없으면 로드 (3번 시도)
+            for i in 1...3 {
+                print("🔄 TeamInfoView - 이벤트 데이터 로드 시도 #\(i)")
+                
+                // 이벤트 데이터 로드
+                await viewModel.loadEvents()
+                
+                // 이벤트 데이터 로드 후 UI 업데이트 강제
+                await MainActor.run {
+                    viewModel.objectWillChange.send()
+                    forceUpdate.toggle() // 강제 업데이트 트리거
+                }
+                
+                // 이벤트가 로드되었는지 확인
+                if !viewModel.events.isEmpty {
+                    print("✅ TeamInfoView - 이벤트 데이터 로드 성공 (시도 #\(i))")
+                    
+                    // 골 이벤트 필터링 및 로깅
+                    let goalEvents = viewModel.events.filter { $0.isActualGoal }
+                    print("⚽️ TeamInfoView - 골 이벤트 \(goalEvents.count)개 발견")
+                    
+                    // 현재 팀의 골 이벤트 필터링
+                    let teamGoals = goalEvents.filter { event in
+                        // 일반 골: 현재 팀이 득점한 경우
+                        let isNormalGoal = event.team.id == self.team.id && !event.detail.lowercased().contains("own")
+                        
+                        // 자책골: 상대 팀이 자책골을 넣어서 현재 팀이 득점한 경우
+                        let isOwnGoalForThisTeam = event.team.id != self.team.id && event.detail.lowercased().contains("own")
+                        
+                        return isNormalGoal || isOwnGoalForThisTeam
+                    }
+                    
+                    print("⚽️ TeamInfoView - 팀 \(team.name)의 골 이벤트 \(teamGoals.count)개")
+                    
+                    // 연장전 득점자 확인 및 로깅
+                    let extraTimeGoals = teamGoals.filter { $0.isExtraTime }
+                    if !extraTimeGoals.isEmpty {
+                        print("⚽️🕒 TeamInfoView - 팀 \(team.name)의 연장전 득점 이벤트 \(extraTimeGoals.count)개")
+                        for (index, goal) in extraTimeGoals.enumerated() {
+                            print("  [\(index+1)] \(goal.player.name ?? "알 수 없음") (\(goal.time.elapsed)' 연장) - \(goal.detail)")
+                        }
+                        
+                        // 연장전 득점자가 있는 경우 추가 UI 업데이트 강제
+                        await MainActor.run {
+                            print("🔄 TeamInfoView - 연장전 득점자 발견으로 추가 UI 업데이트 강제")
+                            viewModel.objectWillChange.send()
+                            forceUpdate.toggle() // 강제 업데이트 트리거
+                        }
+                    }
+                    
+                    break
+                }
+                
+                // 약간의 지연 후 다시 시도
+                try? await Task.sleep(nanoseconds: 500_000_000) // 0.5초
+            }
+        } else {
+            print("✅ TeamInfoView - 이벤트 데이터가 이미 로드되어 있음 (\(viewModel.events.count)개)")
+            
+            // 이미 이벤트 데이터가 있는 경우에도 UI 업데이트 강제
+            await MainActor.run {
+                viewModel.objectWillChange.send()
+                forceUpdate.toggle() // 강제 업데이트 트리거
+            }
+            
+            // 골 이벤트 필터링 및 로깅
+            let goalEvents = viewModel.events.filter { $0.isActualGoal }
+            print("⚽️ TeamInfoView - 골 이벤트 \(goalEvents.count)개 발견 (이미 로드됨)")
+            
+            // 현재 팀의 골 이벤트 필터링
+            let teamGoals = goalEvents.filter { event in
+                // 일반 골: 현재 팀이 득점한 경우
+                let isNormalGoal = event.team.id == self.team.id && !event.detail.lowercased().contains("own")
+                
+                // 자책골: 상대 팀이 자책골을 넣어서 현재 팀이 득점한 경우
+                let isOwnGoalForThisTeam = event.team.id != self.team.id && event.detail.lowercased().contains("own")
+                
+                return isNormalGoal || isOwnGoalForThisTeam
+            }
+            
+            // 연장전 득점자 확인 및 로깅
+            let extraTimeGoals = teamGoals.filter { $0.isExtraTime }
+            if !extraTimeGoals.isEmpty {
+                print("⚽️🕒 TeamInfoView - 팀 \(team.name)의 연장전 득점 이벤트 \(extraTimeGoals.count)개 (이미 로드됨)")
+                for (index, goal) in extraTimeGoals.enumerated() {
+                    print("  [\(index+1)] \(goal.player.name ?? "알 수 없음") (\(goal.time.elapsed)' 연장) - \(goal.detail)")
+                }
+                
+                // 연장전 득점자가 있는 경우 추가 UI 업데이트 강제
+                await MainActor.run {
+                    print("🔄 TeamInfoView - 연장전 득점자 발견으로 추가 UI 업데이트 강제")
+                    viewModel.objectWillChange.send()
+                    forceUpdate.toggle() // 강제 업데이트 트리거
+                }
+            }
         }
         
-        // 이벤트 데이터 로드 후 UI 업데이트 강제
+        // 최종 UI 업데이트 강제 (모든 경우에 실행)
+        try? await Task.sleep(nanoseconds: 1_000_000_000) // 1초 대기
         await MainActor.run {
+            print("🔄 TeamInfoView - 최종 UI 업데이트 강제")
             viewModel.objectWillChange.send()
+            forceUpdate.toggle() // 강제 업데이트 트리거
         }
     }
 }

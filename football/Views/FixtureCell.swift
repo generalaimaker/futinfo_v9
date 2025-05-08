@@ -72,6 +72,8 @@ struct FixtureCell: View {
     struct TeamView: View {
         let team: Team
         let leagueId: Int
+        @State private var isPressed = false
+        @EnvironmentObject var fixturesViewModel: FixturesOverviewViewModel
         
         init(team: Team, leagueId: Int) {
             self.team = team
@@ -81,7 +83,52 @@ struct FixtureCell: View {
         var body: some View {
             VStack(spacing: 8) {
                 // 팀 로고 - 캐싱된 이미지 뷰 사용
-                TeamLogoView(logoUrl: team.logo, size: 30)
+                ZStack {
+                    Circle()
+                        .fill(Color(.systemBackground))
+                        .frame(width: 40, height: 40)
+                        .shadow(color: Color.black.opacity(0.1), radius: 2, x: 0, y: 1)
+                    
+                    CachedImageView(
+                        url: URL(string: team.logo),
+                        placeholder: Image(systemName: "sportscourt.fill"),
+                        failureImage: Image(systemName: "sportscourt.fill"),
+                        contentMode: .fit
+                    )
+                    .frame(width: 30, height: 30)
+                }
+                .scaleEffect(isPressed ? 1.1 : 1.0)
+                .onTapGesture {
+                    // 탭 애니메이션
+                    withAnimation(.easeInOut(duration: 0.15)) {
+                        isPressed = true
+                    }
+                    
+                    // 0.15초 후 원래 상태로 복귀하고 팀 프로필로 이동
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                        withAnimation(.easeInOut(duration: 0.15)) {
+                            isPressed = false
+                        }
+                        
+                        // 팀 프로필로 이동 (NotificationCenter 사용)
+                        print("🔄 TeamView - 팀 프로필로 이동 요청: 팀 ID \(team.id), 리그 ID \(leagueId)")
+                        NotificationCenter.default.post(
+                            name: NSNotification.Name("ShowTeamProfile"),
+                            object: nil,
+                            userInfo: ["teamId": team.id, "leagueId": leagueId]
+                        )
+                    }
+                }
+                .overlay(
+                    Text("팀 프로필")
+                        .font(.system(.caption2, design: .rounded))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 2)
+                        .background(Color.blue.opacity(0.8))
+                        .cornerRadius(8)
+                        .opacity(isPressed ? 1.0 : 0.0)
+                )
                 
                 // 팀 이름
                 Text(team.name)

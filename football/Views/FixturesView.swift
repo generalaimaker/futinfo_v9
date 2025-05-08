@@ -4,6 +4,9 @@ struct FixturesView: View {
     @State private var selectedLeagueId: Int
     @State private var selectedTab = 0 // 0: 결과, 1: 예정
     @StateObject private var viewModel: FixturesViewModel
+    @State private var navigateToTeamProfile: Bool = false
+    @State private var selectedTeamId: Int = 0
+    @State private var selectedTeamLeagueId: Int = 0
     
     init(leagueId: Int, leagueName: String) {
         self._selectedLeagueId = State(initialValue: leagueId)
@@ -155,6 +158,27 @@ struct FixturesView: View {
         }
         .onAppear {
             viewModel.loadFixtures()
+            
+            // NotificationCenter 관찰자 등록
+            NotificationCenter.default.addObserver(forName: NSNotification.Name("ShowTeamProfile"), object: nil, queue: .main) { notification in
+                if let userInfo = notification.userInfo,
+                   let teamId = userInfo["teamId"] as? Int,
+                   let leagueId = userInfo["leagueId"] as? Int {
+                    print("📣 FixturesView - 팀 프로필 알림 수신: 팀 ID \(teamId), 리그 ID \(leagueId)")
+                    selectedTeamId = teamId
+                    selectedTeamLeagueId = leagueId
+                    navigateToTeamProfile = true
+                }
+            }
         }
+        .onDisappear {
+            // NotificationCenter 관찰자 제거
+            NotificationCenter.default.removeObserver(self, name: NSNotification.Name("ShowTeamProfile"), object: nil)
+        }
+        .background(
+            NavigationLink(destination: TeamProfileView(teamId: selectedTeamId, leagueId: selectedTeamLeagueId), isActive: $navigateToTeamProfile) {
+                EmptyView()
+            }
+        )
     }
 }

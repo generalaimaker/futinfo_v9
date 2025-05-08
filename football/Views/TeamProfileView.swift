@@ -885,7 +885,7 @@ struct StandingSection: View {
             }
         }
         // 팀 순위 정보가 있거나 리그 순위 정보가 있는 경우 표시
-        else if viewModel.teamStanding != nil || (viewModel.leagueStandings?.isEmpty == false) {
+        else if viewModel.teamStanding != nil || (viewModel.leagueStandings != nil && !viewModel.leagueStandings!.isEmpty) {
             standingView()
         }
         // 로딩이 완료되었지만 데이터가 없는 경우 메시지 표시
@@ -919,7 +919,7 @@ struct StandingSection: View {
                 tableHeader
                 
                 // 팀 순위 표시 (3개 팀)
-                if viewModel.isLoadingStandings == true {
+                if viewModel.isLoadingStandings {
                     ProgressView("순위 정보 로딩 중...")
                         .frame(maxWidth: .infinity, alignment: .center)
                         .padding()
@@ -1020,7 +1020,10 @@ struct StandingSection: View {
                         }
                     }
             } else {
-                FullStandingsView(standings: viewModel.leagueStandings ?? [], teamId: viewModel.teamId)
+                FullStandingsView(
+                    standings: viewModel.leagueStandings != nil ? viewModel.leagueStandings! : [],
+                    teamId: viewModel.teamId
+                )
                     .navigationTitle("리그 순위")
                     .navigationBarTitleDisplayMode(.inline)
                     .toolbar {
@@ -1291,7 +1294,19 @@ struct TeamInfoTabView: View {
                 TeamHeaderSection()
                 
                 // 다음 예정된 경기
-                UpcomingFixtureSection()
+                if viewModel.recentFixtures != nil && !viewModel.recentFixtures!.isEmpty {
+                    UpcomingFixtureSection()
+                        .environmentObject(viewModel)
+                } else {
+                    Text("예정된 경기 정보를 불러오는 중...")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .center)
+                        .padding()
+                        .background(Color(.systemGroupedBackground))
+                        .cornerRadius(15)
+                        .shadow(radius: 3, y: 2)
+                }
                 
                 if let errorMessage = viewModel.errorMessage {
                     ErrorView(message: errorMessage)
@@ -1395,28 +1410,12 @@ struct TeamInfoTabView: View {
                             .cornerRadius(15)
                             .shadow(radius: 3, y: 2)
                         } else {
-                            // 트로피 정보 표시 (트로피 데이터가 있는 모든 팀)
+                            // 트로피 정보 표시 (트로피 데이터가 있는 팀만 표시)
                             let trophies = viewModel.trophies ?? []
                             if !trophies.isEmpty {
                                 TeamTrophyView(trophies: trophies)
-                            } else {
-                                // 트로피 데이터가 없는 경우 메시지 표시
-                                VStack(spacing: 12) {
-                                    Text("트로피")
-                                        .font(.headline)
-                                        .padding(.horizontal)
-                                    
-                                    Text("트로피 정보가 없습니다")
-                                        .font(.subheadline)
-                                        .foregroundColor(.secondary)
-                                        .frame(maxWidth: .infinity, alignment: .center)
-                                        .padding()
-                                }
-                                .padding(.vertical)
-                                .background(.regularMaterial)
-                                .cornerRadius(15)
-                                .shadow(radius: 3, y: 2)
                             }
+                            // 트로피 데이터가 없는 경우 아무것도 표시하지 않음
                         }
                         
                         // 역대 성적 정보 표시

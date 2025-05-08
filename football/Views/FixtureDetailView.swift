@@ -4,6 +4,9 @@ struct FixtureDetailView: View {
     let fixture: Fixture
     @StateObject private var viewModel: FixtureDetailViewModel
     @State private var selectedTab = 0
+    @State private var navigateToTeamProfile: Bool = false
+    @State private var selectedTeamId: Int = 0
+    @State private var selectedTeamLeagueId: Int = 0
     
     // 경기 상태에 따라 다른 탭 표시
     private var isUpcoming: Bool {
@@ -41,16 +44,21 @@ struct FixtureDetailView: View {
                             }
                         }
                         
-                        // 경기 이벤트 데이터 자동 로드
+                        // 경기 이벤트 데이터 자동 로드 (강제 새로고침)
                         Task {
+                            print("🔄 MatchHeaderView - 경기 이벤트 데이터 강제 로드 시작")
+                            // 이벤트 데이터 강제 로드
                             await viewModel.loadEvents()
-                        }
-                    }
-                    .navigationDestination(isPresented: $viewModel.showTeamProfile) {
-                        if let teamId = viewModel.selectedTeamId, let leagueId = viewModel.selectedLeagueId {
-                            TeamProfileView(teamId: teamId, leagueId: leagueId)
-                        } else {
-                            Text("팀 정보를 불러올 수 없습니다")
+                            
+                            // 약간의 지연 후 UI 업데이트 강제
+                            try? await Task.sleep(nanoseconds: 300_000_000) // 0.3초
+                            viewModel.objectWillChange.send()
+                            
+                            // 추가 지연 후 한 번 더 UI 업데이트 강제
+                            try? await Task.sleep(nanoseconds: 700_000_000) // 0.7초
+                            viewModel.objectWillChange.send()
+                            
+                            print("✅ MatchHeaderView - 경기 이벤트 데이터 로드 및 UI 업데이트 완료")
                         }
                     }
                 
@@ -232,10 +240,60 @@ struct FixtureDetailView: View {
             .padding(.vertical)
         }
         .navigationBarTitleDisplayMode(.inline)
+        .background(
+            NavigationLink(destination: TeamProfileView(teamId: selectedTeamId, leagueId: selectedTeamLeagueId), isActive: $navigateToTeamProfile) {
+                EmptyView()
+            }
+        )
         .onAppear {
+            // NotificationCenter 관찰자 등록
+            NotificationCenter.default.addObserver(forName: NSNotification.Name("ShowTeamProfile"), object: nil, queue: .main) { notification in
+                if let userInfo = notification.userInfo,
+                   let teamId = userInfo["teamId"] as? Int,
+                   let leagueId = userInfo["leagueId"] as? Int {
+                    print("📣 FixtureDetailView - 팀 프로필 알림 수신: 팀 ID \(teamId), 리그 ID \(leagueId)")
+                    selectedTeamId = teamId
+                    selectedTeamLeagueId = leagueId
+                    navigateToTeamProfile = true
+                }
+            }
             // 기본 데이터 로드
             Task {
+                // 경기 이벤트 데이터 먼저 명시적으로 로드 (최우선)
+                if !isUpcoming {
+                    print("🔄 FixtureDetailView - 경기 이벤트 데이터 최우선 로드 시작")
+                    
+                    // 이벤트 데이터 강제 로드 (3번 시도)
+                    for i in 1...3 {
+                        print("🔄 FixtureDetailView - 이벤트 데이터 로드 시도 #\(i)")
+                        await viewModel.loadEvents()
+                        
+                        // 약간의 지연 후 UI 업데이트 강제
+                        try? await Task.sleep(nanoseconds: 300_000_000) // 0.3초
+                        viewModel.objectWillChange.send()
+                        
+                        // 이벤트가 로드되었는지 확인
+                        if !viewModel.events.isEmpty {
+                            print("✅ FixtureDetailView - 이벤트 데이터 로드 성공 (시도 #\(i))")
+                            break
+                        }
+                    }
+                }
+                
+                // 그 다음 모든 데이터 로드
                 await viewModel.loadAllData()
+                
+                // 모든 데이터 로드 후 UI 업데이트 강제
+                viewModel.objectWillChange.send()
+                
+                // 약간의 지연 후 한 번 더 UI 업데이트 강제
+                try? await Task.sleep(nanoseconds: 1_000_000_000) // 1초
+                viewModel.objectWillChange.send()
+                
+                // 최종 확인 및 UI 업데이트
+                try? await Task.sleep(nanoseconds: 2_000_000_000) // 2초
+                viewModel.objectWillChange.send()
+                print("✅ FixtureDetailView - 모든 데이터 로드 및 UI 업데이트 완료")
             }
             
             // 초기 선택된 탭에 필요한 데이터 명시적으로 로드
@@ -249,6 +307,10 @@ struct FixtureDetailView: View {
                 scheduleDelayedDataLoad(delay: 1)
                 scheduleDelayedDataLoad(delay: 2)
             }
+        }
+        .onDisappear {
+            // NotificationCenter 관찰자 제거
+            NotificationCenter.default.removeObserver(self, name: NSNotification.Name("ShowTeamProfile"), object: nil)
         }
     }
     

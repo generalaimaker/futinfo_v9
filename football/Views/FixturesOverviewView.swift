@@ -310,6 +310,9 @@ struct FixturesMainContentView: View {
 struct FixturesOverviewView: View {
     @StateObject private var viewModel = FixturesOverviewViewModel()
     @State private var selectedDateIndex = 5 // "오늘" 기본 선택 (10일 중 중앙)
+    @State private var navigateToTeamProfile: Bool = false
+    @State private var selectedTeamId: Int = 0
+    @State private var selectedTeamLeagueId: Int = 0
     
     var body: some View {
         NavigationView {
@@ -386,6 +389,28 @@ struct FixturesOverviewView: View {
                 await viewModel.fetchFixtures()
             }
         }
+        .onAppear {
+            // NotificationCenter 관찰자 등록
+            NotificationCenter.default.addObserver(forName: NSNotification.Name("ShowTeamProfile"), object: nil, queue: .main) { notification in
+                if let userInfo = notification.userInfo,
+                   let teamId = userInfo["teamId"] as? Int,
+                   let leagueId = userInfo["leagueId"] as? Int {
+                    print("📣 FixturesOverviewView - 팀 프로필 알림 수신: 팀 ID \(teamId), 리그 ID \(leagueId)")
+                    selectedTeamId = teamId
+                    selectedTeamLeagueId = leagueId
+                    navigateToTeamProfile = true
+                }
+            }
+        }
+        .onDisappear {
+            // NotificationCenter 관찰자 제거
+            NotificationCenter.default.removeObserver(self, name: NSNotification.Name("ShowTeamProfile"), object: nil)
+        }
+        .background(
+            NavigationLink(destination: TeamProfileView(teamId: selectedTeamId, leagueId: selectedTeamLeagueId), isActive: $navigateToTeamProfile) {
+                EmptyView()
+            }
+        )
     }
 }
 
@@ -748,10 +773,57 @@ struct FixtureCardView: View {
 // MARK: - 팀 정보 뷰 (간소화 버전)
 struct FixtureTeamView: View {
     let team: Team
+    @State private var isPressed = false
     
     var body: some View {
         VStack(spacing: 8) {
-            TeamLogoView(logoUrl: team.logo, size: 30)
+            // 팀 로고 - 탭 가능하도록 수정
+            ZStack {
+                Circle()
+                    .fill(Color(.systemBackground))
+                    .frame(width: 40, height: 40)
+                    .shadow(color: Color.black.opacity(0.1), radius: 2, x: 0, y: 1)
+                
+                CachedImageView(
+                    url: URL(string: team.logo),
+                    placeholder: Image(systemName: "sportscourt.fill"),
+                    failureImage: Image(systemName: "sportscourt.fill"),
+                    contentMode: .fit
+                )
+                .frame(width: 30, height: 30)
+            }
+            .scaleEffect(isPressed ? 1.1 : 1.0)
+            .onTapGesture {
+                // 탭 애니메이션
+                withAnimation(.easeInOut(duration: 0.15)) {
+                    isPressed = true
+                }
+                
+                // 0.15초 후 원래 상태로 복귀하고 팀 프로필로 이동
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                    withAnimation(.easeInOut(duration: 0.15)) {
+                        isPressed = false
+                    }
+                    
+                    // 팀 프로필로 이동 (NotificationCenter 사용)
+                    print("🔄 FixtureTeamView - 팀 프로필로 이동 요청: 팀 ID \(team.id)")
+                    NotificationCenter.default.post(
+                        name: NSNotification.Name("ShowTeamProfile"),
+                        object: nil,
+                        userInfo: ["teamId": team.id, "leagueId": 0]
+                    )
+                }
+            }
+            .overlay(
+                Text("팀 프로필")
+                    .font(.system(.caption2, design: .rounded))
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 2)
+                    .background(Color.blue.opacity(0.8))
+                    .cornerRadius(8)
+                    .opacity(isPressed ? 1.0 : 0.0)
+            )
             
             Text(team.name)
                 .font(.caption)
