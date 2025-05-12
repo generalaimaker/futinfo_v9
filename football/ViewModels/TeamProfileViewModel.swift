@@ -24,7 +24,8 @@ class TeamProfileViewModel: ObservableObject {
     
     let service = FootballAPIService.shared
     
-    let teamId: Int
+    // teamId를 public으로 변경하여 외부에서 접근 가능하게 함
+    public let teamId: Int
     
     init(teamId: Int, leagueId: Int? = nil) {
         self.teamId = teamId

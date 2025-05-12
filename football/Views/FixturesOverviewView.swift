@@ -1,4 +1,7 @@
 import SwiftUI
+#if canImport(TeamAbbreviations)
+import TeamAbbreviations
+#endif
 
 // MARK: - 배열 확장 (안전한 인덱스 접근)
 extension Array {
@@ -406,11 +409,9 @@ struct FixturesOverviewView: View {
             // NotificationCenter 관찰자 제거
             NotificationCenter.default.removeObserver(self, name: NSNotification.Name("ShowTeamProfile"), object: nil)
         }
-        .background(
-            NavigationLink(destination: TeamProfileView(teamId: selectedTeamId, leagueId: selectedTeamLeagueId), isActive: $navigateToTeamProfile) {
-                EmptyView()
-            }
-        )
+        .navigationDestination(isPresented: $navigateToTeamProfile) {
+            TeamProfileView(teamId: selectedTeamId, leagueId: selectedTeamLeagueId)
+        }
     }
 }
 
@@ -504,71 +505,94 @@ struct FixturePageView: View {
                 ForEach(prioritizedLeagues, id: \.self) { leagueId in
                     if let leagueFixtures = fixturesByLeague[leagueId], !leagueFixtures.isEmpty {
                         VStack(alignment: .leading, spacing: 8) {
-                            HStack {
-                                Image(systemName: "trophy")
-                                    .foregroundColor(.blue)
-                                // 리그 이름 표시
-                                let leagueName: String = {
-                                    switch leagueId {
-                                    // 주요 리그
-                                    case 39: return "프리미어 리그"
-                                    case 140: return "라리가"
-                                    case 135: return "세리에 A"
-                                    case 78: return "분데스리가"
-                                    case 61: return "리그 1"
-                                    
-                                    // UEFA 대회
-                                    case 2: return "챔피언스 리그"
-                                    case 3: return "유로파 리그"
-                                    case 4: return "컨퍼런스 리그"
-                                    case 5: return "유로 챔피언십"
-                                    
-                                    // 국제대회 - 월드컵 및 예선
-                                    case 1: return "FIFA 월드컵"
-                                    case 31: return "유럽 월드컵 예선"
-                                    case 32: return "아시아 월드컵 예선"
-                                    case 33: return "아프리카 월드컵 예선"
-                                    case 34: return "북중미 월드컵 예선"
-                                    case 35: return "남미 월드컵 예선"
-                                    case 36: return "오세아니아 월드컵 예선"
-                                    
-                                    // 국제대회 - 대륙별 대회
-                                    case 9: return "유럽 챔피언십"
-                                    case 10: return "코파 아메리카"
-                                    case 11: return "아시안컵"
-                                    case 12: return "아프리카컵"
-                                    case 13: return "골드컵"
-                                    
-                                    // 주요 컵 대회
-                                    case 45: return "FA컵"
-                                    case 143: return "코파 델 레이"
-                                    case 137: return "코파 이탈리아"
-                                    case 66: return "쿠프 드 프랑스"
-                                    case 81: return "DFB 포칼"
-                                    
-                                    // 기타 리그
-                                    case 144: return "벨기에 프로 리그"
-                                    case 88: return "에레디비시"
-                                    case 94: return "프리메이라 리가"
-                                    case 71: return "브라질 세리에 A"
-                                    case 848: return "아시안 챔피언스 리그"
-                                    case 207: return "K리그"
-                                    
-                                    default: return "리그 \(leagueId)"
+                            // 리그 배너 헤더
+                            let leagueName: String = {
+                                switch leagueId {
+                                // 주요 리그
+                                case 39: return "프리미어 리그"
+                                case 140: return "라리가"
+                                case 135: return "세리에 A"
+                                case 78: return "분데스리가"
+                                case 61: return "리그 1"
+                                // UEFA 대회
+                                case 2: return "챔피언스 리그"
+                                case 3: return "유로파 리그"
+                                case 4: return "컨퍼런스 리그"
+                                case 5: return "유로 챔피언십"
+                                // 국제대회 - 월드컵 및 예선
+                                case 1: return "FIFA 월드컵"
+                                case 31: return "유럽 월드컵 예선"
+                                case 32: return "아시아 월드컵 예선"
+                                case 33: return "아프리카 월드컵 예선"
+                                case 34: return "북중미 월드컵 예선"
+                                case 35: return "남미 월드컵 예선"
+                                case 36: return "오세아니아 월드컵 예선"
+                                // 국제대회 - 대륙별 대회
+                                case 9: return "유럽 챔피언십"
+                                case 10: return "코파 아메리카"
+                                case 11: return "아시안컵"
+                                case 12: return "아프리카컵"
+                                case 13: return "골드컵"
+                                // 주요 컵 대회
+                                case 45: return "FA컵"
+                                case 143: return "코파 델 레이"
+                                case 137: return "코파 이탈리아"
+                                case 66: return "쿠프 드 프랑스"
+                                case 81: return "DFB 포칼"
+                                // 기타 리그
+                                case 144: return "벨기에 프로 리그"
+                                case 88: return "에레디비시"
+                                case 94: return "프리메이라 리가"
+                                case 71: return "브라질 세리에 A"
+                                case 848: return "아시안 챔피언스 리그"
+                                case 207: return "K리그"
+                                default: return "리그 \(leagueId)"
+                                }
+                            }()
+
+                            HStack(alignment: .center, spacing: 12) {
+                                ZStack {
+                                    Color.white
+                                    if let leagueLogo = leagueFixtures.first?.league.logo, let logoURL = URL(string: leagueLogo) {
+                                        CachedImageView(url: logoURL, placeholder: Image(systemName: "trophy"), contentMode: .fit)
+                                            .frame(width: 42, height: 42)
                                     }
-                                }()
-                                
+                                }
+                                .frame(width: 56, height: 44)
+                                .clipShape(RoundedRectangle(cornerRadius: 8))
+
                                 Text(leagueName)
-                                    .font(.headline)
+                                    .font(.system(size: 16, weight: .bold))
+                                    .foregroundColor(.white)
+                                    .frame(maxHeight: .infinity, alignment: .center)
+                                    .padding(.leading, 4)
+
+                                Spacer()
                             }
+                            .padding(.leading, 12)
+                            .padding(.trailing, 8)
+                            .padding(.vertical, 6)
+                            .background(
+                                LinearGradient(
+                                    gradient: Gradient(colors: [
+                                        leagueColor(for: leagueId).opacity(0.8),
+                                        leagueColor(for: leagueId).opacity(0.95),
+                                        leagueColor(for: leagueId)
+                                    ]),
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                )
+                                .clipShape(RoundedRectangle(cornerRadius: 10))
+                            )
                             .padding(.top, 8)
-                            
+                            .padding(.bottom, 4)
+
                             ForEach(leagueFixtures) { fixture in
                                 FixtureCardView(fixture: fixture, viewModel: viewModel)
                                     .padding(.vertical, 4)
+                                    .padding(.top, 4)
                             }
                         }
-                        
                         Divider()
                             .padding(.vertical, 8)
                     }
@@ -731,7 +755,7 @@ struct FixtureCardView: View {
                 // 팀 정보
                 HStack {
                     // 홈팀
-                    FixtureTeamView(team: fixture.teams.home)
+                    FixtureTeamView(team: fixture.teams.home, isHome: true)
                     
                     // 스코어 (FixtureCell의 ScoreView 사용)
                     FixtureCell.ScoreView(
@@ -745,7 +769,7 @@ struct FixtureCardView: View {
                     )
 
                     // 원정팀
-                    FixtureTeamView(team: fixture.teams.away)
+                    FixtureTeamView(team: fixture.teams.away, isHome: false)
                 }
             }
             .padding()
@@ -773,63 +797,66 @@ struct FixtureCardView: View {
 // MARK: - 팀 정보 뷰 (간소화 버전)
 struct FixtureTeamView: View {
     let team: Team
+    let isHome: Bool
     @State private var isPressed = false
-    
+
     var body: some View {
-        VStack(spacing: 8) {
-            // 팀 로고 - 탭 가능하도록 수정
-            ZStack {
-                Circle()
-                    .fill(Color(.systemBackground))
-                    .frame(width: 40, height: 40)
-                    .shadow(color: Color.black.opacity(0.1), radius: 2, x: 0, y: 1)
-                
-                CachedImageView(
-                    url: URL(string: team.logo),
-                    placeholder: Image(systemName: "sportscourt.fill"),
-                    failureImage: Image(systemName: "sportscourt.fill"),
-                    contentMode: .fit
-                )
-                .frame(width: 30, height: 30)
+        HStack(spacing: 6) {
+            if isHome {
+                teamAbbreviationText
+                teamLogoView
+            } else {
+                teamLogoView
+                teamAbbreviationText
             }
-            .scaleEffect(isPressed ? 1.1 : 1.0)
-            .onTapGesture {
-                // 탭 애니메이션
-                withAnimation(.easeInOut(duration: 0.15)) {
-                    isPressed = true
-                }
-                
-                // 0.15초 후 원래 상태로 복귀하고 팀 프로필로 이동
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-                    withAnimation(.easeInOut(duration: 0.15)) {
-                        isPressed = false
-                    }
-                    
-                    // 팀 프로필로 이동 (NotificationCenter 사용)
-                    print("🔄 FixtureTeamView - 팀 프로필로 이동 요청: 팀 ID \(team.id)")
-                    NotificationCenter.default.post(
-                        name: NSNotification.Name("ShowTeamProfile"),
-                        object: nil,
-                        userInfo: ["teamId": team.id, "leagueId": 0]
-                    )
-                }
-            }
-            .overlay(
-                Text("팀 프로필")
-                    .font(.system(.caption2, design: .rounded))
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 2)
-                    .background(Color.blue.opacity(0.8))
-                    .cornerRadius(8)
-                    .opacity(isPressed ? 1.0 : 0.0)
-            )
-            
-            Text(team.name)
-                .font(.caption)
-                .lineLimit(1)
-                .frame(width: 100)
         }
+    }
+
+    private var teamLogoView: some View {
+        ZStack {
+            Circle()
+                .fill(Color(.systemBackground))
+                .frame(width: 48, height: 48)
+            CachedImageView(
+                url: URL(string: team.logo),
+                placeholder: Image(systemName: "sportscourt.fill"),
+                failureImage: Image(systemName: "sportscourt.fill"),
+                contentMode: .fit
+            )
+            .frame(width: 36, height: 36)
+        }
+        .scaleEffect(isPressed ? 1.1 : 1.0)
+        .onTapGesture {
+            withAnimation(.easeInOut(duration: 0.15)) {
+                isPressed = true
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                withAnimation(.easeInOut(duration: 0.15)) {
+                    isPressed = false
+                }
+                NotificationCenter.default.post(
+                    name: NSNotification.Name("ShowTeamProfile"),
+                    object: nil,
+                    userInfo: ["teamId": team.id, "leagueId": 0]
+                )
+            }
+        }
+        .overlay(
+            Text("팀 프로필")
+                .font(.system(.caption2, design: .rounded))
+                .foregroundColor(.white)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 2)
+                .background(Color.blue.opacity(0.8))
+                .cornerRadius(8)
+                .opacity(isPressed ? 1.0 : 0.0)
+        )
+    }
+
+    private var teamAbbreviationText: some View {
+        Text(TeamAbbreviations.abbreviation(for: team.name))
+            .font(.system(size: 20, weight: .bold))
+            .foregroundColor(.primary)
     }
 }
 
@@ -1130,3 +1157,17 @@ struct ScoreView: View {
     }
 }
 */
+
+// 리그별 컬러 반환 함수
+private func leagueColor(for id: Int) -> Color {
+    switch id {
+    case 39: return Color(red: 72 / 255, green: 15 / 255, blue: 117 / 255) // Premier League: Deep Purple
+    case 140: return Color(red: 232 / 255, green: 52 / 255, blue: 52 / 255) // La Liga: Vibrant Red
+    case 135: return Color(red: 0 / 255, green: 25 / 255, blue: 165 / 255) // Serie A: Royal Blue
+    case 78: return Color(red: 238 / 255, green: 0 / 255, blue: 0 / 255) // Bundesliga: Official Red
+    case 61: return Color(red: 49 / 255, green: 108 / 255, blue: 244 / 255) // Ligue 1: Clean Blue
+    case 2: return Color(red: 0 / 255, green: 51 / 255, blue: 153 / 255) // Champions League: Deep Blue
+    case 3: return Color(red: 255 / 255, green: 102 / 255, blue: 0 / 255) // Europa League: Orange
+    default: return Color.gray
+    }
+}

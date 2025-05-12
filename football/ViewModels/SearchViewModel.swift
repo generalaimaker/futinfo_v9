@@ -67,7 +67,96 @@ class SearchViewModel: ObservableObject {
         let words = trimmedQuery.split { $0.isWhitespace } // 공백 기준 분리
         // 마지막 단어 추출 후 특수문자 처리, 없으면 전체 쿼리 사용 (특수문자 처리)
         let searchQuery = words.last.map { sanitizeSearchQuery(String($0)) } ?? sanitizeSearchQuery(trimmedQuery)
-
+        
+        // 한글 검색어인지 확인
+        let isKoreanQuery = trimmedQuery.range(of: "[가-힣]", options: .regularExpression) != nil
+        
+        // 한글 검색어를 영문으로 변환 (팀 이름 매핑 사용)
+        let koreanToEnglishMapping: [String: String] = [
+            // 프리미어 리그
+            "맨유": "manchester united",
+            "맨체스터 유나이티드": "manchester united",
+            "맨시티": "manchester city",
+            "맨체스터 시티": "manchester city",
+            "리버풀": "liverpool",
+            "첼시": "chelsea",
+            "아스날": "arsenal",
+            "토트넘": "tottenham",
+            "뉴캐슬": "newcastle united",
+            "에버튼": "everton",
+            "웨스트햄": "west ham united",
+            "아스톤 빌라": "aston villa",
+            "레스터": "leicester city",
+            "노팅엄": "nottingham forest",
+            "브라이턴": "brighton",
+            
+            // 라리가
+            "레알": "real madrid",
+            "레알 마드리드": "real madrid",
+            "바르샤": "barcelona",
+            "바르셀로나": "barcelona",
+            "아틀레티코": "atletico madrid",
+            "알레띠": "atletico madrid",
+            "빌바오": "athletic bilbao",
+            "베티스": "real betis",
+            "세비야": "sevilla",
+            "비야레알": "villarreal",
+            "발렌시아": "valencia",
+            
+            // 분데스리가
+            "바이에른": "bayern munich",
+            "바이언": "bayern munich",
+            "뮌헨": "bayern munich",
+            "도르트문트": "borussia dortmund",
+            "돌문": "borussia dortmund",
+            "레버쿠젠": "bayer leverkusen",
+            "마인츠": "mainz 05",
+            "마인츠05": "mainz 05",
+            "라이프치히": "rb leipzig",
+            "라이프치히 팀": "leipzig",
+            "프랑크푸르트": "eintracht frankfurt",
+            "볼프스부르크": "wolfsburg",
+            
+            // 세리에 A
+            "인테르": "inter milan",
+            "인터밀란": "inter milan",
+            "밀란": "ac milan",
+            "에이씨 밀란": "ac milan",
+            "유벤투스": "juventus",
+            "유베": "juventus",
+            "나폴리": "napoli",
+            "로마": "as roma",
+            "라치오": "lazio",
+            
+            // 리그 1
+            "파리": "paris saint-germain",
+            "파리 생제르맹": "paris saint-germain",
+            "생제르맹": "paris saint-germain",
+            "피에스지": "psg",
+            "모나코": "monaco",
+            "리옹": "lyon",
+            "올림피크 리옹": "olympique lyonnais",
+            "마르세유": "marseille",
+            "올림피크 마르세유": "olympique marseille"
+        ]
+        
+        // 한글 검색어에 대한 영문 검색어 추가
+        var additionalQueries: [String] = []
+        if isKoreanQuery {
+            // 전체 검색어에 대한 매핑 확인
+            if let englishQuery = koreanToEnglishMapping[trimmedQuery.lowercased()] {
+                additionalQueries.append(englishQuery)
+            }
+            
+            // 각 단어에 대한 매핑 확인
+            for word in words {
+                let wordStr = String(word).lowercased()
+                if let englishWord = koreanToEnglishMapping[wordStr] {
+                    additionalQueries.append(englishWord)
+                }
+            }
+        }
+        
         // 검색할 쿼리가 비어있으면 중단 (sanitize 후 비어있을 수 있음)
         guard !searchQuery.isEmpty else {
             searchResults = []
@@ -77,6 +166,9 @@ class SearchViewModel: ObservableObject {
         }
 
         print("🧠 최종 검색 쿼리 (마지막 단어 또는 전체): \(searchQuery)")
+        if !additionalQueries.isEmpty {
+            print("🧠 추가 영문 검색 쿼리: \(additionalQueries.joined(separator: ", "))")
+        }
 
         // 선택된 검색 종류에 따라 다른 검색 수행
         switch selectedSearchType {
@@ -93,6 +185,17 @@ class SearchViewModel: ObservableObject {
                     print("  -> Task: 선수 검색 (\(searchQuery))")
                     return await self.searchPlayersInMajorLeagues(query: searchQuery)
                 }
+                
+                // 한글 검색어에 대한 추가 검색 Task 추가
+                if isKoreanQuery && !additionalQueries.isEmpty {
+                    for englishQuery in additionalQueries {
+                        group.addTask {
+                            print("  -> Task: 추가 팀 검색 (\(englishQuery))")
+                            return await self.searchTeams(query: englishQuery)
+                        }
+                    }
+                }
+                
 
                 // 결과 처리 (TaskGroup)
                 for await result in group {
@@ -113,6 +216,19 @@ class SearchViewModel: ObservableObject {
             } else if case .failure(let error) = teamResult {
                  print("⚠️ 팀 검색 중 오류 발생 (무시됨): \(error.localizedDescription)")
             }
+            
+            // 한글 검색어에 대한 추가 검색 수행
+            if isKoreanQuery && !additionalQueries.isEmpty {
+                print("🔍 한글 검색어 감지: 추가 영문 검색 수행")
+                for englishQuery in additionalQueries {
+                    print("  -> 추가 팀 검색: \(englishQuery)")
+                    let additionalResult = await searchTeams(query: englishQuery)
+                    if case .success(let items) = additionalResult {
+                        combinedResults.append(contentsOf: items)
+                    }
+                }
+            }
+            
 
         case .player:
             // 선수만 검색 (여러 리그 병렬 호출) - 추출된 단일 쿼리 사용
@@ -122,6 +238,18 @@ class SearchViewModel: ObservableObject {
             } else if case .failure(let error) = playerResult {
                  print("⚠️ 선수 검색 중 오류 발생 (무시됨): \(error.localizedDescription)")
             }
+            
+            // 한글 검색어에 대한 추가 검색 수행
+            if isKoreanQuery && !additionalQueries.isEmpty {
+                print("🔍 한글 검색어 감지: 추가 영문 선수 검색 수행")
+                for englishQuery in additionalQueries {
+                    print("  -> 추가 선수 검색: \(englishQuery)")
+                    let additionalResult = await searchPlayersInMajorLeagues(query: englishQuery)
+                    if case .success(let items) = additionalResult {
+                        combinedResults.append(contentsOf: items)
+                    }
+                }
+            }
         }
 
         // 결과 정렬 및 중복 제거
@@ -129,21 +257,49 @@ class SearchViewModel: ObservableObject {
         
         // 인기 팀 목록 정의 (ID 기준)
         let popularTeamIds = [
+            // 프리미어 리그
             33,   // 맨체스터 유나이티드
             50,   // 맨체스터 시티
             40,   // 리버풀
             49,   // 첼시
             42,   // 아스날
             47,   // 토트넘
+            34,   // 뉴캐슬
+            48,   // 웨스트햄
+            66,   // 아스톤 빌라
+            45,   // 에버튼
+            
+            // 라리가
             541,  // 레알 마드리드
             529,  // 바르셀로나
             530,  // 아틀레티코 마드리드
+            531,  // 아틀레틱 빌바오
+            532,  // 발렌시아
+            536,  // 세비야
+            533,  // 비야레알
+            
+            // 분데스리가
             157,  // 바이에른 뮌헨
             165,  // 도르트문트
+            173,  // 라이프치히
+            169,  // 프랑크푸르트
+            168,  // 레버쿠젠
+            167,  // 볼프스부르크
+            170,  // 마인츠
+            
+            // 세리에 A
             505,  // 인터 밀란
             489,  // AC 밀란
             496,  // 유벤투스
-            85    // 파리 생제르맹
+            492,  // 나폴리
+            497,  // AS 로마
+            487,  // 라치오
+            
+            // 리그 1
+            85,   // 파리 생제르맹
+            91,   // 모나코
+            80,   // 리옹
+            81    // 마르세유
         ]
         
         // 인기 팀 이름 목록 (이름 기준)
@@ -164,12 +320,15 @@ class SearchViewModel: ObservableObject {
             "ac milan", "milan",
             "juventus", "juve",
             "paris saint-germain", "psg", "paris",
+            "newcastle united", "newcastle",
+            "Bayer Leverkusen", "leverkusen",
             
             // 한글 이름 및 별명
-            "맨유", "맨시티", "리버풀", "첼시", "아스날", "토트넘",
-            "레알", "바르셀로나", "바르샤", "아틀레티코", "알레띠",
-            "바이에른", "뮌헨", "바이언", "도르트문트", "돌문",
-            "인터밀란", "인테르", "밀란", "유벤투스", "파리"
+            "맨유", "맨시티", "리버풀", "첼시", "아스날", "토트넘", "뉴캐슬", "에버튼",
+            "레알", "바르셀로나", "바르샤", "아틀레티코", "알레띠", "빌바오", "베티스",
+            "바이에른", "뮌헨", "바이언", "도르트문트", "돌문", "레버쿠젠", "마인츠",
+            "인터밀란", "인테르", "밀란", "유벤투스", "나폴리", "아탈란타", "로마",
+            "파리", "모나코", "리옹"
         ]
         
         // 이름 유사도 기반 정렬 추가 (검색어 정확 일치 우선, 인기 팀 우선, 시작 문자열 일치 우선)
@@ -180,14 +339,72 @@ class SearchViewModel: ObservableObject {
             
             // 검색어-팀 이름 매핑 (한글 검색어 -> 영문 팀 이름)
             let searchToTeamMapping: [String: String] = [
+                // 프리미어 리그 팀
                 "맨유": "manchester united",
+                "맨체스터 유나이티드": "manchester united",
                 "맨시티": "manchester city",
+                "맨체스터 시티": "manchester city",
+                "리버풀": "liverpool",
+                "첼시": "chelsea",
+                "아스날": "arsenal",
+                "토트넘": "tottenham",
+                "뉴캐슬": "newcastle united",
+                "아스톤 빌라": "aston villa",
+                "에버튼": "everton",
+                "레스터": "leicester city",
+                "노팅엄": "nottingham forest",
+                "브라이턴": "brighton & hove albion",
+                "웨스트햄": "west ham united",
+                
+                // 라리가 팀
                 "레알": "real madrid",
+                "레알 마드리드": "real madrid",
                 "바르샤": "barcelona",
+                "바르셀로나": "barcelona",
                 "알레띠": "atletico madrid",
                 "아틀레티코": "atletico madrid",
+                "아틀레티코 마드리드": "atletico madrid",
+                "빌바오": "athletic club",
+                "아틀레틱 빌바오": "athletic bilbao",
+                "베티스": "real betis",
+                "세비야": "sevilla",
+                "비야레알": "villarreal",
+                "발렌시아": "valencia",
+                
+                // 분데스리가 팀
                 "돌문": "borussia dortmund",
-                "바이언": "bayern munich"
+                "도르트문트": "borussia dortmund",
+                "바이언": "bayern munich",
+                "바이에른": "bayern munich",
+                "뮌헨": "bayern munich",
+                "레버쿠젠": "bayer leverkusen",
+                "마인츠": "mainz 05",
+                "마인츠05": "mainz 05",
+                "라이프치히": "rb leipzig",
+                "프랑크푸르트": "eintracht frankfurt",
+                "볼프스부르크": "wolfsburg",
+                
+                // 세리에 A 팀
+                "인테르": "inter milan",
+                "인터밀란": "inter milan",
+                "밀란": "ac milan",
+                "에이씨 밀란": "ac milan",
+                "유베": "juventus",
+                "유벤투스": "juventus",
+                "나폴리": "napoli",
+                "로마": "as roma",
+                "라치오": "lazio",
+                
+                // 리그 1 팀
+                "파리": "paris saint-germain",
+                "파리 생제르맹": "paris saint-germain",
+                "생제르맹": "paris saint-germain",
+                "피에스지": "psg",
+                "모나코": "monaco",
+                "리옹": "lyon",
+                "올림피크 리옹": "olympique lyonnais",
+                "마르세유": "marseille",
+                "올림피크 마르세유": "olympique marseille"
             ]
             
             // 검색어에 해당하는 영문 팀 이름 (있는 경우)

@@ -10,7 +10,7 @@ struct UpcomingFixtureSection: View {
                 .padding(.horizontal)
             
             // 다음 경기 찾기 (날짜 기준으로 정렬하여 현재 시간 이후의 첫 번째 경기)
-            let upcomingFixtures = viewModel.recentFixtures?.filter { fixture in
+            let upcomingFixtures = (viewModel.recentFixtures ?? []).filter { fixture in
                 // 완료되지 않은 경기만 필터링 (FT, AET, PEN 등이 아닌 경기)
                 let status = fixture.fixture.status.short
                 return status != "FT" && status != "AET" && status != "PEN"
@@ -18,7 +18,7 @@ struct UpcomingFixtureSection: View {
             .sorted { fixture1, fixture2 in
                 // 날짜순으로 정렬
                 fixture1.fixture.date < fixture2.fixture.date
-            } ?? []
+            }
             
             if let nextFixture = upcomingFixtures.first {
                 upcomingFixtureCard(fixture: nextFixture)

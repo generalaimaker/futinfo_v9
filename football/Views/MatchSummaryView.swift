@@ -6,6 +6,11 @@ struct MatchSummaryView: View {
     let statistics: [TeamStatistics]
     let viewModel: FixtureDetailViewModel
     
+    // 라이브 경기인지 확인하는 계산 속성
+    private var isLiveMatch: Bool {
+        return ["1H", "2H", "HT", "ET", "P", "BT"].contains(fixture.fixture.status.short)
+    }
+    
     private var dateFormatter: DateFormatter {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ssZ"
@@ -28,6 +33,11 @@ struct MatchSummaryView: View {
     
     private var keyEvents: [(Int, [FixtureEvent])] {
         let filteredEvents = events.filter { event in
+            // 골 이벤트인 경우 isActualGoal 속성 사용
+            if event.type.lowercased() == "goal" {
+                return event.isActualGoal
+            }
+            
             switch event.eventCategory {
             case .goal, .card, .substitution, .var:
                 return true
@@ -35,6 +45,14 @@ struct MatchSummaryView: View {
                 return false
             }
         }
+        
+        // 이벤트 로깅 (디버깅용)
+        print("🔄 MatchSummaryView - 필터링된 이벤트: \(filteredEvents.count)개")
+        for (index, event) in filteredEvents.enumerated() {
+            let timeInfo = event.isExtraTime ? "\(event.time.elapsed)' (연장)" : "\(event.time.elapsed)'"
+            print("  [\(index+1)] \(timeInfo) - \(event.type) - \(event.detail) - \(event.player.name ?? "알 수 없음")")
+        }
+        
         return Dictionary(grouping: filteredEvents) { $0.time.elapsed }
             .sorted { $0.key < $1.key }
     }
@@ -94,9 +112,16 @@ struct MatchSummaryView: View {
                     .font(.headline)
                 
                 if keyEvents.isEmpty {
-                    Text("주요 이벤트가 없습니다")
-                        .foregroundColor(.gray)
-                        .padding()
+                    // 경기가 진행 중이지만 아직 이벤트가 없는 경우에만 "대기 중" 메시지 표시
+                    if isLiveMatch {
+                        Text("경기 진행 중... 주요 이벤트 대기 중")
+                            .foregroundColor(.red)
+                            .padding()
+                    } else {
+                        Text("주요 이벤트가 없습니다")
+                            .foregroundColor(.gray)
+                            .padding()
+                    }
                 } else {
                     VStack(spacing: 0) {
                         ForEach(keyEvents, id: \.0) { elapsed, timeEvents in

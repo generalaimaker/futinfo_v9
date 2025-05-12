@@ -20,9 +20,40 @@ struct TimelineEventCard: View {
                         switch event.eventCategory {
                         case .goal:
                             if let playerName = event.player.name {
-                                Text(playerName)
-                                    .font(.callout)
-                                    .fontWeight(.medium)
+                                // 실제 득점된 골인지 확인
+                                if event.isActualGoal {
+                                    // 연장전 득점자 표시
+                                    HStack(spacing: 4) {
+                                        Text(playerName)
+                                            .font(.callout)
+                                            .fontWeight(.medium)
+                                        
+                                        if event.isExtraTime {
+                                            Text("(연장)")
+                                                .font(.caption)
+                                                .foregroundColor(.orange)
+                                                .padding(.horizontal, 4)
+                                                .padding(.vertical, 2)
+                                                .background(Color.orange.opacity(0.1))
+                                                .cornerRadius(4)
+                                        }
+                                    }
+                                } else if event.detail.lowercased().contains("won") {
+                                    // 페널티 획득만 한 경우
+                                    Text("\(playerName) - 페널티 획득")
+                                        .font(.callout)
+                                        .fontWeight(.medium)
+                                } else if event.detail.lowercased().contains("missed") {
+                                    // 페널티 놓친 경우
+                                    Text("\(playerName) - 페널티 실축")
+                                        .font(.callout)
+                                        .fontWeight(.medium)
+                                        .foregroundColor(.red)
+                                } else {
+                                    Text(playerName)
+                                        .font(.callout)
+                                        .fontWeight(.medium)
+                                }
                             }
                             if let assist = event.assist, let assistName = assist.name {
                                 Text("어시스트: \(assistName)")

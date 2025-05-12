@@ -23,6 +23,27 @@ struct PlayerInjury: Identifiable {
     }
 }
 
+
+// MARK: - Computed Properties for League Info
+extension FixtureDetailViewModel {
+    var leagueIdValue: Int? {
+        currentFixture?.league.id
+    }
+
+    var leagueNameValue: String? {
+        currentFixture?.league.name
+    }
+}
+
+// MARK: - 통계 카테고리
+enum StatisticCategory: String, CaseIterable {
+    case shooting = "슈팅"
+    case passing = "패스"
+    case defense = "수비"
+    case attacking = "공격"
+    case other = "기타"
+}
+
 // MARK: - 차트 데이터 모델 확장
 extension FixtureChartData {
     // 기존 FixtureChartData 모델 확장
@@ -86,15 +107,6 @@ extension FixtureChartData {
     }
 }
 
-// MARK: - 통계 카테고리
-enum StatisticCategory: String, CaseIterable {
-    case shooting = "슈팅"
-    case passing = "패스"
-    case defense = "수비"
-    case attacking = "공격"
-    case other = "기타"
-}
-
 @MainActor
 class FixtureDetailViewModel: ObservableObject {
     // MARK: - Published 속성
@@ -154,7 +166,7 @@ class FixtureDetailViewModel: ObservableObject {
     
     // 자동 새로고침 관련 프로퍼티
     private var refreshTimer: Timer?
-    private let liveMatchRefreshInterval: TimeInterval = 30 // 진행 중인 경기는 30초마다 새로고침
+    private let liveMatchRefreshInterval: TimeInterval = 30 // 진행 중인 경기는 30초마다 새로고침 (실시간 이벤트 업데이트를 위해)
     private let upcomingMatchRefreshInterval: TimeInterval = 300 // 예정된 경기는 5분마다 새로고침
     private var isAutoRefreshEnabled = true
 
@@ -280,22 +292,23 @@ class FixtureDetailViewModel: ObservableObject {
         // 현재 경기 상태 확인
         if let fixture = currentFixture {
             // 경기 상태에 따라 다른 데이터 새로고침
-            switch fixture.fixture.status.short {
-            case "1H", "2H", "HT", "ET", "P", "BT": // 진행 중인 경기
-                // 이벤트, 통계 새로고침
+            if isLiveMatch() { // 진행 중인 경기
+                // 이벤트, 통계, 라인업 새로고침
                 print("🔄 진행 중인 경기 데이터 새로고침 시작")
                 // 비동기 작업이 있는 메서드 호출
                 await self.loadEvents()
                 await self.loadStatistics()
-            case "NS": // 예정된 경기
+                await self.loadLineups() // 라인업 데이터도 새로고침
+                await self.loadMatchPlayerStats() // 선수 통계도 새로고침
+            } else if fixture.fixture.status.short == "NS" { // 예정된 경기
                 // 부상 정보, 팀 폼 새로고침
                 print("🔄 예정된 경기 데이터 새로고침 시작")
                 await self.loadInjuries()
                 await self.loadTeamForms()
-            case "FT", "AET", "PEN": // 종료된 경기
+            } else if ["FT", "AET", "PEN"].contains(fixture.fixture.status.short) { // 종료된 경기
                 // 종료된 경기는 새로고침 불필요
                 print("🔄 종료된 경기는 데이터 새로고침이 필요하지 않습니다.")
-            default:
+            } else {
                 // 기타 상태는 모든 데이터 새로고침
                 print("🔄 기타 상태 경기 데이터 새로고침 시작")
                 await self.loadAllData()
@@ -319,6 +332,12 @@ class FixtureDetailViewModel: ObservableObject {
         // 예: "Round of 16", "Quarter-finals", "Semi-finals", "Final" 등
         let tournamentRounds = ["16", "8", "quarter", "semi", "final", "1st leg", "2nd leg"]
         return tournamentRounds.contains { round.lowercased().contains($0.lowercased()) }
+    }
+    
+    // 현재 경기가 라이브 경기인지 확인하는 함수
+    public func isLiveMatch() -> Bool {
+        guard let fixture = currentFixture else { return false }
+        return ["1H", "2H", "HT", "ET", "P", "BT"].contains(fixture.fixture.status.short)
     }
 
     // 모든 데이터 로드
@@ -387,13 +406,22 @@ class FixtureDetailViewModel: ObservableObject {
         }
     }
 
-    // 이벤트 로드
+    // 이벤트 로드 (강화된 버전)
     public func loadEvents() async {
         isLoadingEvents = true
+        print("🔄 FixtureDetailViewModel - 경기 이벤트 로드 시작 (fixtureId: \(fixtureId))")
 
         do {
-            // API에서 경기 이벤트 가져오기
-            let fixtureEvents = try await service.getFixtureEvents(fixtureId: fixtureId)
+            // 라이브 경기인 경우 LiveMatchService 사용, 아닌 경우 일반 API 사용
+            let fixtureEvents: [FixtureEvent]
+            if isLiveMatch() {
+                print("🔴 라이브 경기 이벤트 로드 (LiveMatchService 사용)")
+                fixtureEvents = try await LiveMatchService.shared.getLiveMatchEvents(fixtureId: fixtureId)
+            } else {
+                print("🔄 일반 경기 이벤트 로드 (FootballAPIService 사용)")
+                fixtureEvents = try await service.getFixtureEvents(fixtureId: fixtureId)
+            }
+            print("📊 FixtureDetailViewModel - API에서 이벤트 \(fixtureEvents.count)개 수신")
 
             // 이벤트 시간 순으로 정렬
             let sortedEvents = fixtureEvents.sorted { (event1, event2) -> Bool in
@@ -402,10 +430,50 @@ class FixtureDetailViewModel: ObservableObject {
                 return time1 < time2
             }
 
+            // 실제 득점된 골 이벤트만 필터링 (isActualGoal 속성 사용)
+            let goalEvents = sortedEvents.filter { event in
+                return event.isActualGoal
+            }
+            
+            print("⚽️ FixtureDetailViewModel - 실제 득점된 골 이벤트 \(goalEvents.count)개 발견")
+            
+            // 골 이벤트 상세 로깅 (연장전 표시 포함)
+            for (index, goal) in goalEvents.enumerated() {
+                let timeInfo = goal.time.elapsed > 90 ? "\(goal.time.elapsed)' (연장)" : "\(goal.time.elapsed)'"
+                print("  [\(index+1)] \(goal.team.name) - \(goal.player.name ?? "알 수 없음") (\(timeInfo)) - \(goal.detail)")
+            }
+
+            // 메인 스레드에서 데이터 업데이트
             await MainActor.run {
                 self.events = sortedEvents
                 self.isLoadingEvents = false
-                print("✅ 경기 이벤트 로드 완료: \(sortedEvents.count)개")
+                print("✅ FixtureDetailViewModel - 경기 이벤트 로드 완료: \(sortedEvents.count)개")
+                
+                // 연장전 득점자 확인 및 로깅
+                let extraTimeGoals = sortedEvents.filter { $0.isActualGoal && $0.isExtraTime }
+                if !extraTimeGoals.isEmpty {
+                    print("⚽️ FixtureDetailViewModel - 연장전 득점 이벤트 \(extraTimeGoals.count)개 발견")
+                    for (index, goal) in extraTimeGoals.enumerated() {
+                        print("  [\(index+1)] \(goal.team.name) - \(goal.player.name ?? "알 수 없음") (\(goal.time.elapsed)' 연장) - \(goal.detail)")
+                    }
+                }
+                
+                // 이벤트 로드 완료 후 UI 업데이트 트리거 (즉시)
+                self.objectWillChange.send()
+                
+                // 모든 관찰자에게 변경 알림
+                NotificationCenter.default.post(name: NSNotification.Name("EventsDidLoad"), object: nil)
+            }
+            
+            // 불필요한 여러 번의 UI 업데이트를 하나로 통합
+            // 약간의 지연 후 한 번만 UI 업데이트 트리거 (UI 갱신 보장)
+            try? await Task.sleep(nanoseconds: 500_000_000) // 0.5초
+            await MainActor.run {
+                self.objectWillChange.send()
+                print("✅ FixtureDetailViewModel - UI 업데이트 완료")
+                
+                // 모든 관찰자에게 변경 알림
+                NotificationCenter.default.post(name: NSNotification.Name("EventsDidLoad"), object: nil)
             }
         } catch {
             await MainActor.run {
@@ -647,8 +715,15 @@ class FixtureDetailViewModel: ObservableObject {
         isLoadingStats = true
 
         do {
-            // 1. 기본 통계 가져오기
-            let teamStats = try await service.getFixtureStatistics(fixtureId: fixtureId)
+            // 1. 기본 통계 가져오기 (라이브 경기인 경우 LiveMatchService 사용)
+            let teamStats: [TeamStatistics]
+            if isLiveMatch() {
+                print("🔴 라이브 경기 통계 로드 (LiveMatchService 사용)")
+                teamStats = try await LiveMatchService.shared.getLiveMatchStatistics(fixtureId: fixtureId)
+            } else {
+                print("🔄 일반 경기 통계 로드 (FootballAPIService 사용)")
+                teamStats = try await service.getFixtureStatistics(fixtureId: fixtureId)
+            }
 
             // 2. 하프 통계 가져오기
             let halfStats = try await service.getFixtureHalfStatistics(fixtureId: fixtureId)

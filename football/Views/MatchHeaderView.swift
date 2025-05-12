@@ -79,9 +79,14 @@ struct MatchHeaderView: View {
             
             // 팀 정보와 스코어
             HStack(alignment: .center, spacing: 0) {
-                // 홈팀
-                TeamInfoView(team: fixture.teams.home, isWinner: fixture.teams.home.winner == true, fixture: fixture, viewModel: viewModel)
-                    .frame(maxWidth: .infinity)
+                // 홈팀 - 라이브 경기에서는 승리 표시 비활성화
+                TeamInfoView(
+                    team: fixture.teams.home,
+                    isWinner: !isLive && fixture.teams.home.winner == true,
+                    fixture: fixture,
+                    viewModel: viewModel
+                )
+                .frame(maxWidth: .infinity)
                 
                 // 스코어
                 VStack(spacing: 8) {
@@ -201,9 +206,14 @@ struct MatchHeaderView: View {
                 }
                 .background(Color(.systemBackground))
                 
-                // 원정팀
-                TeamInfoView(team: fixture.teams.away, isWinner: fixture.teams.away.winner == true, fixture: fixture, viewModel: viewModel)
-                    .frame(maxWidth: .infinity)
+                // 원정팀 - 라이브 경기에서는 승리 표시 비활성화
+                TeamInfoView(
+                    team: fixture.teams.away,
+                    isWinner: !isLive && fixture.teams.away.winner == true,
+                    fixture: fixture,
+                    viewModel: viewModel
+                )
+                .frame(maxWidth: .infinity)
             }
             .padding(.vertical, 20)
             .background(Color(.systemBackground))

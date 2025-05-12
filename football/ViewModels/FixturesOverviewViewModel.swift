@@ -32,16 +32,16 @@ class FixturesOverviewViewModel: ObservableObject {
     // 캐싱 관련 변수
     private var cachedFixtures: [String: [Fixture]] = [:] // 날짜 문자열을 키로 사용
     private var cacheDates: [String: Date] = [:] // 캐시 저장 시간 기록
-    private let cacheExpirationMinutes: Double = 15 // 캐시 만료 시간 (15분으로 단축)
+    private let cacheExpirationMinutes: Double = 5 // 캐시 만료 시간 (15분에서 5분으로 단축)
     
     // 경기 상태별 캐시 만료 시간 (분 단위)
-    private let liveMatchCacheMinutes: Double = 5 // 진행 중인 경기는 5분
-    private let upcomingMatchCacheMinutes: Double = 15 // 예정된 경기는 15분
-    private let finishedMatchCacheMinutes: Double = 60 // 종료된 경기는 1시간
+    private let liveMatchCacheMinutes: Double = 1 // 진행 중인 경기는 1분 (5분에서 단축)
+    private let upcomingMatchCacheMinutes: Double = 5 // 예정된 경기는 5분 (15분에서 단축)
+    private let finishedMatchCacheMinutes: Double = 30 // 종료된 경기는 30분 (60분에서 단축)
     
     // 자동 새로고침 타이머
     private var refreshTimer: Timer?
-    private let autoRefreshInterval: TimeInterval = 60 // 1분마다 자동 새로고침
+    private let autoRefreshInterval: TimeInterval = 60 // 60초마다 자동 새로고침 (30초에서 60초로 변경)
     
     // 개발 모드에서 백그라운드 로드 활성화 여부
     #if DEBUG
@@ -152,17 +152,17 @@ class FixturesOverviewViewModel: ObservableObject {
             // 로딩 상태 설정
             isLoading = true
             
-            // 오늘 날짜에 대한 경기 일정 로드 (캐시 우선 로딩)
-            print("📱 앱 시작 시 오늘 날짜 데이터 프리로딩 시작")
-            await preloadFixturesWithFallback(for: today)
+            // 오늘 날짜에 대한 경기 일정 로드 (강제 새로고침 적용)
+            print("📱 앱 시작 시 오늘 날짜 데이터 프리로딩 시작 (강제 새로고침)")
+            await preloadFixturesWithFallback(for: today, forceRefresh: true)
             
             // 내일 날짜에 대한 경기 일정 미리 로드
             let tomorrow = calendar.date(byAdding: .day, value: 1, to: today)!
-            await preloadFixturesWithFallback(for: tomorrow)
+            await preloadFixturesWithFallback(for: tomorrow, forceRefresh: true)
             
             // 어제 날짜에 대한 경기 결과 미리 로드
             let yesterday = calendar.date(byAdding: .day, value: -1, to: today)!
-            await preloadFixturesWithFallback(for: yesterday)
+            await preloadFixturesWithFallback(for: yesterday, forceRefresh: true)
             
             // 백그라운드 로드가 활성화된 경우에만 추가 데이터 로드
             if enableBackgroundLoad {
@@ -184,7 +184,7 @@ class FixturesOverviewViewModel: ObservableObject {
     
     // 캐시 우선 로딩 + 나중에 새로고침 전략을 사용한 프리로딩 메서드
     @MainActor
-    private func preloadFixturesWithFallback(for date: Date) async {
+    private func preloadFixturesWithFallback(for date: Date, forceRefresh: Bool = false) async {
         let dateString = formatDateForAPI(date)
         
         // 1. 먼저 캐시된 데이터가 있으면 즉시 표시 (UI 빠르게 업데이트)
@@ -199,11 +199,11 @@ class FixturesOverviewViewModel: ObservableObject {
         // 2. 캐시 만료 여부 확인
         let isCacheExpired = isCacheExpired(for: dateString)
         
-        // 3. 캐시가 만료되었거나 데이터가 없는 경우에만 API 호출
-        if isCacheExpired || fixtures[date]?.isEmpty == true {
+        // 3. 캐시가 만료되었거나 데이터가 없는 경우 또는 강제 새로고침인 경우 API 호출
+        if isCacheExpired || fixtures[date]?.isEmpty == true || forceRefresh {
             do {
                 // API에서 최신 데이터 가져오기
-                let fixturesForDate = try await fetchFixturesForDate(date, forceRefresh: true)
+                let fixturesForDate = try await fetchFixturesForDate(date, forceRefresh: forceRefresh)
                 
                 // UI 업데이트
                 fixtures[date] = fixturesForDate
@@ -1402,6 +1402,23 @@ class FixturesOverviewViewModel: ObservableObject {
             return
         }
         
+        // 오늘 날짜인지 확인
+        let isToday = calendar.isDate(date, inSameDayAs: today)
+        
+        // 오늘 날짜이거나 라이브 경기가 있는 경우 강제 새로고침
+        var shouldForceRefresh = forceRefresh
+        
+        // 라이브 경기가 있는지 확인
+        let hasLiveMatches = fixtures[date]?.contains { fixture in
+            liveStatuses.contains(fixture.fixture.status.short)
+        } ?? false
+        
+        // 오늘 날짜이거나 라이브 경기가 있으면 강제 새로고침
+        if isToday || hasLiveMatches {
+            shouldForceRefresh = true
+            print("🔄 오늘 날짜 또는 라이브 경기가 있어 강제 새로고침: \(formatDateForAPI(date))")
+        }
+        
         // 로딩 중인 날짜 목록에 추가
         loadingDates.insert(date)
         
@@ -1414,8 +1431,8 @@ class FixturesOverviewViewModel: ObservableObject {
         // 타임아웃 처리를 위한 Task 생성
         let task = Task {
             do {
-                // 경기 일정 가져오기
-                let fixturesForDate = try await fetchFixturesForDate(date, forceRefresh: forceRefresh)
+                // 경기 일정 가져오기 (shouldForceRefresh 사용)
+                let fixturesForDate = try await fetchFixturesForDate(date, forceRefresh: shouldForceRefresh)
                 
                 // 작업이 취소되었는지 확인
                 if Task.isCancelled {

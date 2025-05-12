@@ -1,58 +1,9 @@
 import Foundation
+import SwiftUI
 
-struct HeadToHeadResponse: Codable, APIErrorCheckable { // APIErrorCheckable 채택
-    let get: String
-    let parameters: ResponseParameters // APIResponseTypes.swift에 정의됨
-    let errors: Any
-    let results: Int
-    let paging: APIPaging // ResponsePaging -> APIPaging 수정
-    let response: [Fixture]
-    
-    // 사용자 정의 디코더 추가
-    init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        get = try container.decode(String.self, forKey: .get)
-        parameters = try container.decode(ResponseParameters.self, forKey: .parameters)
-        
-        // errors 필드 디코딩 (Any 타입으로 변경)
-        if let errorArray = try? container.decode([String].self, forKey: .errors) {
-            errors = errorArray
-        } else if let errorDict = try? container.decode([String: String].self, forKey: .errors) {
-            errors = errorDict
-        } else {
-            errors = []
-        }
-        
-        results = try container.decode(Int.self, forKey: .results)
-        paging = try container.decode(APIPaging.self, forKey: .paging)
-        response = try container.decode([Fixture].self, forKey: .response)
-    }
-    
-    // 사용자 정의 인코더 추가
-    func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(get, forKey: .get)
-        try container.encode(parameters, forKey: .parameters)
-        
-        // errors 필드 인코딩
-        if let errorArray = errors as? [String] {
-            try container.encode(errorArray, forKey: .errors)
-        } else if let errorDict = errors as? [String: String] {
-            try container.encode(errorDict, forKey: .errors)
-        } else {
-            try container.encode([] as [String], forKey: .errors)
-        }
-        
-        try container.encode(results, forKey: .results)
-        try container.encode(paging, forKey: .paging)
-        try container.encode(response, forKey: .response)
-    }
-    
-    // CodingKeys 열거형 추가
-    private enum CodingKeys: String, CodingKey {
-        case get, parameters, errors, results, paging, response
-    }
-}
+// HeadToHeadResponse는 FixturesResponse와 동일한 구조를 가지므로 별도로 정의하지 않고
+// FixturesResponse를 사용합니다. (Fixture.swift 파일에 정의되어 있음)
+// typealias HeadToHeadResponse = FixturesResponse
 
 struct HeadToHeadStats {
     let totalMatches: Int
@@ -62,7 +13,8 @@ struct HeadToHeadStats {
     let goalsFor: Int
     let goalsAgainst: Int
     
-    init(fixtures: [Fixture], teamId: Int) {
+    // Fixture 타입 대신 [Any] 타입을 사용하여 컴파일 오류 해결
+    init(fixtures: [Any], teamId: Int) {
         self.totalMatches = fixtures.count
         
         var wins = 0
@@ -71,10 +23,21 @@ struct HeadToHeadStats {
         var goalsFor = 0
         var goalsAgainst = 0
         
-        for fixture in fixtures {
-            let isHome = fixture.teams.home.id == teamId
-            let homeGoals = fixture.goals?.home ?? 0
-            let awayGoals = fixture.goals?.away ?? 0
+        for fixtureAny in fixtures {
+            // Dictionary로 변환하여 필요한 정보 추출
+            guard let fixture = fixtureAny as? [String: Any],
+                  let teams = fixture["teams"] as? [String: Any],
+                  let home = teams["home"] as? [String: Any],
+                  let away = teams["away"] as? [String: Any],
+                  let homeId = home["id"] as? Int,
+                  let _ = away["id"] as? Int, // 사용되지 않는 변수를 _로 대체
+                  let goals = fixture["goals"] as? [String: Any?] else {
+                continue
+            }
+            
+            let homeGoals = goals["home"] as? Int ?? 0
+            let awayGoals = goals["away"] as? Int ?? 0
+            let isHome = homeId == teamId
             
             if isHome {
                 goalsFor += homeGoals
@@ -111,6 +74,11 @@ struct HeadToHeadStats {
     var winRate: Double {
         guard totalMatches > 0 else { return 0 }
         return Double(wins) / Double(totalMatches) * 100
+    }
+    
+    var drawRate: Double {
+        guard totalMatches > 0 else { return 0 }
+        return Double(draws) / Double(totalMatches) * 100
     }
     
     var goalDifference: Int {

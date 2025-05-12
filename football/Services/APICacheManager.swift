@@ -32,6 +32,7 @@ class APICacheManager {
         case long       // 6시간
         case veryLong   // 1일
         case never      // 만료 없음
+        case custom(TimeInterval)  // 사용자 정의 시간(초)
         
         var timeInterval: TimeInterval {
             switch self {
@@ -41,6 +42,7 @@ class APICacheManager {
             case .long:      return 6 * 60 * 60
             case .veryLong:  return 24 * 60 * 60
             case .never:     return TimeInterval.greatestFiniteMagnitude
+            case .custom(let seconds): return seconds
             }
         }
     }

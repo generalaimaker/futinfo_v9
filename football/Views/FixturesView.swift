@@ -175,10 +175,8 @@ struct FixturesView: View {
             // NotificationCenter 관찰자 제거
             NotificationCenter.default.removeObserver(self, name: NSNotification.Name("ShowTeamProfile"), object: nil)
         }
-        .background(
-            NavigationLink(destination: TeamProfileView(teamId: selectedTeamId, leagueId: selectedTeamLeagueId), isActive: $navigateToTeamProfile) {
-                EmptyView()
-            }
-        )
+        .navigationDestination(isPresented: $navigateToTeamProfile) {
+            TeamProfileView(teamId: selectedTeamId, leagueId: selectedTeamLeagueId)
+        }
     }
 }

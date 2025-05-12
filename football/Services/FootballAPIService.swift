@@ -547,7 +547,7 @@ class FootballAPIService {
             }
             """
         }
-        else if T.self is HeadToHeadResponse.Type {
+        else if T.self is FixturesResponse.Type {
             jsonString = """
             {
                 "get": "fixtures/headtohead",
@@ -1095,8 +1095,8 @@ class FootballAPIService {
                 // 미래 날짜는 짧은 캐싱 (30분)
                 cachePolicy = .short
             } else if calendar.isDate(fromDate, inSameDayAs: today) {
-                // 오늘 날짜는 더 짧은 캐싱 (15분)
-                cachePolicy = .veryShort
+                // 오늘 날짜는 매우 짧은 캐싱 (1분으로 변경)
+                cachePolicy = .custom(60) // 1분으로 설정
             } else {
                 // 과거 날짜는 더 긴 캐싱 (6시간)
                 cachePolicy = .long
@@ -1132,7 +1132,7 @@ class FootballAPIService {
     // 상대전적 가져오기 (캐싱 적용)
     func getHeadToHead(team1Id: Int, team2Id: Int, last: Int = 10) async throws -> [Fixture] {
         let parameters = ["h2h": "\(team1Id)-\(team2Id)", "last": String(last)]
-        let response: HeadToHeadResponse = try await performRequest(
+        let response: FixturesResponse = try await performRequest(
             endpoint: "/fixtures/headtohead",
             parameters: parameters,
             cachePolicy: .medium // 상대전적은 경기 후 변경될 수 있으므로 중간 캐싱

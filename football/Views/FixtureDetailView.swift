@@ -49,16 +49,7 @@ struct FixtureDetailView: View {
                             print("🔄 MatchHeaderView - 경기 이벤트 데이터 강제 로드 시작")
                             // 이벤트 데이터 강제 로드
                             await viewModel.loadEvents()
-                            
-                            // 약간의 지연 후 UI 업데이트 강제
-                            try? await Task.sleep(nanoseconds: 300_000_000) // 0.3초
-                            viewModel.objectWillChange.send()
-                            
-                            // 추가 지연 후 한 번 더 UI 업데이트 강제
-                            try? await Task.sleep(nanoseconds: 700_000_000) // 0.7초
-                            viewModel.objectWillChange.send()
-                            
-                            print("✅ MatchHeaderView - 경기 이벤트 데이터 로드 및 UI 업데이트 완료")
+                            print("✅ MatchHeaderView - 경기 이벤트 데이터 로드 완료")
                         }
                     }
                 
@@ -240,11 +231,9 @@ struct FixtureDetailView: View {
             .padding(.vertical)
         }
         .navigationBarTitleDisplayMode(.inline)
-        .background(
-            NavigationLink(destination: TeamProfileView(teamId: selectedTeamId, leagueId: selectedTeamLeagueId), isActive: $navigateToTeamProfile) {
-                EmptyView()
-            }
-        )
+        .navigationDestination(isPresented: $navigateToTeamProfile) {
+            TeamProfileView(teamId: selectedTeamId, leagueId: selectedTeamLeagueId)
+        }
         .onAppear {
             // NotificationCenter 관찰자 등록
             NotificationCenter.default.addObserver(forName: NSNotification.Name("ShowTeamProfile"), object: nil, queue: .main) { notification in
@@ -263,19 +252,20 @@ struct FixtureDetailView: View {
                 if !isUpcoming {
                     print("🔄 FixtureDetailView - 경기 이벤트 데이터 최우선 로드 시작")
                     
-                    // 이벤트 데이터 강제 로드 (3번 시도)
-                    for i in 1...3 {
+                    // 이벤트 데이터 강제 로드 (최대 2번 시도로 줄임)
+                    for i in 1...2 {
                         print("🔄 FixtureDetailView - 이벤트 데이터 로드 시도 #\(i)")
                         await viewModel.loadEvents()
-                        
-                        // 약간의 지연 후 UI 업데이트 강제
-                        try? await Task.sleep(nanoseconds: 300_000_000) // 0.3초
-                        viewModel.objectWillChange.send()
                         
                         // 이벤트가 로드되었는지 확인
                         if !viewModel.events.isEmpty {
                             print("✅ FixtureDetailView - 이벤트 데이터 로드 성공 (시도 #\(i))")
                             break
+                        }
+                        
+                        // 첫 번째 시도 후 잠시 대기
+                        if i == 1 {
+                            try? await Task.sleep(nanoseconds: 500_000_000) // 0.5초
                         }
                     }
                 }
@@ -283,15 +273,8 @@ struct FixtureDetailView: View {
                 // 그 다음 모든 데이터 로드
                 await viewModel.loadAllData()
                 
-                // 모든 데이터 로드 후 UI 업데이트 강제
-                viewModel.objectWillChange.send()
-                
-                // 약간의 지연 후 한 번 더 UI 업데이트 강제
-                try? await Task.sleep(nanoseconds: 1_000_000_000) // 1초
-                viewModel.objectWillChange.send()
-                
-                // 최종 확인 및 UI 업데이트
-                try? await Task.sleep(nanoseconds: 2_000_000_000) // 2초
+                // 모든 데이터 로드 후 UI 업데이트 강제 (한 번만 수행)
+                try? await Task.sleep(nanoseconds: 500_000_000) // 0.5초
                 viewModel.objectWillChange.send()
                 print("✅ FixtureDetailView - 모든 데이터 로드 및 UI 업데이트 완료")
             }

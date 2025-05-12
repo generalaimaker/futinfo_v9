@@ -159,6 +159,29 @@ struct FixtureEvent: Codable, Identifiable {
         "\(time.elapsed)\(team.id)\(player.id ?? 0)\(type)\(detail)"
     }
     
+    // 연장전 여부를 확인하는 계산 속성
+    var isExtraTime: Bool {
+        return time.elapsed > 90
+    }
+    
+    // 실제 득점된 골인지 확인하는 계산 속성
+    var isActualGoal: Bool {
+        // 타입이 "Goal"이 아니면 득점이 아님
+        guard type.lowercased() == "goal" else { return false }
+        
+        // 페널티 획득만 한 경우 제외
+        if detail.lowercased().contains("won") {
+            return false
+        }
+        
+        // 페널티 놓친 경우 제외
+        if detail.lowercased().contains("missed") {
+            return false
+        }
+        
+        return true
+    }
+    
     // 이벤트 타입 분류
     var eventCategory: EventCategory {
         switch type.lowercased() {
