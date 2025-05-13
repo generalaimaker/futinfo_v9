@@ -122,15 +122,8 @@ struct LeagueHeaderView: View {
         VStack(spacing: 16) {
             // 리그 로고 및 이름
             HStack(spacing: 16) {
-                AsyncImage(url: URL(string: leagueDetails.league.logo)) { image in
-                    image
-                        .resizable()
-                        .scaledToFit()
-                } placeholder: {
-                    Image(systemName: "sportscourt")
-                        .foregroundColor(.gray)
-                }
-                .frame(width: 60, height: 60)
+                // Kingfisher 캐싱을 사용하여 리그 로고 이미지 빠르게 로드
+                LeagueLogoView(logoUrl: leagueDetails.league.logo, size: 60)
                 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(leagueDetails.league.name)
@@ -364,15 +357,8 @@ struct StandingsTabView: View {
                                     .foregroundColor(standing.rank <= 4 ? .blue : .primary)
                                 
                                 HStack(spacing: 8) {
-                                    AsyncImage(url: URL(string: standing.team.logo)) { image in
-                                        image
-                                            .resizable()
-                                            .scaledToFit()
-                                    } placeholder: {
-                                        Image(systemName: "sportscourt")
-                                            .foregroundColor(.gray)
-                                    }
-                                    .frame(width: 20, height: 20)
+                                    // Kingfisher 캐싱을 사용하여 팀 로고 이미지 빠르게 로드
+                                    TeamLogoView(logoUrl: standing.team.logo, size: 20)
                                     
                                     Text(standing.team.name)
                                         .lineLimit(1)
@@ -732,15 +718,13 @@ struct LeaguePlayerStatRow: View {
                 .foregroundColor(rank <= 3 ? .blue : .primary)
                 .frame(width: 30)
             
-            // 선수 사진
-            AsyncImage(url: URL(string: player.player.photo ?? "")) { image in
-                image
-                    .resizable()
-                    .scaledToFit()
-            } placeholder: {
-                Image(systemName: "person.circle")
-                    .foregroundColor(.gray)
-            }
+            // 선수 사진 (Kingfisher 캐싱 사용)
+            CachedImageView(
+                url: URL(string: player.player.photo ?? ""),
+                placeholder: Image(systemName: "person.circle"),
+                failureImage: Image(systemName: "person.circle"),
+                contentMode: .fit
+            )
             .frame(width: 40, height: 40)
             .clipShape(Circle())
             
@@ -835,16 +819,8 @@ struct TeamStatRow: View {
                 .foregroundColor(rank <= 3 ? .blue : .primary)
                 .frame(width: 30)
             
-            // 팀 로고
-            AsyncImage(url: URL(string: team.team.logo)) { image in
-                image
-                    .resizable()
-                    .scaledToFit()
-            } placeholder: {
-                Image(systemName: "sportscourt")
-                    .foregroundColor(.gray)
-            }
-            .frame(width: 40, height: 40)
+            // 팀 로고 (Kingfisher 캐싱 사용)
+            TeamLogoView(logoUrl: team.team.logo, size: 40)
             
             // 팀 이름
             Text(team.team.name)

@@ -10,16 +10,8 @@ struct LeagueCell: View {
     
     var body: some View {
         HStack(spacing: 16) {
-            // 리그 로고
-            AsyncImage(url: URL(string: league.league.logo)) { image in
-                image
-                    .resizable()
-                    .scaledToFit()
-            } placeholder: {
-                Image(systemName: "sportscourt")
-                    .foregroundColor(.gray)
-            }
-            .frame(width: 40, height: 40)
+            // 리그 로고 (Kingfisher 캐싱 사용)
+            LeagueLogoView(logoUrl: league.league.logo, size: 40)
             
             // 리그 정보
             VStack(alignment: .leading, spacing: 4) {

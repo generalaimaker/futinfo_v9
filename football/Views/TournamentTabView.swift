@@ -73,7 +73,10 @@ struct TournamentTabView: View {
                 ForEach(rounds, id: \.self) { round in
                     RoundSection(
                         round: round,
-                        fixtures: fixtures.filter { $0.league.round == round },
+                        fixtures: fixtures.filter { fx in
+                            fx.league.round.caseInsensitiveCompare(round) == .orderedSame ||
+                            fx.league.round.lowercased().contains(round.lowercased())
+                        },
                         formatDate: formatDate
                     )
                 }
@@ -150,15 +153,8 @@ struct TournamentFixtureCell: View {
                 
                 // 홈팀
                 HStack(spacing: 12) {
-                    AsyncImage(url: URL(string: fixture.teams.home.logo)) { image in
-                        image
-                            .resizable()
-                            .scaledToFit()
-                    } placeholder: {
-                        Image(systemName: "sportscourt")
-                            .foregroundColor(.gray)
-                    }
-                    .frame(width: 30, height: 30)
+                    // Kingfisher 캐싱을 사용하여 팀 로고 이미지 빠르게 로드
+                    TeamLogoView(logoUrl: fixture.teams.home.logo, size: 30)
                     
                     Text(fixture.teams.home.name)
                         .font(.subheadline)
@@ -182,15 +178,8 @@ struct TournamentFixtureCell: View {
                 
                 // 원정팀
                 HStack(spacing: 12) {
-                    AsyncImage(url: URL(string: fixture.teams.away.logo)) { image in
-                        image
-                            .resizable()
-                            .scaledToFit()
-                    } placeholder: {
-                        Image(systemName: "sportscourt")
-                            .foregroundColor(.gray)
-                    }
-                    .frame(width: 30, height: 30)
+                    // Kingfisher 캐싱을 사용하여 팀 로고 이미지 빠르게 로드
+                    TeamLogoView(logoUrl: fixture.teams.away.logo, size: 30)
                     
                     Text(fixture.teams.away.name)
                         .font(.subheadline)

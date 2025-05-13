@@ -44,15 +44,8 @@ struct LeagueTabItem: View {
     
     var body: some View {
         VStack(spacing: 8) {
-            AsyncImage(url: URL(string: leagueLogo)) { image in
-                image
-                    .resizable()
-                    .scaledToFit()
-            } placeholder: {
-                Image(systemName: "sportscourt")
-                    .foregroundColor(.gray)
-            }
-            .frame(width: 30, height: 30)
+            // Kingfisher 캐싱을 사용하여 리그 로고 이미지 빠르게 로드
+            LeagueLogoView(logoUrl: leagueLogo, size: 30)
             
             Text(leagueName)
                 .font(.caption)

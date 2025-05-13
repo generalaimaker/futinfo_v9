@@ -15,14 +15,8 @@ struct HeadToHeadView: View {
                 HeadToHeadSummaryView(team1: team1, team2: team2, team1Stats: team1Stats, team2Stats: team2Stats, fixturesCount: fixtures.count)
                 RecentMatchesView(fixtures: fixtures)
                 GoalStatsView(team1Stats: team1Stats, team2Stats: team2Stats)
-                // Show standings for the league of the first fixture (if any)
-                if !viewModel.standings.isEmpty,
-                   let firstFixture = fixtures.first {
-                    StandingsView(leagueId: firstFixture.league.id,
-                                  leagueName: firstFixture.league.name)
-                }
             }
-            .frame(maxWidth: 400)
+            .frame(maxWidth: .infinity, alignment: .center)
             .padding(.horizontal)
         }
     }
@@ -52,15 +46,8 @@ struct HeadToHeadSummaryView: View {
             HStack(spacing: 0) {
                 // 팀1
                 VStack(spacing: 12) {
-                    AsyncImage(url: URL(string: team1.logo)) { image in
-                        image
-                            .resizable()
-                            .scaledToFit()
-                    } placeholder: {
-                        Image(systemName: "sportscourt")
-                            .foregroundColor(.gray)
-                    }
-                    .frame(width: 50, height: 50)
+                    // Kingfisher 캐싱을 사용하여 팀 로고 이미지 빠르게 로드
+                    TeamLogoView(logoUrl: team1.logo, size: 50)
                     Text(team1.name)
                         .font(.callout)
                         .multilineTextAlignment(.center)
@@ -85,15 +72,8 @@ struct HeadToHeadSummaryView: View {
 
                 // 팀2
                 VStack(spacing: 12) {
-                    AsyncImage(url: URL(string: team2.logo)) { image in
-                        image
-                            .resizable()
-                            .scaledToFit()
-                    } placeholder: {
-                        Image(systemName: "sportscourt")
-                            .foregroundColor(.gray)
-                    }
-                    .frame(width: 50, height: 50)
+                    // Kingfisher 캐싱을 사용하여 팀 로고 이미지 빠르게 로드
+                    TeamLogoView(logoUrl: team2.logo, size: 50)
                     Text(team2.name)
                         .font(.callout)
                         .multilineTextAlignment(.center)
@@ -178,23 +158,15 @@ struct RecentMatchesView: View {
                                 .frame(width: 40, alignment: .trailing)
                                 .lineLimit(1)
                                 .minimumScaleFactor(0.7)
-                            AsyncImage(url: URL(string: fixture.teams.home.logo)) { image in
-                                image.resizable().scaledToFit()
-                            } placeholder: {
-                                Image(systemName: "sportscourt").foregroundColor(.gray)
-                            }
-                            .frame(width: 24, height: 24)
+                            // Kingfisher 캐싱을 사용하여 팀 로고 이미지 빠르게 로드
+                            TeamLogoView(logoUrl: fixture.teams.home.logo, size: 24)
                             // 스코어
                             Text("\(fixture.goals?.home ?? 0) - \(fixture.goals?.away ?? 0)")
                                 .font(.system(.title3, design: .rounded, weight: .bold))
                                 .frame(width: 50, alignment: .center)
                             // 어웨이팀 로고 + 약어
-                            AsyncImage(url: URL(string: fixture.teams.away.logo)) { image in
-                                image.resizable().scaledToFit()
-                            } placeholder: {
-                                Image(systemName: "sportscourt").foregroundColor(.gray)
-                            }
-                            .frame(width: 24, height: 24)
+                            // Kingfisher 캐싱을 사용하여 팀 로고 이미지 빠르게 로드
+                            TeamLogoView(logoUrl: fixture.teams.away.logo, size: 24)
                             Text(TeamAbbreviations.abbreviation(for: fixture.teams.away.name))
                                 .font(.system(.body, design: .rounded))
                                 .frame(width: 40, alignment: .leading)

@@ -27,15 +27,8 @@ struct InjuriesView: View {
                 if !viewModel.homeTeamInjuries.isEmpty {
                     VStack(spacing: 16) {
                         HStack {
-                            AsyncImage(url: URL(string: fixture.teams.home.logo)) { image in
-                                image
-                                    .resizable()
-                                    .scaledToFit()
-                            } placeholder: {
-                                Image(systemName: "sportscourt.fill")
-                                    .foregroundColor(.gray)
-                            }
-                            .frame(width: 24, height: 24)
+                            // Kingfisher 캐싱을 사용하여 팀 로고 이미지 빠르게 로드
+                            TeamLogoView(logoUrl: fixture.teams.home.logo, size: 24)
                             
                             Text(fixture.teams.home.name)
                                 .font(.headline)
@@ -62,15 +55,8 @@ struct InjuriesView: View {
                 if !viewModel.awayTeamInjuries.isEmpty {
                     VStack(spacing: 16) {
                         HStack {
-                            AsyncImage(url: URL(string: fixture.teams.away.logo)) { image in
-                                image
-                                    .resizable()
-                                    .scaledToFit()
-                            } placeholder: {
-                                Image(systemName: "sportscourt.fill")
-                                    .foregroundColor(.gray)
-                            }
-                            .frame(width: 24, height: 24)
+                            // Kingfisher 캐싱을 사용하여 팀 로고 이미지 빠르게 로드
+                            TeamLogoView(logoUrl: fixture.teams.away.logo, size: 24)
                             
                             Text(fixture.teams.away.name)
                                 .font(.headline)
@@ -116,17 +102,15 @@ struct InjuryPlayerCard: View {
     
     var body: some View {
         HStack(spacing: 16) {
-            // 선수 사진
-            AsyncImage(url: URL(string: injury.player.photo)) { image in
-                image
-                    .resizable()
-                    .scaledToFit()
-                    .clipShape(Circle())
-            } placeholder: {
-                Image(systemName: "person.fill")
-                    .foregroundColor(.gray)
-            }
+            // 선수 사진 (Kingfisher 캐싱 사용)
+            CachedImageView(
+                url: URL(string: injury.player.photo),
+                placeholder: Image(systemName: "person.fill"),
+                failureImage: Image(systemName: "person.fill"),
+                contentMode: .fit
+            )
             .frame(width: 50, height: 50)
+            .clipShape(Circle())
             .overlay(
                 Circle()
                     .stroke(Color.red.opacity(0.5), lineWidth: 2)

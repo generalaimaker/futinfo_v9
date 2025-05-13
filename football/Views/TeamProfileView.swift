@@ -260,17 +260,10 @@ struct TeamHeaderSection: View {
                 .frame(width: 120, height: 120)
                 .shadow(color: .black.opacity(0.2), radius: 5, x: 0, y: 2)
             
-            // 팀 로고
-            if let logoUrl = viewModel.teamProfile?.team.logo, let url = URL(string: logoUrl) {
-                AsyncImage(url: url) { image in
-                    image
-                        .resizable()
-                        .scaledToFit()
-                        .padding(8)
-                } placeholder: {
-                    ProgressView()
-                }
-                .frame(width: 110, height: 110)
+            // 팀 로고 (Kingfisher 캐싱 사용)
+            if let logoUrl = viewModel.teamProfile?.team.logo {
+                TeamLogoView(logoUrl: logoUrl, size: 110)
+                    .padding(8)
             } else {
                 Image(systemName: "shield.fill")
                     .font(.system(size: 50))
@@ -290,13 +283,9 @@ struct StatisticsSection: View {
             VStack(spacing: 16) {
                 let league = stats.league
                 HStack(spacing: 12) {
-                    AsyncImage(url: URL(string: league.logo)) { image in
-                        image.resizable().scaledToFit()
-                    } placeholder: {
-                        Circle().fill(Color.gray.opacity(0.3))
-                    }
-                    .frame(width: 40, height: 40)
-                    .clipShape(Circle())
+                    // 리그 로고 (Kingfisher 캐싱 사용)
+                    LeagueLogoView(logoUrl: league.logo, size: 40)
+                        .clipShape(Circle())
                     
                     VStack(alignment: .leading, spacing: 2) {
                         Text(league.name)
@@ -309,13 +298,23 @@ struct StatisticsSection: View {
                     
                     Spacer()
                     
-                    AsyncImage(url: URL(string: league.flag ?? "")) { image in
-                        image.resizable().scaledToFit()
-                    } placeholder: {
-                        EmptyView()
+                    // 리그 국기 (Kingfisher 캐싱 사용)
+                    if let flag = league.flag, !flag.isEmpty {
+                        CachedImageView(
+                            url: URL(string: flag),
+                            placeholder: Image(systemName: "flag"),
+                            failureImage: Image(systemName: "flag"),
+                            contentMode: .fit
+                        )
+                        .frame(width: 30, height: 20)
+                        .clipShape(RoundedRectangle(cornerRadius: 4))
+                    } else {
+                        Image(systemName: "flag")
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                            .foregroundColor(.gray.opacity(0.3))
+                            .frame(width: 30, height: 20)
                     }
-                    .frame(width: 30, height: 20)
-                    .clipShape(RoundedRectangle(cornerRadius: 4))
                 }
                 .padding()
                 .background(.thinMaterial)
@@ -562,21 +561,17 @@ struct VenueSection: View {
                 .padding(.horizontal)
 
             if let venue = viewModel.teamProfile?.venue {
-                if let imageUrl = venue.image, let url = URL(string: imageUrl) {
-                    AsyncImage(url: url) { image in
-                        image
-                            .resizable()
-                            .aspectRatio(contentMode: .fill)
-                            .frame(height: 200)
-                            .clipped()
-                            .cornerRadius(10)
-                    } placeholder: {
-                        Rectangle()
-                            .fill(Color.gray.opacity(0.3))
-                            .frame(height: 200)
-                            .cornerRadius(10)
-                            .overlay(Image(systemName: "sportscourt.fill").font(.largeTitle).foregroundColor(.gray))
-                    }
+                if let imageUrl = venue.image {
+                    // 경기장 이미지 (Kingfisher 캐싱 사용)
+                    CachedImageView(
+                        url: URL(string: imageUrl),
+                        placeholder: Image(systemName: "sportscourt.fill"),
+                        failureImage: Image(systemName: "sportscourt.fill"),
+                        contentMode: .fill
+                    )
+                    .frame(height: 200)
+                    .clipped()
+                    .cornerRadius(10)
                     .padding(.horizontal)
                 }
 
@@ -689,13 +684,9 @@ struct RecentMatchCard: View {
 
     var body: some View {
         VStack(spacing: 8) {
-            AsyncImage(url: URL(string: opponent.logo)) { image in
-                image.resizable().scaledToFit()
-            } placeholder: {
-                Color.gray.opacity(0.3)
-            }
-            .frame(width: 30, height: 30)
-            .clipShape(Circle())
+            // 상대팀 로고 (Kingfisher 캐싱 사용)
+            TeamLogoView(logoUrl: opponent.logo, size: 30)
+                .clipShape(Circle())
 
             Text(scoreDisplay)
                 .font(.footnote)
@@ -1055,12 +1046,8 @@ struct FullStandingsView: View {
                         .frame(width: 30)
                     
                     HStack(spacing: 8) {
-                        AsyncImage(url: URL(string: standing.team.logo)) { image in
-                            image.resizable().scaledToFit()
-                        } placeholder: {
-                            Circle().fill(Color.gray.opacity(0.3))
-                        }
-                        .frame(width: 30, height: 30)
+                        // 팀 로고 (Kingfisher 캐싱 사용)
+                        TeamLogoView(logoUrl: standing.team.logo, size: 30)
                         
                         Text(standing.team.name)
                             .font(.subheadline)
@@ -1330,16 +1317,13 @@ struct TeamInfoTabView: View {
                             HStack(spacing: 16) {
                                 ForEach(topPlayers, id: \.player.id) { playerInfo in
                                     VStack(spacing: 8) {
-                                        // 선수 이미지
-                                        AsyncImage(url: URL(string: playerInfo.player.photo ?? "")) { image in
-                                            image
-                                                .resizable()
-                                                .scaledToFill()
-                                        } placeholder: {
-                                            Image(systemName: "person.fill")
-                                                .font(.title)
-                                                .foregroundColor(.gray)
-                                        }
+                                        // 선수 이미지 (Kingfisher 캐싱 사용)
+                                        CachedImageView(
+                                            url: URL(string: playerInfo.player.photo ?? ""),
+                                            placeholder: Image(systemName: "person.fill"),
+                                            failureImage: Image(systemName: "person.fill"),
+                                            contentMode: .fill
+                                        )
                                         .frame(width: 70, height: 70)
                                         .clipShape(Circle())
                                         .overlay(
@@ -1568,17 +1552,10 @@ struct TeamSquadTabView: View {
                 // 팀 헤더 (간소화된 버전)
                 if let team = viewModel.teamProfile?.team {
                     HStack(spacing: 16) {
-                        // 팀 로고
-                        AsyncImage(url: URL(string: team.logo)) { image in
-                            image
-                                .resizable()
-                                .scaledToFit()
-                        } placeholder: {
-                            ProgressView()
-                        }
-                        .frame(width: 60, height: 60)
-                        .clipShape(Circle())
-                        .shadow(radius: 2)
+                        // 팀 로고 (Kingfisher 캐싱 사용)
+                        TeamLogoView(logoUrl: team.logo, size: 60)
+                            .clipShape(Circle())
+                            .shadow(radius: 2)
                         
                         // 팀 이름
                         Text(team.name)
@@ -1832,12 +1809,8 @@ struct StandingTeamRow: View {
                 .frame(width: 40, alignment: .center)
             
             HStack(spacing: 8) {
-                AsyncImage(url: URL(string: teamStanding.team.logo)) { image in
-                    image.resizable().scaledToFit()
-                } placeholder: {
-                    Circle().fill(Color.gray.opacity(0.3))
-                }
-                .frame(width: 24, height: 24)
+                // 팀 로고 (Kingfisher 캐싱 사용)
+                TeamLogoView(logoUrl: teamStanding.team.logo, size: 24)
                 
                 Text(teamStanding.team.name)
                     .font(.subheadline)

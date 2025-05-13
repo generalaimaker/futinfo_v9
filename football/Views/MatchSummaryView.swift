@@ -151,36 +151,32 @@ struct MatchSummaryView: View {
                     VStack(spacing: 24) {
                         // 팀 로고 - 경기 요약 탭 하단에서는 팀 프로필로 이동하지 않음
                         HStack {
-                            // 홈팀 로고
-                            AsyncImage(url: URL(string: statistics[0].team.logo)) { image in
-                                image
-                                    .resizable()
-                                    .scaledToFit()
-                                    .frame(width: 40, height: 40)
-                            } placeholder: {
-                                Image(systemName: "sportscourt")
-                                    .font(.system(size: 30))
-                                    .foregroundColor(.gray)
+                            // 홈팀 로고 + 약어
+                            VStack(spacing: 4) {
+                                // 홈팀 로고 (Kingfisher 캐싱 사용)
+                                TeamLogoView(logoUrl: statistics[0].team.logo, size: 40)
+
+                                Text(TeamAbbreviations.abbreviation(for: statistics[0].team.name))
+                                    .font(.caption)
+                                    .fontWeight(.medium)
                             }
-                            
+
                             Spacer()
-                            
+
                             Text("vs")
                                 .font(.subheadline)
                                 .foregroundColor(.gray)
-                            
+
                             Spacer()
-                            
-                            // 원정팀 로고
-                            AsyncImage(url: URL(string: statistics[1].team.logo)) { image in
-                                image
-                                    .resizable()
-                                    .scaledToFit()
-                                    .frame(width: 40, height: 40)
-                            } placeholder: {
-                                Image(systemName: "sportscourt")
-                                    .font(.system(size: 30))
-                                    .foregroundColor(.gray)
+
+                            // 원정팀 로고 + 약어
+                            VStack(spacing: 4) {
+                                // 원정팀 로고 (Kingfisher 캐싱 사용)
+                                TeamLogoView(logoUrl: statistics[1].team.logo, size: 40)
+
+                                Text(TeamAbbreviations.abbreviation(for: statistics[1].team.name))
+                                    .font(.caption)
+                                    .fontWeight(.medium)
                             }
                         }
                         .padding(.horizontal, 40)
@@ -239,19 +235,10 @@ struct MatchSummaryView: View {
                 VStack(spacing: 16) {
                     // 홈팀 - 최근 폼 영역에서도 팀 프로필로 이동하지 않음
                     HStack {
-                        // 홈팀 로고
-                        AsyncImage(url: URL(string: fixture.teams.home.logo)) { image in
-                            image
-                                .resizable()
-                                .scaledToFit()
-                                .frame(width: 32, height: 32)
-                        } placeholder: {
-                            Image(systemName: "sportscourt")
-                                .font(.system(size: 24))
-                                .foregroundColor(.gray)
-                        }
+                        // 홈팀 로고 (Kingfisher 캐싱 사용)
+                        TeamLogoView(logoUrl: fixture.teams.home.logo, size: 32)
                         
-                        Text(fixture.teams.home.name)
+                        Text(TeamAbbreviations.abbreviation(for: fixture.teams.home.name))
                             .font(.system(.body, design: .rounded))
                             .fontWeight(.medium)
                         
@@ -259,7 +246,7 @@ struct MatchSummaryView: View {
                         
                         if let homeForm = viewModel.homeTeamForm {
                             HStack(spacing: 8) {
-                                ForEach(Array(homeForm.results.enumerated()), id: \.offset) { _, result in
+                                ForEach(Array(homeForm.results.enumerated().reversed()), id: \.offset) { _, result in
                                     FormIndicator(result: result)
                                 }
                             }
@@ -273,19 +260,10 @@ struct MatchSummaryView: View {
                     
                     // 원정팀 - 최근 폼 영역에서도 팀 프로필로 이동하지 않음
                     HStack {
-                        // 원정팀 로고
-                        AsyncImage(url: URL(string: fixture.teams.away.logo)) { image in
-                            image
-                                .resizable()
-                                .scaledToFit()
-                                .frame(width: 32, height: 32)
-                        } placeholder: {
-                            Image(systemName: "sportscourt")
-                                .font(.system(size: 24))
-                                .foregroundColor(.gray)
-                        }
+                        // 원정팀 로고 (Kingfisher 캐싱 사용)
+                        TeamLogoView(logoUrl: fixture.teams.away.logo, size: 32)
                         
-                        Text(fixture.teams.away.name)
+                        Text(TeamAbbreviations.abbreviation(for: fixture.teams.away.name))
                             .font(.system(.body, design: .rounded))
                             .fontWeight(.medium)
                         
@@ -293,7 +271,7 @@ struct MatchSummaryView: View {
                         
                         if let awayForm = viewModel.awayTeamForm {
                             HStack(spacing: 8) {
-                                ForEach(Array(awayForm.results.enumerated()), id: \.offset) { _, result in
+                                ForEach(Array(awayForm.results.enumerated().reversed()), id: \.offset) { _, result in
                                     FormIndicator(result: result)
                                 }
                             }
@@ -549,19 +527,15 @@ struct ManOfTheMatchView: View {
             VStack(spacing: 20) {
                 // 선수 정보 헤더
                 HStack(spacing: 16) {
-                    // 선수 사진
-                    AsyncImage(url: URL(string: player.player.photo ?? "")) { image in
-                        image
-                            .resizable()
-                            .scaledToFit()
-                            .clipShape(Circle())
-                    } placeholder: {
-                        Image(systemName: "person.circle.fill")
-                            .resizable()
-                            .scaledToFit()
-                            .foregroundColor(.gray)
-                    }
+                    // 선수 사진 (Kingfisher 캐싱 사용)
+                    CachedImageView(
+                        url: URL(string: player.player.photo ?? ""),
+                        placeholder: Image(systemName: "person.circle.fill"),
+                        failureImage: Image(systemName: "person.circle.fill"),
+                        contentMode: .fit
+                    )
                     .frame(width: 80, height: 80)
+                    .clipShape(Circle())
                     .overlay(
                         Circle()
                             .stroke(Color.yellow, lineWidth: 3)
@@ -574,16 +548,8 @@ struct ManOfTheMatchView: View {
                             .fontWeight(.bold)
                         
                         HStack(spacing: 8) {
-                            // 팀 로고
-                            AsyncImage(url: URL(string: playerTeamLogo)) { image in
-                                image
-                                    .resizable()
-                                    .scaledToFit()
-                            } placeholder: {
-                                Image(systemName: "sportscourt")
-                                    .foregroundColor(.gray)
-                            }
-                            .frame(width: 20, height: 20)
+                            // 팀 로고 (Kingfisher 캐싱 사용)
+                            TeamLogoView(logoUrl: playerTeamLogo, size: 20)
                             
                             Text(playerTeamName)
                                 .font(.subheadline)

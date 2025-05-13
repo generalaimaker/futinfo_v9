@@ -1,4 +1,5 @@
 import SwiftUI
+import Combine
 
 struct StandingsDetailView: View {
     let fixture: Fixture
@@ -26,15 +27,7 @@ struct StandingsDetailView: View {
                 VStack(spacing: 16) {
                     // 리그 정보
                     HStack {
-                        AsyncImage(url: URL(string: fixture.league.logo)) { image in
-                            image
-                                .resizable()
-                                .scaledToFit()
-                        } placeholder: {
-                            Image(systemName: "trophy.fill")
-                                .foregroundColor(.gray)
-                        }
-                        .frame(width: 30, height: 30)
+                        LeagueLogoView(logoUrl: fixture.league.logo, size: 30)
                         
                         VStack(alignment: .leading, spacing: 4) {
                             Text(fixture.league.name)
@@ -48,8 +41,10 @@ struct StandingsDetailView: View {
                         Spacer()
                     }
                     
-                    // 순위표
+                    // 순위표 (너비 제한 추가)
                     VStack(spacing: 0) {
+                        // 스크롤 가능한 컨테이너로 감싸서 화면 너비를 초과하지 않도록 함
+                        ScrollView(.horizontal, showsIndicators: false) {
                         // 헤더
                         HStack {
                             Text("#")
@@ -82,12 +77,12 @@ struct StandingsDetailView: View {
                                 .foregroundColor(.gray)
                                 .frame(width: 30, alignment: .center)
                             
-                            Text("득실")
+                            Text("승점")
                                 .font(.caption)
                                 .foregroundColor(.gray)
-                                .frame(width: 40, alignment: .center)
+                                .frame(width: 30, alignment: .center)
                             
-                            Text("승점")
+                            Text("득실")
                                 .font(.caption)
                                 .foregroundColor(.gray)
                                 .frame(width: 30, alignment: .center)
@@ -105,19 +100,12 @@ struct StandingsDetailView: View {
                                     .frame(width: 30, alignment: .center)
                                 
                                 HStack(spacing: 8) {
-                                    AsyncImage(url: URL(string: standing.team.logo)) { image in
-                                        image
-                                            .resizable()
-                                            .scaledToFit()
-                                    } placeholder: {
-                                        Image(systemName: "sportscourt.fill")
-                                            .foregroundColor(.gray)
-                                    }
-                                    .frame(width: 20, height: 20)
+                                    TeamLogoView(logoUrl: standing.team.logo, size: 20)
                                     
-                                    Text(standing.team.name)
+                                    Text(TeamAbbreviations.abbreviation(for: standing.team.name))
                                         .font(.system(.body, design: .rounded))
-                                        .lineLimit(1)
+                                        .fontWeight(.medium)
+                                        .frame(width: 40)
                                 }
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 
@@ -137,14 +125,14 @@ struct StandingsDetailView: View {
                                     .font(.system(.body, design: .rounded))
                                     .frame(width: 30, alignment: .center)
                                 
-                                Text("\(standing.goalsDiff)")
-                                    .font(.system(.body, design: .rounded))
-                                    .foregroundColor(standing.goalsDiff >= 0 ? .blue : .red)
-                                    .frame(width: 40, alignment: .center)
-                                
                                 Text("\(standing.points)")
                                     .font(.system(.body, design: .rounded))
                                     .fontWeight(.bold)
+                                    .frame(width: 30, alignment: .center)
+                                
+                                Text("\(standing.goalsDiff)")
+                                    .font(.system(.body, design: .rounded))
+                                    .foregroundColor(standing.goalsDiff >= 0 ? .blue : .red)
                                     .frame(width: 30, alignment: .center)
                             }
                             .padding(.horizontal, 16)
@@ -155,8 +143,10 @@ struct StandingsDetailView: View {
                                 Color.clear
                             )
                         }
+                        }
                     }
                     .cornerRadius(8)
+                    .frame(maxWidth: .infinity) // 너비 제한
                     .overlay(
                         RoundedRectangle(cornerRadius: 8)
                             .stroke(Color(.systemGray5), lineWidth: 1)
@@ -209,7 +199,7 @@ struct StandingsDetailView: View {
                 .shadow(color: Color.black.opacity(0.05), radius: 10)
             }
         }
-        .padding(.horizontal)
+        // .padding(.horizontal) 제거 - 화면 이동 문제 해결
         .onAppear {
             loadStandings()
         }
