@@ -65,6 +65,24 @@ class APIRequestManager {
         return requestsInProgress[requestKey] != nil
     }
     
+    // 요청 시작 표시
+    func markRequestAsInProgress(_ requestKey: String, task: URLSessionDataTask) {
+        requestsLock.lock()
+        defer { requestsLock.unlock() }
+        // 실제 요청이 시작될 때 호출됨
+        requestsInProgress[requestKey] = task
+        print("🔄 요청 시작 표시: \(requestKey)")
+    }
+    
+    // 요청 완료 표시
+    func markRequestAsCompleted(_ requestKey: String) {
+        requestsLock.lock()
+        defer { requestsLock.unlock() }
+        // 요청이 완료될 때 호출됨
+        requestsInProgress.removeValue(forKey: requestKey)
+        print("✅ 요청 완료 표시: \(requestKey)")
+    }
+    
     func executeRequest(
         endpoint: String,
         parameters: [String: String]? = nil,
@@ -84,6 +102,8 @@ class APIRequestManager {
         // 1. 이미 진행 중인 요청인지 확인
         if getExistingTask(for: requestKey) != nil {
             print("⏳ Request already in progress for: \(endpoint)")
+            // 중복 요청 시 에러 반환
+            completion(.failure(FootballAPIError.requestInProgress))
             return
         }
         
@@ -398,7 +418,8 @@ class APIRequestManager {
                 completion(.success(data))
             }
             
-            self.addTask(task, for: requestKey)
+            // 요청 시작 표시 및 태스크 추가
+            self.markRequestAsInProgress(requestKey, task: task)
             task.resume()
         }
     }
@@ -410,9 +431,8 @@ class APIRequestManager {
     }
     
     private func removeTask(for key: String) {
-        requestsLock.lock()
-        defer { requestsLock.unlock() }
-        requestsInProgress.removeValue(forKey: key)
+        // 요청 완료 표시
+        markRequestAsCompleted(key)
     }
     
     private func getExistingTask(for key: String) -> URLSessionDataTask? {

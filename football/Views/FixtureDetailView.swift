@@ -28,7 +28,8 @@ struct FixtureDetailView: View {
     // 합산 스코어 계산 로직은 FixtureDetailViewModel로 이동했습니다.
     
     var body: some View {
-        ScrollView {
+        NavigationStack {
+            ScrollView {
             VStack(spacing: 20) {
                 // MatchHeaderView를 사용하여 경기 상단 정보 표시
                 MatchHeaderView(fixture: fixture, viewModel: viewModel)
@@ -199,11 +200,7 @@ struct FixtureDetailView: View {
                                 .foregroundColor(.gray)
                                 .padding()
                         } else {
-                            LineupsView(
-                                lineups: viewModel.lineups,
-                                topPlayers: viewModel.topPlayers,
-                                teamStats: viewModel.matchPlayerStats
-                            )
+                            LineupsView(lineups: viewModel.lineups)
                         }
                     case 3: // 상대전적 탭
                         if viewModel.isLoadingHeadToHead {
@@ -229,6 +226,7 @@ struct FixtureDetailView: View {
                 }
             }
             .padding(.vertical)
+            }
         }
         .navigationBarTitleDisplayMode(.inline)
         .navigationDestination(isPresented: $navigateToTeamProfile) {

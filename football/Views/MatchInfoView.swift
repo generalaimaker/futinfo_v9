@@ -2,69 +2,64 @@ import SwiftUI
 
 struct MatchInfoView: View {
     let fixture: Fixture
-    let viewModel: FixtureDetailViewModel
+    @ObservedObject var viewModel: FixtureDetailViewModel
+
     @State private var isDataLoaded = false
     @State private var retryCount = 0
-    
-    // Timer를 별도의 프로퍼티로 분리
+
     private let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
-    
+
     var body: some View {
         mainContentView
-        .padding(.horizontal)
-        .onAppear {
-            loadData()
-        }
-        // onChange 대신 onReceive를 사용하여 타이머 이벤트마다 데이터 로드 상태 확인
-        .onReceive(timer) { _ in
-            // 데이터가 로드되지 않았고 재시도 횟수가 3회 미만이면 재시도
-            if !isDataLoaded && retryCount < 3 {
-                retryCount += 1
-                print("⏱️ MatchInfoView - 타이머 재시도 #\(retryCount)")
-                loadData()
+            .padding(.horizontal)
+            .onAppear { loadData() }
+            .onReceive(timer) { _ in
+                if !isDataLoaded && retryCount < 3 {
+                    retryCount += 1
+                    loadData()
+                }
             }
-        }
     }
-    
+
+    // MARK: - Data Loading
     private func loadData() {
         Task {
-            print("🔄 MatchInfoView - 데이터 로드 시작 (시도 #\(retryCount + 1))")
-            
-            // 팀 폼 데이터 로드 (항상 로드)
             await viewModel.loadTeamForms()
-            
-            // 순위 정보 로드 (항상 로드)
             await viewModel.loadStandings()
-            
-            // 데이터 로드 상태 확인
             checkDataLoaded()
-            
-            print("✅ MatchInfoView - 데이터 로드 완료 (시도 #\(retryCount + 1))")
         }
     }
-    
+
     private func checkDataLoaded() {
-        // 데이터가 모두 로드되었는지 확인
-        if viewModel.homeTeamForm != nil && viewModel.awayTeamForm != nil && !viewModel.standings.isEmpty {
+        if viewModel.homeTeamForm != nil &&
+            viewModel.awayTeamForm != nil &&
+            !viewModel.standings.isEmpty {
             isDataLoaded = true
-            print("✅ MatchInfoView - 모든 데이터 로드됨")
         }
     }
-    
+
+    // MARK: - Helpers
     private func resultColor(_ result: TeamForm.MatchResult) -> Color {
         switch result {
-        case .win:
-            return .green
-        case .draw:
-            return .orange
-        case .loss:
-            return .red
+        case .win:  return .green
+        case .draw: return .orange
+        case .loss: return .red
         }
     }
-    
+
+    /// ISO8601 문자열을 "2025년 5월 11일 (일) 23:15" 형식으로 변환
+    private func formattedMatchDate() -> String {
+        let iso = fixture.fixture.date            // API‑Football ISO8601 string
+        let isoFormatter = ISO8601DateFormatter()
+        guard let date = isoFormatter.date(from: iso) else { return iso }
+
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "ko_KR")
+        formatter.dateFormat = "yyyy년 M월 d일 (E) HH:mm"
+        return formatter.string(from: date)
+    }
+
     // MARK: - UI Components
-    
-    // 메인 컨텐츠 뷰
     private var mainContentView: some View {
         VStack(spacing: 24) {
             basicInfoSection
@@ -72,15 +67,32 @@ struct MatchInfoView: View {
             standingsSection
         }
     }
-    
-    // 기본 정보 섹션
+
+    // 기본 정보
     private var basicInfoSection: some View {
         VStack(spacing: 16) {
             Text("기본 정보")
                 .font(.headline)
-            
+
             VStack(spacing: 12) {
-                // 리그 및 라운드
+                HStack {
+                    Image(systemName: "calendar")
+                        .foregroundColor(.blue)
+                    Text(formattedMatchDate())
+                        .font(.system(.body, design: .rounded))
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+                if let venueName = fixture.fixture.venue.name {
+                    HStack {
+                        Image(systemName: "mappin.circle.fill")
+                            .foregroundColor(.blue)
+                        Text(venueName)
+                            .font(.system(.body, design: .rounded))
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+
                 HStack {
                     Image(systemName: "trophy.fill")
                         .foregroundColor(.blue)
@@ -88,19 +100,7 @@ struct MatchInfoView: View {
                         .font(.system(.body, design: .rounded))
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                
-                // 경기 장소
-                if let venue = fixture.fixture.venue.name {
-                    HStack {
-                        Image(systemName: "mappin.circle.fill")
-                            .foregroundColor(.blue)
-                        Text(venue)
-                            .font(.system(.body, design: .rounded))
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                }
-                
-                // 심판
+
                 if let referee = fixture.fixture.referee {
                     HStack {
                         Image(systemName: "whistle.fill")
@@ -119,16 +119,15 @@ struct MatchInfoView: View {
         .cornerRadius(16)
         .shadow(color: Color.black.opacity(0.05), radius: 10)
     }
-    
-    // 최근 폼 섹션
+
+    // 최근 5경기
     private var recentFormSection: some View {
         VStack(spacing: 16) {
             Text("최근 5경기")
                 .font(.headline)
-            
+
             if viewModel.isLoadingForm {
-                ProgressView()
-                    .padding()
+                ProgressView().padding()
             } else {
                 HStack(spacing: 24) {
                     teamFormView(team: fixture.teams.home, form: viewModel.homeTeamForm)
@@ -143,34 +142,27 @@ struct MatchInfoView: View {
         .cornerRadius(16)
         .shadow(color: Color.black.opacity(0.05), radius: 10)
     }
-    
-    // 팀 폼 뷰
+
     private func teamFormView(team: Team, form: TeamForm?) -> some View {
         VStack(spacing: 12) {
             AsyncImage(url: URL(string: team.logo)) { image in
-                image
-                    .resizable()
-                    .scaledToFit()
+                image.resizable().scaledToFit()
             } placeholder: {
-                Image(systemName: "sportscourt.fill")
-                    .foregroundColor(.gray)
+                Image(systemName: "sportscourt.fill").foregroundColor(.gray)
             }
             .frame(width: 40, height: 40)
-            
+
             Text(team.name)
                 .font(.system(.subheadline, design: .rounded))
                 .fontWeight(.medium)
                 .multilineTextAlignment(.center)
                 .lineLimit(2)
                 .frame(height: 40)
-            
+
             if let form = form {
                 HStack(spacing: 4) {
-                    // 각 결과에 고유 ID 부여
-                    ForEach(Array(form.results.enumerated()), id: \.offset) { index, result in
-                        Circle()
-                            .fill(resultColor(result))
-                            .frame(width: 12, height: 12)
+                    ForEach(Array(form.results.enumerated().reversed()), id: \.offset) { _, result in
+                        FormIndicator(result: result)
                     }
                 }
             } else {
@@ -181,16 +173,15 @@ struct MatchInfoView: View {
         }
         .frame(maxWidth: .infinity)
     }
-    
-    // 순위 섹션
+
+    // 순위
     private var standingsSection: some View {
         VStack(spacing: 16) {
             Text("현재 순위")
                 .font(.headline)
-            
+
             if viewModel.isLoadingStandings {
-                ProgressView()
-                    .padding()
+                ProgressView().padding()
             } else if !viewModel.standings.isEmpty {
                 standingsTableView
             } else {
@@ -206,16 +197,13 @@ struct MatchInfoView: View {
         .cornerRadius(16)
         .shadow(color: Color.black.opacity(0.05), radius: 10)
     }
-    
-    // 순위 테이블 뷰
+
     private var standingsTableView: some View {
         VStack(spacing: 0) {
-            // 헤더
             standingsTableHeader
-            
-            // 팀 순위
             ForEach(viewModel.standings) { standing in
-                if standing.team.id == fixture.teams.home.id || standing.team.id == fixture.teams.away.id {
+                if standing.team.id == fixture.teams.home.id ||
+                    standing.team.id == fixture.teams.away.id {
                     standingRow(standing: standing)
                 }
             }
@@ -225,79 +213,48 @@ struct MatchInfoView: View {
             RoundedRectangle(cornerRadius: 8)
                 .stroke(Color(.systemGray5), lineWidth: 1)
         )
+        .frame(maxWidth: .infinity)   // << added
     }
-    
-    // 순위 테이블 헤더
+
     private var standingsTableHeader: some View {
         HStack {
-            Text("순위")
-                .font(.caption)
-                .foregroundColor(.gray)
-                .frame(width: 40, alignment: .center)
-            
-            Text("팀")
-                .font(.caption)
-                .foregroundColor(.gray)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            
-            Text("경기")
-                .font(.caption)
-                .foregroundColor(.gray)
-                .frame(width: 40, alignment: .center)
-            
-            Text("승점")
-                .font(.caption)
-                .foregroundColor(.gray)
-                .frame(width: 40, alignment: .center)
-            
-            Text("득실")
-                .font(.caption)
-                .foregroundColor(.gray)
-                .frame(width: 40, alignment: .center)
+            Text("순위").font(.caption).foregroundColor(.gray).frame(width: 40)
+            Text("팀").font(.caption).foregroundColor(.gray).frame(maxWidth: .infinity, alignment: .leading)
+            Text("경기").font(.caption).foregroundColor(.gray).frame(width: 40)
+            Text("승점").font(.caption).foregroundColor(.gray).frame(width: 40)
+            Text("득실").font(.caption).foregroundColor(.gray).frame(width: 40)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
         .background(Color(.systemGray6))
     }
-    
-    // 순위 행
+
     private func standingRow(standing: Standing) -> some View {
         HStack {
             Text("\(standing.rank)")
                 .font(.system(.body, design: .rounded))
                 .fontWeight(.bold)
-                .frame(width: 40, alignment: .center)
-            
+                .frame(width: 40)
+
             HStack(spacing: 8) {
                 AsyncImage(url: URL(string: standing.team.logo)) { image in
-                    image
-                        .resizable()
-                        .scaledToFit()
+                    image.resizable().scaledToFit()
                 } placeholder: {
-                    Image(systemName: "sportscourt.fill")
-                        .foregroundColor(.gray)
+                    Image(systemName: "sportscourt.fill").foregroundColor(.gray)
                 }
                 .frame(width: 20, height: 20)
-                
-                Text(standing.team.name)
+
+                Text(TeamAbbreviations.abbreviation(for: standing.team.name))
                     .font(.system(.body, design: .rounded))
                     .lineLimit(1)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            
-            Text("\(standing.all.played)")
-                .font(.system(.body, design: .rounded))
-                .frame(width: 40, alignment: .center)
-            
-            Text("\(standing.points)")
-                .font(.system(.body, design: .rounded))
-                .fontWeight(.bold)
-                .frame(width: 40, alignment: .center)
-            
+
+            Text("\(standing.all.played)").frame(width: 40)
+            Text("\(standing.points)").fontWeight(.bold).frame(width: 40)
             Text("\(standing.goalsDiff)")
-                .font(.system(.body, design: .rounded))
                 .foregroundColor(standing.goalsDiff >= 0 ? .blue : .red)
-                .frame(width: 40, alignment: .center)
+                .frame(width: 40)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)

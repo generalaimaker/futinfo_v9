@@ -12,6 +12,7 @@ enum FootballAPIError: LocalizedError, Equatable {
     case serverError
     case emptyResponse(String)
     case invalidParameters(String)
+    case requestInProgress
     
     static func == (lhs: FootballAPIError, rhs: FootballAPIError) -> Bool {
         switch (lhs, rhs) {
@@ -20,7 +21,8 @@ enum FootballAPIError: LocalizedError, Equatable {
              (.rateLimitExceeded, .rateLimitExceeded),
              (.missingAPIKey, .missingAPIKey),
              (.invalidAPIKey, .invalidAPIKey),
-             (.serverError, .serverError):
+             (.serverError, .serverError),
+             (.requestInProgress, .requestInProgress):
             return true
         case (.apiError(let lhsErrors), .apiError(let rhsErrors)):
             return lhsErrors == rhsErrors
@@ -62,6 +64,8 @@ enum FootballAPIError: LocalizedError, Equatable {
             return message
         case .invalidParameters(let message):
             return message
+        case .requestInProgress:
+            return "이미 진행 중인 요청입니다."
         }
     }
 }

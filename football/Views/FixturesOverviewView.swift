@@ -318,7 +318,7 @@ struct FixturesOverviewView: View {
     @State private var selectedTeamLeagueId: Int = 0
     
     var body: some View {
-        NavigationView {
+        NavigationStack {
             ZStack {
                 Color(.systemGroupedBackground)
                     .edgesIgnoringSafeArea(.all)

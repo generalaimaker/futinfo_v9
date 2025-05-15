@@ -391,370 +391,108 @@ struct TopPlayerCard: View {
     }
 }
 
-// MARK: - Main View
+// MARK: - Main View (single pitch: home top, away bottom)
 struct LineupsView: View {
+    /// lineups[0] must be home, lineups[1] must be away
     let lineups: [TeamLineup]
-    let topPlayers: [PlayerProfileData]
-    let teamStats: [TeamPlayersStatistics]
-    @State private var selectedTeamIndex = 0
-    @State private var showingFormation = true
-    @State private var selectedPosition: String?
-    
-    private let positions = ["G", "D", "M", "F"]
-    
+
+    // MARK: - Body
     var body: some View {
-        ScrollView {
-            VStack(spacing: 24) {
-                if lineups.isEmpty {
-                    Text("라인업 정보가 없습니다")
-                        .foregroundColor(.gray)
-                        .padding()
-                } else {
-                    // 팀 선택 슬라이더
-                    HStack(spacing: 0) {
-                        ForEach(lineups.indices, id: \.self) { index in
-                            Button(action: {
-                                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                                    selectedTeamIndex = index
-                                }
-                            }) {
-                                HStack(spacing: 12) {
-                                    AsyncImage(url: URL(string: lineups[index].team.logo)) { image in
-                                        image
-                                            .resizable()
-                                            .scaledToFit()
-                                            .saturation(selectedTeamIndex == index ? 1.0 : 0.7)
-                                    } placeholder: {
-                                        Image(systemName: "sportscourt.fill")
-                                            .foregroundColor(.gray)
-                                    }
-                                    .frame(width: 32, height: 32)
-                                    
-                                    Text(lineups[index].team.name)
-                                        .font(.system(.callout, design: .rounded))
-                                        .fontWeight(selectedTeamIndex == index ? .semibold : .regular)
-                                        .foregroundColor(selectedTeamIndex == index ? .primary : .secondary)
-                                }
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 12)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 12)
-                                        .fill(selectedTeamIndex == index ? Color.blue.opacity(0.1) : Color.clear)
-                                )
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 12)
-                                        .stroke(selectedTeamIndex == index ? Color.blue.opacity(0.3) : Color.clear, lineWidth: 1)
-                                )
-                            }
-                            .buttonStyle(PlainButtonStyle())
-                            
-                            if index == 0 {
-                                Divider()
-                                    .padding(.vertical, 8)
-                            }
-                        }
-                    }
-                    .padding(8)
-                    .background(Color(.systemGray6))
-                    .cornerRadius(16)
-                    .padding(.horizontal)
-                    
-                    if !lineups.isEmpty && selectedTeamIndex < lineups.count {
-                        let lineup = lineups[selectedTeamIndex]
-                        
-                        // 포메이션 정보
-                        VStack(spacing: 12) {
-                            HStack {
-                                Text("포메이션")
-                                    .font(.headline)
-                                
-                                Text(lineup.formation)
-                                    .font(.title2.bold())
-                                    .foregroundColor(.blue)
-                                
-                                Spacer()
-                                
-                                Button(action: { showingFormation.toggle() }) {
-                                    Image(systemName: "arrow.left.and.right.square")
-                                        .imageScale(.large)
-                                        .foregroundColor(.blue)
-                                        .rotationEffect(.degrees(showingFormation ? 180 : 0))
-                                }
-                            }
-                            .padding(.horizontal)
-                            
-                            if showingFormation {
-                                FormationView(lineup: lineup)
-                                    .frame(height: 400)
-                                    .padding(.vertical)
-                            }
-                        }
-                        .background(Color(.systemBackground))
-                        .cornerRadius(16)
-                        .shadow(color: Color.black.opacity(0.05), radius: 10)
-                        
-                        // 선발 선수
-                        VStack(alignment: .leading, spacing: 16) {
-                            Text("선발 라인업")
-                                .font(.headline)
-                                .padding(.horizontal)
-                            
-                            ScrollView(.horizontal, showsIndicators: false) {
-                                LazyHStack(spacing: 12) {
-                                    ForEach(lineup.startXI) { player in
-                                        PlayerCard(
-                                            number: player.player.number,
-                                            name: player.player.name,
-                                            position: player.player.pos ?? "",
-                                            isStarter: true,
-                                            playerId: player.player.id
-                                        )
-                                    }
-                                }
-                                .padding(.horizontal)
-                            }
-                        }
-                        .background(Color(.systemBackground))
-                        .cornerRadius(16)
-                        .shadow(color: Color.black.opacity(0.05), radius: 10)
-                        
-                        // 교체 선수
-                        VStack(alignment: .leading, spacing: 16) {
-                            Text("교체 선수")
-                                .font(.headline)
-                                .padding(.horizontal)
-                            
-                            ScrollView(.horizontal, showsIndicators: false) {
-                                LazyHStack(spacing: 12) {
-                                    ForEach(lineup.substitutes) { player in
-                                        PlayerCard(
-                                            number: player.number,
-                                            name: player.name,
-                                            position: player.pos ?? "",
-                                            isStarter: false,
-                                            playerId: player.id
-                                        )
-                                    }
-                                }
-                                .padding(.horizontal)
-                            }
-                        }
-                        .background(Color(.systemBackground))
-                        .cornerRadius(16)
-                        .shadow(color: Color.black.opacity(0.05), radius: 10)
-                    } else {
-                        Text("라인업 정보를 불러오는 중입니다")
-                            .foregroundColor(.gray)
-                            .padding()
-                    }
-                    
-                    
-                    // 최고 평점 선수
-                    if !topPlayers.isEmpty {
-                        VStack(alignment: .leading, spacing: 16) {
-                            Text("최고 평점 선수")
-                                .font(.headline)
-                                .padding(.horizontal)
-                            
-                            ScrollView(.horizontal, showsIndicators: false) {
-                                LazyHStack(spacing: 12) {
-                                    ForEach(topFivePlayers, id: \.player.id) { playerData in
-                                        createTopPlayerCard(for: playerData)
-                                    }
-                                }
-                                .padding(.horizontal)
-                            }
-                        }
-                        .background(Color(.systemBackground))
-                        .cornerRadius(16)
-                        .shadow(color: Color.black.opacity(0.05), radius: 10)
-                    }
-                }
-                
-                // 선수 통계 섹션
-                VStack(alignment: .leading, spacing: 16) {
-                    Text("선수 통계")
-                        .font(.headline)
-                        .padding(.horizontal)
-                    
-                    // 포지션 필터
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 12) {
-                            LineupFilterButton(
-                                title: "전체",
-                                isSelected: selectedPosition == nil,
-                                action: { selectedPosition = nil }
-                            )
-                            
-                            ForEach(positions, id: \.self) { position in
-                                LineupFilterButton(
-                                    title: getPositionName(position),
-                                    isSelected: selectedPosition == position,
-                                    action: { selectedPosition = position }
-                                )
-                            }
-                        }
-                        .padding(.horizontal)
-                    }
-                    
-                    // 팀별 선수 통계
-                    if !lineups.isEmpty && selectedTeamIndex < lineups.count {
-                        TeamStatsSection(
-                            teamStats: teamStats,
-                            selectedTeamId: lineups[selectedTeamIndex].team.id,
-                            selectedPosition: selectedPosition,
-                            filterPlayers: filterPlayers,
-                            getPlayerStats: getPlayerStats
-                        )
-                    } else {
-                        Text("선수 통계 정보를 불러오는 중입니다")
-                            .foregroundColor(.gray)
-                            .padding()
-                    }
-                }
-                .padding(.top, 24)
+        // height for each half based on device width
+        let pitchHeight = UIScreen.main.bounds.width * 0.9
+
+        ScrollView(.vertical, showsIndicators: true) {
+            VStack(spacing: 0) {
+                PitchHalfView(lineup: lineups.first,
+                              isHome: true,
+                              height: pitchHeight)
+
+                PitchHalfView(lineup: lineups.dropFirst().first,
+                              isHome: false,
+                              height: pitchHeight)
             }
-            .padding(.vertical)
+            .frame(maxWidth: .infinity)
+        }
+        // Persistent banners
+        .overlay(alignment: .top) {
+            if let home = lineups.first {
+                Banner(lineup: home, isHome: true)
+            }
+        }
+        .overlay(alignment: .bottom) {
+            if let away = lineups.dropFirst().first {
+                Banner(lineup: away, isHome: false)
+            }
+        }
+        .background(Color(uiColor: .systemGroupedBackground))
+        .navigationTitle("Line‑ups")
+    }
+}
+
+// MARK: - Half‑pitch wrapper
+private struct PitchHalfView: View {
+    let lineup: TeamLineup?
+    let isHome: Bool
+    let height: CGFloat
+
+    var body: some View {
+        if let lineup {
+            FormationView(lineup: lineup, flipVertical: isHome)
+                .frame(maxWidth: .infinity)
+                .frame(height: height)
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .padding(.vertical, 4)
         }
     }
-    
-    private func filterPlayers(_ players: [FixturePlayerStats]) -> [FixturePlayerStats] {
-        // 유효한 통계가 있는 선수만 필터링
-        let validPlayers = players.filter { player in
-            // 선수의 첫 번째 통계 데이터 사용
-            guard let stats = player.statistics.first else { return false }
-            
-            // 포지션이 있고 선수 번호가 있는 경우 표시
-            guard let games = stats.games,
-                  let position = games.position,
-                  games.number != nil else {
-                return false
-            }
-            
-            // 포지션 필터가 선택된 경우
-            if let selectedPos = selectedPosition {
-                return position.starts(with: selectedPos)
-            }
-            
-            return true
+}
+
+// MARK: - Banner (team name + formation)
+private struct Banner: View {
+    let lineup: TeamLineup
+    let isHome: Bool
+
+    var body: some View {
+        HStack(spacing: 6) {
+            teamInfo
+            Spacer()
         }
-        
-        // 선발/교체 여부와 선수 번호로 정렬
-        return validPlayers.sorted { player1, player2 in
-            let stats1 = player1.statistics.first!
-            let stats2 = player2.statistics.first!
-            
-            // 선발 선수를 먼저 표시
-            let sub1 = stats1.games?.substitute ?? true
-            let sub2 = stats2.games?.substitute ?? true
-            if sub1 != sub2 {
-                return !sub1
-            }
-            
-            // 같은 그룹 내에서는 선수 번호로 정렬
-            let num1 = stats1.games?.number ?? 99
-            let num2 = stats2.games?.number ?? 99
-            return num1 < num2
-        }
-    }
-    
-    private func getPlayerStats(for player: FixturePlayerStats) -> PlayerMatchStats {
-        // 선수의 첫 번째 통계 데이터 사용 또는 기본값 생성
-        return player.statistics.first ?? PlayerMatchStats(
-            games: PlayerGameStats(
-                minutes: 0,
-                number: nil,
-                position: nil,
-                rating: "0.0",
-                captain: false,
-                substitute: true,
-                appearences: 0,
-                lineups: 0
-            ),
-            offsides: nil,
-            shots: nil,
-            goals: nil,
-            passes: nil,
-            tackles: nil,
-            duels: nil,
-            dribbles: nil,
-            fouls: nil,
-            cards: nil,
-            penalty: nil,
-            substitutes: nil,
-            team: Team(id: 0, name: "Unknown Team", logo: ""),
-            league: nil
+        .padding(6)
+        .frame(maxWidth: .infinity)
+        .background(
+            Color(hex: lineup.team.colors?.player?.primary ?? "3366FF")
+                .opacity(0.9)
         )
     }
-    
-    @ViewBuilder
-    private func createTopPlayerCard(for playerData: PlayerProfileData) -> some View {
-        if let statistics = playerData.statistics,
-           let stats = statistics.first,
-           let games = stats.games,
-           let rating = games.rating {
-            if let team = stats.team {
-                TopPlayerCard(
-                    player: playerData.player,
-                    team: team,
-                    rating: rating
-                )
+
+    private var teamInfo: some View {
+        HStack(spacing: 4) {
+            AsyncImage(url: URL(string: lineup.team.logo)) { img in
+                img.resizable().scaledToFit()
+            } placeholder: {
+                Image(systemName: "sportscourt")
+                    .foregroundColor(.white.opacity(0.6))
             }
+            .frame(width: 18, height: 18)
+
+            Text(lineup.team.name)
+                .font(.caption.weight(.semibold))
+                .foregroundColor(.white)
+
+            Text(lineup.formation)
+                .font(.caption2)
+                .foregroundColor(.white.opacity(0.8))
         }
     }
-    
-    // MARK: - Team Stats Section
-    private struct TeamStatsSection: View {
-        let teamStats: [TeamPlayersStatistics]
-        let selectedTeamId: Int
-        let selectedPosition: String?
-        let filterPlayers: ([FixturePlayerStats]) -> [FixturePlayerStats]
-        let getPlayerStats: (FixturePlayerStats) -> PlayerMatchStats
-        
-        private var selectedTeamStat: TeamPlayersStatistics? {
-            teamStats.first { $0.team.id == selectedTeamId }
-        }
-        
-        var body: some View {
-            if let teamStat = selectedTeamStat {
-                PlayerStatsList(
-                    players: filterPlayers(teamStat.players),
-                    getPlayerStats: getPlayerStats
-                )
-            }
-        }
-    }
-    
-    private struct PlayerStatsList: View {
-        let players: [FixturePlayerStats]
-        let getPlayerStats: (FixturePlayerStats) -> PlayerMatchStats
-        
-        var body: some View {
-            VStack(spacing: 16) {
-                ForEach(players) { player in
-                    LineupPlayerStatRow(
-                        player: player.player,
-                        stats: getPlayerStats(player)
-                    )
-                }
-            }
-            .padding()
-            .background(Color(.systemBackground))
-            .cornerRadius(12)
-        }
-    }
-    
-    private var topFivePlayers: [PlayerProfileData] {
-        Array(topPlayers.prefix(5))
-    }
-    
-    private func getPositionName(_ position: String) -> String {
-        switch position {
-        case "G": return "골키퍼"
-        case "D": return "수비수"
-        case "M": return "미드필더"
-        case "F": return "공격수"
-        default: return position
-        }
+}
+
+// MARK: - Hex → Color helper
+private extension Color {
+    init(hex: String) {
+        let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
+        var int: UInt64 = 0 ; Scanner(string: hex).scanHexInt64(&int)
+        let r = Double((int >> 16) & 0xFF) / 255
+        let g = Double((int >> 8)  & 0xFF) / 255
+        let b = Double(int & 0xFF) / 255
+        self.init(red: r, green: g, blue: b)
     }
 }

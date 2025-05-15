@@ -75,7 +75,7 @@ struct AttackingStatsView: View {
                         leftValue: homeXG.displayValue,
                         rightValue: awayXG.displayValue,
                         showProgressBar: true,
-                        showPercentage: true
+                        showPercentage: false
                     )
                 }
                 
@@ -87,7 +87,7 @@ struct AttackingStatsView: View {
                         leftValue: homeSaves.displayValue,
                         rightValue: awaySaves.displayValue,
                         showProgressBar: true,
-                        showPercentage: true
+                        showPercentage: false
                     )
                 }
                 
@@ -99,7 +99,7 @@ struct AttackingStatsView: View {
                         leftValue: homeCorners.displayValue,
                         rightValue: awayCorners.displayValue,
                         showProgressBar: true,
-                        showPercentage: true
+                        showPercentage: false
                     )
                 }
                 
@@ -121,7 +121,7 @@ struct AttackingStatsView: View {
                             leftValue: homeTotalShots.displayValue,
                             rightValue: awayTotalShots.displayValue,
                             showProgressBar: true,
-                            showPercentage: true
+                            showPercentage: false
                         )
                     }
                     
@@ -133,7 +133,7 @@ struct AttackingStatsView: View {
                             leftValue: homeShotsOnGoal.displayValue,
                             rightValue: awayShotsOnGoal.displayValue,
                             showProgressBar: true,
-                            showPercentage: true
+                            showPercentage: false
                         )
                     }
                     
@@ -145,7 +145,7 @@ struct AttackingStatsView: View {
                             leftValue: homeShotsOffGoal.displayValue,
                             rightValue: awayShotsOffGoal.displayValue,
                             showProgressBar: true,
-                            showPercentage: true
+                            showPercentage: false
                         )
                     }
                     
@@ -157,7 +157,7 @@ struct AttackingStatsView: View {
                             leftValue: homeBlockedShots.displayValue,
                             rightValue: awayBlockedShots.displayValue,
                             showProgressBar: true,
-                            showPercentage: true
+                            showPercentage: false
                         )
                     }
                     
@@ -169,7 +169,7 @@ struct AttackingStatsView: View {
                             leftValue: homeShotsInside.displayValue,
                             rightValue: awayShotsInside.displayValue,
                             showProgressBar: true,
-                            showPercentage: true
+                            showPercentage: false
                         )
                     }
                     
@@ -181,7 +181,7 @@ struct AttackingStatsView: View {
                             leftValue: homeShotsOutside.displayValue,
                             rightValue: awayShotsOutside.displayValue,
                             showProgressBar: true,
-                            showPercentage: true
+                            showPercentage: false
                         )
                     }
                 }
@@ -204,7 +204,7 @@ struct AttackingStatsView: View {
                             leftValue: "\(homeTotalPasses)",
                             rightValue: "\(awayTotalPasses)",
                             showProgressBar: true,
-                            showPercentage: true
+                            showPercentage: false
                         )
                     }
                     
@@ -228,7 +228,7 @@ struct AttackingStatsView: View {
                             leftValue: homeCrosses.displayValue,
                             rightValue: awayCrosses.displayValue,
                             showProgressBar: true,
-                            showPercentage: true
+                            showPercentage: false
                         )
                     }
                     
@@ -240,7 +240,7 @@ struct AttackingStatsView: View {
                             leftValue: homeLongBalls.displayValue,
                             rightValue: awayLongBalls.displayValue,
                             showProgressBar: true,
-                            showPercentage: true
+                            showPercentage: false
                         )
                     }
                 }

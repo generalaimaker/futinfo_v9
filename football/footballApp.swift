@@ -3,6 +3,12 @@ import Kingfisher
 
 @main
 struct footballApp: App {
+    // 환경 객체로 ScenePhase 관찰
+    @Environment(\.scenePhase) private var scenePhase
+    
+    // FixturesOverviewViewModel 인스턴스 생성
+    @StateObject private var fixturesViewModel = FixturesOverviewViewModel()
+    
     init() {
         // Kingfisher 캐시 설정
         setupKingfisher()
@@ -14,6 +20,11 @@ struct footballApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .environmentObject(fixturesViewModel)
+        }
+        .onChange(of: scenePhase) { newPhase, oldPhase in
+            // ScenePhase 변경 시 FixturesOverviewViewModel에 알림
+            fixturesViewModel.handleScenePhaseChange(newPhase: newPhase, oldPhase: oldPhase)
         }
     }
     

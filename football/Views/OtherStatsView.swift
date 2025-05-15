@@ -60,7 +60,7 @@ struct OtherStatsView: View {
                         leftValue: homeYellowCards.displayValue,
                         rightValue: awayYellowCards.displayValue,
                         showProgressBar: true,
-                        showPercentage: true
+                        showPercentage: false
                     )
                 }
                 
@@ -72,7 +72,7 @@ struct OtherStatsView: View {
                         leftValue: homeRedCards.displayValue,
                         rightValue: awayRedCards.displayValue,
                         showProgressBar: true,
-                        showPercentage: true
+                        showPercentage: false
                     )
                 }
                 
@@ -84,7 +84,7 @@ struct OtherStatsView: View {
                         leftValue: homeFouls.displayValue,
                         rightValue: awayFouls.displayValue,
                         showProgressBar: true,
-                        showPercentage: true
+                        showPercentage: false
                     )
                 }
                 
@@ -96,7 +96,7 @@ struct OtherStatsView: View {
                         leftValue: homeOffsides.displayValue,
                         rightValue: awayOffsides.displayValue,
                         showProgressBar: true,
-                        showPercentage: true
+                        showPercentage: false
                     )
                 }
             }

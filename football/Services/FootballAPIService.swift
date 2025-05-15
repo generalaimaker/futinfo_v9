@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 
 // 한글-영문 팀 이름 매핑 딕셔너리 직접 정의
 // TeamData.swift에서 복사해온 딕셔너리
@@ -254,13 +255,88 @@ class FootballAPIService {
     }
 
     // 기본 API 요청 메서드 (캐싱 및 요청 관리 적용) - 개선된 버전
+    // 요청 키 생성 메서드 추가
+    private func createRequestKey(for endpoint: String, parameters: [String: String]?) -> String {
+        var key = endpoint
+        if let params = parameters, !params.isEmpty {
+            let sortedParams = params.sorted(by: { $0.key < $1.key })
+            let paramsString = sortedParams.map { "\($0.key)=\($0.value)" }.joined(separator: "&")
+            key += "?" + paramsString
+        }
+        return key
+    }
+    
     func performRequest<T: Decodable>(
         endpoint: String,
         parameters: [String: String]? = nil,
         cachePolicy: APICacheManager.CacheExpiration = .medium,
         forceRefresh: Bool = false
     ) async throws -> T {
+        // 디버그 로그 추가
+        print("🔍 performRequest 시작: \(endpoint), 파라미터: \(parameters ?? [:]), 강제 새로고침: \(forceRefresh)")
+        
         return try await withCheckedThrowingContinuation { continuation in
+            // 요청 키 생성 (로깅용)
+            let requestKey = "\(endpoint)?\(parameters?.description ?? "no_params")"
+            print("🔑 요청 키: \(requestKey)")
+            
+            // 중복 요청 체크 강화
+            // 중복 요청 처리 개선 (2차 개선)
+            if requestManager.isRequestInProgress(requestKey) {
+                // 오늘 날짜 경기 요청인지 확인
+                let isFixturesRequest = endpoint.contains("fixtures") || endpoint.contains("getFixtures")
+                let isToday = isRequestForToday(parameters)
+                
+                print("⚠️ 중복 요청 감지: \(requestKey), 경기 요청: \(isFixturesRequest), 오늘 날짜: \(isToday)")
+                
+                // 오늘 날짜 경기 요청인 경우 캐시 확인
+                if isFixturesRequest && isToday {
+                    if let cachedData = APICacheManager.shared.getCache(for: endpoint, parameters: parameters) {
+                        print("✅ 오늘 경기 중복 요청 - 캐시 데이터 사용: \(cachedData.count) 바이트")
+                        
+                        do {
+                            // 캐시된 데이터 디코딩 시도
+                            let decoder = JSONDecoder()
+                            let decodedResponse = try decoder.decode(T.self, from: cachedData)
+                            print("✅ 오늘 경기 중복 요청 - 캐시 데이터 디코딩 성공")
+                            continuation.resume(returning: decodedResponse)
+                        } catch {
+                            print("⚠️ 오늘 경기 중복 요청 - 캐시 데이터 디코딩 실패, 빈 응답 생성")
+                            // 디코딩 실패 시 빈 응답 생성
+                            let emptyResponse = try? createEmptyResponse(ofType: T.self)
+                            if let emptyResponse = emptyResponse {
+                                continuation.resume(returning: emptyResponse)
+                            } else {
+                                continuation.resume(throwing: FootballAPIError.apiError(["이미 진행 중인 요청입니다."]))
+                            }
+                        }
+                    } else {
+                        print("⚠️ 오늘 경기 중복 요청 - 캐시 없음, 빈 응답 생성")
+                        // 캐시가 없는 경우 빈 응답 생성
+                        let emptyResponse = try? createEmptyResponse(ofType: T.self)
+                        if let emptyResponse = emptyResponse {
+                            continuation.resume(returning: emptyResponse)
+                        } else {
+                            continuation.resume(throwing: FootballAPIError.apiError(["이미 진행 중인 요청입니다."]))
+                        }
+                    }
+                } else {
+                    // 일반적인 중복 요청은 빈 응답 생성
+                    print("⚠️ 일반 중복 요청 - 빈 응답 생성")
+                    let emptyResponse = try? createEmptyResponse(ofType: T.self)
+                    if let emptyResponse = emptyResponse {
+                        continuation.resume(returning: emptyResponse)
+                    } else {
+                        continuation.resume(throwing: FootballAPIError.apiError(["이미 진행 중인 요청입니다."]))
+                    }
+                }
+                return
+            }
+            
+            // 이 시점에서는 task가 아직 생성되지 않았으므로,
+            // 요청 시작 표시는 executeRequest 내부로 이동
+            
+            // APIRequestManager.executeRequest 내부에서 이미 markRequestAsCompleted를 호출하므로 여기서는 제거
             requestManager.executeRequest(
                 endpoint: endpoint,
                 parameters: parameters,
@@ -389,6 +465,9 @@ class FootballAPIService {
                 }
             }
         }
+        
+        // 디버그 로그 추가
+        print("🔄 요청 실행: \(endpoint)")
     }
 
     // 응답 로깅 메서드 (간소화)
@@ -1630,8 +1709,13 @@ class FootballAPIService {
         }
 
         // 2. 최신 시즌 또는 현재 시즌 기준으로 프로필 조회 시도
-        // getCurrentSeason 호출에 await 추가
-        let currentSeason = await SearchViewModel.getCurrentSeason()
+        // getCurrentSeason은 비동기 메서드가 아니므로 await 키워드 제거
+        // 현재 시즌 직접 계산 (SearchViewModel.getCurrentSeason 대신)
+        let calendar = Calendar.current
+        let now = Date()
+        let year = calendar.component(.year, from: now)
+        let month = calendar.component(.month, from: now)
+        let currentSeason = month < 7 ? year - 1 : year
         let seasonToTry = latestSeason ?? currentSeason
         if !seasonsTried.contains(seasonToTry) { // Avoid retrying if latestSeason was already tried
              seasonsTried.append(seasonToTry)
@@ -1640,7 +1724,7 @@ class FootballAPIService {
         var lastError: Error? = nil
 
         // 시도할 시즌 목록 (최신 시즌 -> 현재 시즌 -> 과거 시즌 순)
-        // getCurrentSeason 호출에 await 추가
+        // getCurrentSeason은 비동기 메서드가 아니므로 await 키워드 제거
         let fallbackSeasons = [currentSeason - 1, currentSeason - 2]
         let seasonsToAttempt = seasonsTried + fallbackSeasons.filter { !seasonsTried.contains($0) } // Combine and remove duplicates
 
@@ -2390,3 +2474,29 @@ class FootballAPIService {
     }
 
 } // 클래스 닫는 괄호 확인
+
+// MARK: - 헬퍼 메서드 확장
+extension FootballAPIService {
+    // 요청이 오늘 날짜에 대한 것인지 확인하는 함수
+    private func isRequestForToday(_ parameters: [String: String]?) -> Bool {
+        guard let parameters = parameters else { return false }
+        
+        // 오늘 날짜 계산
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-dd"
+        dateFormatter.timeZone = TimeZone(identifier: "UTC")
+        let today = dateFormatter.string(from: Date())
+        
+        // from과 to 파라미터가 모두 오늘 날짜인 경우
+        if let from = parameters["from"], let to = parameters["to"] {
+            return from == today && to == today
+        }
+        
+        // date 파라미터가 오늘 날짜인 경우
+        if let date = parameters["date"] {
+            return date == today
+        }
+        
+        return false
+    }
+}

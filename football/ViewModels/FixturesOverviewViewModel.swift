@@ -1,6 +1,10 @@
 import Foundation
 import Combine
-import UIKit
+import SwiftUI
+import CoreData
+
+// 같은 모듈 내의 파일들은 별도의 import 없이 사용 가능합니다.
+// 필요한 경우 특정 파일을 import할 수 있습니다.
 
 @MainActor
 class FixturesOverviewViewModel: ObservableObject {
@@ -33,6 +37,10 @@ class FixturesOverviewViewModel: ObservableObject {
     private var cachedFixtures: [String: [Fixture]] = [:] // 날짜 문자열을 키로 사용
     private var cacheDates: [String: Date] = [:] // 캐시 저장 시간 기록
     private let cacheExpirationMinutes: Double = 5 // 캐시 만료 시간 (15분에서 5분으로 단축)
+    
+    // 빈 응답 캐싱을 위한 변수
+    private var emptyResponseCache: [String: Date] = [:] // 빈 응답을 받은 날짜+리그 조합과 시간
+    private let emptyResponseCacheHours: Double = 6 // 빈 응답 캐시 만료 시간 (6시간)
     
     // 경기 상태별 캐시 만료 시간 (분 단위)
     private let liveMatchCacheMinutes: Double = 1 // 진행 중인 경기는 1분 (5분에서 단축)
@@ -154,14 +162,17 @@ class FixturesOverviewViewModel: ObservableObject {
             
             // 오늘 날짜에 대한 경기 일정 로드 (강제 새로고침 적용)
             print("📱 앱 시작 시 오늘 날짜 데이터 프리로딩 시작 (강제 새로고침)")
+            print("🔍 디버그: 오늘 날짜 = \(formatDateForAPI(today)), 현재 시간 = \(Date())")
             await preloadFixturesWithFallback(for: today, forceRefresh: true)
             
             // 내일 날짜에 대한 경기 일정 미리 로드
             let tomorrow = calendar.date(byAdding: .day, value: 1, to: today)!
+            print("🔍 디버그: 내일 날짜 = \(formatDateForAPI(tomorrow))")
             await preloadFixturesWithFallback(for: tomorrow, forceRefresh: true)
             
             // 어제 날짜에 대한 경기 결과 미리 로드
             let yesterday = calendar.date(byAdding: .day, value: -1, to: today)!
+            print("🔍 디버그: 어제 날짜 = \(formatDateForAPI(yesterday))")
             await preloadFixturesWithFallback(for: yesterday, forceRefresh: true)
             
             // 백그라운드 로드가 활성화된 경우에만 추가 데이터 로드
@@ -187,23 +198,42 @@ class FixturesOverviewViewModel: ObservableObject {
     private func preloadFixturesWithFallback(for date: Date, forceRefresh: Bool = false) async {
         let dateString = formatDateForAPI(date)
         
+        print("🔍 디버그: preloadFixturesWithFallback 시작 - 날짜: \(dateString), 강제 새로고침: \(forceRefresh)")
+        
         // 1. 먼저 캐시된 데이터가 있으면 즉시 표시 (UI 빠르게 업데이트)
         if let cachedData = cachedFixtures[dateString], !cachedData.isEmpty {
             fixtures[date] = cachedData
             print("✅ 캐시 데이터로 빠르게 UI 업데이트: \(dateString) (\(cachedData.count)개)")
+            
+            // 캐시된 데이터의 경기 상태 로깅
+            let liveCount = cachedData.filter { liveStatuses.contains($0.fixture.status.short) }.count
+            let finishedCount = cachedData.filter { $0.fixture.status.short == "FT" }.count
+            let upcomingCount = cachedData.filter { $0.fixture.status.short == "NS" }.count
+            print("🔍 디버그: 캐시 데이터 상태 - 라이브: \(liveCount), 종료: \(finishedCount), 예정: \(upcomingCount)")
         } else {
             // 캐시된 데이터가 없으면 빈 배열 설정 (스켈레톤 UI 표시 가능)
             fixtures[date] = []
+            print("🔍 디버그: 캐시 데이터 없음, 빈 배열 설정")
         }
         
         // 2. 캐시 만료 여부 확인
         let isCacheExpired = isCacheExpired(for: dateString)
+        print("🔍 디버그: 캐시 만료 여부: \(isCacheExpired)")
         
         // 3. 캐시가 만료되었거나 데이터가 없는 경우 또는 강제 새로고침인 경우 API 호출
         if isCacheExpired || fixtures[date]?.isEmpty == true || forceRefresh {
+            print("🔍 디버그: API 호출 조건 충족 - 캐시 만료: \(isCacheExpired), 데이터 없음: \(fixtures[date]?.isEmpty == true), 강제 새로고침: \(forceRefresh)")
+            
             do {
                 // API에서 최신 데이터 가져오기
+                print("🔍 디버그: fetchFixturesForDate 호출 시작 - 날짜: \(dateString), 강제 새로고침: \(forceRefresh)")
                 let fixturesForDate = try await fetchFixturesForDate(date, forceRefresh: forceRefresh)
+                
+                // 가져온 데이터 상태 로깅
+                let liveCount = fixturesForDate.filter { liveStatuses.contains($0.fixture.status.short) }.count
+                let finishedCount = fixturesForDate.filter { $0.fixture.status.short == "FT" }.count
+                let upcomingCount = fixturesForDate.filter { $0.fixture.status.short == "NS" }.count
+                print("🔍 디버그: API 응답 데이터 상태 - 라이브: \(liveCount), 종료: \(finishedCount), 예정: \(upcomingCount)")
                 
                 // UI 업데이트
                 fixtures[date] = fixturesForDate
@@ -215,6 +245,11 @@ class FixturesOverviewViewModel: ObservableObject {
                 print("✅ API에서 최신 데이터로 업데이트: \(dateString) (\(fixturesForDate.count)개)")
             } catch {
                 print("❌ 최신 데이터 업데이트 실패: \(error.localizedDescription)")
+                print("🔍 디버그: 오류 타입: \(type(of: error))")
+                
+                if let apiError = error as? FootballAPIError {
+                    print("🔍 디버그: FootballAPIError 세부 정보: \(apiError)")
+                }
                 
                 // 에러 발생 시 빈 응답 메시지 설정
                 if fixtures[date]?.isEmpty == true {
@@ -282,28 +317,30 @@ class FixturesOverviewViewModel: ObservableObject {
         }
     }
     
-    // 앱 생명주기 이벤트 관찰 설정
+    // 앱 생명주기 이벤트 관찰 설정 (SwiftUI 방식으로 변경)
     private func setupAppLifecycleObservers() {
-        #if os(iOS)
-        // iOS에서는 NotificationCenter를 통해 앱 생명주기 이벤트 관찰
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(appWillEnterForeground),
-            name: UIApplication.willEnterForegroundNotification,
-            object: nil
-        )
+        // SwiftUI 앱에서는 ScenePhase를 통해 생명주기 이벤트를 관찰합니다.
+        // 이 메서드는 더 이상 직접 사용되지 않으며, SwiftUI의 .onChange(of: scenePhase)를 사용합니다.
+        // 이 코드는 footballApp.swift에서 구현해야 합니다.
         
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(appDidEnterBackground),
-            name: UIApplication.didEnterBackgroundNotification,
-            object: nil
-        )
-        #endif
+        print("📱 앱 생명주기 관찰은 SwiftUI의 ScenePhase를 통해 처리됩니다.")
+    }
+    
+    // SwiftUI 앱에서 사용할 생명주기 메서드
+    public func handleScenePhaseChange(newPhase: ScenePhase, oldPhase: ScenePhase) {
+        if oldPhase == .background && newPhase == .active {
+            // 백그라운드에서 포그라운드로 전환
+            print("📱 앱이 포그라운드로 돌아옴 (ScenePhase)")
+            appWillEnterForeground()
+        } else if oldPhase == .active && newPhase == .background {
+            // 포그라운드에서 백그라운드로 전환
+            print("📱 앱이 백그라운드로 이동 (ScenePhase)")
+            appDidEnterBackground()
+        }
     }
     
     // 앱이 포그라운드로 돌아올 때 호출
-    @objc private func appWillEnterForeground() {
+    private func appWillEnterForeground() {
         print("📱 앱이 포그라운드로 돌아옴")
         
         // 현재 선택된 날짜의 데이터 새로고침
@@ -329,7 +366,7 @@ class FixturesOverviewViewModel: ObservableObject {
     }
     
     // 앱이 백그라운드로 갈 때 호출
-    @objc private func appDidEnterBackground() {
+    private func appDidEnterBackground() {
         print("📱 앱이 백그라운드로 이동")
         
         // 자동 새로고침 중지
@@ -744,15 +781,45 @@ class FixturesOverviewViewModel: ObservableObject {
         }
     }
     
+    // 빈 응답 캐시 만료 여부 확인
+    private func isEmptyResponseCacheExpired(for dateString: String, leagueId: Int) -> Bool {
+        let cacheKey = "\(dateString)_\(leagueId)"
+        guard let cacheDate = emptyResponseCache[cacheKey] else {
+            return true // 캐시 날짜가 없으면 만료된 것으로 간주
+        }
+        
+        let now = Date()
+        let expirationInterval = emptyResponseCacheHours * 3600 // 초 단위로 변환
+        let isExpired = now.timeIntervalSince(cacheDate) > expirationInterval
+        
+        if isExpired {
+            print("⏰ 빈 응답 캐시 만료됨: \(cacheKey) (저장 시간: \(cacheDate), 현재: \(now), 만료 시간: \(emptyResponseCacheHours)시간)")
+        } else {
+            print("✅ 빈 응답 캐시 유효함: \(cacheKey) (저장 시간: \(cacheDate), 현재: \(now))")
+        }
+        
+        return isExpired
+    }
+    
+    // 빈 응답 캐시 저장
+    private func saveEmptyResponseCache(for dateString: String, leagueId: Int) {
+        let cacheKey = "\(dateString)_\(leagueId)"
+        emptyResponseCache[cacheKey] = Date()
+        print("📝 빈 응답 캐시 저장: \(cacheKey)")
+    }
+    
     // 특정 날짜에 대한 경기 일정 가져오기 (개선된 버전)
     public func fetchFixturesForDate(_ date: Date, forceRefresh: Bool = false) async throws -> [Fixture] {
         let dateString = formatDateForAPI(date)
+        
+        print("🔍 디버그: fetchFixturesForDate 시작 - 날짜: \(dateString), 강제 새로고침: \(forceRefresh)")
         
         // 캐시된 데이터가 있는지 확인 (API 호출 전)
         let cachedData = self.cachedFixtures[dateString]
         
         // 캐시 만료 확인
         let isCacheExpired = isCacheExpired(for: dateString)
+        print("🔍 디버그: 캐시 만료 여부: \(isCacheExpired), 캐시 데이터 있음: \(cachedData != nil), 캐시 데이터 비어있음: \(cachedData?.isEmpty ?? true)")
         
         // 캐시가 있고, 만료되지 않았으며, 강제 새로고침이 아닌 경우 캐시 사용
         if !forceRefresh && !isCacheExpired, let cachedData = cachedData, !cachedData.isEmpty {
@@ -770,6 +837,16 @@ class FixturesOverviewViewModel: ObservableObject {
         // 주요 리그만 가져오기 (API 요청 제한 방지)
         let mainLeagues = [39, 140, 135, 78, 61, 2, 3] // 프리미어 리그, 라리가, 세리에 A, 분데스리가, 리그 1, 챔피언스 리그, 유로파 리그
         
+        // 리그별 빈 응답 캐시 확인을 위한 필터링된 리그 목록
+        let filteredLeagues = mainLeagues.filter { leagueId in
+            // 빈 응답 캐시가 만료되었거나 강제 새로고침인 경우에만 포함
+            return forceRefresh || isEmptyResponseCacheExpired(for: dateString, leagueId: leagueId)
+        }
+        
+        if filteredLeagues.count < mainLeagues.count {
+            print("🔍 디버그: 빈 응답 캐시로 인해 \(mainLeagues.count - filteredLeagues.count)개 리그 요청 생략")
+        }
+        
         // 현재 날짜에 따른 시즌 설정
         let currentSeason = getCurrentSeason()
         print("📅 현재 시즌 설정: \(currentSeason)")
@@ -779,13 +856,22 @@ class FixturesOverviewViewModel: ObservableObject {
         var failedLeagues: [Int] = []
         
         // 1. 주요 리그 데이터 가져오기
-        for leagueId in mainLeagues {
+        for leagueId in filteredLeagues {
             do {
                 // 이미 진행 중인 요청이 있는지 확인 (중복 요청 방지)
                 let requestKey = "getFixtures_\(dateString)_\(leagueId)_\(currentSeason)"
                 if requestManager.isRequestInProgress(requestKey) {
                     print("⚠️ 이미 진행 중인 요청입니다: \(requestKey)")
-                    continue
+                    
+                    // 이미 캐시된 데이터가 있으면 사용
+                    if let cachedData = cachedFixtures[dateString], !cachedData.isEmpty {
+                        print("✅ 중복 요청 감지, 캐시된 데이터 사용: \(dateString) (\(cachedData.count)개)")
+                        continue
+                    } else {
+                        // 캐시된 데이터가 없으면 다음 리그로 넘어감
+                        failedLeagues.append(leagueId)
+                        continue
+                    }
                 }
                 
                 print("📡 경기 일정 로드 시도: 날짜: \(dateString), 리그: \(leagueId), 시즌: \(currentSeason)")
@@ -808,6 +894,12 @@ class FixturesOverviewViewModel: ObservableObject {
                 successfulLeagues.append(leagueId)
                 print("📊 리그 \(leagueId) 받은 경기 수: \(fixturesForLeague.count)")
                 print("📊 누적 경기 수: \(allFixtures.count)개 (리그 \(leagueId) 추가 후)")
+                
+                // 빈 응답인 경우 캐시에 저장
+                if fixturesForLeague.isEmpty {
+                    saveEmptyResponseCache(for: dateString, leagueId: leagueId)
+                    print("📝 리그 \(leagueId)에 대한 빈 응답 캐시 저장")
+                }
                 
             } catch let error {
                 print("❌ 리그 \(leagueId) API 요청 오류: \(error.localizedDescription)")
@@ -1384,6 +1476,8 @@ class FixturesOverviewViewModel: ObservableObject {
     // 특정 날짜에 대한 경기 일정 로드 (UI 업데이트 포함)
     @MainActor
     public func loadFixturesForDate(_ date: Date, forceRefresh: Bool = false) async {
+        print("🔍 디버그: loadFixturesForDate 시작 - 날짜: \(formatDateForAPI(date)), 강제 새로고침: \(forceRefresh)")
+        
         // 이미 로딩 중인 날짜인지 확인
         if loadingDates.contains(date) {
             print("⚠️ 이미 로딩 중인 날짜입니다: \(formatDateForAPI(date))")
@@ -1404,6 +1498,7 @@ class FixturesOverviewViewModel: ObservableObject {
         
         // 오늘 날짜인지 확인
         let isToday = calendar.isDate(date, inSameDayAs: today)
+        print("🔍 디버그: 오늘 날짜 여부: \(isToday)")
         
         // 오늘 날짜이거나 라이브 경기가 있는 경우 강제 새로고침
         var shouldForceRefresh = forceRefresh
@@ -1412,6 +1507,7 @@ class FixturesOverviewViewModel: ObservableObject {
         let hasLiveMatches = fixtures[date]?.contains { fixture in
             liveStatuses.contains(fixture.fixture.status.short)
         } ?? false
+        print("🔍 디버그: 라이브 경기 있음: \(hasLiveMatches)")
         
         // 오늘 날짜이거나 라이브 경기가 있으면 강제 새로고침
         if isToday || hasLiveMatches {
@@ -1427,6 +1523,9 @@ class FixturesOverviewViewModel: ObservableObject {
         
         // 빈 응답 상태 초기화
         emptyDates[date] = nil
+        
+        // 캐시된 데이터 가져오기
+        let cachedData = self.cachedFixtures[dateString]
         
         // 타임아웃 처리를 위한 Task 생성
         let task = Task {
@@ -1455,6 +1554,23 @@ class FixturesOverviewViewModel: ObservableObject {
                 // 작업이 취소되었는지 확인
                 if Task.isCancelled {
                     print("⚠️ 작업이 취소되었습니다: \(dateString)")
+                    return
+                }
+                
+                // 중복 요청 에러 처리
+                if case .requestInProgress = error {
+                    await MainActor.run {
+                        print("⚠️ 중복 요청 에러 감지: \(dateString)")
+                        
+                        // 캐시된 데이터가 있으면 사용
+                        if let cachedData = cachedData, !cachedData.isEmpty {
+                            fixtures[date] = cachedData
+                            print("✅ 중복 요청 에러, 캐시된 데이터 사용: \(dateString) (\(cachedData.count)개)")
+                        }
+                        
+                        // 로딩 중인 날짜 목록에서 제거
+                        loadingDates.remove(date)
+                    }
                     return
                 }
                 

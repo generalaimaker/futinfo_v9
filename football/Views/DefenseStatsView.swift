@@ -60,7 +60,7 @@ struct DefenseStatsView: View {
                         leftValue: homeSaves.displayValue,
                         rightValue: awaySaves.displayValue,
                         showProgressBar: true,
-                        showPercentage: true
+                        showPercentage: false
                     )
                 }
                 
@@ -72,7 +72,7 @@ struct DefenseStatsView: View {
                         leftValue: homeFouls.displayValue,
                         rightValue: awayFouls.displayValue,
                         showProgressBar: true,
-                        showPercentage: true
+                        showPercentage: false
                     )
                 }
                 
@@ -94,7 +94,7 @@ struct DefenseStatsView: View {
                             leftValue: homeYellowCards.displayValue,
                             rightValue: awayYellowCards.displayValue,
                             showProgressBar: true,
-                            showPercentage: true
+                            showPercentage: false
                         )
                     }
                     
@@ -106,7 +106,7 @@ struct DefenseStatsView: View {
                             leftValue: homeRedCards.displayValue,
                             rightValue: awayRedCards.displayValue,
                             showProgressBar: true,
-                            showPercentage: true
+                            showPercentage: false
                         )
                     }
                 }

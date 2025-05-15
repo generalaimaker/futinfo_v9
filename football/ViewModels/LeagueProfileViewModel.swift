@@ -84,7 +84,8 @@ class LeagueProfileViewModel: ObservableObject {
         error = nil
         
         do {
-            let allFixtures = try await service.getFixtures(leagueId: leagueId, season: selectedSeason, from: nil, to: nil)
+            let actualLeagueId = leagueDetails?.league.id ?? leagueId
+            let allFixtures = try await service.getFixtures(leagueId: actualLeagueId, season: selectedSeason, from: nil, to: nil)
             
             // 날짜 기준으로 경기 분류
             let dateFormatter = DateFormatter()
@@ -370,6 +371,7 @@ class LeagueProfileViewModel: ObservableObject {
             group.addTask { await self.loadLeagueDetails() }
             group.addTask { await self.loadStandings() }
             group.addTask { await self.loadFixtures() }
+            group.addTask { await self.loadTournamentData() }
         }
         
         // 나머지 데이터는 백그라운드에서 로드
@@ -383,25 +385,39 @@ class LeagueProfileViewModel: ObservableObject {
     func loadTournamentData() async {
         isLoading = true
         error = nil
-        
+        if leagueDetails == nil {
+            await loadLeagueDetails()
+        }
         do {
-            // 컵대회 ID 확인 (챔피언스리그, 유로파리그, 주요 컵대회)
-            let cupCompetitionIds = [2, 3, 45, 143, 137, 66, 81]
-            
-            // 현재 리그가 컵대회인지 확인
-            let isCupCompetition = cupCompetitionIds.contains(leagueId)
-            
+            // 현재 리그가 컵대회인지 확인 (API type == "Cup")
+            let isCupCompetition = leagueDetails?.league.type.lowercased() == "cup"
+
             if isCupCompetition {
+                // 시즌 시작·종료 날짜 가져오기 (API에서 제공된 coverage seasons)
+                let seasonData = leagueDetails?.seasons?.first(where: { $0.year == selectedSeason })
+                let fromDate = seasonData?.start
+                let toDate   = seasonData?.end
+                // 문자열 시작/종료일을 Date?로 파싱
+                let apiDateFormatter = DateFormatter()
+                apiDateFormatter.dateFormat = "yyyy-MM-dd"
+                let fromDateObj = fromDate.flatMap { apiDateFormatter.date(from: $0) }
+                let toDateObj   = toDate.flatMap   { apiDateFormatter.date(from: $0) }
                 // 모든 경기 가져오기
-                let allFixtures = try await service.getFixtures(leagueId: leagueId, season: selectedSeason, from: nil, to: nil)
-                
+                let actualLeagueId = leagueDetails?.league.id ?? leagueId
+                let allFixtures = try await service.getFixtures(
+                    leagueId: actualLeagueId,
+                    season: selectedSeason,
+                    from: fromDateObj,
+                    to: toDateObj
+                )
+
                 // 라운드 정보 추출 및 정렬
                 var rounds = Set<String>()
                 for fixture in allFixtures {
                     // fixture.league.round는 옵셔널이 아니므로 바로 사용
                     rounds.insert(fixture.league.round)
                 }
-                
+
                 // 라운드 정렬 로직
                 let sortedRounds = Array(rounds).sorted { round1, round2 in
                     // 결승전은 항상 마지막에
@@ -411,7 +427,7 @@ class LeagueProfileViewModel: ObservableObject {
                     if !round1.contains("Final") && round2.contains("Final") {
                         return true
                     }
-                    
+
                     // 준결승은 결승 바로 전에
                     if round1.contains("Semi") && !round2.contains("Semi") && !round2.contains("Final") {
                         return false
@@ -419,7 +435,7 @@ class LeagueProfileViewModel: ObservableObject {
                     if !round1.contains("Semi") && round2.contains("Semi") {
                         return true
                     }
-                    
+
                     // 8강은 준결승 바로 전에
                     if round1.contains("Quarter") && !round2.contains("Quarter") && !round2.contains("Semi") && !round2.contains("Final") {
                         return false
@@ -427,22 +443,22 @@ class LeagueProfileViewModel: ObservableObject {
                     if !round1.contains("Quarter") && round2.contains("Quarter") {
                         return true
                     }
-                    
+
                     // 16강, 32강, 64강 순서로 정렬
                     if round1.contains("Round of") && round2.contains("Round of") {
                         // 숫자 부분만 추출
                         if let range1 = round1.range(of: "Round of (\\d+)", options: .regularExpression),
                            let range2 = round2.range(of: "Round of (\\d+)", options: .regularExpression) {
-                            
+
                             let numberStr1 = round1[range1].replacingOccurrences(of: "Round of ", with: "")
                             let numberStr2 = round2[range2].replacingOccurrences(of: "Round of ", with: "")
-                            
+
                             if let number1 = Int(numberStr1), let number2 = Int(numberStr2) {
                                 return number1 < number2
                             }
                         }
                     }
-                    
+
                     // 조별리그는 항상 먼저
                     if round1.contains("Group") && !round2.contains("Group") {
                         return true
@@ -450,14 +466,14 @@ class LeagueProfileViewModel: ObservableObject {
                     if !round1.contains("Group") && round2.contains("Group") {
                         return false
                     }
-                    
+
                     // 기본 알파벳 순서
                     return round1 < round2
                 }
-                
+
                 tournamentRounds = sortedRounds
                 tournamentFixtures = allFixtures
-                
+
                 print("✅ 토너먼트 데이터 로드 완료: \(tournamentRounds.count) 라운드, \(tournamentFixtures.count) 경기")
             } else {
                 // 컵대회가 아닌 경우 빈 데이터 설정
@@ -469,7 +485,7 @@ class LeagueProfileViewModel: ObservableObject {
             self.error = error
             print("Error loading tournament data: \(error)")
         }
-        
+
         isLoading = false
     }
     

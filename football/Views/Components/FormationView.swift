@@ -3,6 +3,12 @@ import SwiftUI
 // MARK: - Formation View
 struct FormationView: View {
     let lineup: TeamLineup
+    /// When true, the Y‑axis is not flipped (used for home side at top of combined pitch)
+    let flipVertical: Bool
+    init(lineup: TeamLineup, flipVertical: Bool = false) {
+        self.lineup = lineup
+        self.flipVertical = flipVertical
+    }
     @Environment(\.colorScheme) private var colorScheme
     
     // 선수 통계 정보 가져오기
@@ -135,13 +141,13 @@ struct FormationView: View {
         
         if pos.contains("GK") || pos.contains("GOALKEEPER") || pos == "G" {
             return "G"
-        } else if pos.contains("CB") || pos.contains("LB") || pos.contains("RB") || 
+        } else if pos.contains("CB") || pos.contains("LB") || pos.contains("RB") ||
                   pos.contains("WB") || pos.contains("DEF") || pos == "D" {
             return "D"
-        } else if pos.contains("CM") || pos.contains("DM") || pos.contains("AM") || 
+        } else if pos.contains("CM") || pos.contains("DM") || pos.contains("AM") ||
                   pos.contains("LM") || pos.contains("RM") || pos.contains("MID") || pos == "M" {
             return "M"
-        } else if pos.contains("ST") || pos.contains("CF") || pos.contains("LW") || 
+        } else if pos.contains("ST") || pos.contains("CF") || pos.contains("LW") ||
                   pos.contains("RW") || pos.contains("FW") || pos == "F" {
             return "F"
         }
@@ -150,276 +156,125 @@ struct FormationView: View {
         return "M"
     }
     
-    // 특정 포지션 그룹에 맞는 선수들 찾기 (개선된 버전)
-    private func findMatchingPlayers(for positionGroup: String, in players: [LineupPlayer]) -> [LineupPlayer] {
-        // 1. 포지션 그룹별 선수 매칭 우선순위 정의 (더 많은 포지션 약어 추가)
-        let positionPriorities: [String: [String]] = [
-            "GK": ["GK", "G", "GOALKEEPER"],
-            "DEF": ["CB", "LB", "RB", "LWB", "RWB", "D", "DEF", "BACK"],
-            "CDM": ["CDM", "DM", "DMF", "DCM", "DEFENSIVE", "HOLDING", "PIVOT"],
-            "MID": ["CM", "LM", "RM", "M", "MID", "CMF", "CENTRAL"],
-            "CAM": ["CAM", "AM", "AMF", "LAM", "RAM", "ACM", "ATTACKING", "OFFENSIVE", "PLAYMAKER"],
-            "FW": ["ST", "CF", "LW", "RW", "LF", "RF", "F", "FW", "FORWARD", "STRIKER", "WING"]
-        ]
-        
-        // 포지션 위치 정보 (왼쪽/오른쪽/중앙)
-        let leftPositions = ["LB", "LWB", "LCB", "LM", "LW", "LAM", "LF", "LEFT"]
-        let rightPositions = ["RB", "RWB", "RCB", "RM", "RW", "RAM", "RF", "RIGHT"]
-        let centerPositions = ["CB", "CM", "CAM", "CDM", "CF", "ST", "CENTER", "CENTRAL"]
-        
-        // 포메이션 데이터에서 위치 정보 추출
-        var positionLocations: [Int: String] = [:]
-        if let positions = FormationPositions.formationData[lineup.formation]?[positionGroup] {
-            for (index, position) in positions.enumerated() {
-                let x = position[0]
-                // x 좌표에 따라 왼쪽/오른쪽/중앙 결정
-                if x < 4 {
-                    positionLocations[index] = "LEFT"
-                } else if x > 6 {
-                    positionLocations[index] = "RIGHT"
-                } else {
-                    positionLocations[index] = "CENTER"
-                }
+    /// Returns players whose position maps to `positionGroup`,
+    /// ordered from left to right based on gridPosition.x (if available).
+    private func findMatchingPlayers(for positionGroup: String,
+                                     in players: [LineupPlayer]) -> [LineupPlayer] {
+        players
+            .filter { player in
+                guard let pos = player.pos else { return false }
+                return FormationPositions.getPositionGroup(for: pos) == positionGroup
             }
-        }
-        
-        // 2. 포지션 그룹에 정확히 매칭되는 선수들 먼저 찾기
-        var exactMatches: [LineupPlayer] = []
-        var closeMatches: [LineupPlayer] = []
-        var fallbackMatches: [LineupPlayer] = []
-        var positionBasedMatches: [LineupPlayer] = []
-        
-        // 위치별 선수 분류
-        var leftPlayers: [LineupPlayer] = []
-        var rightPlayers: [LineupPlayer] = []
-        var centerPlayers: [LineupPlayer] = []
-        
-        // 해당 포지션 그룹의 우선순위 포지션 목록
-        let priorityPositions = positionPriorities[positionGroup] ?? []
-        
-        // 디버깅을 위한 로그
-        print("🔍 Finding players for position group: \(positionGroup)")
-        print("🔍 Priority positions: \(priorityPositions)")
-        print("🔍 Total players to match: \(players.count)")
-        print("🔍 Formation: \(lineup.formation)")
-        print("🔍 Position locations: \(positionLocations)")
-        
-        // 포메이션 기반 추론을 위한 준비
-        _ = lineup.formation.split(separator: "-").compactMap { Int($0) }
-        let hasCDMPosition = lineup.formation.contains("4-2-3") || 
-                           lineup.formation.contains("3-2-") || 
-                           lineup.formation.contains("4-1-") || 
-                           lineup.formation.contains("3-1-")
-        
-        let hasCAMPosition = lineup.formation.contains("4-2-3") || 
-                           lineup.formation.contains("4-3-2") || 
-                           lineup.formation.contains("4-4-1-1") || 
-                           lineup.formation.contains("3-4-1")
-        
-        // 모든 선수 순회
-        for player in players {
-            guard let pos = player.pos?.uppercased() else { 
-                print("⚠️ Player \(player.name) has no position")
-                continue 
+            .sorted {
+                let x0 = $0.gridPosition?.x ?? 2
+                let x1 = $1.gridPosition?.x ?? 2
+                return x0 < x1
             }
-            
-            print("🔍 Checking player: \(player.name), Position: \(pos)")
-            
-            let playerGroup = FormationPositions.getPositionGroup(for: pos)
-            print("🔍 Player group determined: \(playerGroup)")
-            
-            // 선수의 위치 정보 (왼쪽/오른쪽/중앙) 결정
-            var playerLocation = "CENTER" // 기본값은 중앙
-            
-            // 포지션 문자열에서 위치 정보 추출
-            if leftPositions.contains(where: { pos.contains($0) }) {
-                playerLocation = "LEFT"
-            } else if rightPositions.contains(where: { pos.contains($0) }) {
-                playerLocation = "RIGHT"
-            } else if centerPositions.contains(where: { pos.contains($0) }) {
-                playerLocation = "CENTER"
-            }
-            
-            // 그리드 위치에서 추가 정보 활용
-            if let gridPos = player.gridPosition {
-                // x 좌표가 작을수록 왼쪽, 클수록 오른쪽
-                if gridPos.x <= 1 {
-                    playerLocation = "LEFT"
-                } else if gridPos.x >= 3 {
-                    playerLocation = "RIGHT"
-                } else {
-                    playerLocation = "CENTER"
-                }
-            }
-            
-            print("🔍 Player location determined: \(playerLocation)")
-            
-            // 위치별 선수 분류
-            switch playerLocation {
-            case "LEFT":
-                leftPlayers.append(player)
-            case "RIGHT":
-                rightPlayers.append(player)
-            default:
-                centerPlayers.append(player)
-            }
-            
-            // 정확한 포지션 그룹 매칭
-            if playerGroup == positionGroup {
-                print("✅ Exact group match for \(player.name): \(pos) -> \(positionGroup)")
-                
-                // 우선순위에 따라 정렬
-                if priorityPositions.contains(where: { pos.contains($0) }) {
-                    print("⭐ Priority match for \(player.name)")
-                    exactMatches.append(player)
-                } else {
-                    closeMatches.append(player)
-                }
-                continue
-            }
-            
-            // 특수 케이스 처리 - 더 많은 케이스 추가
-            switch positionGroup {
-            case "CDM":
-                if pos.contains("DM") || pos.contains("CDM") || pos.contains("DMF") || 
-                   pos.contains("DEFENSIVE MID") || pos.contains("HOLDING MID") ||
-                   (pos.contains("CM") && (pos.contains("D") || pos.contains("DEFENSIVE"))) {
-                    print("✅ CDM fallback match for \(player.name): \(pos)")
-                    fallbackMatches.append(player)
-                }
-                // 포메이션 기반 추론 (그리드 위치 활용)
-                else if (pos.contains("CM") || pos.contains("M")) && hasCDMPosition {
-                    if let gridPos = player.gridPosition {
-                        // y 좌표가 클수록 수비에 가까움 (일반적으로 3 이상이면 수비형 미드필더)
-                        if gridPos.y >= 3 {
-                            print("✅ CDM position-based match for \(player.name): grid \(gridPos)")
-                            positionBasedMatches.append(player)
-                        }
-                    }
-                }
-            case "CAM":
-                if pos.contains("AM") || pos.contains("CAM") || pos.contains("AMF") || 
-                   pos.contains("ATTACKING MID") || pos.contains("OFFENSIVE MID") ||
-                   (pos.contains("CM") && (pos.contains("A") || pos.contains("ATTACKING"))) {
-                    print("✅ CAM fallback match for \(player.name): \(pos)")
-                    fallbackMatches.append(player)
-                }
-                // 포메이션 기반 추론 (그리드 위치 활용)
-                else if (pos.contains("CM") || pos.contains("M")) && hasCAMPosition {
-                    if let gridPos = player.gridPosition {
-                        // y 좌표가 작을수록 공격에 가까움 (일반적으로 3 미만이면 공격형 미드필더)
-                        if gridPos.y < 3 {
-                            print("✅ CAM position-based match for \(player.name): grid \(gridPos)")
-                            positionBasedMatches.append(player)
-                        }
-                    }
-                }
-            case "MID":
-                if playerGroup == "CDM" || playerGroup == "CAM" {
-                    print("✅ MID fallback match for \(player.name): \(pos) -> \(playerGroup)")
-                    fallbackMatches.append(player)
-                }
-            default:
-                break
-            }
-        }
-        
-        // 3. 결과 합치기 (정확한 매칭 먼저, 그 다음 가까운 매칭, 그 다음 위치 기반 매칭, 마지막으로 대체 매칭)
-        var result = exactMatches + closeMatches + positionBasedMatches + fallbackMatches
-        print("📊 Initial matching result for \(positionGroup): \(result.count) players")
-        
-        // 4. 위치 기반 정렬 (왼쪽/오른쪽/중앙)
-        if let positions = FormationPositions.formationData[lineup.formation]?[positionGroup] {
-            var sortedResult: [LineupPlayer] = []
-            
-            // 각 포지션 위치에 맞는 선수 할당
-            for (index, _) in positions.enumerated() {
-                if index >= result.count {
-                    break // 선수가 부족한 경우 중단
-                }
-                
-                let location = positionLocations[index] ?? "CENTER"
-                var matchedPlayer: LineupPlayer? = nil
-                
-                // 위치에 맞는 선수 찾기
-                switch location {
-                case "LEFT":
-                    if !leftPlayers.isEmpty {
-                        matchedPlayer = leftPlayers.removeFirst()
-                    }
-                case "RIGHT":
-                    if !rightPlayers.isEmpty {
-                        matchedPlayer = rightPlayers.removeFirst()
-                    }
-                default: // CENTER
-                    if !centerPlayers.isEmpty {
-                        matchedPlayer = centerPlayers.removeFirst()
-                    }
-                }
-                
-                // 위치에 맞는 선수가 없으면 일반 결과에서 가져오기
-                if matchedPlayer == nil && !result.isEmpty {
-                    matchedPlayer = result.removeFirst()
-                }
-                
-                if let player = matchedPlayer {
-                    sortedResult.append(player)
-                    print("📍 Assigned \(player.name) to position \(index) (\(location))")
-                }
-            }
-            
-            // 남은 선수들 추가
-            sortedResult.append(contentsOf: result)
-            
-            result = sortedResult
-        }
-        
-        print("📊 Final matching result for \(positionGroup): \(result.count) players")
-        print("📊 - Exact matches: \(exactMatches.count)")
-        print("📊 - Close matches: \(closeMatches.count)")
-        print("📊 - Position-based matches: \(positionBasedMatches.count)")
-        print("📊 - Fallback matches: \(fallbackMatches.count)")
-        print("📊 - Left players: \(leftPlayers.count)")
-        print("📊 - Right players: \(rightPlayers.count)")
-        print("📊 - Center players: \(centerPlayers.count)")
-        
-        return result
     }
     
     // 포지션 그룹에 따라 y 좌표 계산
-    private func getYPosition(for posGroup: String, gridPosition: (x: Int, y: Int), geometry: GeometryProxy) -> CGFloat {
+    private func getYPosition(for posGroup: String,
+                              gridPosition: (x: Int, y: Int),
+                              geometry: GeometryProxy,
+                              flipVertical: Bool) -> CGFloat {
+        let baseHeight = geometry.size.height
         switch posGroup {
         case "GK":
-            // 골키퍼는 하단에 배치
-            return geometry.size.height * 0.8
+            let y = baseHeight * 0.8
+            return flipVertical ? (baseHeight - y) : y
         case "DEF":
-            // 수비수는 하단과 중간 사이에 배치
-            return geometry.size.height * 0.6
+            let y = baseHeight * 0.6
+            return flipVertical ? (baseHeight - y) : y
         case "CDM":
-            // 수비형 미드필더는 중간 약간 아래에 배치
-            return geometry.size.height * 0.4
+            let y = baseHeight * 0.4
+            return flipVertical ? (baseHeight - y) : y
         case "MID":
-            // 미드필더는 중간에 배치
-            return geometry.size.height * 0.3
+            let y = baseHeight * 0.3
+            return flipVertical ? (baseHeight - y) : y
         case "CAM":
-            // 공격형 미드필더는 중간 약간 위에 배치
-            return geometry.size.height * 0.2
+            let y = baseHeight * 0.2
+            return flipVertical ? (baseHeight - y) : y
         case "FW":
-            // 공격수는 상단에 배치
-            return geometry.size.height * 0.1
+            let y = baseHeight * 0.1
+            return flipVertical ? (baseHeight - y) : y
         default:
             // 기본값은 FormationPositions에서 제공하는 좌표 사용
             if let positions = FormationPositions.formationData[lineup.formation]?[posGroup],
                !positions.isEmpty,
                let position = positions.first {
-                // y 좌표 반전
-                return geometry.size.height - (CGFloat(position[1]) * geometry.size.height / 10)
+                let yPos = CGFloat(position[1]) * baseHeight / 10
+                return flipVertical ? yPos : (baseHeight - yPos)
             }
             // 그리드 위치 사용 (폴백)
-            return geometry.size.height - (CGFloat(gridPosition.y) * geometry.size.height / 10)
+            let yPos = CGFloat(gridPosition.y) * baseHeight / 10
+            return flipVertical ? yPos : (baseHeight - yPos)
         }
     }
+
+    /// Creates the tappable player card at the specified field coordinates.
+    @ViewBuilder
+    private func playerCard(for player: LineupPlayer,
+                            in lineup: TeamLineup,
+                            x: CGFloat,
+                            y: CGFloat) -> some View {
+        NavigationLink(destination: PlayerProfileView(playerId: player.player.id)) {
+            LineupPlayerCardView(
+                player: player,
+                getLastName: getLastName,
+                rating: getPlayerRating(player, lineup),
+                goals: getPlayerGoals(player, lineup)
+            )
+        }
+        .position(x: x, y: y)
+        .shadow(color: Color.black.opacity(0.3), radius: 5, x: 0, y: 2)
+    }
     
+    /// Builds the view for a single player; returns EmptyView if coordinate cannot be resolved.
+    private func viewForPlayer(_ player: LineupPlayer,
+                               geometry: GeometryProxy) -> some View {
+        let posGroup = FormationPositions.getPositionGroup(for: player.pos ?? "")
+        
+        // 좌→우 정렬
+        let groupPlayers = lineup.startXI
+            .filter { FormationPositions.getPositionGroup(for: $0.pos ?? "") == posGroup }
+            .sorted { ($0.gridPosition?.x ?? 2) < ($1.gridPosition?.x ?? 2) }
+        
+        guard let playerIndex = groupPlayers.firstIndex(where: { $0.id == player.id }) else {
+            return AnyView(EmptyView())
+        }
+        
+        let coord = FormationPositions.getPlayerPosition(
+            formation: lineup.formation,
+            position: posGroup,
+            playerIndex: playerIndex)
+        
+        let positionsCount = FormationPositions.formationData[lineup.formation]?[posGroup]?.count ?? 0
+        
+        var finalX: CGFloat = 0
+        var finalY: CGFloat = 0
+        
+        if let c = coord, playerIndex < positionsCount {
+            finalX = CGFloat(c.x) * geometry.size.width / 10
+            finalY = flipVertical
+                ? CGFloat(c.y) * geometry.size.height / 10
+                : geometry.size.height - (CGFloat(c.y) * geometry.size.height / 10)
+        } else if let grid = player.gridPosition {
+            finalX = CGFloat(grid.x) * geometry.size.width / 5
+            finalY = getYPosition(for: posGroup,
+                                  gridPosition: grid,
+                                  geometry: geometry,
+                                  flipVertical: flipVertical)
+        } else {
+            return AnyView(EmptyView())
+        }
+        
+        return AnyView(
+            playerCard(for: player,
+                       in: lineup,
+                       x: finalX,
+                       y: finalY)
+        )
+    }
     // 잔디 색상 및 패턴 정의
     private var grassGradient: LinearGradient {
         LinearGradient(
@@ -502,54 +357,7 @@ struct FormationView: View {
                 
                 // 포메이션 표시 - 포메이션 데이터 기반으로 표시
                 ForEach(lineup.startXI) { player in
-                    let posGroup = FormationPositions.getPositionGroup(for: player.pos ?? "")
-                    
-                    // 포메이션 데이터에서 해당 포지션 그룹의 위치 가져오기
-                    if let positions = FormationPositions.formationData[lineup.formation]?[posGroup],
-                       !positions.isEmpty {
-                        // 각 포지션 그룹에 속한 선수들 찾기
-                        let groupPlayers = lineup.startXI.filter { 
-                            FormationPositions.getPositionGroup(for: $0.pos ?? "") == posGroup 
-                        }
-                        
-                        // 현재 선수의 인덱스 찾기
-                        if let playerIndex = groupPlayers.firstIndex(where: { $0.id == player.id }) {
-                            // 포지션 인덱스 (배열 범위 내에서)
-                            let positionIndex = min(playerIndex, positions.count - 1)
-                            
-                            // 화면 좌표 계산
-                            let position = positions[positionIndex]
-                            let x = CGFloat(position[0]) * geometry.size.width / 10
-                            // y 좌표 반전 (10에서 빼서 반전)
-                            let y = geometry.size.height - (CGFloat(position[1]) * geometry.size.height / 10)
-                            
-                            NavigationLink(destination: PlayerProfileView(playerId: player.player.id)) {
-                                LineupPlayerCardView(
-                                    player: player, 
-                                    getLastName: getLastName,
-                                    rating: getPlayerRating(player, lineup),
-                                    goals: getPlayerGoals(player, lineup)
-                                )
-                            }
-                            .position(x: x, y: y)
-                            .shadow(color: Color.black.opacity(0.3), radius: 5, x: 0, y: 2)
-                        }
-                    } else if let gridPosition = player.gridPosition {
-                        // 폴백: 포메이션 데이터가 없는 경우 그리드 위치 사용
-                        let x = CGFloat(gridPosition.x) * geometry.size.width / 5
-                        let y = getYPosition(for: posGroup, gridPosition: gridPosition, geometry: geometry)
-                        
-                        NavigationLink(destination: PlayerProfileView(playerId: player.player.id)) {
-                            LineupPlayerCardView(
-                                player: player, 
-                                getLastName: getLastName,
-                                rating: getPlayerRating(player, lineup),
-                                goals: getPlayerGoals(player, lineup)
-                            )
-                        }
-                        .position(x: x, y: y)
-                        .shadow(color: Color.black.opacity(0.3), radius: 5, x: 0, y: 2)
-                    }
+                    viewForPlayer(player, geometry: geometry)
                 }
                 
                 // 팀 정보 및 포메이션 표시
