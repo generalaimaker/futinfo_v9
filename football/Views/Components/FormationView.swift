@@ -77,8 +77,9 @@ struct FormationView: View {
         // 디버깅: 실제 포지션 데이터 확인
         print("👉 Player: \(player.player.name ?? "Unknown"), Position: \(player.pos ?? "None"), Grid: \(player.gridPosition?.x ?? -1),\(player.gridPosition?.y ?? -1)")
         
-        // 4-2-3-1 포메이션에서 강제 할당
-        if lineup.formation == "4-2-3-1" {
+        // 포메이션별 특별 처리
+        switch lineup.formation {
+        case "4-2-3-1":
             // 골키퍼 처리
             if (player.pos ?? "").uppercased().contains("GK") {
                 return "GK"
@@ -133,6 +134,89 @@ struct FormationView: View {
             if ["ST", "CF", "SS"].contains(where: { (player.pos ?? "").uppercased().contains($0) }) {
                 return "FW"
             }
+            
+        case "4-1-4-1":
+            // 골키퍼 처리
+            if (player.pos ?? "").uppercased().contains("GK") {
+                return "GK"
+            }
+            
+            // 수비수 처리
+            if ["LB", "LCB", "CB", "RCB", "RB", "LWB", "RWB"].contains(where: { (player.pos ?? "").uppercased().contains($0) }) {
+                return "DEF"
+            }
+            
+            // CDM 처리
+            if ["CDM", "DMF", "DM", "ANCHOR"].contains(where: { (player.pos ?? "").uppercased().contains($0) }) {
+                return "CDM"
+            }
+            
+            // 미드필더 처리 - 인덱스 기반 강제 할당
+            let midfielders = lineup.startXI.filter {
+                let pos = ($0.pos ?? "").uppercased()
+                return (pos.contains("M") || pos.contains("CM")) && !pos.contains("DM") && !pos.contains("AM")
+            }.sorted { ($0.gridPosition?.x ?? 0) < ($1.gridPosition?.x ?? 0) }
+            
+            if let index = midfielders.firstIndex(where: { $0.id == player.id }) {
+                switch index {
+                case 0: return "LM"
+                case 1: return "LCM"
+                case 2: return "RCM"
+                case 3: return "RM"
+                default: return "MID"
+                }
+            }
+            
+            // 스트라이커 처리
+            if ["ST", "CF", "SS"].contains(where: { (player.pos ?? "").uppercased().contains($0) }) {
+                return "FW"
+            }
+            
+        case "3-4-2-1":
+            // 디버깅 정보 출력
+            print("🔍 3-4-2-1 포메이션 처리: \(player.player.name ?? "Unknown"), Position: \(player.pos ?? "None")")
+            
+            // 골키퍼 처리
+            if (player.pos ?? "").uppercased().contains("GK") {
+                return "GK"
+            }
+            
+            // 수비수 처리
+            if ["LCB", "CB", "RCB", "LWB", "RWB"].contains(where: { (player.pos ?? "").uppercased().contains($0) }) {
+                return "DEF"
+            }
+            
+            // 스트라이커 처리 - 최우선 처리
+            let pos = (player.pos ?? "").uppercased()
+            if pos.contains("ST") || pos.contains("CF") || pos.contains("SS") ||
+               (pos.contains("FW") && !pos.contains("LW") && !pos.contains("RW")) {
+                print("✅ 스트라이커 감지: \(player.player.name ?? "Unknown")")
+                return "FW"
+            }
+            
+            // 공격형 미드필더 처리
+            if pos.contains("AM") || pos.contains("CAM") || pos.contains("LW") || pos.contains("RW") {
+                // 공격형 미드필더 수에 따라 처리
+                let attackingMids = lineup.startXI.filter { p in
+                    let ppos = (p.pos ?? "").uppercased()
+                    return (ppos.contains("AM") || ppos.contains("CAM") ||
+                            ppos.contains("LW") || ppos.contains("RW")) &&
+                           !(ppos.contains("ST") || ppos.contains("CF") || ppos.contains("SS"))
+                }.sorted { ($0.gridPosition?.x ?? 0) < ($1.gridPosition?.x ?? 0) }
+                
+                if let index = attackingMids.firstIndex(where: { $0.id == player.id }) {
+                    print("✅ 공격형 미드필더 감지: \(player.player.name ?? "Unknown"), 인덱스: \(index)")
+                    return "CAM"
+                }
+            }
+            
+            // 미드필더 처리
+            if pos.contains("M") || pos.contains("WB") {
+                return "MID"
+            }
+        
+        default:
+            break
         }
         
         // 기본 포지션 그룹 처리
