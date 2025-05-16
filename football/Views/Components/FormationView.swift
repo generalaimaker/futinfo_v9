@@ -5,9 +5,13 @@ struct FormationView: View {
     let lineup: TeamLineup
     /// When true, the Y‑axis is not flipped (used for home side at top of combined pitch)
     let flipVertical: Bool
-    init(lineup: TeamLineup, flipVertical: Bool = false) {
+    /// Whether to draw the pitch background‑and‑lines.
+    /// Set to `false` when we stack two FormationView instances on a single pitch.
+    let drawPitch: Bool
+    init(lineup: TeamLineup, flipVertical: Bool = false, drawPitch: Bool = true) {
         self.lineup = lineup
         self.flipVertical = flipVertical
+        self.drawPitch = drawPitch
     }
     @Environment(\.colorScheme) private var colorScheme
     
@@ -66,13 +70,86 @@ struct FormationView: View {
         return red
     }
     
+    /// Returns a refined position group.
+    /// For 4-2-3-1 formation, we force assign players to specific positions
+    /// based on their index in the lineup.
+    private func adjustedGroup(for player: LineupPlayer) -> String {
+        // 디버깅: 실제 포지션 데이터 확인
+        print("👉 Player: \(player.player.name ?? "Unknown"), Position: \(player.pos ?? "None"), Grid: \(player.gridPosition?.x ?? -1),\(player.gridPosition?.y ?? -1)")
+        
+        // 4-2-3-1 포메이션에서 강제 할당
+        if lineup.formation == "4-2-3-1" {
+            // 골키퍼 처리
+            if (player.pos ?? "").uppercased().contains("GK") {
+                return "GK"
+            }
+            
+            // 수비수 처리
+            if ["LB", "LCB", "CB", "RCB", "RB", "LWB", "RWB"].contains(where: { (player.pos ?? "").uppercased().contains($0) }) {
+                return "DEF"
+            }
+            
+            // 미드필더 및 공격수 처리 - 인덱스 기반 강제 할당
+            let allPlayers = lineup.startXI
+            let midfielders = allPlayers.filter {
+                let pos = ($0.pos ?? "").uppercased()
+                return pos.contains("M") || pos.contains("AM") || pos.contains("DM") || pos.contains("CM")
+            }.sorted { ($0.gridPosition?.x ?? 0) < ($1.gridPosition?.x ?? 0) }
+            
+            if let index = midfielders.firstIndex(where: { $0.id == player.id }) {
+                // 미드필더 수에 따라 다르게 처리
+                switch midfielders.count {
+                case 5: // 5명인 경우 (4-2-3-1 기준)
+                    if index < 2 {
+                        return "CDM" // 첫 2명은 CDM
+                    } else {
+                        // 나머지는 LW, CAM, RW로 할당
+                        if index == 2 {
+                            return "LW"
+                        } else if index == 3 {
+                            return "CAM"
+                        } else {
+                            return "RW"
+                        }
+                    }
+                case 3: // 3명인 경우
+                    if index == 0 {
+                        return "LW"
+                    } else if index == 1 {
+                        return "CAM"
+                    } else {
+                        return "RW"
+                    }
+                default: // 기타 경우
+                    if index % 2 == 0 {
+                        return "CDM"
+                    } else {
+                        return "CAM"
+                    }
+                }
+            }
+            
+            // 스트라이커 처리
+            if ["ST", "CF", "SS"].contains(where: { (player.pos ?? "").uppercased().contains($0) }) {
+                return "FW"
+            }
+        }
+        
+        // 기본 포지션 그룹 처리
+        guard let group = FormationPositions.getPositionGroup(for: player.pos ?? "") as String? else {
+            return "MID"
+        }
+        
+        return group
+    }
+
     // 포지션별 선수 그룹화
     private var playersByPositionGroup: [String: [LineupPlayer]] {
         var result: [String: [LineupPlayer]] = [:]
         
         for player in lineup.startXI {
-            guard let pos = player.pos else { continue }
-            let group = FormationPositions.getPositionGroup(for: pos)
+            guard player.pos != nil else { continue }
+            let group = adjustedGroup(for: player)
             
             if result[group] == nil {
                 result[group] = []
@@ -162,8 +239,8 @@ struct FormationView: View {
                                      in players: [LineupPlayer]) -> [LineupPlayer] {
         players
             .filter { player in
-                guard let pos = player.pos else { return false }
-                return FormationPositions.getPositionGroup(for: pos) == positionGroup
+                guard player.pos != nil else { return false }
+                return adjustedGroup(for: player) == positionGroup
             }
             .sorted {
                 let x0 = $0.gridPosition?.x ?? 2
@@ -180,22 +257,22 @@ struct FormationView: View {
         let baseHeight = geometry.size.height
         switch posGroup {
         case "GK":
-            let y = baseHeight * 0.8
+            let y = baseHeight * 0.9  // 더 아래로 이동
             return flipVertical ? (baseHeight - y) : y
         case "DEF":
-            let y = baseHeight * 0.6
+            let y = baseHeight * 0.7  // 더 아래로 이동
             return flipVertical ? (baseHeight - y) : y
         case "CDM":
-            let y = baseHeight * 0.4
+            let y = baseHeight * 0.5  // 중간 위치
             return flipVertical ? (baseHeight - y) : y
         case "MID":
-            let y = baseHeight * 0.3
+            let y = baseHeight * 0.45 // CDM과 더 구분
             return flipVertical ? (baseHeight - y) : y
         case "CAM":
-            let y = baseHeight * 0.2
+            let y = baseHeight * 0.3  // 더 위로 이동
             return flipVertical ? (baseHeight - y) : y
         case "FW":
-            let y = baseHeight * 0.1
+            let y = baseHeight * 0.15 // 더 위로 이동
             return flipVertical ? (baseHeight - y) : y
         default:
             // 기본값은 FormationPositions에서 제공하는 좌표 사용
@@ -232,40 +309,49 @@ struct FormationView: View {
     /// Builds the view for a single player; returns EmptyView if coordinate cannot be resolved.
     private func viewForPlayer(_ player: LineupPlayer,
                                geometry: GeometryProxy) -> some View {
-        let posGroup = FormationPositions.getPositionGroup(for: player.pos ?? "")
+        let posGroup = adjustedGroup(for: player)
         
         // 좌→우 정렬
         let groupPlayers = lineup.startXI
-            .filter { FormationPositions.getPositionGroup(for: $0.pos ?? "") == posGroup }
+            .filter { adjustedGroup(for: $0) == posGroup }
             .sorted { ($0.gridPosition?.x ?? 2) < ($1.gridPosition?.x ?? 2) }
         
         guard let playerIndex = groupPlayers.firstIndex(where: { $0.id == player.id }) else {
             return AnyView(EmptyView())
         }
         
-        let coord = FormationPositions.getPlayerPosition(
-            formation: lineup.formation,
-            position: posGroup,
-            playerIndex: playerIndex)
-        
-        let positionsCount = FormationPositions.formationData[lineup.formation]?[posGroup]?.count ?? 0
-        
         var finalX: CGFloat = 0
         var finalY: CGFloat = 0
         
-        if let c = coord, playerIndex < positionsCount {
-            finalX = CGFloat(c.x) * geometry.size.width / 10
+        // 항상 FormationPositions에서 정의된 좌표 사용 시도
+        if let positions = FormationPositions.formationData[lineup.formation]?[posGroup] {
+            // 포지션 그룹에 정의된 좌표가 있는 경우
+            let idx = min(playerIndex, positions.count - 1) // 인덱스 범위 체크
+            let p = positions[idx]
+            
+            // 좌표 계산
+            finalX = CGFloat(p[0]) * geometry.size.width / 10
             finalY = flipVertical
-                ? CGFloat(c.y) * geometry.size.height / 10
-                : geometry.size.height - (CGFloat(c.y) * geometry.size.height / 10)
-        } else if let grid = player.gridPosition {
-            finalX = CGFloat(grid.x) * geometry.size.width / 5
-            finalY = getYPosition(for: posGroup,
-                                  gridPosition: grid,
-                                  geometry: geometry,
-                                  flipVertical: flipVertical)
+                ? CGFloat(p[1]) * geometry.size.height / 10
+                : geometry.size.height - (CGFloat(p[1]) * geometry.size.height / 10)
+            
+            // 디버깅 정보
+            print("📍 Player: \(player.player.name ?? "Unknown"), Group: \(posGroup), Position: \(player.pos ?? "None"), Coords: \(p[0]),\(p[1])")
         } else {
-            return AnyView(EmptyView())
+            // 정의된 좌표가 없는 경우 기본 위치 사용
+            finalX = CGFloat(playerIndex + 1) * geometry.size.width / (CGFloat(groupPlayers.count) + 1)
+            finalY = getYPosition(for: posGroup,
+                                 gridPosition: player.gridPosition ?? (x: 2, y: 5),
+                                 geometry: geometry,
+                                 flipVertical: flipVertical)
+            
+            print("⚠️ No predefined coords for \(player.player.name ?? "Unknown"), Group: \(posGroup), Position: \(player.pos ?? "None")")
+        }
+        
+        // 홈팀(상단)은 좌우 반전 없음, 원정팀(하단)은 좌우 반전
+        if !flipVertical {
+            // 원정팀(하단) - 좌우 반전
+            finalX = geometry.size.width - finalX
         }
         
         return AnyView(
@@ -298,33 +384,71 @@ struct FormationView: View {
         )
     }
     
+    private var teamBanner: some View {
+        HStack {
+            // 팀 로고
+            AsyncImage(url: URL(string: lineup.team.logo)) { image in
+                image
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 28, height: 28)
+            } placeholder: {
+                Circle()
+                    .fill(Color.gray.opacity(0.2))
+                    .frame(width: 28, height: 28)
+            }
+
+            // 팀 이름 및 포메이션
+            VStack(alignment: .leading, spacing: 2) {
+                Text(lineup.team.name)
+                    .font(.system(.subheadline, design: .rounded).weight(.semibold))
+                    .foregroundColor(.white)
+
+                Text(lineup.formation)
+                    .font(.system(.caption, design: .rounded))
+                    .foregroundColor(.white.opacity(0.8))
+            }
+
+            Spacer()
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
+        .background(
+            RoundedRectangle(cornerRadius: 10)
+                .fill(Color.black.opacity(0.5))
+        )
+        .padding(.top, 8)
+        .padding(.horizontal, 8)
+    }
+
     var body: some View {
         GeometryReader { geometry in
             ZStack {
-                // 축구장 배경
-                (colorScheme == .dark ? darkModeGrassGradient : grassGradient)
-                    .overlay {
-                        // 잔디 패턴
-                        ZStack {
-                            ForEach(0..<20, id: \.self) { row in
-                                Rectangle()
-                                    .fill(Color.white.opacity(0.03))
-                                    .frame(height: 1)
-                                    .offset(y: CGFloat(row) * geometry.size.height / 20 - geometry.size.height / 2)
-                            }
-                            
-                            ForEach(0..<10, id: \.self) { col in
-                                Rectangle()
-                                    .fill(Color.white.opacity(0.03))
-                                    .frame(width: 1)
-                                    .offset(x: CGFloat(col) * geometry.size.width / 10 - geometry.size.width / 2)
+                if drawPitch {
+                    // 축구장 배경
+                    (colorScheme == .dark ? darkModeGrassGradient : grassGradient)
+                        .overlay {
+                            // 잔디 패턴
+                            ZStack {
+                                ForEach(0..<20, id: \.self) { row in
+                                    Rectangle()
+                                        .fill(Color.white.opacity(0.03))
+                                        .frame(height: 1)
+                                        .offset(y: CGFloat(row) * geometry.size.height / 20 - geometry.size.height / 2)
+                                }
+
+                                ForEach(0..<10, id: \.self) { col in
+                                    Rectangle()
+                                        .fill(Color.white.opacity(0.03))
+                                        .frame(width: 1)
+                                        .offset(x: CGFloat(col) * geometry.size.width / 10 - geometry.size.width / 2)
+                                }
                             }
                         }
-                    }
-                
-                // 축구장 라인
-                FieldLinesView(geometry: geometry)
-                
+                    // 축구장 라인
+                    FieldLinesView(geometry: geometry)
+                }
+
                 // 포메이션 연결선
                 if let formationData = FormationPositions.formationData[lineup.formation] {
                     ForEach(Array(formationData.keys), id: \.self) { positionGroup in
@@ -333,7 +457,7 @@ struct FormationView: View {
                         }
                     }
                 }
-                
+
                 // 포메이션 라인 (수비, 미드필드, 공격 라인)
                 Group {
                     // 수비수-골키퍼 라인 (하단)
@@ -341,63 +465,34 @@ struct FormationView: View {
                         .fill(Color.blue.opacity(0.3))
                         .frame(width: geometry.size.width * 0.9, height: 1)
                         .position(x: geometry.size.width / 2, y: geometry.size.height * 0.3)
-                    
+
                     // 미드필더-수비수 라인 (중간)
                     Rectangle()
                         .fill(Color.green.opacity(0.3))
                         .frame(width: geometry.size.width * 0.9, height: 1)
                         .position(x: geometry.size.width / 2, y: geometry.size.height * 0.55)
-                    
+
                     // 공격수-미드필더 라인 (상단)
                     Rectangle()
                         .fill(Color.red.opacity(0.3))
                         .frame(width: geometry.size.width * 0.9, height: 1)
                         .position(x: geometry.size.width / 2, y: geometry.size.height * 0.8)
                 }
-                
+
                 // 포메이션 표시 - 포메이션 데이터 기반으로 표시
                 ForEach(lineup.startXI) { player in
                     viewForPlayer(player, geometry: geometry)
                 }
-                
+
                 // 팀 정보 및 포메이션 표시
                 VStack {
-                    HStack {
-                        // 팀 로고
-                        AsyncImage(url: URL(string: lineup.team.logo)) { image in
-                            image
-                                .resizable()
-                                .scaledToFit()
-                                .frame(width: 28, height: 28)
-                        } placeholder: {
-                            Circle()
-                                .fill(Color.gray.opacity(0.2))
-                                .frame(width: 28, height: 28)
-                        }
-                        
-                        // 팀 이름 및 포메이션
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(lineup.team.name)
-                                .font(.system(.subheadline, design: .rounded).weight(.semibold))
-                                .foregroundColor(.white)
-                            
-                            Text(lineup.formation)
-                                .font(.system(.caption, design: .rounded))
-                                .foregroundColor(.white.opacity(0.8))
-                        }
-                        
+                    if !flipVertical {
+                        teamBanner
                         Spacer()
+                    } else {
+                        Spacer()
+                        teamBanner
                     }
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 6)
-                    .background(
-                        RoundedRectangle(cornerRadius: 10)
-                            .fill(Color.black.opacity(0.5))
-                    )
-                    .padding(.top, 8)
-                    .padding(.horizontal, 8)
-                    
-                    Spacer()
                 }
             }
             .clipShape(RoundedRectangle(cornerRadius: 16))
