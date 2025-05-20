@@ -243,6 +243,63 @@ struct AttackingStatsView: View {
                             showPercentage: false
                         )
                     }
+                    
+                    Divider()
+                        .padding(.vertical, 8)
+                    
+                    // 기타 통계 (OtherStatsView에서 가져온 내용)
+                    Text("기타 통계")
+                        .font(.system(.subheadline, design: .rounded))
+                        .fontWeight(.bold)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    
+                    // 옐로카드
+                    if let homeYellowCards = homeStats["Yellow Cards"],
+                       let awayYellowCards = awayStats["Yellow Cards"] {
+                        StatisticItem(
+                            title: "옐로카드",
+                            leftValue: homeYellowCards.displayValue,
+                            rightValue: awayYellowCards.displayValue,
+                            showProgressBar: true,
+                            showPercentage: false
+                        )
+                    }
+                    
+                    // 레드카드
+                    if let homeRedCards = homeStats["Red Cards"],
+                       let awayRedCards = awayStats["Red Cards"] {
+                        StatisticItem(
+                            title: "레드카드",
+                            leftValue: homeRedCards.displayValue,
+                            rightValue: awayRedCards.displayValue,
+                            showProgressBar: true,
+                            showPercentage: false
+                        )
+                    }
+                    
+                    // 반칙
+                    if let homeFouls = homeStats["Fouls"],
+                       let awayFouls = awayStats["Fouls"] {
+                        StatisticItem(
+                            title: "반칙",
+                            leftValue: homeFouls.displayValue,
+                            rightValue: awayFouls.displayValue,
+                            showProgressBar: true,
+                            showPercentage: false
+                        )
+                    }
+                    
+                    // 오프사이드
+                    if let homeOffsides = homeStats["Offsides"],
+                       let awayOffsides = awayStats["Offsides"] {
+                        StatisticItem(
+                            title: "오프사이드",
+                            leftValue: homeOffsides.displayValue,
+                            rightValue: awayOffsides.displayValue,
+                            showProgressBar: true,
+                            showPercentage: false
+                        )
+                    }
                 }
             }
             .padding()

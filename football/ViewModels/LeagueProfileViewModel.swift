@@ -82,49 +82,37 @@ class LeagueProfileViewModel: ObservableObject {
     func loadFixtures() async {
         isLoading = true
         error = nil
-        
+
         do {
             let actualLeagueId = leagueDetails?.league.id ?? leagueId
-            let allFixtures = try await service.getFixtures(leagueId: actualLeagueId, season: selectedSeason, from: nil, to: nil)
-            
-            // 날짜 기준으로 경기 분류
-            let dateFormatter = DateFormatter()
-            dateFormatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ssZ"
-            
-            let now = Date()
-            let calendar = Calendar.current
-            let today = calendar.startOfDay(for: now)
-            let tomorrow = calendar.date(byAdding: .day, value: 1, to: today)!
-            
-            // 오늘 경기
-            todayFixtures = allFixtures.filter { fixture in
-                if let date = dateFormatter.date(from: fixture.fixture.date) {
-                    return calendar.isDate(date, inSameDayAs: now)
-                }
-                return false
-            }.sorted { $0.fixture.date < $1.fixture.date }
-            
-            // 예정된 경기
-            upcomingFixtures = allFixtures.filter { fixture in
-                if let date = dateFormatter.date(from: fixture.fixture.date) {
-                    return date > tomorrow
-                }
-                return false
-            }.sorted { $0.fixture.date < $1.fixture.date }
-            
-            // 지난 경기
-            pastFixtures = allFixtures.filter { fixture in
-                if let date = dateFormatter.date(from: fixture.fixture.date) {
-                    return date < today
-                }
-                return false
-            }.sorted { $0.fixture.date > $1.fixture.date } // 최신 경기가 먼저 오도록
-            
+
+            // ❶ 최근 50 경기
+            async let past50 = service.getFixtures(
+                leagueId: actualLeagueId,
+                season: selectedSeason,
+                last: 50
+            )
+            // ❷ 향후 50 경기
+            async let next50 = service.getFixtures(
+                leagueId: actualLeagueId,
+                season: selectedSeason,
+                next: 50
+            )
+
+            // 두 요청을 병렬로 실행하고 중복을 제거
+            var combined = try await past50 + next50
+            combined = Array(Set(combined.map { $0.fixture.id })).compactMap { id in
+                combined.first { $0.fixture.id == id }
+            }
+
+            // 날짜별로 분류·정렬
+            splitAndSortFixtures(combined)
+
         } catch {
             self.error = error
             print("Error loading fixtures: \(error)")
         }
-        
+
         isLoading = false
     }
     
@@ -402,18 +390,71 @@ class LeagueProfileViewModel: ObservableObject {
                 apiDateFormatter.dateFormat = "yyyy-MM-dd"
                 let fromDateObj = fromDate.flatMap { apiDateFormatter.date(from: $0) }
                 let toDateObj   = toDate.flatMap   { apiDateFormatter.date(from: $0) }
+                
                 // 모든 경기 가져오기
                 let actualLeagueId = leagueDetails?.league.id ?? leagueId
+                
+                // 챔피언스리그(ID: 2)인 경우 특별 처리
+                let isChampionsLeague = actualLeagueId == 2
+                if isChampionsLeague {
+                    print("🏆 챔피언스리그 특별 처리 적용")
+                }
+                
                 let allFixtures = try await service.getFixtures(
                     leagueId: actualLeagueId,
                     season: selectedSeason,
                     from: fromDateObj,
                     to: toDateObj
                 )
+                
+                // 현재 리그에 속하는 경기만 필터링
+                let filteredFixtures = allFixtures.filter { fixture in
+                    return fixture.league.id == actualLeagueId
+                }
+                
+                print("🔍 경기 필터링: 전체 \(allFixtures.count)개 중 \(filteredFixtures.count)개가 리그 ID \(actualLeagueId)에 속함")
+                
+                // 날짜 기준으로 경기 분류 (경기 탭과 동일한 방식)
+                let dateFormatter = DateFormatter()
+                dateFormatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ssZ"
+                
+                let now = Date()
+                let calendar = Calendar.current
+                let today = calendar.startOfDay(for: now)
+                let tomorrow = calendar.date(byAdding: .day, value: 1, to: today)!
+                
+                // 오늘 경기
+                let todayTournamentFixtures = filteredFixtures.filter { fixture in
+                    if let date = dateFormatter.date(from: fixture.fixture.date) {
+                        return calendar.isDate(date, inSameDayAs: now)
+                    }
+                    return false
+                }.sorted { $0.fixture.date < $1.fixture.date }
+                
+                // 예정된 경기
+                let upcomingTournamentFixtures = filteredFixtures.filter { fixture in
+                    if let date = dateFormatter.date(from: fixture.fixture.date) {
+                        return date > tomorrow
+                    }
+                    return false
+                }.sorted { $0.fixture.date < $1.fixture.date }
+                
+                // 지난 경기
+                let pastTournamentFixtures = filteredFixtures.filter { fixture in
+                    if let date = dateFormatter.date(from: fixture.fixture.date) {
+                        return date < today
+                    }
+                    return false
+                }.sorted { $0.fixture.date > $1.fixture.date } // 최신 경기가 먼저 오도록
+                
+                // 경기 탭과 같은 순서로 정렬: 예정된 경기 -> 오늘 경기 -> 지난 경기
+                let sortedFixtures = upcomingTournamentFixtures + todayTournamentFixtures + pastTournamentFixtures
+                
+                print("📊 경기 분류: 예정된 경기 \(upcomingTournamentFixtures.count)개, 오늘 경기 \(todayTournamentFixtures.count)개, 지난 경기 \(pastTournamentFixtures.count)개")
 
                 // 라운드 정보 추출 및 정렬
                 var rounds = Set<String>()
-                for fixture in allFixtures {
+                for fixture in filteredFixtures {
                     // fixture.league.round는 옵셔널이 아니므로 바로 사용
                     rounds.insert(fixture.league.round)
                 }
@@ -472,7 +513,7 @@ class LeagueProfileViewModel: ObservableObject {
                 }
 
                 tournamentRounds = sortedRounds
-                tournamentFixtures = allFixtures
+                tournamentFixtures = sortedFixtures // 정렬된 경기 사용
 
                 print("✅ 토너먼트 데이터 로드 완료: \(tournamentRounds.count) 라운드, \(tournamentFixtures.count) 경기")
             } else {
@@ -492,28 +533,62 @@ class LeagueProfileViewModel: ObservableObject {
     // 선택된 탭에 따라 필요한 데이터만 로드
     func loadDataForTab(_ tab: Int) async {
         switch tab {
-        case 0: // 경기 탭
+        case 0: // 순위 탭
+            if standings.isEmpty {
+                await loadStandings()
+            }
+        case 1: // 경기 탭
             if upcomingFixtures.isEmpty && pastFixtures.isEmpty && todayFixtures.isEmpty {
                 await loadFixtures()
             }
-        case 1: // 토너먼트 탭
+        case 2: // 토너먼트 탭
             if tournamentRounds.isEmpty && tournamentFixtures.isEmpty {
                 await loadTournamentData()
             }
-        case 2: // 선수 통계 탭
+        case 3: // 선수 통계 탭
             if topScorers.isEmpty && topAssists.isEmpty {
                 await loadPlayerStats()
             }
-        case 3: // 팀 통계 탭
+        case 4: // 팀 통계 탭
             if teamStats.isEmpty {
                 await loadTeamStats()
-            }
-        case 4: // 순위 탭
-            if standings.isEmpty {
-                await loadStandings()
             }
         default:
             break
         }
+    }
+    /// todayFixtures · upcomingFixtures · pastFixtures 로 분류하고 정렬
+    private func splitAndSortFixtures(_ fixtures: [Fixture]) {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ssZ"
+
+        let now      = Date()
+        let calendar = Calendar.current
+        let today    = calendar.startOfDay(for: now)
+        let tomorrow = calendar.date(byAdding: .day, value: 1, to: today)!
+
+        // 오늘 경기
+        todayFixtures = fixtures.filter {
+            if let d = formatter.date(from: $0.fixture.date) {
+                return calendar.isDate(d, inSameDayAs: now)
+            }
+            return false
+        }.sorted { $0.fixture.date < $1.fixture.date }
+
+        // 예정 경기
+        upcomingFixtures = fixtures.filter {
+            if let d = formatter.date(from: $0.fixture.date) {
+                return d > tomorrow || $0.fixture.status.short == "NS"
+            }
+            return $0.fixture.status.short == "NS"
+        }.sorted { $0.fixture.date < $1.fixture.date }
+
+        // 지난 경기
+        pastFixtures = fixtures.filter {
+            if let d = formatter.date(from: $0.fixture.date) {
+                return d < today && $0.fixture.status.short != "NS"
+            }
+            return $0.fixture.status.short != "NS" && $0.fixture.status.short != "TBD"
+        }.sorted { $0.fixture.date > $1.fixture.date }
     }
 }

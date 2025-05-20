@@ -16,7 +16,7 @@ struct StatisticsView: View {
                     .padding()
             } else {
                 VStack(spacing: 32) {
-                    // 경기 통계
+                    // 통합된 경기 통계
                     VStack(spacing: 16) {
                         Text("경기 통계")
                             .font(.system(.headline, design: .rounded))
@@ -25,20 +25,6 @@ struct StatisticsView: View {
                             .padding(.horizontal, 20)
                         
                         AttackingStatsView(statistics: statistics)
-                    }
-                    
-                    Divider()
-                        .padding(.horizontal, 20)
-                    
-                    // 기타 통계
-                    VStack(spacing: 16) {
-                        Text("기타 통계")
-                            .font(.system(.headline, design: .rounded))
-                            .fontWeight(.bold)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.horizontal, 20)
-                        
-                        OtherStatsView(statistics: statistics)
                     }
                 }
                 .padding(.vertical)

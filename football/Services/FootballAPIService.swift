@@ -1136,7 +1136,14 @@ class FootballAPIService {
     }
 
     // 경기 목록 가져오기 (캐싱 적용)
-    func getFixtures(leagueIds: [Int], season: Int, from: Date? = nil, to: Date? = nil) async throws -> [Fixture] {
+    func getFixtures(
+        leagueIds: [Int],
+        season: Int,
+        from: Date? = nil,
+        to: Date? = nil,
+        last: Int? = nil,
+        next: Int? = nil
+    ) async throws -> [Fixture] {
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "yyyy-MM-dd"
         dateFormatter.timeZone = TimeZone(identifier: "UTC")
@@ -1154,8 +1161,15 @@ class FootballAPIService {
             parameters["to"] = dateFormatter.string(from: to)
         }
 
-        // 날짜 범위가 없으면 기본 범위 설정
-        if from == nil && to == nil {
+        if let last = last {
+            parameters["last"] = String(last)
+        }
+        if let next = next {
+            parameters["next"] = String(next)
+        }
+
+        // 날짜·last·next 파라미터가 모두 없으면 기본 범위 설정
+        if from == nil && to == nil && last == nil && next == nil {
             let dateRange = getDateRange(forSeason: season) // getDateRange 함수 호출 복구
             parameters["from"] = dateRange.from
             parameters["to"] = dateRange.to
@@ -1204,8 +1218,22 @@ class FootballAPIService {
     }
 
     // 단일 리그 버전 (이전 버전과의 호환성 유지)
-    func getFixtures(leagueId: Int, season: Int, from: Date? = nil, to: Date? = nil) async throws -> [Fixture] {
-        return try await getFixtures(leagueIds: [leagueId], season: season, from: from, to: to)
+    func getFixtures(
+        leagueId: Int,
+        season: Int,
+        from: Date? = nil,
+        to: Date? = nil,
+        last: Int? = nil,
+        next: Int? = nil
+    ) async throws -> [Fixture] {
+        return try await getFixtures(
+            leagueIds: [leagueId],
+            season: season,
+            from: from,
+            to: to,
+            last: last,
+            next: next
+        )
     }
 
     // 상대전적 가져오기 (캐싱 적용)

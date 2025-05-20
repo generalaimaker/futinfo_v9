@@ -19,21 +19,20 @@ struct TournamentTabView: View {
         return rounds.contains { $0.contains("Group") }
     }
     
-    // 토너먼트 라운드 여부 확인 (16강, 8강, 4강, 결승 등)
+    // 토너먼트 라운드 여부 확인 (16강, 8강, 4강, 결승 등 다양한 표기)
     private var hasTournamentRounds: Bool {
-        return rounds.contains { 
-            $0.contains("Final") || 
-            $0.contains("Round of") || 
-            $0.contains("Semi") || 
-            $0.contains("Quarter")
+        return rounds.contains { raw in
+            let round = raw.lowercased()
+            return
+                round.contains("final") ||               // Final, Finals
+                round.contains("semi") ||                // Semi‑final, Semifinals
+                round.contains("quarter") ||             // Quarter‑final
+                round.contains("round of") ||            // Round of 16 / 32 …
+                round.contains("1/16") ||                // 1/16 Finals
+                round.contains("1/8")  ||                // 1/8 Finals
+                round.contains("1/4")  ||                // 1/4 Finals
+                round.contains("1/2")                    // 1/2 Finals
         }
-    }
-    
-    @State private var viewMode: TournamentViewMode = .list
-    
-    enum TournamentViewMode {
-        case list
-        case bracket
     }
     
     var body: some View {
@@ -41,47 +40,26 @@ struct TournamentTabView: View {
             if rounds.isEmpty || fixtures.isEmpty {
                 EmptyDataView(message: "토너먼트 정보가 없습니다")
             } else if isCupCompetition && hasTournamentRounds {
-                // 컵대회이고 토너먼트 라운드가 있는 경우 뷰 모드 선택 버튼 표시
-                HStack {
-                    Picker("보기 모드", selection: $viewMode) {
-                        Text("목록").tag(TournamentViewMode.list)
-                        Text("브라켓").tag(TournamentViewMode.bracket)
-                    }
-                    .pickerStyle(SegmentedPickerStyle())
-                    .padding(.horizontal)
+                // 컵대회이고 토너먼트 라운드가 있는 경우 브라켓 뷰 표시
+                TournamentBracketView(rounds: rounds, fixtures: fixtures, formatDate: formatDate)
+            } else if hasGroupStageRounds {
+                // 조별리그만 있는 경우 안내 메시지 표시
+                VStack(spacing: 20) {
+                    Text("조별리그 경기는 경기 탭에서 확인할 수 있습니다")
+                        .font(.headline)
+                        .foregroundColor(.gray)
+                        .padding()
+                    
+                    Image(systemName: "arrow.left")
+                        .font(.largeTitle)
+                        .foregroundColor(.blue)
+                        .padding()
                 }
-                .padding(.top)
-                
-                // 선택된 뷰 모드에 따라 다른 뷰 표시
-                if viewMode == .list {
-                    listView
-                } else {
-                    TournamentBracketView(rounds: rounds, fixtures: fixtures, formatDate: formatDate)
-                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
-                // 일반 리그 또는 조별리그만 있는 경우 목록 뷰만 표시
-                listView
+                // 일반 리그인 경우 안내 메시지 표시
+                EmptyDataView(message: "토너먼트 정보가 없습니다\n경기 탭에서 모든 경기를 확인할 수 있습니다")
             }
-        }
-    }
-    
-    // 목록 뷰
-    private var listView: some View {
-        ScrollView {
-            VStack(spacing: 20) {
-                // 라운드별로 경기 그룹화
-                ForEach(rounds, id: \.self) { round in
-                    RoundSection(
-                        round: round,
-                        fixtures: fixtures.filter { fx in
-                            fx.league.round.caseInsensitiveCompare(round) == .orderedSame ||
-                            fx.league.round.lowercased().contains(round.lowercased())
-                        },
-                        formatDate: formatDate
-                    )
-                }
-            }
-            .padding(.vertical)
         }
     }
 }

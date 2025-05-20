@@ -93,11 +93,24 @@ struct StandingsDetailView: View {
                         
                         // 팀 순위
                         ForEach(viewModel.standings) { standing in
+                            let qualificationInfo = getQualificationInfo(for: standing.rank)
+                            let qualificationColor = getQualificationColor(for: qualificationInfo)
+                            
                             HStack {
-                                Text("\(standing.rank)")
-                                    .font(.system(.body, design: .rounded))
-                                    .fontWeight(.bold)
-                                    .frame(width: 30, alignment: .center)
+                                // 순위 및 진출권 표시
+                                HStack(spacing: 0) {
+                                    // 진출권 색상 띠
+                                    Rectangle()
+                                        .fill(qualificationColor)
+                                        .frame(width: 3)
+                                    
+                                    Text("\(standing.rank)")
+                                        .font(.system(.body, design: .rounded))
+                                        .fontWeight(.bold)
+                                        .foregroundColor(qualificationInfo != .none ? qualificationColor : .primary)
+                                        .frame(width: 27, alignment: .center)
+                                }
+                                .frame(width: 30)
                                 
                                 HStack(spacing: 8) {
                                     TeamLogoView(logoUrl: standing.team.logo, size: 20)
@@ -174,16 +187,21 @@ struct StandingsDetailView: View {
                             }
                         }
                         
-                        // 승격/강등 영역 표시 (있는 경우)
-                        if hasPromotionRelegationZones() {
-                            HStack(spacing: 16) {
-                                ForEach(getZones(), id: \.self) { zone in
+                        // 진출권 범례 표시
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("진출권 정보")
+                                .font(.caption)
+                                .fontWeight(.bold)
+                                .padding(.bottom, 4)
+                            
+                            ForEach([QualificationInfo.championsLeague, .championsLeagueQualification, .europaLeague, .conferenceLeague, .relegation], id: \.self) { info in
+                                if getQualificationDescription(for: info) != "" && isQualificationRelevant(for: info) {
                                     HStack(spacing: 8) {
                                         Rectangle()
-                                            .fill(zoneColor(zone))
+                                            .fill(getQualificationColor(for: info))
                                             .frame(width: 12, height: 12)
                                         
-                                        Text(zone)
+                                        Text(getQualificationDescription(for: info))
                                             .font(.caption)
                                     }
                                 }
@@ -215,29 +233,127 @@ struct StandingsDetailView: View {
         }
     }
     
-    private func hasPromotionRelegationZones() -> Bool {
-        // 실제로는 API에서 받아온 데이터를 확인해야 함
-        return fixture.league.id == 39 // 프리미어 리그
+    // 진출권 정보 열거형
+    enum QualificationInfo: Int, CaseIterable {
+        case championsLeague
+        case championsLeagueQualification
+        case europaLeague
+        case conferenceLeague
+        case relegation
+        case none
     }
     
-    private func getZones() -> [String] {
-        // 실제로는 API에서 받아온 데이터를 확인해야 함
-        if fixture.league.id == 39 { // 프리미어 리그
-            return ["챔피언스리그", "유로파리그", "강등권"]
-        }
-        return []
-    }
-    
-    private func zoneColor(_ zone: String) -> Color {
-        switch zone {
-        case "챔피언스리그":
-            return .blue
-        case "유로파리그":
-            return .orange
-        case "강등권":
-            return .red
+    // 리그별 진출권 정보
+    private func getQualificationInfo(for rank: Int) -> QualificationInfo {
+        let leagueId = fixture.league.id
+        let totalTeams = viewModel.standings.count
+        
+        switch leagueId {
+        case 39: // 프리미어 리그
+            if rank <= 5 {
+                return .championsLeague
+            } else if rank == 6 {
+                return .europaLeague
+            } else if rank == 7 {
+                return .conferenceLeague
+            } else if rank >= totalTeams - 2 {
+                return .relegation
+            }
+        case 140: // 라리가
+            if rank <= 5 {
+                return .championsLeague
+            } else if rank == 6 || rank == 7 {
+                return .europaLeague
+            } else if rank == 8 {
+                return .conferenceLeague
+            } else if rank >= totalTeams - 2 {
+                return .relegation
+            }
+        case 78, 135: // 분데스리가, 세리에 A
+            if rank <= 4 {
+                return .championsLeague
+            } else if rank == 5 {
+                return .europaLeague
+            } else if rank == 6 {
+                return .conferenceLeague
+            } else if rank >= totalTeams - 2 {
+                return .relegation
+            }
+        case 61: // 리그앙
+            if rank <= 3 {
+                return .championsLeague
+            } else if rank == 4 {
+                return .championsLeagueQualification
+            } else if rank == 5 {
+                return .europaLeague
+            } else if rank == 6 {
+                return .conferenceLeague
+            } else if rank >= totalTeams - 2 {
+                return .relegation
+            }
         default:
-            return .gray
+            if rank <= 4 {
+                return .championsLeague
+            } else if rank == 5 || rank == 6 {
+                return .europaLeague
+            } else if rank >= totalTeams - 2 {
+                return .relegation
+            }
+        }
+        return .none
+    }
+    
+    // 진출권 정보에 따른 색상
+    private func getQualificationColor(for info: QualificationInfo) -> Color {
+        switch info {
+        case .championsLeague, .championsLeagueQualification:
+            return Color.blue
+        case .europaLeague:
+            return Color.orange
+        case .conferenceLeague:
+            return Color.green
+        case .relegation:
+            return Color.red
+        case .none:
+            return Color.clear
+        }
+    }
+    
+    // 진출권 정보에 따른 설명
+    private func getQualificationDescription(for info: QualificationInfo) -> String {
+        switch info {
+        case .championsLeague:
+            return "챔피언스리그"
+        case .championsLeagueQualification:
+            return "챔피언스리그 예선"
+        case .europaLeague:
+            return "유로파리그"
+        case .conferenceLeague:
+            return "컨퍼런스리그"
+        case .relegation:
+            return "강등권"
+        case .none:
+            return ""
+        }
+    }
+    
+    // 해당 리그에 관련된 진출권 정보인지 확인
+    private func isQualificationRelevant(for info: QualificationInfo) -> Bool {
+        let leagueId = fixture.league.id
+        
+        switch info {
+        case .championsLeague:
+            return true // 모든 리그에 적용
+        case .championsLeagueQualification:
+            return leagueId == 61 // 리그앙에만 적용
+        case .europaLeague:
+            return true // 모든 리그에 적용
+        case .conferenceLeague:
+            return true // 모든 리그에 적용
+        case .relegation:
+            return true // 모든 리그에 적용
+        case .none:
+            return false
         }
     }
 }

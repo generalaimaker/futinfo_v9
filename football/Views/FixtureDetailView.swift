@@ -17,7 +17,7 @@ struct FixtureDetailView: View {
     private var tabNames: [String] {
         return isUpcoming ?
             ["정보", "부상", "순위", "상대전적"] : // 경기 예정
-            ["경기요약", "통계", "라인업", "상대전적"] // 경기 결과
+            ["경기요약", "통계", "라인업", "순위", "상대전적"] // 경기 결과
     }
     
     init(fixture: Fixture) {
@@ -82,6 +82,20 @@ struct FixtureDetailView: View {
                                                 await viewModel.loadStandings()
                                             }
                                         case 3: // 상대전적 탭
+                                            Task {
+                                                await viewModel.loadHeadToHead()
+                                            }
+                                        default:
+                                            break
+                                        }
+                                    } else {
+                                        // 경기 결과 페이지 탭 변경 시 데이터 로드
+                                        switch index {
+                                        case 3: // 순위 탭
+                                            Task {
+                                                await viewModel.loadStandings()
+                                            }
+                                        case 4: // 상대전적 탭
                                             Task {
                                                 await viewModel.loadHeadToHead()
                                             }
@@ -202,7 +216,14 @@ struct FixtureDetailView: View {
                         } else {
                             LineupsView(lineups: viewModel.lineups)
                         }
-                    case 3: // 상대전적 탭
+                    case 3: // 순위 탭
+                        StandingsDetailView(fixture: fixture, viewModel: viewModel)
+                            .onAppear {
+                                Task {
+                                    await viewModel.loadStandings()
+                                }
+                            }
+                    case 4: // 상대전적 탭
                         if viewModel.isLoadingHeadToHead {
                             ProgressView()
                         } else if let team1Stats = viewModel.team1Stats,

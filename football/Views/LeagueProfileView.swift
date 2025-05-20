@@ -2,7 +2,7 @@ import SwiftUI
 
 struct LeagueProfileView: View {
     @StateObject private var viewModel: LeagueProfileViewModel
-    @State private var selectedTab = 0 // 0: 경기, 1: 토너먼트, 2: 선수통계, 3: 팀통계, 4: 순위
+    @State private var selectedTab = 0 // 0: 순위, 1: 경기, 2: 토너먼트, 3: 선수통계, 4: 팀통계
     @State private var selectedSeason: Int = 2024
     
     let seasons = [2024, 2023, 2022, 2021, 2020]
@@ -28,6 +28,10 @@ struct LeagueProfileView: View {
             
             // 탭 선택
             TabView(selection: $selectedTab) {
+                // 순위 탭
+                StandingsTabView(standings: viewModel.standings, leagueId: leagueId)
+                    .tag(0)
+                
                 // 경기 탭
                 LeagueFixturesTabView(
                     upcomingFixtures: viewModel.upcomingFixtures,
@@ -36,7 +40,7 @@ struct LeagueProfileView: View {
                     formatDate: viewModel.formatDate,
                     getMatchStatus: viewModel.getMatchStatus
                 )
-                .tag(0)
+                .tag(1)
                 
                 // 토너먼트 탭
                 TournamentTabView(
@@ -45,7 +49,7 @@ struct LeagueProfileView: View {
                     fixtures: viewModel.tournamentFixtures,
                     formatDate: viewModel.formatDate
                 )
-                .tag(1)
+                .tag(2)
                 
                 // 선수 통계 탭
                 PlayerStatsTabView(
@@ -55,7 +59,7 @@ struct LeagueProfileView: View {
                     topDribblers: viewModel.topDribblers,
                     topTacklers: viewModel.topTacklers
                 )
-                .tag(2)
+                .tag(3)
                 
                 // 팀 통계 탭
                 TeamStatsTabView(
@@ -64,11 +68,7 @@ struct LeagueProfileView: View {
                     topPossessionTeams: viewModel.topPossessionTeams,
                     topCleanSheetTeams: viewModel.topCleanSheetTeams
                 )
-                .tag(3)
-                
-                // 순위 탭
-                StandingsTabView(standings: viewModel.standings, leagueId: leagueId)
-                    .tag(4)
+                .tag(4)
             }
             .tabViewStyle(PageTabViewStyle(indexDisplayMode: .never))
         }
@@ -88,7 +88,7 @@ struct LeagueProfileView: View {
                 await viewModel.loadDataForTab(newValue)
                 
                 // 경기 탭으로 변경된 경우 최근 경기로 스크롤하기 위해 약간의 지연 추가
-                if newValue == 0 && !viewModel.pastFixtures.isEmpty {
+                if newValue == 1 && !viewModel.pastFixtures.isEmpty {
                     // 데이터가 로드된 후 0.5초 후에 스크롤 위치 조정 (뷰가 완전히 로드된 후)
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                         // 이 시점에서는 FixturesTabView의 onAppear가 호출되어 스크롤 위치가 조정됨
@@ -101,7 +101,7 @@ struct LeagueProfileView: View {
             Task {
                 // 초기에는 필수 데이터만 로드
                 await viewModel.loadLeagueDetails()
-                await viewModel.loadFixtures() // 기본 탭이 경기 탭이므로
+                await viewModel.loadStandings() // 기본 탭이 순위 탭이므로
             }
         }
     }
@@ -142,6 +142,8 @@ struct LeagueHeaderView: View {
                                     Text("🇮🇹")
                                 case "de":
                                     Text("🇩🇪")
+                                case "fr":
+                                    Text("🇫🇷")
                                 default:
                                     Text("🇪🇺")
                                 }
@@ -225,7 +227,7 @@ struct CustomTabBar: View {
     @Binding var selectedTab: Int
     @Namespace private var animation
     
-    private let tabs = ["경기", "토너먼트", "선수 통계", "팀 통계", "순위"]
+    private let tabs = ["순위", "경기", "토너먼트", "선수 통계", "팀 통계"]
     
     var body: some View {
         VStack(spacing: 0) {
@@ -318,15 +320,106 @@ struct StandingsTabView: View {
         self.leagueId = leagueId
     }
     
+    // 리그별 진출권 정보
+    private func getQualificationInfo(for rank: Int) -> QualificationInfo {
+        switch leagueId {
+        case 39: // 프리미어 리그
+            if rank <= 5 {
+                return .championsLeague
+            } else if rank == 6 {
+                return .europaLeague
+            } else if rank == 7 {
+                return .conferenceLeague
+            } else if rank >= standings.count - 2 {
+                return .relegation
+            }
+        case 140: // 라리가
+            if rank <= 5 {
+                return .championsLeague
+            } else if rank == 6 || rank == 7 {
+                return .europaLeague
+            } else if rank == 8 {
+                return .conferenceLeague
+            } else if rank >= standings.count - 2 {
+                return .relegation
+            }
+        case 78, 135: // 분데스리가, 세리에 A
+            if rank <= 4 {
+                return .championsLeague
+            } else if rank == 5 {
+                return .europaLeague
+            } else if rank == 6 {
+                return .conferenceLeague
+            } else if rank >= standings.count - 2 {
+                return .relegation
+            }
+        case 61: // 리그앙
+            if rank <= 3 {
+                return .championsLeague
+            } else if rank == 4 {
+                return .championsLeagueQualification
+            } else if rank == 5 {
+                return .europaLeague
+            } else if rank == 6 {
+                return .conferenceLeague
+            } else if rank >= standings.count - 2 {
+                return .relegation
+            }
+        default:
+            if rank <= 4 {
+                return .championsLeague
+            } else if rank == 5 || rank == 6 {
+                return .europaLeague
+            } else if rank >= standings.count - 2 {
+                return .relegation
+            }
+        }
+        return .none
+    }
+    
+    // 진출권 정보에 따른 색상
+    private func getQualificationColor(for info: QualificationInfo) -> Color {
+        switch info {
+        case .championsLeague, .championsLeagueQualification:
+            return Color.blue
+        case .europaLeague:
+            return Color.orange
+        case .conferenceLeague:
+            return Color.green
+        case .relegation:
+            return Color.red
+        case .none:
+            return Color.clear
+        }
+    }
+    
+    // 진출권 정보에 따른 설명
+    private func getQualificationDescription(for info: QualificationInfo) -> String {
+        switch info {
+        case .championsLeague:
+            return "챔피언스리그"
+        case .championsLeagueQualification:
+            return "챔피언스리그 예선"
+        case .europaLeague:
+            return "유로파리그"
+        case .conferenceLeague:
+            return "컨퍼런스리그"
+        case .relegation:
+            return "강등권"
+        case .none:
+            return ""
+        }
+    }
+    
     var body: some View {
         ScrollView {
             VStack(spacing: 0) {
                 // 헤더
                 HStack(spacing: 0) {
                     Text("#")
-                        .frame(width: 25, alignment: .center)
+                        .frame(width: 30, alignment: .center)
                     Text("팀")
-                        .frame(width: 180, alignment: .leading)
+                        .frame(width: 175, alignment: .leading)
                     Text("경기")
                         .frame(width: 35, alignment: .center)
                     Text("승")
@@ -349,12 +442,24 @@ struct StandingsTabView: View {
                 
                 // 순위 목록
                 ForEach(standings) { standing in
+                    let qualificationInfo = getQualificationInfo(for: standing.rank)
+                    let qualificationColor = getQualificationColor(for: qualificationInfo)
+                    
                     VStack(spacing: 0) {
                         NavigationLink(destination: TeamProfileView(teamId: standing.team.id, leagueId: leagueId)) {
                             HStack(spacing: 0) {
-                                Text("\(standing.rank)")
-                                    .frame(width: 25, alignment: .center)
-                                    .foregroundColor(standing.rank <= 4 ? .blue : .primary)
+                                // 순위 및 진출권 표시
+                                HStack(spacing: 0) {
+                                    // 진출권 색상 띠
+                                    Rectangle()
+                                        .fill(qualificationColor)
+                                        .frame(width: 3)
+                                    
+                                    Text("\(standing.rank)")
+                                        .frame(width: 27, alignment: .center)
+                                        .foregroundColor(qualificationInfo != .none ? qualificationColor : .primary)
+                                }
+                                .frame(width: 30)
                                 
                                 HStack(spacing: 8) {
                                     // Kingfisher 캐싱을 사용하여 팀 로고 이미지 빠르게 로드
@@ -364,7 +469,7 @@ struct StandingsTabView: View {
                                         .lineLimit(1)
                                         .font(.system(size: 13))
                                 }
-                                .frame(width: 180, alignment: .leading)
+                                .frame(width: 175, alignment: .leading)
                                 
                                 Text("\(standing.all.played)")
                                     .frame(width: 35, alignment: .center)
@@ -396,9 +501,44 @@ struct StandingsTabView: View {
                 
                 if standings.isEmpty {
                     EmptyDataView(message: "순위 정보가 없습니다")
+                } else {
+                    // 진출권 범례
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("진출권 정보")
+                            .font(.headline)
+                            .padding(.bottom, 4)
+                        
+                        ForEach([QualificationInfo.championsLeague, .championsLeagueQualification, .europaLeague, .conferenceLeague, .relegation], id: \.self) { info in
+                            if getQualificationDescription(for: info) != "" {
+                                HStack(spacing: 8) {
+                                    Rectangle()
+                                        .fill(getQualificationColor(for: info))
+                                        .frame(width: 12, height: 12)
+                                    
+                                    Text(getQualificationDescription(for: info))
+                                        .font(.caption)
+                                        .foregroundColor(.primary)
+                                }
+                            }
+                        }
+                    }
+                    .padding()
+                    .background(Color(.systemGray6))
+                    .cornerRadius(8)
+                    .padding()
                 }
             }
         }
+    }
+    
+    // 진출권 정보 열거형
+    enum QualificationInfo: Int, CaseIterable {
+        case championsLeague
+        case championsLeagueQualification
+        case europaLeague
+        case conferenceLeague
+        case relegation
+        case none
     }
 }
 
@@ -410,29 +550,19 @@ struct LeagueFixturesTabView: View {
     let formatDate: (String) -> String
     let getMatchStatus: (FixtureStatus) -> String
     
+    // 컵대회 ID 목록 (챔피언스리그, 유로파리그, 주요 컵대회)
+    private let cupCompetitionIds = [2, 3, 45, 143, 137, 66, 81]
+    
     var body: some View {
         ScrollViewReader { scrollProxy in
             ScrollView {
                 VStack(spacing: 16) {
-                    // 오늘 경기
-                    if !todayFixtures.isEmpty {
-                        SectionHeader(title: "오늘 경기")
-                            .id("today")
-                        
-                        ForEach(todayFixtures) { fixture in
-                            FixtureCell(
-                                fixture: fixture,
-                                formattedDate: formatDate(fixture.fixture.date)
-                            )
-                            .padding(.horizontal)
-                        }
-                    }
-                    
-                    // 예정된 경기
+
+                    // ───────── 1) 예정된 경기 ─────────
                     if !upcomingFixtures.isEmpty {
                         SectionHeader(title: "예정된 경기")
                             .id("upcoming")
-                        
+
                         ForEach(upcomingFixtures) { fixture in
                             FixtureCell(
                                 fixture: fixture,
@@ -441,24 +571,13 @@ struct LeagueFixturesTabView: View {
                             .padding(.horizontal)
                         }
                     }
-                    
-                    // 지난 경기
-                    if !pastFixtures.isEmpty {
-                        SectionHeader(title: "지난 경기")
-                            .id("past")
-                        
-                        // 최근 경기 결과 (첫 번째 경기)
-                        if let firstPastFixture = pastFixtures.first {
-                            FixtureCell(
-                                fixture: firstPastFixture,
-                                formattedDate: formatDate(firstPastFixture.fixture.date)
-                            )
-                            .padding(.horizontal)
-                            .id("recentMatch")
-                        }
-                        
-                        // 나머지 지난 경기
-                        ForEach(pastFixtures.dropFirst()) { fixture in
+
+                    // ───────── 2) 오늘 경기 ─────────
+                    if !todayFixtures.isEmpty {
+                        SectionHeader(title: "오늘 경기")
+                            .id("today")
+
+                        ForEach(todayFixtures) { fixture in
                             FixtureCell(
                                 fixture: fixture,
                                 formattedDate: formatDate(fixture.fixture.date)
@@ -466,8 +585,24 @@ struct LeagueFixturesTabView: View {
                             .padding(.horizontal)
                         }
                     }
-                    
-                    if upcomingFixtures.isEmpty && pastFixtures.isEmpty && todayFixtures.isEmpty {
+
+                    // ───────── 3) 지난 경기 ─────────
+                    if !pastFixtures.isEmpty {
+                        SectionHeader(title: "지난 경기")
+                            .id("past")
+
+                        ForEach(pastFixtures) { fixture in
+                            FixtureCell(
+                                fixture: fixture,
+                                formattedDate: formatDate(fixture.fixture.date)
+                            )
+                            .padding(.horizontal)
+                            // 가장 최근 경기에 id 부여 → 스크롤용
+                            .id(fixture.id == pastFixtures.first?.id ? "recentMatch" : nil)
+                        }
+                    }
+
+                    if upcomingFixtures.isEmpty && todayFixtures.isEmpty && pastFixtures.isEmpty {
                         EmptyDataView(message: "경기 정보가 없습니다")
                     }
                 }
@@ -484,25 +619,22 @@ struct LeagueFixturesTabView: View {
         }
     }
     
+    
     // 최근 경기로 스크롤하는 함수
     private func scrollToRecentMatch(_ scrollProxy: ScrollViewProxy) {
-        // 0.3초 후에 스크롤 위치 조정 (뷰가 완전히 로드된 후)
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-            if !pastFixtures.isEmpty {
-                // 최근 경기 결과로 스크롤
-                withAnimation {
-                    scrollProxy.scrollTo("recentMatch", anchor: .top)
-                }
-            } else if !todayFixtures.isEmpty {
-                // 오늘 경기로 스크롤
-                withAnimation {
-                    scrollProxy.scrollTo("today", anchor: .top)
-                }
+            if !todayFixtures.isEmpty {
+                // 오늘 경기가 있으면 "오늘 경기" 섹션으로 스크롤
+                withAnimation { scrollProxy.scrollTo("today", anchor: .top) }
+                print("📜 스크롤: 오늘 경기로 이동")
+            } else if !pastFixtures.isEmpty {
+                // 오늘 경기가 없고 지난 경기가 있으면 가장 최근 지난 경기로 스크롤
+                withAnimation { scrollProxy.scrollTo("past", anchor: .top) }
+                print("📜 스크롤: 지난 경기로 이동")
             } else if !upcomingFixtures.isEmpty {
-                // 예정된 경기로 스크롤
-                withAnimation {
-                    scrollProxy.scrollTo("upcoming", anchor: .top)
-                }
+                // 오늘 경기와 지난 경기가 모두 없으면 예정된 경기로 스크롤
+                withAnimation { scrollProxy.scrollTo("upcoming", anchor: .top) }
+                print("📜 스크롤: 예정된 경기로 이동")
             }
         }
     }
