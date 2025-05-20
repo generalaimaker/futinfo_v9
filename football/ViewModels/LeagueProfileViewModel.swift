@@ -30,6 +30,32 @@ class LeagueProfileViewModel: ObservableObject {
     private let service = FootballAPIService.shared
     private let leagueId: Int
     
+    // 레귤러 리그 ID 목록 (토너먼트 탭을 표시하지 않을 리그)
+    private let regularLeagueIds = [39, 140, 78, 135, 61] // 프리미어 리그, 라리가, 분데스리가, 세리에 A, 리그 1
+    
+    // 컵대회 ID 목록 (순위 탭을 표시하지 않을 리그)
+    private let cupCompetitionIds = [45, 143, 137, 66, 81] // FA컵, 코파델레이, 코파 이탈리아, 프랑스컵, 독일 포칼컵
+    
+    // 순위가 있는 유럽 대항전 ID 목록
+    private let europeanCompetitionIds = [2, 3] // 챔피언스리그, 유로파리그
+    
+    // 토너먼트 탭을 표시할지 여부를 결정하는 계산 속성
+    var shouldShowTournamentTab: Bool {
+        // 레귤러 리그가 아니거나 리그 타입이 "cup"인 경우에만 토너먼트 탭 표시
+        return !regularLeagueIds.contains(leagueId) || (leagueDetails?.league.type.lowercased() == "cup")
+    }
+    
+    // 순위 탭을 표시할지 여부를 결정하는 계산 속성
+    var shouldShowStandingsTab: Bool {
+        // 레귤러 리그이거나 챔피언스리그/유로파리그인 경우에만 순위 탭 표시
+        if regularLeagueIds.contains(leagueId) || europeanCompetitionIds.contains(leagueId) {
+            return true
+        }
+        
+        // 그 외 컵대회는 순위 탭 표시하지 않음
+        return !cupCompetitionIds.contains(leagueId) && leagueDetails?.league.type.lowercased() != "cup"
+    }
+    
     init(leagueId: Int) {
         self.leagueId = leagueId
     }

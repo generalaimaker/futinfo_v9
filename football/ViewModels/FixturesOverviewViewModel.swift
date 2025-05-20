@@ -1101,11 +1101,11 @@ class FixturesOverviewViewModel: ObservableObject {
             leagueLogo = "https://media.api-sports.io/football/leagues/61.png"
         case 2:
             leagueName = "UEFA Champions League"
-            leagueCountry = "World"
+            leagueCountry = "UEFA"
             leagueLogo = "https://media.api-sports.io/football/leagues/2.png"
         case 3:
             leagueName = "UEFA Europa League"
-            leagueCountry = "World"
+            leagueCountry = "UEFA"
             leagueLogo = "https://media.api-sports.io/football/leagues/3.png"
         default:
             leagueName = "League \(leagueId)"
@@ -1296,8 +1296,8 @@ class FixturesOverviewViewModel: ObservableObject {
             LeagueFixtureInfo(id: 135, name: "Serie A", country: "Italy", logo: "https://media.api-sports.io/football/leagues/135.png", flag: nil, season: getCurrentSeason(), round: "Regular Season", standings: true),
             LeagueFixtureInfo(id: 78, name: "Bundesliga", country: "Germany", logo: "https://media.api-sports.io/football/leagues/78.png", flag: nil, season: getCurrentSeason(), round: "Regular Season", standings: true),
             LeagueFixtureInfo(id: 61, name: "Ligue 1", country: "France", logo: "https://media.api-sports.io/football/leagues/61.png", flag: nil, season: getCurrentSeason(), round: "Regular Season", standings: true),
-            LeagueFixtureInfo(id: 2, name: "UEFA Champions League", country: "World", logo: "https://media.api-sports.io/football/leagues/2.png", flag: nil, season: getCurrentSeason(), round: "Group Stage", standings: true),
-            LeagueFixtureInfo(id: 3, name: "UEFA Europa League", country: "World", logo: "https://media.api-sports.io/football/leagues/3.png", flag: nil, season: getCurrentSeason(), round: "Group Stage", standings: true)
+            LeagueFixtureInfo(id: 2, name: "UEFA Champions League", country: "UEFA", logo: "https://media.api-sports.io/football/leagues/2.png", flag: nil, season: getCurrentSeason(), round: "Group Stage", standings: true),
+            LeagueFixtureInfo(id: 3, name: "UEFA Europa League", country: "UEFA", logo: "https://media.api-sports.io/football/leagues/3.png", flag: nil, season: getCurrentSeason(), round: "Group Stage", standings: true)
         ]
         
         // 팀 정보 정의

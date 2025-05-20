@@ -13,6 +13,95 @@ struct LeagueProfileView: View {
         self._viewModel = StateObject(wrappedValue: LeagueProfileViewModel(leagueId: leagueId))
     }
     
+    // 표시할 탭 목록 (순위 탭과 토너먼트 탭 포함 여부에 따라 달라짐)
+    private var tabs: [String] {
+        let allTabs = ["순위", "경기", "토너먼트", "선수 통계", "팀 통계"]
+        var filteredTabs = allTabs
+        
+        // 토너먼트 탭 필터링
+        if !viewModel.shouldShowTournamentTab {
+            filteredTabs = filteredTabs.filter { $0 != "토너먼트" }
+        }
+        
+        // 순위 탭 필터링
+        if !viewModel.shouldShowStandingsTab {
+            filteredTabs = filteredTabs.filter { $0 != "순위" }
+        }
+        
+        return filteredTabs
+    }
+    
+    // 실제 탭 인덱스를 가져오는 함수 (순위 탭과 토너먼트 탭이 없는 경우 처리)
+    private func actualTabIndex(for displayIndex: Int) -> Int {
+        var actualIndex = displayIndex
+        
+        // 순위 탭이 없는 경우 인덱스 조정
+        if !viewModel.shouldShowStandingsTab && displayIndex >= 0 {
+            actualIndex += 1
+        }
+        
+        // 토너먼트 탭이 없는 경우 인덱스 조정
+        if !viewModel.shouldShowTournamentTab {
+            // 순위 탭이 있는 경우
+            if viewModel.shouldShowStandingsTab {
+                if actualIndex >= 2 {
+                    actualIndex += 1
+                }
+            }
+            // 순위 탭이 없는 경우
+            else {
+                if actualIndex >= 1 {
+                    actualIndex += 1
+                }
+            }
+        }
+        
+        return actualIndex
+    }
+    
+    // 토너먼트 탭의 tag 값을 계산하는 함수
+    private func getTagForTournamentTab() -> Int {
+        if viewModel.shouldShowStandingsTab {
+            return 2 // 순위 탭이 있으면 토너먼트 탭은 2번
+        } else {
+            return 1 // 순위 탭이 없으면 토너먼트 탭은 1번
+        }
+    }
+    
+    // 선수 통계 탭의 tag 값을 계산하는 함수
+    private func getTagForPlayerStatsTab() -> Int {
+        var tag = 2 // 기본값
+        
+        if viewModel.shouldShowStandingsTab {
+            tag = 2 // 순위 탭이 있으면 시작 인덱스는 2
+        } else {
+            tag = 1 // 순위 탭이 없으면 시작 인덱스는 1
+        }
+        
+        if viewModel.shouldShowTournamentTab {
+            tag += 1 // 토너먼트 탭이 있으면 인덱스 +1
+        }
+        
+        return tag
+    }
+    
+    // 팀 통계 탭의 tag 값을 계산하는 함수
+    private func getTagForTeamStatsTab() -> Int {
+        var tag = 3 // 기본값
+        
+        if viewModel.shouldShowStandingsTab {
+            tag = 3 // 순위 탭이 있으면 시작 인덱스는 3
+        } else {
+            tag = 2 // 순위 탭이 없으면 시작 인덱스는 2
+        }
+        
+        if viewModel.shouldShowTournamentTab {
+            tag += 1 // 토너먼트 탭이 있으면 인덱스 +1
+        }
+        
+        return tag
+    }
+    
     var body: some View {
         VStack(spacing: 0) {
             // 리그 정보 헤더
@@ -24,13 +113,15 @@ struct LeagueProfileView: View {
             }
             
             // 상단 탭 바
-            CustomTabBar(selectedTab: $selectedTab)
+            CustomTabBar(selectedTab: $selectedTab, tabs: tabs)
             
             // 탭 선택
             TabView(selection: $selectedTab) {
-                // 순위 탭
-                StandingsTabView(standings: viewModel.standings, leagueId: leagueId)
-                    .tag(0)
+                // 순위 탭 (조건부 표시)
+                if viewModel.shouldShowStandingsTab {
+                    StandingsTabView(standings: viewModel.standings, leagueId: leagueId)
+                        .tag(0)
+                }
                 
                 // 경기 탭
                 LeagueFixturesTabView(
@@ -40,16 +131,18 @@ struct LeagueProfileView: View {
                     formatDate: viewModel.formatDate,
                     getMatchStatus: viewModel.getMatchStatus
                 )
-                .tag(1)
+                .tag(viewModel.shouldShowStandingsTab ? 1 : 0)
                 
-                // 토너먼트 탭
-                TournamentTabView(
-                    leagueId: leagueId,
-                    rounds: viewModel.tournamentRounds,
-                    fixtures: viewModel.tournamentFixtures,
-                    formatDate: viewModel.formatDate
-                )
-                .tag(2)
+                // 토너먼트 탭 (조건부 표시)
+                if viewModel.shouldShowTournamentTab {
+                    TournamentTabView(
+                        leagueId: leagueId,
+                        rounds: viewModel.tournamentRounds,
+                        fixtures: viewModel.tournamentFixtures,
+                        formatDate: viewModel.formatDate
+                    )
+                    .tag(getTagForTournamentTab())
+                }
                 
                 // 선수 통계 탭
                 PlayerStatsTabView(
@@ -59,7 +152,7 @@ struct LeagueProfileView: View {
                     topDribblers: viewModel.topDribblers,
                     topTacklers: viewModel.topTacklers
                 )
-                .tag(3)
+                .tag(getTagForPlayerStatsTab())
                 
                 // 팀 통계 탭
                 TeamStatsTabView(
@@ -68,7 +161,7 @@ struct LeagueProfileView: View {
                     topPossessionTeams: viewModel.topPossessionTeams,
                     topCleanSheetTeams: viewModel.topCleanSheetTeams
                 )
-                .tag(4)
+                .tag(getTagForTeamStatsTab())
             }
             .tabViewStyle(PageTabViewStyle(indexDisplayMode: .never))
         }
@@ -85,15 +178,39 @@ struct LeagueProfileView: View {
         }
         .onChange(of: selectedTab) { oldValue, newValue in
             Task {
-                await viewModel.loadDataForTab(newValue)
-                
-                // 경기 탭으로 변경된 경우 최근 경기로 스크롤하기 위해 약간의 지연 추가
-                if newValue == 1 && !viewModel.pastFixtures.isEmpty {
-                    // 데이터가 로드된 후 0.5초 후에 스크롤 위치 조정 (뷰가 완전히 로드된 후)
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                        // 이 시점에서는 FixturesTabView의 onAppear가 호출되어 스크롤 위치가 조정됨
-                        // 추가적인 조치는 필요하지 않음
-                    }
+                // 선택된 탭에 따라 적절한 데이터 로드
+                switch newValue {
+                    // 순위 탭
+                    case 0 where viewModel.shouldShowStandingsTab:
+                        await viewModel.loadDataForTab(0)
+                    
+                    // 경기 탭
+                    case _ where (viewModel.shouldShowStandingsTab && newValue == 1) || (!viewModel.shouldShowStandingsTab && newValue == 0):
+                        await viewModel.loadDataForTab(1)
+                        
+                        // 경기 탭으로 변경된 경우 최근 경기로 스크롤하기 위해 약간의 지연 추가
+                        if !viewModel.pastFixtures.isEmpty {
+                            // 데이터가 로드된 후 0.5초 후에 스크롤 위치 조정 (뷰가 완전히 로드된 후)
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                                // 이 시점에서는 FixturesTabView의 onAppear가 호출되어 스크롤 위치가 조정됨
+                                // 추가적인 조치는 필요하지 않음
+                            }
+                        }
+                    
+                    // 토너먼트 탭
+                    case _ where newValue == getTagForTournamentTab():
+                        await viewModel.loadDataForTab(2)
+                    
+                    // 선수 통계 탭
+                    case _ where newValue == getTagForPlayerStatsTab():
+                        await viewModel.loadDataForTab(3)
+                    
+                    // 팀 통계 탭
+                    case _ where newValue == getTagForTeamStatsTab():
+                        await viewModel.loadDataForTab(4)
+                    
+                    default:
+                        break
                 }
             }
         }
@@ -101,7 +218,16 @@ struct LeagueProfileView: View {
             Task {
                 // 초기에는 필수 데이터만 로드
                 await viewModel.loadLeagueDetails()
-                await viewModel.loadStandings() // 기본 탭이 순위 탭이므로
+                
+                // 순위 탭이 있으면 순위 데이터 로드, 없으면 경기 데이터 로드
+                if viewModel.shouldShowStandingsTab {
+                    await viewModel.loadStandings()
+                } else {
+                    // 순위 탭이 없으면 경기 탭이 첫 번째 탭이 됨
+                    await viewModel.loadFixtures()
+                    // 첫 번째 탭으로 설정
+                    selectedTab = 0
+                }
             }
         }
     }
@@ -145,6 +271,18 @@ struct LeagueHeaderView: View {
                                 case "fr":
                                     Text("🇫🇷")
                                 default:
+                                    // 국가 이름이 "France"인 경우 프랑스 국기 표시
+                                    if country.name.lowercased() == "france" {
+                                        Text("🇫🇷")
+                                    } else {
+                                        Text("🇪🇺")
+                                    }
+                                }
+                            } else {
+                                // 국가 코드가 없지만 국가 이름이 "France"인 경우 프랑스 국기 표시
+                                if country.name.lowercased() == "france" {
+                                    Text("🇫🇷")
+                                } else {
                                     Text("🇪🇺")
                                 }
                             }
@@ -227,7 +365,19 @@ struct CustomTabBar: View {
     @Binding var selectedTab: Int
     @Namespace private var animation
     
-    private let tabs = ["순위", "경기", "토너먼트", "선수 통계", "팀 통계"]
+    // 기본 탭 목록
+    private let allTabs = ["순위", "경기", "토너먼트", "선수 통계", "팀 통계"]
+    
+    // 표시할 탭 목록 (토너먼트 탭 포함 여부에 따라 달라짐)
+    var tabs: [String]
+    
+    // 탭 인덱스를 실제 탭 인덱스로 변환 (토너먼트 탭이 없는 경우 처리)
+    func actualTabIndex(for index: Int) -> Int {
+        if !tabs.contains("토너먼트") && index >= 2 {
+            return index + 1 // 토너먼트 탭이 없으면 인덱스 조정
+        }
+        return index
+    }
     
     var body: some View {
         VStack(spacing: 0) {
@@ -323,6 +473,20 @@ struct StandingsTabView: View {
     // 리그별 진출권 정보
     private func getQualificationInfo(for rank: Int) -> QualificationInfo {
         switch leagueId {
+        case 2: // 챔피언스리그
+            if rank <= 8 {
+                return .knockout16Direct // 1위~8위: 16강 직행
+            } else if rank <= 24 {
+                return .knockout16Playoff // 9위~24위: 16강 플레이오프
+            }
+            
+        case 3: // 유로파리그
+            if rank <= 8 {
+                return .knockout16Direct // 1위~8위: 16강 직행
+            } else if rank <= 24 {
+                return .knockout16Playoff // 9위~24위: 16강 플레이오프
+            }
+            
         case 39: // 프리미어 리그
             if rank <= 5 {
                 return .championsLeague
@@ -333,6 +497,7 @@ struct StandingsTabView: View {
             } else if rank >= standings.count - 2 {
                 return .relegation
             }
+            
         case 140: // 라리가
             if rank <= 5 {
                 return .championsLeague
@@ -343,6 +508,7 @@ struct StandingsTabView: View {
             } else if rank >= standings.count - 2 {
                 return .relegation
             }
+            
         case 78, 135: // 분데스리가, 세리에 A
             if rank <= 4 {
                 return .championsLeague
@@ -353,6 +519,7 @@ struct StandingsTabView: View {
             } else if rank >= standings.count - 2 {
                 return .relegation
             }
+            
         case 61: // 리그앙
             if rank <= 3 {
                 return .championsLeague
@@ -365,6 +532,7 @@ struct StandingsTabView: View {
             } else if rank >= standings.count - 2 {
                 return .relegation
             }
+            
         default:
             if rank <= 4 {
                 return .championsLeague
@@ -388,6 +556,10 @@ struct StandingsTabView: View {
             return Color.green
         case .relegation:
             return Color.red
+        case .knockout16Direct:
+            return Color.green  // 16강 직행은 녹색
+        case .knockout16Playoff:
+            return Color.orange // 16강 플레이오프는 주황색
         case .none:
             return Color.clear
         }
@@ -406,6 +578,10 @@ struct StandingsTabView: View {
             return "컨퍼런스리그"
         case .relegation:
             return "강등권"
+        case .knockout16Direct:
+            return "16강 직행"
+        case .knockout16Playoff:
+            return "16강 플레이오프"
         case .none:
             return ""
         }
@@ -508,8 +684,10 @@ struct StandingsTabView: View {
                             .font(.headline)
                             .padding(.bottom, 4)
                         
-                        ForEach([QualificationInfo.championsLeague, .championsLeagueQualification, .europaLeague, .conferenceLeague, .relegation], id: \.self) { info in
-                            if getQualificationDescription(for: info) != "" {
+                        // 챔피언스리그와 유로파리그는 다른 범례 표시
+                        if leagueId == 2 || leagueId == 3 {
+                            // 유럽 대항전 범례
+                            ForEach([QualificationInfo.knockout16Direct, .knockout16Playoff], id: \.self) { info in
                                 HStack(spacing: 8) {
                                     Rectangle()
                                         .fill(getQualificationColor(for: info))
@@ -518,6 +696,21 @@ struct StandingsTabView: View {
                                     Text(getQualificationDescription(for: info))
                                         .font(.caption)
                                         .foregroundColor(.primary)
+                                }
+                            }
+                        } else {
+                            // 일반 리그 범례
+                            ForEach([QualificationInfo.championsLeague, .championsLeagueQualification, .europaLeague, .conferenceLeague, .relegation], id: \.self) { info in
+                                if getQualificationDescription(for: info) != "" {
+                                    HStack(spacing: 8) {
+                                        Rectangle()
+                                            .fill(getQualificationColor(for: info))
+                                            .frame(width: 12, height: 12)
+                                        
+                                        Text(getQualificationDescription(for: info))
+                                            .font(.caption)
+                                            .foregroundColor(.primary)
+                                    }
                                 }
                             }
                         }
@@ -539,6 +732,8 @@ struct StandingsTabView: View {
         case conferenceLeague
         case relegation
         case none
+        case knockout16Direct      // 16강 직행 (챔피언스리그, 유로파리그)
+        case knockout16Playoff     // 16강 플레이오프 (챔피언스리그, 유로파리그)
     }
 }
 

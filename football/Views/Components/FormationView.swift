@@ -75,7 +75,7 @@ struct FormationView: View {
     /// based on their index in the lineup.
     private func adjustedGroup(for player: LineupPlayer) -> String {
         // 디버깅: 실제 포지션 데이터 확인
-        print("👉 Player: \(player.player.name ?? "Unknown"), Position: \(player.pos ?? "None"), Grid: \(player.gridPosition?.x ?? -1),\(player.gridPosition?.y ?? -1)")
+        print("👉 Player: \(player.player.name), Position: \(player.pos), Grid: \(player.gridPosition?.x ?? -1),\(player.gridPosition?.y ?? -1)")
         
         // 포메이션별 특별 처리
         switch lineup.formation {
@@ -174,7 +174,7 @@ struct FormationView: View {
             
         case "3-4-2-1":
             // 디버깅 정보 출력
-            print("🔍 3-4-2-1 포메이션 처리: \(player.player.name ?? "Unknown"), Position: \(player.pos ?? "None")")
+            print("🔍 3-4-2-1 포메이션 처리: \(player.player.name), Position: \(player.pos)")
             
             // 골키퍼 처리
             if (player.pos ?? "").uppercased().contains("GK") {
@@ -190,7 +190,7 @@ struct FormationView: View {
             let pos = (player.pos ?? "").uppercased()
             if pos.contains("ST") || pos.contains("CF") || pos.contains("SS") ||
                (pos.contains("FW") && !pos.contains("LW") && !pos.contains("RW")) {
-                print("✅ 스트라이커 감지: \(player.player.name ?? "Unknown")")
+                print("✅ 스트라이커 감지: \(player.player.name)")
                 return "FW"
             }
             
@@ -205,7 +205,7 @@ struct FormationView: View {
                 }.sorted { ($0.gridPosition?.x ?? 0) < ($1.gridPosition?.x ?? 0) }
                 
                 if let index = attackingMids.firstIndex(where: { $0.id == player.id }) {
-                    print("✅ 공격형 미드필더 감지: \(player.player.name ?? "Unknown"), 인덱스: \(index)")
+                    print("✅ 공격형 미드필더 감지: \(player.player.name), 인덱스: \(index)")
                     return "CAM"
                 }
             }
@@ -420,7 +420,7 @@ struct FormationView: View {
                 : geometry.size.height - (CGFloat(p[1]) * geometry.size.height / 10)
             
             // 디버깅 정보
-            print("📍 Player: \(player.player.name ?? "Unknown"), Group: \(posGroup), Position: \(player.pos ?? "None"), Coords: \(p[0]),\(p[1])")
+            print("📍 Player: \(player.player.name), Group: \(posGroup), Position: \(player.pos), Coords: \(p[0]),\(p[1])")
         } else {
             // 정의된 좌표가 없는 경우 기본 위치 사용
             finalX = CGFloat(playerIndex + 1) * geometry.size.width / (CGFloat(groupPlayers.count) + 1)
@@ -429,7 +429,7 @@ struct FormationView: View {
                                  geometry: geometry,
                                  flipVertical: flipVertical)
             
-            print("⚠️ No predefined coords for \(player.player.name ?? "Unknown"), Group: \(posGroup), Position: \(player.pos ?? "None")")
+            print("⚠️ No predefined coords for \(player.player.name), Group: \(posGroup), Position: \(player.pos)")
         }
         
         // 홈팀(상단)은 좌우 반전 없음, 원정팀(하단)은 좌우 반전

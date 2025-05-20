@@ -382,24 +382,17 @@ struct TournamentBracketView: View {
         let roundsCount = rounds.count
         
         // 테스트용 더미 데이터 사용 (실제 구현에서는 제거)
+        #if DEBUG
         let useDummyData = true
+        #else
+        let useDummyData = false
+        #endif
         
         // 각 라운드별 경기 데이터 준비
-        let r16Matches: [AggregateMatch] = useDummyData
-            ? Array(dummyR16Matches.prefix(4))
-            : (rounds.count > 0 ? distinct(aggregatedMatches(for: rounds[0])) : [])
-            
-        let qfMatches: [AggregateMatch] = useDummyData
-            ? dummyQFMatches
-            : (rounds.count > 1 ? distinct(aggregatedMatches(for: rounds[1])) : [])
-            
-        let sfMatches: [AggregateMatch] = useDummyData
-            ? dummySFMatches
-            : (rounds.count > 2 ? distinct(aggregatedMatches(for: rounds[2])) : [])
-            
-        let finalMatches: [AggregateMatch] = useDummyData
-            ? [dummyFinalMatch]
-            : (rounds.count > 3 ? distinct(aggregatedMatches(for: rounds[3])) : [])
+        let r16Matches: [AggregateMatch] = Array(dummyR16Matches.prefix(4))
+        let qfMatches: [AggregateMatch] = dummyQFMatches
+        let sfMatches: [AggregateMatch] = dummySFMatches
+        let finalMatches: [AggregateMatch] = [dummyFinalMatch]
         
         // 상단/하단 분할
         let (r16Top, r16Bottom) = splitHalf(r16Matches)
@@ -600,7 +593,7 @@ struct TournamentBracketView: View {
                     let col0X = width * 0.15
                     let col1X = width * 0.35
                     let col2X = width * 0.55
-                    let col3X = width * 0.75
+                    let _ = width * 0.75  // col3X는 사용되지 않으므로 _로 대체
                     let centerX = width * 0.5
                     
                     // 상단 브라켓 연결선

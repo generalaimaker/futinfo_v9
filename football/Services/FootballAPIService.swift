@@ -274,6 +274,7 @@ class FootballAPIService {
     ) async throws -> T {
         // 디버그 로그 추가
         print("🔍 performRequest 시작: \(endpoint), 파라미터: \(parameters ?? [:]), 강제 새로고침: \(forceRefresh)")
+        print("🔄 요청 실행: \(endpoint)")
         
         return try await withCheckedThrowingContinuation { continuation in
             // 요청 키 생성 (로깅용)
@@ -766,11 +767,11 @@ class FootballAPIService {
                 leagueLogo = "https://media.api-sports.io/football/leagues/61.png"
             case 2:
                 leagueName = "UEFA Champions League"
-                leagueCountry = "World"
+                leagueCountry = "UEFA"
                 leagueLogo = "https://media.api-sports.io/football/leagues/2.png"
             case 3:
                 leagueName = "UEFA Europa League"
-                leagueCountry = "World"
+                leagueCountry = "UEFA"
                 leagueLogo = "https://media.api-sports.io/football/leagues/3.png"
             default:
                 leagueName = "League \(leagueId)"
@@ -2299,8 +2300,8 @@ class FootballAPIService {
             (135, "Serie A", "Italy", "https://media.api-sports.io/football/leagues/135.png", "https://media.api-sports.io/flags/it.svg"),
             (78, "Bundesliga", "Germany", "https://media.api-sports.io/football/leagues/78.png", "https://media.api-sports.io/flags/de.svg"),
             (61, "Ligue 1", "France", "https://media.api-sports.io/football/leagues/61.png", "https://media.api-sports.io/flags/fr.svg"),
-            (2, "UEFA Champions League", "World", "https://media.api-sports.io/football/leagues/2.png", nil),
-            (3, "UEFA Europa League", "World", "https://media.api-sports.io/football/leagues/3.png", nil),
+            (2, "UEFA Champions League", "UEFA", "https://media.api-sports.io/football/leagues/2.png", nil),
+            (3, "UEFA Europa League", "UEFA", "https://media.api-sports.io/football/leagues/3.png", nil),
             (4, "UEFA Conference League", "World", "https://media.api-sports.io/football/leagues/4.png", nil),
             (1, "World Cup", "World", "https://media.api-sports.io/football/leagues/1.png", nil),
             (45, "FA Cup", "England", "https://media.api-sports.io/football/leagues/45.png", "https://media.api-sports.io/flags/gb.svg")

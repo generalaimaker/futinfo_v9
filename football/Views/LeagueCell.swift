@@ -30,11 +30,23 @@ struct LeagueCell: View {
                             Text("🇮🇹")
                         case "de":
                             Text("🇩🇪")
+                        case "fr":
+                            Text("🇫🇷")
                         default:
-                            Text("🇪🇺")
+                            // 국가 이름이 "France"인 경우 프랑스 국기 표시
+                            if league.country?.name.lowercased() == "france" {
+                                Text("🇫🇷")
+                            } else {
+                                Text("🇪🇺")
+                            }
                         }
                     } else {
-                        Text("🇪🇺")
+                        // 국가 코드가 없지만 국가 이름이 "France"인 경우 프랑스 국기 표시
+                        if league.country?.name.lowercased() == "france" {
+                            Text("🇫🇷")
+                        } else {
+                            Text("🇪🇺")
+                        }
                     }
                     
                     Text(league.country?.name ?? "UEFA")
