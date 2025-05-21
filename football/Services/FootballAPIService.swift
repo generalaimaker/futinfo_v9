@@ -639,6 +639,18 @@ class FootballAPIService {
             }
             """
         }
+        else if T.self is FixtureLineupResponse.Type {
+            jsonString = """
+            {
+                "get": "fixtures/lineups",
+                "parameters": {"fixture": "0"},
+                "errors": [],
+                "results": 0,
+                "paging": {"current": 1, "total": 1},
+                "response": []
+            }
+            """
+        }
         else if T.self is TeamProfileResponse.Type {
             jsonString = """
             {

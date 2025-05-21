@@ -627,7 +627,7 @@ struct LineupPlayer: Codable, Identifiable {
 }
 
 struct Coach: Codable {
-    let id: Int
-    let name: String
-    let photo: String
+    let id: Int?
+    let name: String?
+    let photo: String?
 }

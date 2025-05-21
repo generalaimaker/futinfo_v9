@@ -72,9 +72,12 @@ struct LineupPlayerCardView: View {
 // TeamProfileView에서 사용하는 PlayerCardView 구현
 struct PlayerCardView: View {
     let player: PlayerInfo
+    var onPlayerTap: (Int) -> Void = { _ in }  // 선수 ID를 전달하는 클로저 추가
     
     var body: some View {
-        NavigationLink(destination: PlayerProfileView(playerId: player.id ?? 0)) {
+        Button(action: {
+            onPlayerTap(player.id ?? 0)  // 선수 ID 전달
+        }) {
             VStack(spacing: 12) {
                 // 선수 사진
                 AsyncImage(url: URL(string: player.photo ?? "")) { image in

@@ -1,4 +1,8 @@
 import SwiftUI
+import Foundation
+
+// TeamForm 타입 직접 사용
+typealias MatchResult = TeamForm.MatchResult
 
 struct FormIndicator: View {
     private let displayText: String
@@ -9,14 +13,14 @@ struct FormIndicator: View {
         self.resultType = .string(result)
     }
     
-    init(result: TeamForm.MatchResult) {
+    init(result: MatchResult) {
         self.displayText = result.text
         self.resultType = .matchResult(result)
     }
     
     private enum ResultType {
         case string(String)
-        case matchResult(TeamForm.MatchResult)
+        case matchResult(MatchResult)
     }
     
     private var color: Color {

@@ -8,10 +8,13 @@ struct FormationView: View {
     /// Whether to draw the pitch background‑and‑lines.
     /// Set to `false` when we stack two FormationView instances on a single pitch.
     let drawPitch: Bool
-    init(lineup: TeamLineup, flipVertical: Bool = false, drawPitch: Bool = true) {
+    var onPlayerTap: (Int) -> Void  // 선수 ID를 전달하는 클로저 추가
+    
+    init(lineup: TeamLineup, flipVertical: Bool = false, drawPitch: Bool = true, onPlayerTap: @escaping (Int) -> Void = { _ in }) {
         self.lineup = lineup
         self.flipVertical = flipVertical
         self.drawPitch = drawPitch
+        self.onPlayerTap = onPlayerTap
     }
     @Environment(\.colorScheme) private var colorScheme
     
@@ -378,7 +381,9 @@ struct FormationView: View {
                             in lineup: TeamLineup,
                             x: CGFloat,
                             y: CGFloat) -> some View {
-        NavigationLink(destination: PlayerProfileView(playerId: player.player.id)) {
+        Button(action: {
+            onPlayerTap(player.player.id)  // 선수 ID 전달
+        }) {
             LineupPlayerCardView(
                 player: player,
                 getLastName: getLastName,

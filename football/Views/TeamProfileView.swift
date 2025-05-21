@@ -1146,8 +1146,15 @@ struct PlayerRowView: View {
                 userInfo: ["playerId": playerInfo.player.id ?? 0]
             )
         }) {
-            PlayerCardView(player: playerInfo.player)
-                .frame(width: 100)
+            PlayerCardView(player: playerInfo.player, onPlayerTap: { playerId in
+                // 알림을 통해 PlayerProfileView로 이동
+                NotificationCenter.default.post(
+                    name: NSNotification.Name("ShowPlayerProfile"),
+                    object: nil,
+                    userInfo: ["playerId": playerId]
+                )
+            })
+            .frame(width: 100)
         }
         .buttonStyle(PlainButtonStyle())
     }

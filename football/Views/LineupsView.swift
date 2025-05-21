@@ -38,8 +38,12 @@ fileprivate struct LineupPlayerStatRow: View {
     let stats: PlayerMatchStats
     @State private var isExpanded = false
     
+    var onPlayerTap: (Int) -> Void  // 선수 ID를 전달하는 클로저 추가
+    
     var body: some View {
-        NavigationLink(destination: PlayerProfileView(playerId: player.id ?? 0)) {
+        Button(action: {
+            onPlayerTap(player.id ?? 0)  // 선수 ID 전달
+        }) {
             VStack(spacing: 8) {
                 HStack {
                     AsyncImage(url: URL(string: player.photo ?? "")) { image in
@@ -242,8 +246,12 @@ struct PlayerCard: View {
     let playerId: Int
     @State private var isPressed = false
     
+    var onPlayerTap: (Int) -> Void  // 선수 ID를 전달하는 클로저 추가
+    
     var body: some View {
-        NavigationLink(destination: PlayerProfileView(playerId: playerId)) {
+        Button(action: {
+            onPlayerTap(playerId)  // 선수 ID 전달
+        }) {
             VStack(spacing: 16) {
                 // 선수 번호
                 ZStack {
@@ -317,8 +325,12 @@ struct TopPlayerCard: View {
     let rating: String
     @State private var isPressed = false
     
+    var onPlayerTap: (Int) -> Void  // 선수 ID를 전달하는 클로저 추가
+    
     var body: some View {
-        NavigationLink(destination: PlayerProfileView(playerId: player.id ?? 0)) {
+        Button(action: {
+            onPlayerTap(player.id ?? 0)  // 선수 ID 전달
+        }) {
             VStack(spacing: 12) {
                 // 선수 사진
                 AsyncImage(url: URL(string: player.photo ?? "")) { image in
@@ -395,7 +407,23 @@ struct TopPlayerCard: View {
 struct LineupsView: View {
     /// lineups[0] must be home, lineups[1] must be away
     let lineups: [TeamLineup]
+    @State private var selectedPlayerId: Int?
+    @State private var showPlayerProfile = false
 
+    // 선수 선택 처리 함수
+    private func handlePlayerSelection(_ playerId: Int) {
+        print("🔍 LineupsView - 선수 선택: ID \(playerId)")
+        selectedPlayerId = playerId
+        showPlayerProfile = true
+        
+        // NotificationCenter를 통해 선수 프로필 표시 요청
+        NotificationCenter.default.post(
+            name: NSNotification.Name("ShowPlayerProfile"),
+            object: nil,
+            userInfo: ["playerId": playerId]
+        )
+    }
+    
     // MARK: - Body
     var body: some View {
         // height for each half based on device width
@@ -405,11 +433,13 @@ struct LineupsView: View {
             VStack(spacing: 0) {
                 PitchHalfView(lineup: lineups.first,
                               isHome: true,
-                              height: pitchHeight)
+                              height: pitchHeight,
+                              onPlayerTap: handlePlayerSelection)
 
                 PitchHalfView(lineup: lineups.dropFirst().first,
                               isHome: false,
-                              height: pitchHeight)
+                              height: pitchHeight,
+                              onPlayerTap: handlePlayerSelection)
             }
             .frame(maxWidth: .infinity)
         }
@@ -434,10 +464,11 @@ private struct PitchHalfView: View {
     let lineup: TeamLineup?
     let isHome: Bool
     let height: CGFloat
-
+    var onPlayerTap: (Int) -> Void
+    
     var body: some View {
         if let lineup {
-            FormationView(lineup: lineup, flipVertical: isHome)
+            FormationView(lineup: lineup, flipVertical: isHome, onPlayerTap: onPlayerTap)
                 .frame(maxWidth: .infinity)
                 .frame(height: height)
                 .clipShape(RoundedRectangle(cornerRadius: 12))

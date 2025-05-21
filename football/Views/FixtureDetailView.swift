@@ -7,6 +7,8 @@ struct FixtureDetailView: View {
     @State private var navigateToTeamProfile: Bool = false
     @State private var selectedTeamId: Int = 0
     @State private var selectedTeamLeagueId: Int = 0
+    @State private var showPlayerProfile: Bool = false
+    @State private var selectedPlayerId: Int? = nil
     
     // 경기 상태에 따라 다른 탭 표시
     private var isUpcoming: Bool {
@@ -253,6 +255,11 @@ struct FixtureDetailView: View {
         .navigationDestination(isPresented: $navigateToTeamProfile) {
             TeamProfileView(teamId: selectedTeamId, leagueId: selectedTeamLeagueId)
         }
+        .navigationDestination(isPresented: $showPlayerProfile) {
+            if let playerId = selectedPlayerId {
+                PlayerProfileView(playerId: playerId)
+            }
+        }
         .onAppear {
             // NotificationCenter 관찰자 등록
             NotificationCenter.default.addObserver(forName: NSNotification.Name("ShowTeamProfile"), object: nil, queue: .main) { notification in
@@ -263,6 +270,16 @@ struct FixtureDetailView: View {
                     selectedTeamId = teamId
                     selectedTeamLeagueId = leagueId
                     navigateToTeamProfile = true
+                }
+            }
+            
+            // 선수 프로필 알림 관찰자 등록
+            NotificationCenter.default.addObserver(forName: NSNotification.Name("ShowPlayerProfile"), object: nil, queue: .main) { notification in
+                if let userInfo = notification.userInfo,
+                   let playerId = userInfo["playerId"] as? Int {
+                    print("📣 FixtureDetailView - 선수 프로필 알림 수신: 선수 ID \(playerId)")
+                    selectedPlayerId = playerId
+                    showPlayerProfile = true
                 }
             }
             // 기본 데이터 로드
@@ -313,6 +330,7 @@ struct FixtureDetailView: View {
         .onDisappear {
             // NotificationCenter 관찰자 제거
             NotificationCenter.default.removeObserver(self, name: NSNotification.Name("ShowTeamProfile"), object: nil)
+            NotificationCenter.default.removeObserver(self, name: NSNotification.Name("ShowPlayerProfile"), object: nil)
         }
     }
     
