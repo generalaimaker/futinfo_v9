@@ -103,7 +103,7 @@ struct MatchInfoView: View {
 
                 if let referee = fixture.fixture.referee {
                     HStack {
-                        Image(systemName: "whistle.fill")
+                        Image(systemName: "person.fill.badge.plus")
                             .foregroundColor(.blue)
                         Text(referee)
                             .font(.system(.body, design: .rounded))
