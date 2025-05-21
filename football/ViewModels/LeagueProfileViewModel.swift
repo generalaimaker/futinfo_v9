@@ -447,7 +447,10 @@ class LeagueProfileViewModel: ObservableObject {
                 let now = Date()
                 let calendar = Calendar.current
                 let today = calendar.startOfDay(for: now)
-                let tomorrow = calendar.date(byAdding: .day, value: 1, to: today)!
+                guard let tomorrow = calendar.date(byAdding: .day, value: 1, to: today) else {
+                    print("❌ 날짜 계산 오류: 내일 날짜를 계산할 수 없습니다.")
+                    return
+                }
                 
                 // 오늘 경기
                 let todayTournamentFixtures = filteredFixtures.filter { fixture in
@@ -591,7 +594,10 @@ class LeagueProfileViewModel: ObservableObject {
         let now      = Date()
         let calendar = Calendar.current
         let today    = calendar.startOfDay(for: now)
-        let tomorrow = calendar.date(byAdding: .day, value: 1, to: today)!
+        guard let tomorrow = calendar.date(byAdding: .day, value: 1, to: today) else {
+            print("❌ 날짜 계산 오류: 내일 날짜를 계산할 수 없습니다.")
+            return
+        }
 
         // 오늘 경기
         todayFixtures = fixtures.filter {

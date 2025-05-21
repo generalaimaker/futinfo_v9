@@ -700,7 +700,7 @@ class FootballAPIService {
         
         // JSON 문자열을 데이터로 변환
         guard let jsonData = jsonString.data(using: .utf8) else {
-            throw FootballAPIError.decodingError(NSError(domain: "FootballAPI", code: 0, 
+            throw FootballAPIError.decodingError(NSError(domain: "FootballAPI", code: 0,
                 userInfo: [NSLocalizedDescriptionKey: "JSON 문자열을 데이터로 변환할 수 없습니다."]))
         }
         
@@ -966,7 +966,7 @@ class FootballAPIService {
         
         // JSON 문자열을 데이터로 변환
         guard let jsonData = jsonString.data(using: .utf8) else {
-            throw FootballAPIError.decodingError(NSError(domain: "FootballAPI", code: 0, 
+            throw FootballAPIError.decodingError(NSError(domain: "FootballAPI", code: 0,
                 userInfo: [NSLocalizedDescriptionKey: "JSON 문자열을 데이터로 변환할 수 없습니다."]))
         }
         
@@ -2256,7 +2256,7 @@ class FootballAPIService {
         
         // 검색어와 일치하는 팀 필터링
         let filteredTeams = teams.filter { team in
-            team.name.lowercased().contains(lowercaseQuery) || 
+            team.name.lowercased().contains(lowercaseQuery) ||
             team.country.lowercased().contains(lowercaseQuery)
         }
         
@@ -2309,7 +2309,7 @@ class FootballAPIService {
         
         // 검색어와 일치하는 리그 필터링
         let filteredLeagues = leagues.filter { league in
-            league.name.lowercased().contains(lowercaseQuery) || 
+            league.name.lowercased().contains(lowercaseQuery) ||
             league.country.lowercased().contains(lowercaseQuery)
         }
         
@@ -2378,7 +2378,7 @@ class FootballAPIService {
         
         // 검색어와 일치하는 선수 필터링
         let filteredPlayers = players.filter { player in
-            player.name.lowercased().contains(lowercaseQuery) || 
+            player.name.lowercased().contains(lowercaseQuery) ||
             player.nationality.lowercased().contains(lowercaseQuery) ||
             player.teamName.lowercased().contains(lowercaseQuery)
         }
@@ -2407,11 +2407,11 @@ class FootballAPIService {
             
             let leagueInfo = StatisticsLeague(
                 id: leagueId,
-                name: leagueId == 39 ? "Premier League" : 
-                      leagueId == 140 ? "La Liga" : 
+                name: leagueId == 39 ? "Premier League" :
+                      leagueId == 140 ? "La Liga" :
                       leagueId == 135 ? "Serie A" : "Unknown League",
-                country: leagueId == 39 ? "England" : 
-                         leagueId == 140 ? "Spain" : 
+                country: leagueId == 39 ? "England" :
+                         leagueId == 140 ? "Spain" :
                          leagueId == 135 ? "Italy" : "Unknown",
                 logo: "https://media.api-sports.io/football/leagues/\(leagueId).png",
                 flag: nil,
@@ -2469,7 +2469,7 @@ class FootballAPIService {
         
         // 검색어와 일치하는 감독 필터링
         let filteredCoaches = coaches.filter { coach in
-            coach.name.lowercased().contains(lowercaseQuery) || 
+            coach.name.lowercased().contains(lowercaseQuery) ||
             coach.nationality.lowercased().contains(lowercaseQuery) ||
             coach.teamName.lowercased().contains(lowercaseQuery)
         }

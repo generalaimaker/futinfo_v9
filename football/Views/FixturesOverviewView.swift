@@ -149,9 +149,11 @@ struct FixturesDateTabsView: View {
                                 
                                 if isNearStart {
                                     // 왼쪽 끝에 가까워지면 과거 날짜 추가
+                                    print("📱 FixturesDateTabsView - 과거 날짜 추가 (인덱스: \(index))")
                                     viewModel.extendDateRange(forward: false)
                                 } else if isNearEnd {
                                     // 오른쪽 끝에 가까워지면 미래 날짜 추가
+                                    print("📱 FixturesDateTabsView - 미래 날짜 추가 (인덱스: \(index))")
                                     viewModel.extendDateRange(forward: true)
                                 }
                             }
@@ -226,14 +228,8 @@ struct FixturesPageTabView: View {
         }
         .tabViewStyle(PageTabViewStyle(indexDisplayMode: .never))
         .onChange(of: selectedDateIndex) { oldValue, newValue in
-            // 날짜 범위 업데이트 (필요한 경우)
-            if newValue < 3 {
-                // 왼쪽 끝에 가까워지면 과거 날짜 추가
-                viewModel.extendDateRange(forward: false)
-            } else if newValue > viewModel.dateTabs.count - 4 {
-                // 오른쪽 끝에 가까워지면 미래 날짜 추가
-                viewModel.extendDateRange(forward: true)
-            }
+            // 날짜 범위 업데이트는 FixturesDateTabsView에서만 처리하도록 수정
+            // 중복 호출 방지를 위해 이 부분 제거
             
             // 선택된 날짜가 변경되면 다음 날짜들의 경기 일정도 미리 로드 (UX 향상)
             Task {
@@ -257,6 +253,7 @@ struct FixturesMainContentView: View {
     let viewModel: FixturesOverviewViewModel
     @Binding var selectedDateIndex: Int
     @State private var isInitialLoad = true
+    @State private var showSkeleton = false
     
     var body: some View {
         ZStack {
@@ -278,17 +275,15 @@ struct FixturesMainContentView: View {
                     if let selectedDate = viewModel.dateTabs[safe: selectedDateIndex]?.date {
                         let hasData = viewModel.fixtures[selectedDate]?.isEmpty == false
                         
-                        let dateFormatter = DateFormatter()
-                        dateFormatter.dateFormat = "yyyy-MM-dd"
-                        dateFormatter.timeZone = TimeZone.current
-                        
-                        print("📱 메인 컨텐츠 뷰 등장 - 선택된 날짜: \(dateFormatter.string(from: selectedDate)), 데이터 있음: \(hasData)")
-                        
-                        // 데이터가 없으면 ViewModel에서 데이터 로드 요청
+                        // 데이터가 없으면 스켈레톤 UI 표시
                         if !hasData {
-                            print("📱 메인 컨텐츠 뷰 - 데이터 없음, 데이터 로드 요청")
+                            showSkeleton = true
+                            
+                            // ViewModel에서 데이터 로드 요청
                             Task {
                                 await viewModel.loadFixturesForDate(selectedDate)
+                                // 데이터 로드 완료 후 스켈레톤 UI 숨김
+                                showSkeleton = false
                             }
                         }
                         
@@ -296,10 +291,28 @@ struct FixturesMainContentView: View {
                         isInitialLoad = false
                     }
                 }
+                .onChange(of: selectedDateIndex) { oldValue, newValue in
+                    // 날짜 변경 시 데이터 확인
+                    if let selectedDate = viewModel.dateTabs[safe: newValue]?.date {
+                        let hasData = viewModel.fixtures[selectedDate]?.isEmpty == false
+                        
+                        // 데이터가 없으면 스켈레톤 UI 표시
+                        if !hasData {
+                            showSkeleton = true
+                            
+                            // ViewModel에서 데이터 로드 요청
+                            Task {
+                                await viewModel.loadFixturesForDate(selectedDate)
+                                // 데이터 로드 완료 후 스켈레톤 UI 숨김
+                                showSkeleton = false
+                            }
+                        }
+                    }
+                }
             }
             
-            // 로딩 오버레이 (초기 로드 중에만 표시)
-            if viewModel.isLoading && isInitialLoad {
+            // 로딩 오버레이 (초기 로드 중이거나 스켈레톤 UI 표시 중일 때만 표시)
+            if (viewModel.isLoading && isInitialLoad) || showSkeleton {
                 // 스켈레톤 UI로 대체하여 더 나은 사용자 경험 제공
                 FixtureSkeletonView()
                     .padding(.horizontal)
@@ -316,6 +329,10 @@ struct FixturesOverviewView: View {
     @State private var navigateToTeamProfile: Bool = false
     @State private var selectedTeamId: Int = 0
     @State private var selectedTeamLeagueId: Int = 0
+    
+    // 선수 프로필 네비게이션 상태
+    @State private var navigateToPlayerProfile: Bool = false
+    @State private var selectedPlayerId: Int = 0
     
     var body: some View {
         NavigationStack {
@@ -404,13 +421,41 @@ struct FixturesOverviewView: View {
                     navigateToTeamProfile = true
                 }
             }
+            
+            // 선수 프로필 알림 관찰자 등록
+            NotificationCenter.default.addObserver(forName: NSNotification.Name("ShowPlayerProfile"), object: nil, queue: .main) { notification in
+                if let userInfo = notification.userInfo,
+                   let playerId = userInfo["playerId"] as? Int {
+                    print("📣 FixturesOverviewView - 선수 프로필 알림 수신: 선수 ID \(playerId)")
+                    selectedPlayerId = playerId
+                    navigateToPlayerProfile = true
+                }
+            }
+            
+            // 날짜 범위 확장 알림 관찰자 등록
+            NotificationCenter.default.addObserver(forName: NSNotification.Name("DateRangeExtended"), object: nil, queue: .main) { notification in
+                if let userInfo = notification.userInfo,
+                   let newIndex = userInfo["newSelectedIndex"] as? Int {
+                    print("📣 FixturesOverviewView - 날짜 범위 확장 알림 수신: 새 인덱스 \(newIndex)")
+                    
+                    // 선택된 날짜 인덱스 업데이트
+                    withAnimation {
+                        selectedDateIndex = newIndex
+                    }
+                }
+            }
         }
         .onDisappear {
             // NotificationCenter 관찰자 제거
             NotificationCenter.default.removeObserver(self, name: NSNotification.Name("ShowTeamProfile"), object: nil)
+            NotificationCenter.default.removeObserver(self, name: NSNotification.Name("ShowPlayerProfile"), object: nil)
+            NotificationCenter.default.removeObserver(self, name: NSNotification.Name("DateRangeExtended"), object: nil)
         }
         .navigationDestination(isPresented: $navigateToTeamProfile) {
             TeamProfileView(teamId: selectedTeamId, leagueId: selectedTeamLeagueId)
+        }
+        .navigationDestination(isPresented: $navigateToPlayerProfile) {
+            PlayerProfileView(playerId: selectedPlayerId)
         }
     }
 }
@@ -602,49 +647,22 @@ struct FixturePageView: View {
                 let fixtures = viewModel.fixtures[date] ?? []
                 let isLoading = viewModel.loadingDates.contains(date)
                 
-                if fixtures.isEmpty && !isLoading {
-                    // 경기 데이터가 없고 로딩 중이 아닌 경우, 빈 응답 메시지 표시
-                    VStack(spacing: 16) {
-                        Image(systemName: "calendar.badge.exclamationmark")
-                            .font(.system(size: 50))
-                            .foregroundColor(.gray)
-                        
-                        // 서버에서 제공한 빈 응답 메시지가 있으면 표시, 없으면 기본 메시지 표시
-                        if let emptyMessage = viewModel.emptyDates[date] {
-                            Text(emptyMessage)
-                                .font(.headline)
-                                .foregroundColor(.gray)
-                                .multilineTextAlignment(.center)
-                        } else {
-                            Text("예정된 경기가 없습니다")
-                                .font(.headline)
-                                .foregroundColor(.gray)
-                        }
-                        
-                        // 새로고침 버튼 추가
-                        Button(action: {
-                            Task {
-                                await viewModel.loadFixturesForDate(date, forceRefresh: true)
-                            }
-                        }) {
-                            Label("새로고침", systemImage: "arrow.clockwise")
-                                .font(.subheadline)
-                                .padding(.horizontal, 16)
-                                .padding(.vertical, 8)
-                                .background(Color.blue.opacity(0.1))
-                                .foregroundColor(.blue)
-                                .cornerRadius(8)
-                        }
-                        .padding(.top, 8)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .center)
-                    .padding(.top, 100)
-                } else if isLoading && fixtures.isEmpty {
-                    // 로딩 중이고 데이터가 없는 경우 스켈레톤 UI 표시
+                // 데이터가 없는 경우 처리
+                if fixtures.isEmpty {
+                    // 로딩 중이거나 데이터가 없는 경우 스켈레톤 UI 표시
                     FixtureSkeletonView()
                         .padding(.horizontal)
                         .frame(maxWidth: .infinity)
                         .padding(.top, 20)
+                        .onAppear {
+                            // 데이터가 없고 로딩 중이 아니면 데이터 로드 시도
+                            if !isLoading {
+                                Task {
+                                    // 더미 데이터 생성 요청
+                                    await viewModel.loadFixturesForDate(date, forceRefresh: true)
+                                }
+                            }
+                        }
                 }
             }
             .padding(.horizontal, 20)
@@ -658,44 +676,50 @@ struct FixturePageView: View {
             }
         }
         .onAppear {
-            // 현재 페이지가 선택된 경우에만 데이터 로드 시도
+            // 모든 페이지에 대해 데이터 로드 시도 (선택된 페이지가 아니더라도)
+            let fixtures = viewModel.fixtures[date] ?? []
+            let isLoading = viewModel.loadingDates.contains(date)
+            
+            let dateFormatter = DateFormatter()
+            dateFormatter.dateFormat = "yyyy-MM-dd"
+            dateFormatter.timeZone = TimeZone.current
+            
+            print("📱 페이지 등장 - 날짜: \(dateFormatter.string(from: date)), 인덱스: \(index), 선택된 인덱스: \(selectedIndex)")
+            
+            // 데이터가 없고 로딩 중이 아니면 데이터 로드 시도
+            if fixtures.isEmpty && !isLoading {
+                print("📱 페이지 등장 시 데이터 로드: \(dateFormatter.string(from: date))")
+                Task {
+                    // 더미 데이터 생성 요청 (forceRefresh: false로 설정하여 캐시 활용)
+                    await viewModel.loadFixturesForDate(date, forceRefresh: false)
+                }
+            }
+            
+            // 선택된 페이지인 경우 주변 날짜도 미리 로드
             if index == selectedIndex {
-                let fixtures = viewModel.fixtures[date] ?? []
-                let isLoading = viewModel.loadingDates.contains(date)
+                print("📱 선택된 페이지 - 주변 날짜 미리 로드")
                 
-                let dateFormatter = DateFormatter()
-                dateFormatter.dateFormat = "yyyy-MM-dd"
-                dateFormatter.timeZone = TimeZone.current
-                
-                print("📱 페이지 등장 - 날짜: \(dateFormatter.string(from: date)), 인덱스: \(index), 선택된 인덱스: \(selectedIndex)")
-                print("📱 페이지 등장 - 데이터 있음: \(!fixtures.isEmpty), 로딩 중: \(isLoading)")
-                
-                // 항상 최신 데이터를 보여주기 위해 API 호출 시도
-                if !isLoading {
-                    print("📱 페이지 등장 시 데이터 로드: \(dateFormatter.string(from: date))")
-                    Task {
-                        // 실제 API에서 데이터 로드
-                        await viewModel.loadFixturesForDate(date)
-                        
-                        // 데이터 로드 후 상태 확인
-                        await MainActor.run {
-                            let hasDataAfterLoad = viewModel.fixtures[date]?.isEmpty == false
-                            print("📱 페이지 등장 - 데이터 로드 후 상태: \(hasDataAfterLoad ? "데이터 있음" : "데이터 없음")")
-                            
-                            // 데이터 로드 후에도 데이터가 없으면 빈 배열 유지 (테스트 데이터 생성하지 않음)
-                            if !hasDataAfterLoad {
-                                print("📱 페이지 등장 - 데이터 로드 후에도 데이터 없음, 해당 날짜에 경기가 없습니다")
-                                // 빈 배열 유지 (이미 설정되어 있음)
+                // 다음 3일 미리 로드
+                Task {
+                    for i in 1...3 {
+                        if index + i < viewModel.dateTabs.count {
+                            let nextDate = viewModel.dateTabs[index + i].date
+                            if viewModel.fixtures[nextDate]?.isEmpty ?? true {
+                                await viewModel.loadFixturesForDate(nextDate, forceRefresh: false)
                             }
                         }
                     }
-                } else {
-                    print("📱 페이지 등장: 로딩 중 - \(dateFormatter.string(from: date))")
-                    
-                    // 로딩 중이면 로딩 상태만 표시하고 테스트 데이터를 생성하지 않음
-                    if fixtures.isEmpty {
-                        print("📱 페이지 등장 - 로딩 중이므로 로딩 상태만 표시")
-                        // 빈 배열 유지 (이미 설정되어 있음)
+                }
+                
+                // 이전 3일 미리 로드
+                Task {
+                    for i in 1...3 {
+                        if index - i >= 0 {
+                            let prevDate = viewModel.dateTabs[index - i].date
+                            if viewModel.fixtures[prevDate]?.isEmpty ?? true {
+                                await viewModel.loadFixturesForDate(prevDate, forceRefresh: false)
+                            }
+                        }
                     }
                 }
             }

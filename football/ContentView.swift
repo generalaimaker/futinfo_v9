@@ -83,7 +83,7 @@ extension View {
 // 더미 뷰 (추후 구현 예정)
 struct CommunityView: View {
     var body: some View {
-        NavigationView {
+        NavigationStack {
             Text("커뮤니티 화면")
                 .navigationTitle("커뮤니티")
             // 검색 버튼 추가 (ViewModifier 사용)
@@ -94,7 +94,7 @@ struct CommunityView: View {
 
 struct NewsView: View {
     var body: some View {
-        NavigationView {
+        NavigationStack {
             Text("뉴스 화면")
                 .navigationTitle("뉴스")
             // 검색 버튼 추가 (ViewModifier 사용)
@@ -107,7 +107,7 @@ struct SettingsView: View {
     @EnvironmentObject var favoriteService: FavoriteService
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             List {
                 Section(header: Text("팔로잉")) {
                     NavigationLink(destination: FavoritesView()) {

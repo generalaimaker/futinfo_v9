@@ -36,16 +36,17 @@ class FixturesOverviewViewModel: ObservableObject {
     // 캐싱 관련 변수
     private var cachedFixtures: [String: [Fixture]] = [:] // 날짜 문자열을 키로 사용
     private var cacheDates: [String: Date] = [:] // 캐시 저장 시간 기록
-    private let cacheExpirationMinutes: Double = 5 // 캐시 만료 시간 (15분에서 5분으로 단축)
+    private let cacheExpirationMinutes: Double = 15 // 기본 캐시 만료 시간 (5분에서 15분으로 증가)
     
     // 빈 응답 캐싱을 위한 변수
     private var emptyResponseCache: [String: Date] = [:] // 빈 응답을 받은 날짜+리그 조합과 시간
     private let emptyResponseCacheHours: Double = 6 // 빈 응답 캐시 만료 시간 (6시간)
     
     // 경기 상태별 캐시 만료 시간 (분 단위)
-    private let liveMatchCacheMinutes: Double = 1 // 진행 중인 경기는 1분 (5분에서 단축)
-    private let upcomingMatchCacheMinutes: Double = 5 // 예정된 경기는 5분 (15분에서 단축)
-    private let finishedMatchCacheMinutes: Double = 30 // 종료된 경기는 30분 (60분에서 단축)
+    private let liveMatchCacheMinutes: Double = 1 // 진행 중인 경기는 1분 유지
+    private let upcomingMatchCacheMinutes: Double = 15 // 예정된 경기는 15분으로 증가
+    private let finishedMatchCacheMinutes: Double = 120 // 종료된 경기는 2시간으로 증가
+    private let pastDayCacheMinutes: Double = 360 // 과거 날짜는 6시간으로 설정 (새로 추가)
     
     // 자동 새로고침 타이머
     private var refreshTimer: Timer?
@@ -165,15 +166,32 @@ class FixturesOverviewViewModel: ObservableObject {
             print("🔍 디버그: 오늘 날짜 = \(formatDateForAPI(today)), 현재 시간 = \(Date())")
             await preloadFixturesWithFallback(for: today, forceRefresh: true)
             
-            // 내일 날짜에 대한 경기 일정 미리 로드
-            let tomorrow = calendar.date(byAdding: .day, value: 1, to: today)!
-            print("🔍 디버그: 내일 날짜 = \(formatDateForAPI(tomorrow))")
-            await preloadFixturesWithFallback(for: tomorrow, forceRefresh: true)
+            // 확장된 날짜 범위 프리로딩 (±7일)
+            print("📱 확장된 날짜 범위 프리로딩 시작 (±7일)")
             
-            // 어제 날짜에 대한 경기 결과 미리 로드
-            let yesterday = calendar.date(byAdding: .day, value: -1, to: today)!
-            print("🔍 디버그: 어제 날짜 = \(formatDateForAPI(yesterday))")
-            await preloadFixturesWithFallback(for: yesterday, forceRefresh: true)
+            // 미래 날짜 프리로딩 (1~7일)
+            for i in 1...7 {
+                let futureDate = calendar.date(byAdding: .day, value: i, to: today)!
+                print("🔍 디버그: 미래 날짜 \(i)일 후 = \(formatDateForAPI(futureDate))")
+                await preloadFixturesWithFallback(for: futureDate, forceRefresh: false)
+                
+                // API 요청 제한 방지를 위한 지연
+                if i < 7 {
+                    try? await Task.sleep(nanoseconds: 100_000_000) // 0.1초 지연
+                }
+            }
+            
+            // 과거 날짜 프리로딩 (1~7일)
+            for i in 1...7 {
+                let pastDate = calendar.date(byAdding: .day, value: -i, to: today)!
+                print("🔍 디버그: 과거 날짜 \(i)일 전 = \(formatDateForAPI(pastDate))")
+                await preloadFixturesWithFallback(for: pastDate, forceRefresh: false)
+                
+                // API 요청 제한 방지를 위한 지연
+                if i < 7 {
+                    try? await Task.sleep(nanoseconds: 100_000_000) // 0.1초 지연
+                }
+            }
             
             // 백그라운드 로드가 활성화된 경우에만 추가 데이터 로드
             if enableBackgroundLoad {
@@ -504,6 +522,20 @@ class FixturesOverviewViewModel: ObservableObject {
         
         let now = Date()
         
+        // 날짜 문자열에서 Date 객체 생성
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-dd"
+        guard let keyDate = dateFormatter.date(from: dateKey) else {
+            return true // 날짜 변환 실패 시 만료된 것으로 간주
+        }
+        
+        // 오늘 날짜 확인
+        let today = calendar.startOfDay(for: now)
+        
+        // 과거/현재/미래 날짜 여부 확인
+        let isPastDay = keyDate < today
+        let isFutureDay = keyDate > today
+        
         // 해당 날짜의 경기 목록 가져오기
         if let fixturesForDate = cachedFixtures[dateKey] {
             // 경기가 있는 경우 경기 상태에 따라 다른 캐시 만료 시간 적용
@@ -529,10 +561,14 @@ class FixturesOverviewViewModel: ObservableObject {
                     // 예정된 경기가 있으면 중간 캐시 시간 적용
                     expirationMinutes = upcomingMatchCacheMinutes
                     print("⏱️ 예정된 경기가 있어 중간 캐시 시간 적용: \(upcomingMatchCacheMinutes)분")
+                } else if isPastDay {
+                    // 과거 날짜의 종료된 경기는 긴 캐시 시간 적용
+                    expirationMinutes = pastDayCacheMinutes
+                    print("⏱️ 과거 날짜의 종료된 경기는 긴 캐시 시간 적용: \(pastDayCacheMinutes)분")
                 } else {
-                    // 모든 경기가 종료된 경우 긴 캐시 시간 적용
+                    // 오늘/미래 날짜의 종료된 경기는 중간 캐시 시간 적용
                     expirationMinutes = finishedMatchCacheMinutes
-                    print("⏱️ 모든 경기가 종료되어 긴 캐시 시간 적용: \(finishedMatchCacheMinutes)분")
+                    print("⏱️ 오늘/미래 날짜의 종료된 경기는 중간 캐시 시간 적용: \(finishedMatchCacheMinutes)분")
                 }
                 
                 // 캐시 만료 여부 확인
@@ -547,12 +583,24 @@ class FixturesOverviewViewModel: ObservableObject {
             }
         }
         
-        // 경기가 없는 경우 기본 캐시 만료 시간 적용
-        let expirationInterval = cacheExpirationMinutes * 60 // 초 단위로 변환
+        // 날짜에 따른 기본 캐시 만료 시간 적용
+        var defaultExpirationMinutes = cacheExpirationMinutes
+        
+        if isPastDay {
+            // 과거 날짜는 더 긴 캐시 시간 적용
+            defaultExpirationMinutes = pastDayCacheMinutes
+            print("⏱️ 과거 날짜는 더 긴 캐시 시간 적용: \(pastDayCacheMinutes)분")
+        } else if isFutureDay {
+            // 미래 날짜는 중간 캐시 시간 적용
+            defaultExpirationMinutes = upcomingMatchCacheMinutes
+            print("⏱️ 미래 날짜는 중간 캐시 시간 적용: \(upcomingMatchCacheMinutes)분")
+        }
+        
+        let expirationInterval = defaultExpirationMinutes * 60 // 초 단위로 변환
         let isExpired = now.timeIntervalSince(cacheDate) > expirationInterval
         
         if isExpired {
-            print("⏰ 캐시 만료됨: \(dateKey) (저장 시간: \(cacheDate), 현재: \(now), 기본 만료 시간: \(cacheExpirationMinutes)분)")
+            print("⏰ 캐시 만료됨: \(dateKey) (저장 시간: \(cacheDate), 현재: \(now), 기본 만료 시간: \(defaultExpirationMinutes)분)")
         }
         
         return isExpired
@@ -641,11 +689,25 @@ class FixturesOverviewViewModel: ObservableObject {
     }
     
     // 날짜 범위 확장 (앞쪽 또는 뒤쪽)
+    // 날짜 범위 확장 중인지 확인하는 플래그
+    private var isExtendingDateRange = false
+    
     @MainActor
     public func extendDateRange(forward: Bool) {
+        // 이미 확장 중이면 중복 호출 방지
+        if isExtendingDateRange {
+            print("⚠️ 날짜 범위 확장 중복 호출 방지")
+            return
+        }
+        
+        // 확장 시작
+        isExtendingDateRange = true
+        
         if forward {
             // 미래 날짜 추가
             if let lastDate = allDateRange.last {
+                print("📅 미래 날짜 확장 시작 - 마지막 날짜: \(formatDateForAPI(lastDate))")
+                
                 let newEndDate = calendar.date(byAdding: .day, value: additionalLoadCount, to: lastDate)!
                 var currentDate = calendar.date(byAdding: .day, value: 1, to: lastDate)!
                 var newDates: [Date] = []
@@ -654,6 +716,8 @@ class FixturesOverviewViewModel: ObservableObject {
                     newDates.append(currentDate)
                     currentDate = calendar.date(byAdding: .day, value: 1, to: currentDate)!
                 }
+                
+                print("📅 미래 날짜 \(newDates.count)개 추가")
                 
                 allDateRange.append(contentsOf: newDates)
                 visibleDateRange.append(contentsOf: newDates)
@@ -664,22 +728,59 @@ class FixturesOverviewViewModel: ObservableObject {
                     for date in newDates.prefix(3) {
                         await self.loadFixturesForDate(date, forceRefresh: false)
                     }
+                    
+                    // 확장 완료
+                    await MainActor.run {
+                        self.isExtendingDateRange = false
+                    }
                 }
+            } else {
+                isExtendingDateRange = false
             }
         } else {
             // 과거 날짜 추가
             if let firstDate = allDateRange.first {
+                print("📅 과거 날짜 확장 시작 - 첫 날짜: \(formatDateForAPI(firstDate))")
+                
+                // 정확히 additionalLoadCount일 전 날짜 계산
                 let newStartDate = calendar.date(byAdding: .day, value: -additionalLoadCount, to: firstDate)!
-                var currentDate = newStartDate
+                print("📅 새 시작 날짜: \(formatDateForAPI(newStartDate))")
+                
                 var newDates: [Date] = []
                 
-                while currentDate < firstDate {
-                    newDates.append(currentDate)
-                    currentDate = calendar.date(byAdding: .day, value: 1, to: currentDate)!
+                // 날짜 범위 생성 (newStartDate부터 firstDate 전까지)
+                for i in 0..<additionalLoadCount {
+                    let date = calendar.date(byAdding: .day, value: i, to: newStartDate)!
+                    newDates.append(date)
                 }
                 
+                print("📅 과거 날짜 \(newDates.count)개 추가")
+                
+                // 날짜 순서 확인 로그
+                let dateFormatter = DateFormatter()
+                dateFormatter.dateFormat = "yyyy-MM-dd"
+                print("📅 첫 번째 새 날짜: \(dateFormatter.string(from: newDates.first!))")
+                print("📅 마지막 새 날짜: \(dateFormatter.string(from: newDates.last!))")
+                print("📅 기존 첫 날짜: \(dateFormatter.string(from: firstDate))")
+                
+                // 현재 선택된 날짜 저장
+                let currentSelectedDate = selectedDate
+                
+                // 날짜 배열 업데이트 (새 날짜 + 기존 날짜)
                 allDateRange = newDates + allDateRange
                 visibleDateRange = newDates + visibleDateRange
+                
+                // 선택된 날짜의 새 인덱스 찾기
+                if let newSelectedIndex = visibleDateRange.firstIndex(where: { calendar.isDate($0, inSameDayAs: currentSelectedDate) }) {
+                    print("📅 선택된 날짜의 새 인덱스: \(newSelectedIndex) (과거 날짜 추가 후)")
+                    
+                    // NotificationCenter를 통해 인덱스 업데이트 알림
+                    NotificationCenter.default.post(
+                        name: NSNotification.Name("DateRangeExtended"),
+                        object: nil,
+                        userInfo: ["newSelectedIndex": newSelectedIndex]
+                    )
+                }
                 
                 // 새로 추가된 날짜에 대한 경기 일정 로드 (최대 3일만)
                 Task {
@@ -687,7 +788,14 @@ class FixturesOverviewViewModel: ObservableObject {
                     for date in newDates.suffix(3) {
                         await self.loadFixturesForDate(date, forceRefresh: false)
                     }
+                    
+                    // 확장 완료
+                    await MainActor.run {
+                        self.isExtendingDateRange = false
+                    }
                 }
+            } else {
+                isExtendingDateRange = false
             }
         }
     }
@@ -1023,7 +1131,7 @@ class FixturesOverviewViewModel: ObservableObject {
         let round = fixture.league.round
         
         // 2차전 경기인지 확인
-        let isSecondLeg = round.lowercased().contains("2nd leg") || 
+        let isSecondLeg = round.lowercased().contains("2nd leg") ||
                          round.lowercased().contains("second leg") ||
                          round.lowercased().contains("return leg")
         
@@ -1490,7 +1598,7 @@ class FixturesOverviewViewModel: ObservableObject {
         
         if date > threeMonthsLater {
             print("⚠️ 먼 미래 날짜입니다. 빈 데이터로 처리합니다: \(formatDateForAPI(date))")
-            // 빈 데이터로 처리
+            // 빈 데이터로 처리 (더미 데이터 대신)
             fixtures[date] = []
             emptyDates[date] = "해당 날짜의 경기 일정은 아직 확정되지 않았습니다."
             return
@@ -1527,6 +1635,12 @@ class FixturesOverviewViewModel: ObservableObject {
         // 캐시된 데이터 가져오기
         let cachedData = self.cachedFixtures[dateString]
         
+        // 데이터가 없는 경우 빈 배열 설정 (더미 데이터 대신)
+        if fixtures[date] == nil {
+            print("🔄 데이터가 없어 빈 배열 설정: \(dateString)")
+            fixtures[date] = []
+        }
+        
         // 타임아웃 처리를 위한 Task 생성
         let task = Task {
             do {
@@ -1541,7 +1655,7 @@ class FixturesOverviewViewModel: ObservableObject {
                 
                 // UI 업데이트
                 await MainActor.run {
-                    // 경기 일정 업데이트
+                    // 경기 일정 업데이트 (API에서 가져온 실제 데이터로 교체)
                     fixtures[date] = fixturesForDate
                     
                     // 로딩 중인 날짜 목록에서 제거
@@ -1634,7 +1748,7 @@ class FixturesOverviewViewModel: ObservableObject {
                 await MainActor.run {
                     print("⏱️ 타임아웃: \(dateString)")
                     
-                    // 빈 배열 설정
+                    // 빈 배열 설정 (더미 데이터 대신)
                     fixtures[date] = []
                     emptyDates[date] = "데이터를 불러오는 중 시간이 초과되었습니다. 다시 시도해주세요."
                     

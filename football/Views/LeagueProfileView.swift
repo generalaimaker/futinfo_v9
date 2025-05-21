@@ -622,7 +622,14 @@ struct StandingsTabView: View {
                     let qualificationColor = getQualificationColor(for: qualificationInfo)
                     
                     VStack(spacing: 0) {
-                        NavigationLink(destination: TeamProfileView(teamId: standing.team.id, leagueId: leagueId)) {
+                        Button(action: {
+                            // 알림을 통해 TeamProfileView로 이동
+                            NotificationCenter.default.post(
+                                name: NSNotification.Name("ShowTeamProfile"),
+                                object: nil,
+                                userInfo: ["teamId": standing.team.id, "leagueId": leagueId]
+                            )
+                        }) {
                             HStack(spacing: 0) {
                                 // 순위 및 진출권 표시
                                 HStack(spacing: 0) {
@@ -992,7 +999,14 @@ struct StatsSectionView: View {
             SectionHeader(title: title)
             
             ForEach(Array(players.prefix(3).enumerated()), id: \.element.player.id) { index, player in
-                NavigationLink(destination: PlayerProfileView(playerId: player.player.id ?? 0)) {
+                Button(action: {
+                    // 알림을 통해 PlayerProfileView로 이동
+                    NotificationCenter.default.post(
+                        name: NSNotification.Name("ShowPlayerProfile"),
+                        object: nil,
+                        userInfo: ["playerId": player.player.id ?? 0]
+                    )
+                }) {
                     LeaguePlayerStatRow(
                         rank: index + 1,
                         player: player,

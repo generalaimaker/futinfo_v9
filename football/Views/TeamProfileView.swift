@@ -1138,7 +1138,14 @@ struct PlayerRowView: View {
     let playerInfo: PlayerResponse
     
     var body: some View {
-        NavigationLink(destination: PlayerProfileView(playerId: playerInfo.player.id ?? 0)) {
+        Button(action: {
+            // 알림을 통해 PlayerProfileView로 이동
+            NotificationCenter.default.post(
+                name: NSNotification.Name("ShowPlayerProfile"),
+                object: nil,
+                userInfo: ["playerId": playerInfo.player.id ?? 0]
+            )
+        }) {
             PlayerCardView(player: playerInfo.player)
                 .frame(width: 100)
         }
@@ -1699,7 +1706,14 @@ struct EnhancedPlayerCardView: View {
     let playerInfo: PlayerResponse
     
     var body: some View {
-        NavigationLink(destination: PlayerProfileView(playerId: playerInfo.player.id ?? 0)) {
+        Button(action: {
+            // 알림을 통해 PlayerProfileView로 이동
+            NotificationCenter.default.post(
+                name: NSNotification.Name("ShowPlayerProfile"),
+                object: nil,
+                userInfo: ["playerId": playerInfo.player.id ?? 0]
+            )
+        }) {
             HStack(spacing: 12) {
                 // 선수 이미지와 등번호
                 ZStack(alignment: .bottomTrailing) {
