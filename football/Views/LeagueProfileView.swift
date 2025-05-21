@@ -548,8 +548,12 @@ struct StandingsTabView: View {
     // 진출권 정보에 따른 색상
     private func getQualificationColor(for info: QualificationInfo) -> Color {
         switch info {
-        case .championsLeague, .championsLeagueQualification:
-            return Color.blue
+        case .championsLeague:
+            // 챔피언스리그 진출 - 더 진한 네이비 블루
+            return Color(red: 0/255, green: 32/255, blue: 96/255)
+        case .championsLeagueQualification:
+            // 챔피언스리그 예선 - 옅은 하늘색
+            return Color(red: 66/255, green: 165/255, blue: 245/255)
         case .europaLeague:
             return Color.orange
         case .conferenceLeague:
@@ -569,13 +573,13 @@ struct StandingsTabView: View {
     private func getQualificationDescription(for info: QualificationInfo) -> String {
         switch info {
         case .championsLeague:
-            return "챔피언스리그"
+            return "챔피언스 리그"
         case .championsLeagueQualification:
-            return "챔피언스리그 예선"
+            return "챔피언스 리그 예선"
         case .europaLeague:
-            return "유로파리그"
+            return "유로파 리그"
         case .conferenceLeague:
-            return "컨퍼런스리그"
+            return "컨퍼런스 리그"
         case .relegation:
             return "강등권"
         case .knockout16Direct:

@@ -290,6 +290,45 @@ struct FixturesMainContentView: View {
                         // 초기 로드 완료
                         isInitialLoad = false
                     }
+                    
+                    // 경기 일정 로딩 완료 알림 관찰자 등록
+                    let fixturesLoadingCompletedObserver = NotificationCenter.default.addObserver(
+                        forName: NSNotification.Name("FixturesLoadingCompleted"),
+                        object: nil,
+                        queue: .main
+                    ) { notification in
+                        if let userInfo = notification.userInfo,
+                           let loadedDate = userInfo["date"] as? Date {
+                            // 날짜 포맷팅은 로그에서 생략 (MainActor 격리 문제 해결)
+                            print("📣 FixturesMainContentView - 경기 일정 로딩 완료 알림 수신")
+                            
+                            // 현재 선택된 날짜와 동일한 경우 스켈레톤 UI 숨김
+                            // MainActor 격리 문제를 해결하기 위해 Task 내에서 처리
+                            Task { @MainActor in
+                                if let selectedDate = viewModel.dateTabs[safe: selectedDateIndex]?.date,
+                                   Calendar.current.isDate(loadedDate, inSameDayAs: selectedDate) {
+                                    withAnimation {
+                                        showSkeleton = false
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    
+                    // 관찰자 정리를 위해 onDisappear에서 사용할 수 있도록 저장
+                    Task { @MainActor in
+                        // 이 뷰에 대한 관찰자 저장 (구현 필요)
+                        // 여기서는 간단히 로그만 출력
+                        print("📣 경기 일정 로딩 완료 알림 관찰자 등록 완료")
+                    }
+                }
+                .onDisappear {
+                    // 알림 관찰자 제거
+                    NotificationCenter.default.removeObserver(
+                        self,
+                        name: NSNotification.Name("FixturesLoadingCompleted"),
+                        object: nil
+                    )
                 }
                 .onChange(of: selectedDateIndex) { oldValue, newValue in
                     // 날짜 변경 시 데이터 확인
@@ -318,6 +357,15 @@ struct FixturesMainContentView: View {
                     .padding(.horizontal)
                     .background(Color(.systemBackground).opacity(0.9))
                     .transition(.opacity)
+                    .onAppear {
+                        // 스켈레톤 UI가 표시된 후 10초 이상 지속되면 자동으로 숨김 처리
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 10) {
+                            if showSkeleton {
+                                print("⏱️ 스켈레톤 UI 자동 숨김 처리 (10초 타임아웃)")
+                                showSkeleton = false
+                            }
+                        }
+                    }
             }
         }
     }

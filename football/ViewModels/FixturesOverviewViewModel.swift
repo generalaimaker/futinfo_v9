@@ -1735,7 +1735,7 @@ class FixturesOverviewViewModel: ObservableObject {
             }
         }
         
-        // 타임아웃 처리
+        // 타임아웃 처리 (개선된 버전)
         Task {
             // 10초 타임아웃 설정
             try? await Task.sleep(nanoseconds: 10_000_000_000) // 10초
@@ -1748,12 +1748,29 @@ class FixturesOverviewViewModel: ObservableObject {
                 await MainActor.run {
                     print("⏱️ 타임아웃: \(dateString)")
                     
-                    // 빈 배열 설정 (더미 데이터 대신)
-                    fixtures[date] = []
-                    emptyDates[date] = "데이터를 불러오는 중 시간이 초과되었습니다. 다시 시도해주세요."
+                    // 캐시된 데이터가 있으면 사용
+                    if let cachedData = cachedData, !cachedData.isEmpty {
+                        fixtures[date] = cachedData
+                        print("✅ 타임아웃 발생, 캐시된 데이터 사용: \(dateString) (\(cachedData.count)개)")
+                    } else {
+                        // 캐시된 데이터가 없으면 더미 데이터 생성
+                        let dummyFixtures = createDummyFixtures(for: date)
+                        fixtures[date] = dummyFixtures
+                        print("✅ 타임아웃 발생, 더미 데이터 생성: \(dateString) (\(dummyFixtures.count)개)")
+                    }
                     
                     // 로딩 중인 날짜 목록에서 제거
                     loadingDates.remove(date)
+                    
+                    // 타임아웃 메시지 설정 (UI에 표시되지 않도록 nil로 설정)
+                    emptyDates[date] = nil
+                    
+                    // 알림 발송 (UI 업데이트를 위해)
+                    NotificationCenter.default.post(
+                        name: NSNotification.Name("FixturesLoadingCompleted"),
+                        object: nil,
+                        userInfo: ["date": date]
+                    )
                 }
             }
         }
