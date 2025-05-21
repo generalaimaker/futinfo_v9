@@ -626,14 +626,7 @@ struct StandingsTabView: View {
                     let qualificationColor = getQualificationColor(for: qualificationInfo)
                     
                     VStack(spacing: 0) {
-                        Button(action: {
-                            // 알림을 통해 TeamProfileView로 이동
-                            NotificationCenter.default.post(
-                                name: NSNotification.Name("ShowTeamProfile"),
-                                object: nil,
-                                userInfo: ["teamId": standing.team.id, "leagueId": leagueId]
-                            )
-                        }) {
+                        NavigationLink(destination: TeamProfileView(teamId: standing.team.id, leagueId: leagueId)) {
                             HStack(spacing: 0) {
                                 // 순위 및 진출권 표시
                                 HStack(spacing: 0) {

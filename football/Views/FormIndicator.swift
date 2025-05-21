@@ -38,14 +38,15 @@ struct FormIndicator: View {
     }
     
     var body: some View {
-        Circle()
-            .fill(color.opacity(0.2))
+        RoundedRectangle(cornerRadius: 6)
+            .fill(color)
             .overlay(
                 Text(displayText)
-                    .font(.system(.caption2, design: .rounded))
+                    .font(.system(.caption, design: .rounded))
                     .fontWeight(.bold)
-                    .foregroundColor(color)
+                    .foregroundColor(.white)
             )
-            .frame(width: 24, height: 24)
+            .frame(width: 28, height: 28)
+            .shadow(color: color.opacity(0.3), radius: 2, x: 0, y: 1)
     }
 }

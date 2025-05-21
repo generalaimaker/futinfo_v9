@@ -152,26 +152,52 @@ struct RecentMatchesView: View {
                             .foregroundColor(.gray)
                             .padding(.top, 12)
                         HStack(spacing: 12) {
+                            // 홈팀 승리 체크마크 (홈팀이 이긴 경우)
+                            if fixture.teams.home.winner == true {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .foregroundColor(.green)
+                                    .font(.system(size: 14))
+                            } else {
+                                Spacer()
+                                    .frame(width: 14)
+                            }
+                            
                             // 홈팀 약어 + 로고
                             Text(TeamAbbreviations.abbreviation(for: fixture.teams.home.name))
                                 .font(.system(.body, design: .rounded))
                                 .frame(width: 40, alignment: .trailing)
                                 .lineLimit(1)
                                 .minimumScaleFactor(0.7)
+                                .foregroundColor(fixture.teams.home.winner == true ? .primary : .secondary)
+                            
                             // Kingfisher 캐싱을 사용하여 팀 로고 이미지 빠르게 로드
                             TeamLogoView(logoUrl: fixture.teams.home.logo, size: 24)
+                            
                             // 스코어
                             Text("\(fixture.goals?.home ?? 0) - \(fixture.goals?.away ?? 0)")
                                 .font(.system(.title3, design: .rounded, weight: .bold))
                                 .frame(width: 50, alignment: .center)
+                            
                             // 어웨이팀 로고 + 약어
                             // Kingfisher 캐싱을 사용하여 팀 로고 이미지 빠르게 로드
                             TeamLogoView(logoUrl: fixture.teams.away.logo, size: 24)
+                            
                             Text(TeamAbbreviations.abbreviation(for: fixture.teams.away.name))
                                 .font(.system(.body, design: .rounded))
                                 .frame(width: 40, alignment: .leading)
                                 .lineLimit(1)
                                 .minimumScaleFactor(0.7)
+                                .foregroundColor(fixture.teams.away.winner == true ? .primary : .secondary)
+                            
+                            // 원정팀 승리 체크마크 (원정팀이 이긴 경우)
+                            if fixture.teams.away.winner == true {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .foregroundColor(.green)
+                                    .font(.system(size: 14))
+                            } else {
+                                Spacer()
+                                    .frame(width: 14)
+                            }
                         }
                         .padding(.bottom, 12)
                     }

@@ -85,25 +85,14 @@ struct FixtureCell: View {
                         .bold()
                 }
 
-                // 팀 로고를 탭하면 팀 프로필 페이지로 이동
-                Button(action: {
-                    // NotificationCenter를 통해 팀 프로필 페이지로 이동하라는 알림 전송
-                    print("📣 TeamView - 팀 로고 탭: 팀 ID \(team.id), 리그 ID \(leagueId)")
-                    NotificationCenter.default.post(
-                        name: NSNotification.Name("ShowTeamProfile"),
-                        object: nil,
-                        userInfo: ["teamId": team.id, "leagueId": leagueId]
-                    )
-                }) {
-                    CachedImageView(
-                        url: URL(string: team.logo),
-                        placeholder: Image(systemName: "sportscourt.fill"),
-                        failureImage: Image(systemName: "sportscourt.fill"),
-                        contentMode: .fit
-                    )
-                    .frame(width: 30, height: 30)
-                }
-                .buttonStyle(PlainButtonStyle())
+                // 팀 로고 (탭 기능 제거)
+                CachedImageView(
+                    url: URL(string: team.logo),
+                    placeholder: Image(systemName: "sportscourt.fill"),
+                    failureImage: Image(systemName: "sportscourt.fill"),
+                    contentMode: .fit
+                )
+                .frame(width: 30, height: 30)
 
                 if !isHome {
                     Text(TeamAbbreviations.abbreviation(for: team.name))

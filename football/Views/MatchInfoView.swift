@@ -145,6 +145,7 @@ struct MatchInfoView: View {
 
     private func teamFormView(team: Team, form: TeamForm?) -> some View {
         VStack(spacing: 12) {
+            // 팀 로고 및 이름
             AsyncImage(url: URL(string: team.logo)) { image in
                 image.resizable().scaledToFit()
             } placeholder: {
@@ -158,13 +159,40 @@ struct MatchInfoView: View {
                 .multilineTextAlignment(.center)
                 .lineLimit(2)
                 .frame(height: 40)
-
+            
+            // 최근 경기 결과 표시
             if let form = form {
-                HStack(spacing: 4) {
-                    ForEach(Array(form.results.enumerated().reversed()), id: \.offset) { _, result in
-                        FormIndicator(result: result)
+                VStack(spacing: 8) {
+                    // 최근 경기 결과 헤더
+                    HStack {
+                        Text("최근 경기")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                            .padding(.leading, 4)
+                        Spacer()
+                    }
+                    
+                    // 최근 경기 목록
+                    VStack(spacing: 6) {
+                        let recentFixtures = team.id == fixture.teams.home.id ?
+                            viewModel.homeTeamRecentFixtures : viewModel.awayTeamRecentFixtures
+                        
+                        if recentFixtures.isEmpty {
+                            // 기존 방식으로 표시 (폼 인디케이터만)
+                            HStack(spacing: 4) {
+                                ForEach(Array(form.results.enumerated().reversed()), id: \.offset) { _, result in
+                                    FormIndicator(result: result)
+                                }
+                            }
+                        } else {
+                            // 상세 경기 정보 표시
+                            ForEach(recentFixtures.prefix(5), id: \.fixture.id) { fixture in
+                                recentFixtureRow(fixture: fixture, teamId: team.id)
+                            }
+                        }
                     }
                 }
+                .frame(maxWidth: .infinity)
             } else {
                 Text("정보 없음")
                     .font(.caption)
@@ -172,6 +200,108 @@ struct MatchInfoView: View {
             }
         }
         .frame(maxWidth: .infinity)
+    }
+    
+    // 최근 경기 행 표시
+    private func recentFixtureRow(fixture: Fixture, teamId: Int) -> some View {
+        NavigationLink(destination: FixtureDetailView(fixture: fixture)) {
+            HStack(spacing: 4) {
+                // 경기 일자
+                Text(formattedShortDate(from: fixture.fixture.date))
+                    .font(.system(.caption, design: .rounded))
+                    .foregroundColor(.secondary)
+                    .frame(width: 40, alignment: .leading)
+                
+                // 상대팀 (홈/원정에 따라 다름)
+                let isHome = fixture.teams.home.id == teamId
+                let opponent = isHome ? fixture.teams.away : fixture.teams.home
+                
+                Text(TeamAbbreviations.abbreviation(for: opponent.name))
+                    .font(.system(.caption, design: .rounded))
+                    .foregroundColor(.secondary)
+                    .frame(width: 30, alignment: .center)
+                    .lineLimit(1)
+                
+                // 스코어
+                if let homeGoals = fixture.goals?.home, let awayGoals = fixture.goals?.away {
+                    let score = isHome ? "\(homeGoals)-\(awayGoals)" : "\(awayGoals)-\(homeGoals)"
+                    Text(score)
+                        .font(.system(.caption, design: .rounded))
+                        .foregroundColor(.secondary)
+                        .frame(width: 30, alignment: .center)
+                } else {
+                    Text("-")
+                        .font(.system(.caption, design: .rounded))
+                        .foregroundColor(.secondary)
+                        .frame(width: 30, alignment: .center)
+                }
+                
+                // 결과 (승/무/패)
+                let result = getMatchResult(fixture: fixture, teamId: teamId)
+                Text(result.text)
+                    .font(.system(.caption, design: .rounded))
+                    .fontWeight(.bold)
+                    .foregroundColor(.white)
+                    .frame(width: 24, height: 24)
+                    .background(resultColor(result))
+                    .cornerRadius(4)
+            }
+            .padding(.vertical, 2)
+            .padding(.horizontal, 4)
+            .background(Color(.systemGray6).opacity(0.5))
+            .cornerRadius(4)
+        }
+        .buttonStyle(PlainButtonStyle()) // 기본 버튼 스타일 제거
+    }
+    
+    // 경기 결과 계산
+    private func getMatchResult(fixture: Fixture, teamId: Int) -> TeamForm.MatchResult {
+        // 경기가 완료된 경우에만 계산
+        guard fixture.fixture.status.short == "FT" ||
+              fixture.fixture.status.short == "AET" ||
+              fixture.fixture.status.short == "PEN" else {
+            return .draw // 기본값
+        }
+        
+        // 골 정보가 있는지 확인
+        guard let homeGoals = fixture.goals?.home,
+              let awayGoals = fixture.goals?.away else {
+            return .draw // 기본값
+        }
+        
+        // 팀 ID에 따라 결과 계산
+        if fixture.teams.home.id == teamId {
+            if homeGoals > awayGoals {
+                return .win
+            } else if homeGoals < awayGoals {
+                return .loss
+            } else {
+                return .draw
+            }
+        } else {
+            if awayGoals > homeGoals {
+                return .win
+            } else if awayGoals < homeGoals {
+                return .loss
+            } else {
+                return .draw
+            }
+        }
+    }
+    
+    // 짧은 날짜 포맷 (MM.dd)
+    private func formattedShortDate(from dateString: String) -> String {
+        let inputFormatter = DateFormatter()
+        inputFormatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ssZ"
+        inputFormatter.timeZone = TimeZone(secondsFromGMT: 0)
+        
+        if let date = inputFormatter.date(from: dateString) {
+            let outputFormatter = DateFormatter()
+            outputFormatter.dateFormat = "MM.dd"
+            outputFormatter.timeZone = TimeZone.current
+            return outputFormatter.string(from: date)
+        }
+        return "--"
     }
 
     // 순위

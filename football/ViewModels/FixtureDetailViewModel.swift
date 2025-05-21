@@ -122,6 +122,8 @@ class FixtureDetailViewModel: ObservableObject {
     @Published var team2Stats: HeadToHeadStats?
     @Published var homeTeamForm: TeamForm?
     @Published var awayTeamForm: TeamForm?
+    @Published var homeTeamRecentFixtures: [Fixture] = []
+    @Published var awayTeamRecentFixtures: [Fixture] = []
     @Published var manOfTheMatch: FixturePlayerStats?
 
     @Published var isLoadingForm = false
@@ -1043,8 +1045,10 @@ class FixtureDetailViewModel: ObservableObject {
                 // 홈/원정 팀에 따라 설정
                 if isHome {
                     self.homeTeamForm = teamForm
+                    self.homeTeamRecentFixtures = fixtures.sorted { $0.fixture.date > $1.fixture.date }.prefix(5).map { $0 }
                 } else {
                     self.awayTeamForm = teamForm
+                    self.awayTeamRecentFixtures = fixtures.sorted { $0.fixture.date > $1.fixture.date }.prefix(5).map { $0 }
                 }
 
                 // 로드 완료

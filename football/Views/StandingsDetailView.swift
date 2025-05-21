@@ -96,65 +96,70 @@ struct StandingsDetailView: View {
                             let qualificationInfo = getQualificationInfo(for: standing.rank)
                             let qualificationColor = getQualificationColor(for: qualificationInfo)
                             
-                            HStack {
-                                // 순위 및 진출권 표시
-                                HStack(spacing: 0) {
-                                    // 진출권 색상 띠
-                                    Rectangle()
-                                        .fill(qualificationColor)
-                                        .frame(width: 3)
+                            NavigationLink(destination: TeamProfileView(teamId: standing.team.id, leagueId: fixture.league.id)) {
+                                HStack {
+                                    // 순위 및 진출권 표시
+                                    HStack(spacing: 0) {
+                                        // 진출권 색상 띠
+                                        Rectangle()
+                                            .fill(qualificationColor)
+                                            .frame(width: 3)
+                                        
+                                        Text("\(standing.rank)")
+                                            .font(.system(.body, design: .rounded))
+                                            .fontWeight(.bold)
+                                            .foregroundColor(qualificationInfo != .none ? qualificationColor : .primary)
+                                            .frame(width: 27, alignment: .center)
+                                    }
+                                    .frame(width: 30)
                                     
-                                    Text("\(standing.rank)")
+                                    HStack(spacing: 8) {
+                                        HStack(spacing: 8) {
+                                            TeamLogoView(logoUrl: standing.team.logo, size: 20)
+                                            
+                                            Text(TeamAbbreviations.abbreviation(for: standing.team.name))
+                                                .font(.system(.body, design: .rounded))
+                                                .fontWeight(.medium)
+                                                .frame(width: 40)
+                                        }
+                                    }
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    
+                                    Text("\(standing.all.played)")
+                                        .font(.system(.body, design: .rounded))
+                                        .frame(width: 30, alignment: .center)
+                                    
+                                    Text("\(standing.all.win)")
+                                        .font(.system(.body, design: .rounded))
+                                        .frame(width: 30, alignment: .center)
+                                    
+                                    Text("\(standing.all.draw)")
+                                        .font(.system(.body, design: .rounded))
+                                        .frame(width: 30, alignment: .center)
+                                    
+                                    Text("\(standing.all.lose)")
+                                        .font(.system(.body, design: .rounded))
+                                        .frame(width: 30, alignment: .center)
+                                    
+                                    Text("\(standing.points)")
                                         .font(.system(.body, design: .rounded))
                                         .fontWeight(.bold)
-                                        .foregroundColor(qualificationInfo != .none ? qualificationColor : .primary)
-                                        .frame(width: 27, alignment: .center)
-                                }
-                                .frame(width: 30)
-                                
-                                HStack(spacing: 8) {
-                                    TeamLogoView(logoUrl: standing.team.logo, size: 20)
+                                        .frame(width: 30, alignment: .center)
                                     
-                                    Text(TeamAbbreviations.abbreviation(for: standing.team.name))
+                                    Text("\(standing.goalsDiff)")
                                         .font(.system(.body, design: .rounded))
-                                        .fontWeight(.medium)
-                                        .frame(width: 40)
+                                        .foregroundColor(standing.goalsDiff >= 0 ? .blue : .red)
+                                        .frame(width: 30, alignment: .center)
                                 }
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                
-                                Text("\(standing.all.played)")
-                                    .font(.system(.body, design: .rounded))
-                                    .frame(width: 30, alignment: .center)
-                                
-                                Text("\(standing.all.win)")
-                                    .font(.system(.body, design: .rounded))
-                                    .frame(width: 30, alignment: .center)
-                                
-                                Text("\(standing.all.draw)")
-                                    .font(.system(.body, design: .rounded))
-                                    .frame(width: 30, alignment: .center)
-                                
-                                Text("\(standing.all.lose)")
-                                    .font(.system(.body, design: .rounded))
-                                    .frame(width: 30, alignment: .center)
-                                
-                                Text("\(standing.points)")
-                                    .font(.system(.body, design: .rounded))
-                                    .fontWeight(.bold)
-                                    .frame(width: 30, alignment: .center)
-                                
-                                Text("\(standing.goalsDiff)")
-                                    .font(.system(.body, design: .rounded))
-                                    .foregroundColor(standing.goalsDiff >= 0 ? .blue : .red)
-                                    .frame(width: 30, alignment: .center)
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 12)
+                                .background(
+                                    standing.team.id == fixture.teams.home.id ? Color.blue.opacity(0.1) :
+                                    standing.team.id == fixture.teams.away.id ? Color.red.opacity(0.1) :
+                                    Color.clear
+                                )
                             }
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 12)
-                            .background(
-                                standing.team.id == fixture.teams.home.id ? Color.blue.opacity(0.1) :
-                                standing.team.id == fixture.teams.away.id ? Color.red.opacity(0.1) :
-                                Color.clear
-                            )
+                            .buttonStyle(PlainButtonStyle()) // 기본 버튼 스타일 제거
                         }
                         }
                     }

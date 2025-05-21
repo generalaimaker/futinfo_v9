@@ -292,7 +292,7 @@ struct FixturesMainContentView: View {
                     }
                     
                     // 경기 일정 로딩 완료 알림 관찰자 등록
-                    let fixturesLoadingCompletedObserver = NotificationCenter.default.addObserver(
+                    _ = NotificationCenter.default.addObserver(
                         forName: NSNotification.Name("FixturesLoadingCompleted"),
                         object: nil,
                         queue: .main
@@ -870,7 +870,6 @@ struct FixtureCardView: View {
 struct FixtureTeamView: View {
     let team: Team
     let isHome: Bool
-    @State private var isPressed = false
 
     var body: some View {
         HStack(spacing: 6) {
@@ -897,32 +896,6 @@ struct FixtureTeamView: View {
             )
             .frame(width: 36, height: 36)
         }
-        .scaleEffect(isPressed ? 1.1 : 1.0)
-        .onTapGesture {
-            withAnimation(.easeInOut(duration: 0.15)) {
-                isPressed = true
-            }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-                withAnimation(.easeInOut(duration: 0.15)) {
-                    isPressed = false
-                }
-                NotificationCenter.default.post(
-                    name: NSNotification.Name("ShowTeamProfile"),
-                    object: nil,
-                    userInfo: ["teamId": team.id, "leagueId": 0]
-                )
-            }
-        }
-        .overlay(
-            Text("팀 프로필")
-                .font(.system(.caption2, design: .rounded))
-                .foregroundColor(.white)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 2)
-                .background(Color.blue.opacity(0.8))
-                .cornerRadius(8)
-                .opacity(isPressed ? 1.0 : 0.0)
-        )
     }
 
     private var teamAbbreviationText: some View {
