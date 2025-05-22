@@ -30,5 +30,6 @@ struct StatisticsView: View {
                 .padding(.vertical)
             }
         }
+        .navigationTitle("통계")
     }
 }

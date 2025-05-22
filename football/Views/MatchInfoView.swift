@@ -12,6 +12,7 @@ struct MatchInfoView: View {
     var body: some View {
         mainContentView
             .padding(.horizontal)
+            .navigationTitle("정보")
             .onAppear { loadData() }
             .onReceive(timer) { _ in
                 if !isDataLoaded && retryCount < 3 {

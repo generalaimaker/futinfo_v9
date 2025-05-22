@@ -137,7 +137,7 @@ struct RecordView: View {
                             HStack(spacing: 0) {
                                 Text("\(standing.rank)")
                                     .frame(width: 25, alignment: .center)
-                                    .foregroundColor(standing.rank <= 4 ? .blue : .primary)
+                                    .foregroundColor(standing.rank <= 4 ? Color(red: 65/255, green: 105/255, blue: 225/255) : .primary) // 로열 블루 #4169E1
                                 
                                 HStack(spacing: 8) {
                                     AsyncImage(url: URL(string: standing.team.logo)) { image in
@@ -242,7 +242,7 @@ struct RecentFormView: View {
                         HStack(spacing: 0) {
                             Text("\(standing.rank)")
                                 .frame(width: 25, alignment: .center)
-                                .foregroundColor(standing.rank <= 4 ? .blue : .primary)
+                                .foregroundColor(standing.rank <= 4 ? Color(red: 65/255, green: 105/255, blue: 225/255) : .primary) // 로열 블루 #4169E1
                             
                             HStack(spacing: 8) {
                                 AsyncImage(url: URL(string: standing.team.logo)) { image in

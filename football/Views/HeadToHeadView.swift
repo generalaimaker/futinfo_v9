@@ -19,6 +19,7 @@ struct HeadToHeadView: View {
             .frame(maxWidth: .infinity, alignment: .center)
             .padding(.horizontal)
         }
+        .navigationTitle("상대전적")
     }
     
     private func formattedDate(from dateString: String) -> String {

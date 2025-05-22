@@ -1168,7 +1168,7 @@ struct FullStandingsView: View {
             // 리그 ID에 따라 다른 색상 적용
             if let leagueId = viewModel.selectedLeagueId {
                 if leagueId == 2 { // 챔피언스리그
-                    return Color(red: 19/255, green: 34/255, blue: 87/255) // 네이비색 #132257
+                    return Color(red: 65/255, green: 105/255, blue: 225/255) // 로열 블루 #4169E1
                 } else if leagueId == 3 { // 유로파리그
                     return Color(red: 255/255, green: 165/255, blue: 0/255) // 오렌지색 #FFA500
                 }

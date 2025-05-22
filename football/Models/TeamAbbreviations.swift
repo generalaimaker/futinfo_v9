@@ -84,6 +84,7 @@ class TeamAbbreviations {
         "Heidenheim": "HDH",
         "Darmstadt": "SVD",
         "Hoffenheim": "TSG",
+        "1.FC Heidenheim ": "FCH",
         // Ligue 1
         "Paris Saint-Germain": "PSG",
         "Paris Saint Germain": "PSG",

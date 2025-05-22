@@ -70,12 +70,18 @@ struct MatchSummaryView: View {
     }
     
     var body: some View {
+        content
+            .navigationTitle("경기요약")
+    }
+    
+    var content: some View {
         VStack(alignment: .leading, spacing: 32) { // 섹션 간 간격 증가
             // 맨 오브 더 매치
             if let motm = viewModel.manOfTheMatch {
                 VStack(alignment: .leading) {
                     Text("맨 오브 더 매치")
                         .font(.headline)
+                        .padding(.leading, 16) // 좌측 패딩 추가
                     
                     ManOfTheMatchView(player: motm)
                         .onAppear {
@@ -87,6 +93,7 @@ struct MatchSummaryView: View {
                 VStack(alignment: .leading, spacing: 16) {
                     Text("맨 오브 더 매치")
                         .font(.headline)
+                        .padding(.leading, 16) // 좌측 패딩 추가
                     
                     VStack {
                         ProgressView()
@@ -115,6 +122,7 @@ struct MatchSummaryView: View {
             VStack(alignment: .leading, spacing: 16) {
                 Text("주요 이벤트")
                     .font(.headline)
+                    .padding(.leading, 16) // 좌측 패딩 추가
                 
                 if keyEvents.isEmpty {
                     // 경기가 진행 중이지만 아직 이벤트가 없는 경우에만 "대기 중" 메시지 표시
@@ -147,6 +155,7 @@ struct MatchSummaryView: View {
             VStack(alignment: .leading, spacing: 20) {
                 Text("요약 통계")
                     .font(.headline)
+                    .padding(.leading, 16) // 좌측 패딩 추가
                 
                 if statistics.isEmpty {
                     Text("통계 정보가 없습니다")
@@ -236,6 +245,7 @@ struct MatchSummaryView: View {
             VStack(alignment: .leading, spacing: 16) {
                 Text("최근 폼")
                     .font(.headline)
+                    .padding(.leading, 16) // 좌측 패딩 추가
                 
                 // 로딩 상태와 관계없이 항상 팀 폼 뷰 표시
                 HStack(spacing: 24) {
@@ -261,6 +271,7 @@ struct MatchSummaryView: View {
             VStack(alignment: .leading, spacing: 16) {
                 Text("기본 정보")
                     .font(.headline)
+                    .padding(.leading, 16) // 좌측 패딩 추가
                 
                 VStack(spacing: 16) {
                     // 경기 시간
@@ -334,7 +345,7 @@ struct MatchSummaryView: View {
                 .shadow(color: Color.black.opacity(0.05), radius: 10, y: 5)
             }
         }
-        .padding(.horizontal, 16) // 좌우 여백 추가하여 가독성 향상
+        // 좌우 패딩 제거하여 다른 탭과 일관성 유지
     }
     
     // 최근 경기 행 표시
@@ -475,8 +486,8 @@ struct MatchSummaryView: View {
                     
                     // 최근 경기 목록
                     VStack(spacing: 6) {
-                        let recentFixtures = team.id == fixture.teams.home.id ?
-                            viewModel.homeTeamRecentFixtures : viewModel.awayTeamRecentFixtures
+                        let recentFixtures = team.id == self.fixture.teams.home.id ?
+                            self.viewModel.homeTeamRecentFixtures : self.viewModel.awayTeamRecentFixtures
                         
                         if recentFixtures.isEmpty {
                             // 기존 방식으로 표시 (폼 인디케이터만)
@@ -651,58 +662,65 @@ struct ManOfTheMatchView: View {
             VStack(spacing: 20) {
                 // 선수 정보 헤더
                 HStack(spacing: 16) {
-                    // 선수 사진 (Kingfisher 캐싱 사용)
-                    CachedImageView(
-                        url: URL(string: player.player.photo ?? ""),
-                        placeholder: Image(systemName: "person.circle.fill"),
-                        failureImage: Image(systemName: "person.circle.fill"),
-                        contentMode: .fit
-                    )
-                    .frame(width: 80, height: 80)
-                    .clipShape(Circle())
-                    .overlay(
-                        Circle()
-                            .stroke(Color.yellow, lineWidth: 3)
-                            .shadow(color: .yellow.opacity(0.5), radius: 5)
-                    )
-                    
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(player.player.name ?? "Unknown")
-                            .font(.title3)
-                            .fontWeight(.bold)
-                        
-                        HStack(spacing: 8) {
-                            // 팀 로고 (Kingfisher 캐싱 사용)
-                            TeamLogoView(logoUrl: playerTeamLogo, size: 20)
+                    // 선수 사진과 이름을 NavigationLink로 감싸기
+                    NavigationLink(destination: PlayerProfileView(playerId: player.player.id ?? 0)) {
+                        HStack(spacing: 16) {
+                            // 선수 사진 (Kingfisher 캐싱 사용)
+                            CachedImageView(
+                                url: URL(string: player.player.photo ?? ""),
+                                placeholder: Image(systemName: "person.circle.fill"),
+                                failureImage: Image(systemName: "person.circle.fill"),
+                                contentMode: .fit
+                            )
+                            .frame(width: 80, height: 80)
+                            .clipShape(Circle())
+                            .overlay(
+                                Circle()
+                                    .stroke(Color.yellow, lineWidth: 3)
+                                    .shadow(color: .yellow.opacity(0.5), radius: 5)
+                            )
                             
-                            Text(playerTeamName)
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
-                        }
-                        
-                        HStack(spacing: 8) {
-                            Text(playerPosition)
-                                .font(.caption)
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 2)
-                                .background(Color.blue.opacity(0.1))
-                                .cornerRadius(4)
-                            
-                            // 평점
-                            HStack(spacing: 2) {
-                                Image(systemName: "star.fill")
-                                    .foregroundColor(.yellow)
-                                    .font(.caption)
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(player.player.name ?? "Unknown")
+                                    .font(.title3)
+                                    .fontWeight(.bold)
+                                    .foregroundColor(.primary) // 네비게이션 링크 내에서 색상 유지
                                 
-                                Text(playerRating)
-                                    .font(.caption.bold())
+                                HStack(spacing: 8) {
+                                    // 팀 로고 (Kingfisher 캐싱 사용)
+                                    TeamLogoView(logoUrl: playerTeamLogo, size: 20)
+                                    
+                                    Text(playerTeamName)
+                                        .font(.subheadline)
+                                        .foregroundColor(.secondary)
+                                }
+                                
+                                HStack(spacing: 8) {
+                                    Text(playerPosition)
+                                        .font(.caption)
+                                        .padding(.horizontal, 8)
+                                        .padding(.vertical, 2)
+                                        .background(Color.blue.opacity(0.1))
+                                        .cornerRadius(4)
+                                    
+                                    // 평점
+                                    HStack(spacing: 2) {
+                                        Image(systemName: "star.fill")
+                                            .foregroundColor(.yellow)
+                                            .font(.caption)
+                                        
+                                        Text(playerRating)
+                                            .font(.caption.bold())
+                                    }
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 2)
+                                    .background(Color.yellow.opacity(0.1))
+                                    .cornerRadius(4)
+                                }
                             }
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 2)
-                            .background(Color.yellow.opacity(0.1))
-                            .cornerRadius(4)
                         }
                     }
+                    .buttonStyle(PlainButtonStyle()) // 기본 버튼 스타일 제거
                     
                     Spacer()
                 }
@@ -712,6 +730,7 @@ struct ManOfTheMatchView: View {
                     Text("주요 활약")
                         .font(.subheadline)
                         .foregroundColor(.secondary)
+                        .padding(.leading, 8) // 좌측 패딩 추가 (서브 제목이므로 더 작은 패딩)
                     
                     LazyVGrid(columns: [
                         GridItem(.flexible()),

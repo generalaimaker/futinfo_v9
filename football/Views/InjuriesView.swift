@@ -81,6 +81,7 @@ struct InjuriesView: View {
             }
         }
         .padding(.horizontal)
+        .navigationTitle("부상")
         .onAppear {
             loadInjuries()
         }

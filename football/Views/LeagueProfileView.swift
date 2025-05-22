@@ -287,7 +287,8 @@ struct LeagueHeaderView: View {
                                 }
                             }
                             
-                            Text(country.name)
+                            // 챔피언스리그와 유로파리그는 "World" 대신 "UEFA"로 표시
+                            Text(leagueDetails.league.id == 2 || leagueDetails.league.id == 3 ? "UEFA" : country.name)
                                 .font(.subheadline)
                                 .foregroundColor(.gray)
                         }
@@ -415,12 +416,12 @@ struct TabBarButton: View {
             VStack(spacing: 8) {
                 Text(title)
                     .font(.system(size: 15, weight: isSelected ? .semibold : .medium))
-                    .foregroundColor(isSelected ? .blue : .gray)
+                    .foregroundColor(isSelected ? Color(red: 65/255, green: 105/255, blue: 225/255) : .gray) // 로열 블루 #4169E1
                 
                 // 선택된 탭 아래에 인디케이터 표시
                 if isSelected {
                     Rectangle()
-                        .fill(Color.blue)
+                        .fill(Color(red: 65/255, green: 105/255, blue: 225/255)) // 로열 블루 #4169E1
                         .frame(height: 2)
                         .matchedGeometryEffect(id: "underline", in: animation)
                 } else {
@@ -549,8 +550,8 @@ struct StandingsTabView: View {
     private func getQualificationColor(for info: QualificationInfo) -> Color {
         switch info {
         case .championsLeague:
-            // 챔피언스리그 진출 - 더 진한 네이비 블루
-            return Color(red: 0/255, green: 32/255, blue: 96/255)
+            // 챔피언스리그 진출 - 로열 블루
+            return Color(red: 65/255, green: 105/255, blue: 225/255) // 로열 블루 #4169E1
         case .championsLeagueQualification:
             // 챔피언스리그 예선 - 옅은 하늘색
             return Color(red: 66/255, green: 165/255, blue: 245/255)
@@ -563,7 +564,7 @@ struct StandingsTabView: View {
         case .knockout16Direct:
             // 리그 ID에 따라 다른 색상 적용
             if leagueId == 2 { // 챔피언스리그
-                return Color(red: 19/255, green: 34/255, blue: 87/255) // 네이비색 #132257
+                return Color(red: 65/255, green: 105/255, blue: 225/255) // 로열 블루 #4169E1
             } else if leagueId == 3 { // 유로파리그
                 return Color(red: 255/255, green: 165/255, blue: 0/255) // 오렌지색 #FFA500
             }
@@ -572,11 +573,11 @@ struct StandingsTabView: View {
         case .knockout16Playoff:
             // 리그 ID에 따라 다른 색상 적용
             if leagueId == 2 { // 챔피언스리그
-                return Color(red: 255/255, green: 165/255, blue: 0/255) // 오렌지색 #FFA500
+                return Color(red: 25/255, green: 25/255, blue: 112/255) // 미드나잇 블루 #191970
             } else if leagueId == 3 { // 유로파리그
-                return Color(red: 109/255, green: 159/255, blue: 113/255) // 올리브 그린 #6D9F71
+                return Color(red: 184/255, green: 115/255, blue: 51/255) // 카퍼색 #B87333
             }
-            return Color(red: 109/255, green: 159/255, blue: 113/255) // 기본값: 올리브 그린
+            return Color(red: 184/255, green: 115/255, blue: 51/255) // 기본값: 카퍼색 #B87333
         case .none:
             return Color.clear
         }
@@ -1067,7 +1068,7 @@ struct LeaguePlayerStatRow: View {
             // 순위
             Text("\(rank)")
                 .font(.headline)
-                .foregroundColor(rank <= 3 ? .blue : .primary)
+                .foregroundColor(rank <= 3 ? Color(red: 65/255, green: 105/255, blue: 225/255) : .primary) // 로열 블루 #4169E1
                 .frame(width: 30)
             
             // 선수 사진 (Kingfisher 캐싱 사용)
@@ -1098,7 +1099,7 @@ struct LeaguePlayerStatRow: View {
             // 통계 값
             Text(statValue)
                 .font(.headline)
-                .foregroundColor(.blue)
+                .foregroundColor(Color(red: 65/255, green: 105/255, blue: 225/255)) // 로열 블루 #4169E1
         }
         .padding()
         .background(Color(.systemBackground))
@@ -1168,7 +1169,7 @@ struct TeamStatRow: View {
             // 순위
             Text("\(rank)")
                 .font(.headline)
-                .foregroundColor(rank <= 3 ? .blue : .primary)
+                .foregroundColor(rank <= 3 ? Color(red: 65/255, green: 105/255, blue: 225/255) : .primary) // 로열 블루 #4169E1
                 .frame(width: 30)
             
             // 팀 로고 (Kingfisher 캐싱 사용)
@@ -1184,7 +1185,7 @@ struct TeamStatRow: View {
             // 통계 값
             Text(statValue)
                 .font(.headline)
-                .foregroundColor(.blue)
+                .foregroundColor(Color(red: 65/255, green: 105/255, blue: 225/255)) // 로열 블루 #4169E1
         }
         .padding()
         .background(Color(.systemBackground))
