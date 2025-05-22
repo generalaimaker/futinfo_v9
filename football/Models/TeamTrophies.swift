@@ -65,6 +65,26 @@ struct TeamTrophy: Codable, Identifiable {
     var id: String { "\(league)-\(season)-\(place)" }
 }
 
+// TeamTrophyItem을 TeamTrophy로 변환하는 확장
+extension TeamTrophyItem {
+    func toTeamTrophy() -> TeamTrophy {
+        return TeamTrophy(
+            league: self.league,
+            country: self.country,
+            season: self.season,
+            place: self.place,
+            totalCount: self.totalCount
+        )
+    }
+}
+
+// [TeamTrophyItem]을 [TeamTrophy]로 변환하는 확장
+extension Array where Element == TeamTrophyItem {
+    func toTeamTrophies() -> [TeamTrophy] {
+        return self.map { $0.toTeamTrophy() }
+    }
+}
+
 // MARK: - Team History
 struct TeamHistory {
     let season: Int

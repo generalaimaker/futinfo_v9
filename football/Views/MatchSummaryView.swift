@@ -70,16 +70,21 @@ struct MatchSummaryView: View {
     }
     
     var body: some View {
-        VStack(spacing: 24) {
+        VStack(alignment: .leading, spacing: 32) { // 섹션 간 간격 증가
             // 맨 오브 더 매치
             if let motm = viewModel.manOfTheMatch {
-                ManOfTheMatchView(player: motm)
-                    .onAppear {
-                        print("✅ 맨 오브 더 매치 뷰 등장: \(motm.player.name ?? "Unknown")")
-                    }
+                VStack(alignment: .leading) {
+                    Text("맨 오브 더 매치")
+                        .font(.headline)
+                    
+                    ManOfTheMatchView(player: motm)
+                        .onAppear {
+                            print("✅ 맨 오브 더 매치 뷰 등장: \(motm.player.name ?? "Unknown")")
+                        }
+                }
             } else {
                 // 맨 오브 더 매치가 없는 경우 로딩 표시
-                VStack(spacing: 16) {
+                VStack(alignment: .leading, spacing: 16) {
                     Text("맨 오브 더 매치")
                         .font(.headline)
                     
@@ -107,7 +112,7 @@ struct MatchSummaryView: View {
             }
             
             // 주요 이벤트
-            VStack(spacing: 16) {
+            VStack(alignment: .leading, spacing: 16) {
                 Text("주요 이벤트")
                     .font(.headline)
                 
@@ -132,14 +137,14 @@ struct MatchSummaryView: View {
                             )
                         }
                     }
-                    .padding()
+                    .padding(.all, 16)
                     .background(Color(.systemGray6))
                     .cornerRadius(12)
                 }
             }
             
             // 요약 통계
-            VStack(spacing: 20) {
+            VStack(alignment: .leading, spacing: 20) {
                 Text("요약 통계")
                     .font(.headline)
                 
@@ -220,7 +225,7 @@ struct MatchSummaryView: View {
                             }
                         }
                     }
-                    .padding()
+                    .padding(.all, 16)
                     .background(Color(.systemBackground))
                     .cornerRadius(16)
                     .shadow(color: Color.black.opacity(0.05), radius: 10, y: 5)
@@ -228,7 +233,7 @@ struct MatchSummaryView: View {
             }
             
             // 최근 폼 - 항상 표시
-            VStack(spacing: 16) {
+            VStack(alignment: .leading, spacing: 16) {
                 Text("최근 폼")
                     .font(.headline)
                 
@@ -238,7 +243,7 @@ struct MatchSummaryView: View {
                     teamFormView(team: fixture.teams.away, form: viewModel.awayTeamForm)
                 }
                 .padding(.horizontal)
-                .padding()
+                .padding(.all, 16)
                 .background(Color(.systemBackground))
                 .cornerRadius(16)
                 .shadow(color: Color.black.opacity(0.05), radius: 10, y: 5)
@@ -253,7 +258,7 @@ struct MatchSummaryView: View {
             }
             
             // 기본 정보 (맨 하단에 배치)
-            VStack(spacing: 16) {
+            VStack(alignment: .leading, spacing: 16) {
                 Text("기본 정보")
                     .font(.headline)
                 
@@ -323,13 +328,13 @@ struct MatchSummaryView: View {
                         }
                     }
                 }
-                .padding()
+                .padding(.all, 16)
                 .background(Color(.systemBackground))
                 .cornerRadius(16)
                 .shadow(color: Color.black.opacity(0.05), radius: 10, y: 5)
             }
         }
-        .padding(.horizontal)
+        .padding(.horizontal, 16) // 좌우 여백 추가하여 가독성 향상
     }
     
     // 최근 경기 행 표시
@@ -641,9 +646,7 @@ struct ManOfTheMatchView: View {
     }
     
     var body: some View {
-        VStack(spacing: 16) {
-            Text("맨 오브 더 매치")
-                .font(.headline)
+        VStack(alignment: .leading, spacing: 16) {
             
             VStack(spacing: 20) {
                 // 선수 정보 헤더
@@ -731,7 +734,7 @@ struct ManOfTheMatchView: View {
                     }
                 }
             }
-            .padding()
+            .padding(.all, 16)
             .background(Color(.systemBackground))
             .cornerRadius(16)
             .shadow(color: Color.yellow.opacity(0.2), radius: 10, y: 5)

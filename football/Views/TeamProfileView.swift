@@ -1015,6 +1015,7 @@ struct StandingSection: View {
                     standings: viewModel.leagueStandings != nil ? viewModel.leagueStandings! : [],
                     teamId: viewModel.teamId
                 )
+                .environmentObject(viewModel)
                     .navigationTitle("리그 순위")
                     .navigationBarTitleDisplayMode(.inline)
                     .toolbar {
@@ -1035,54 +1036,311 @@ struct StandingSection: View {
 struct FullStandingsView: View {
     let standings: [Standing]
     let teamId: Int
+    @EnvironmentObject var viewModel: TeamProfileViewModel
     
-    var body: some View {
-        List {
-            ForEach(standings, id: \.rank) { standing in
-                HStack {
-                    Text("\(standing.rank)")
-                        .font(.subheadline)
-                        .fontWeight(.medium)
-                        .frame(width: 30)
-                    
-                    HStack(spacing: 8) {
-                        // 팀 로고 (Kingfisher 캐싱 사용)
-                        TeamLogoView(logoUrl: standing.team.logo, size: 30)
-                        
-                        Text(standing.team.name)
-                            .font(.subheadline)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    
-                    Text("\(standing.all.played)")
-                        .font(.subheadline)
-                        .frame(width: 30)
-                    
-                    Text("\(standing.all.win)")
-                        .font(.subheadline)
-                        .frame(width: 30)
-                    
-                    Text("\(standing.all.draw)")
-                        .font(.subheadline)
-                        .frame(width: 30)
-                    
-                    Text("\(standing.all.lose)")
-                        .font(.subheadline)
-                        .frame(width: 30)
-                    
-                    Text("\(standing.points)")
-                        .font(.subheadline)
-                        .fontWeight(.semibold)
-                        .frame(width: 30)
-                }
-                .padding(.vertical, 4)
-                .listRowBackground(
-                    standing.team.id == teamId ?
-                    Color.blue.opacity(0.1) : Color.clear
-                )
+    // 진출권 정보 열거형
+    enum QualificationInfo: Int, CaseIterable {
+        case championsLeague
+        case championsLeagueQualification
+        case europaLeague
+        case conferenceLeague
+        case relegation
+        case none
+        case knockout16Direct      // 16강 직행 (챔피언스리그, 유로파리그)
+        case knockout16Playoff     // 16강 플레이오프 (챔피언스리그, 유로파리그)
+    }
+    
+    // 리그별 진출권 정보
+    private func getQualificationInfo(for rank: Int, in leagueId: Int) -> QualificationInfo {
+        let totalTeams = standings.count
+        
+        switch leagueId {
+        case 2: // 챔피언스리그
+            if rank <= 8 {
+                return .knockout16Direct // 1위~8위: 16강 직행
+            } else if rank <= 24 {
+                return .knockout16Playoff // 9위~24위: 16강 플레이오프
+            }
+            
+        case 3: // 유로파리그
+            if rank <= 8 {
+                return .knockout16Direct // 1위~8위: 16강 직행
+            } else if rank <= 24 {
+                return .knockout16Playoff // 9위~24위: 16강 플레이오프
+            }
+            
+        case 39: // 프리미어 리그
+            if rank <= 5 {
+                return .championsLeague
+            } else if rank == 6 {
+                return .europaLeague
+            } else if rank == 7 {
+                return .conferenceLeague
+            } else if rank >= totalTeams - 2 {
+                return .relegation
+            }
+            
+        case 140: // 라리가
+            if rank <= 5 {
+                return .championsLeague
+            } else if rank == 6 || rank == 7 {
+                return .europaLeague
+            } else if rank == 8 {
+                return .conferenceLeague
+            } else if rank >= totalTeams - 2 {
+                return .relegation
+            }
+            
+        case 78, 135: // 분데스리가, 세리에 A
+            if rank <= 4 {
+                return .championsLeague
+            } else if rank == 5 {
+                return .europaLeague
+            } else if rank == 6 {
+                return .conferenceLeague
+            } else if rank >= totalTeams - 2 {
+                return .relegation
+            }
+            
+        case 61: // 리그앙
+            if rank <= 3 {
+                return .championsLeague
+            } else if rank == 4 {
+                return .championsLeagueQualification
+            } else if rank == 5 {
+                return .europaLeague
+            } else if rank == 6 {
+                return .conferenceLeague
+            } else if rank >= totalTeams - 2 {
+                return .relegation
+            }
+            
+        default:
+            if rank <= 4 {
+                return .championsLeague
+            } else if rank == 5 || rank == 6 {
+                return .europaLeague
+            } else if rank >= totalTeams - 2 {
+                return .relegation
             }
         }
-        .listStyle(PlainListStyle())
+        return .none
+    }
+    
+    // 진출권 정보에 따른 설명
+    private func getQualificationDescription(for info: QualificationInfo) -> String {
+        switch info {
+        case .championsLeague:
+            return "챔피언스리그"
+        case .championsLeagueQualification:
+            return "챔피언스리그 예선"
+        case .europaLeague:
+            return "유로파리그"
+        case .conferenceLeague:
+            return "컨퍼런스리그"
+        case .relegation:
+            return "강등권"
+        case .knockout16Direct:
+            return "16강 직행"
+        case .knockout16Playoff:
+            return "16강 플레이오프"
+        case .none:
+            return ""
+        }
+    }
+    
+    // 진출권 정보에 따른 색상
+    private func getQualificationColor(for info: QualificationInfo) -> Color {
+        switch info {
+        case .championsLeague:
+            // 챔피언스리그 진출 - 더 진한 네이비 블루
+            return Color(red: 0/255, green: 32/255, blue: 96/255) // 더 진한 네이비 블루
+        case .championsLeagueQualification:
+            // 챔피언스리그 예선 - 옅은 하늘색
+            return Color(red: 66/255, green: 165/255, blue: 245/255) // 밝은 하늘색
+        case .europaLeague:
+            return Color.orange
+        case .conferenceLeague:
+            return Color.green
+        case .relegation:
+            return Color.red
+        case .knockout16Direct:
+            // 리그 ID에 따라 다른 색상 적용
+            if let leagueId = viewModel.selectedLeagueId {
+                if leagueId == 2 { // 챔피언스리그
+                    return Color(red: 19/255, green: 34/255, blue: 87/255) // 네이비색 #132257
+                } else if leagueId == 3 { // 유로파리그
+                    return Color(red: 255/255, green: 165/255, blue: 0/255) // 오렌지색 #FFA500
+                }
+            }
+            return Color(red: 255/255, green: 165/255, blue: 0/255) // 기본값: 오렌지색
+        case .knockout16Playoff:
+            // 리그 ID에 따라 다른 색상 적용
+            if let leagueId = viewModel.selectedLeagueId {
+                if leagueId == 2 { // 챔피언스리그
+                    return Color(red: 255/255, green: 165/255, blue: 0/255) // 오렌지색 #FFA500
+                } else if leagueId == 3 { // 유로파리그
+                    return Color(red: 109/255, green: 159/255, blue: 113/255) // 올리브 그린 #6D9F71
+                }
+            }
+            return Color(red: 109/255, green: 159/255, blue: 113/255) // 기본값: 올리브 그린
+        case .none:
+            return Color.clear
+        }
+    }
+    
+    var body: some View {
+        VStack(spacing: 0) {
+            // 전체 너비를 화면에 맞게 조정
+            // 헤더 추가
+            HStack(spacing: 0) {
+                Text("#")
+                    .frame(width: 40, alignment: .center)
+                Text("팀")
+                    .frame(width: 120, alignment: .leading)
+                Text("경기")
+                    .frame(width: 40, alignment: .center)
+                Text("승")
+                    .frame(width: 30, alignment: .center)
+                Text("무")
+                    .frame(width: 30, alignment: .center)
+                Text("패")
+                    .frame(width: 30, alignment: .center)
+                Text("+/-")
+                    .frame(width: 50, alignment: .center)
+                Text("승점")
+                    .frame(width: 40, alignment: .center)
+            }
+            .frame(maxWidth: .infinity)
+            .font(.system(size: 12))
+            .foregroundColor(.gray)
+            .padding(.vertical, 10)
+            .padding(.horizontal, 8)
+            .background(Color(.systemBackground))
+            
+            Divider()
+            
+            // 순위 목록
+            List {
+                // 전체 너비를 화면에 맞게 조정
+                ForEach(standings, id: \.rank) { standing in
+                    // viewModel.selectedLeagueId를 사용하여 리그 ID 가져오기
+                    let leagueId = viewModel.selectedLeagueId ?? 0
+                    let qualificationInfo = getQualificationInfo(for: standing.rank, in: leagueId)
+                    let qualificationColor = getQualificationColor(for: qualificationInfo)
+                    
+                    HStack(spacing: 0) {
+                        // 순위 및 진출권 표시
+                        HStack(spacing: 0) {
+                            // 진출권 색상 띠
+                            Rectangle()
+                                .fill(qualificationColor)
+                                .frame(width: 3)
+                            
+                            Text("\(standing.rank)")
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                                .foregroundColor(qualificationInfo != .none ? qualificationColor : .primary)
+                                .frame(width: 37, alignment: .center)
+                        }
+                        .frame(width: 40)
+                        
+                        HStack(spacing: 8) {
+                            // 팀 로고 (Kingfisher 캐싱 사용)
+                            TeamLogoView(logoUrl: standing.team.logo, size: 30)
+                            
+                            Text(TeamAbbreviations.abbreviation(for: standing.team.name))
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                                .frame(width: 40)
+                        }
+                        .frame(width: 120, alignment: .leading)
+                        
+                        Text("\(standing.all.played)")
+                            .font(.subheadline)
+                            .frame(width: 40, alignment: .center)
+                        
+                        Text("\(standing.all.win)")
+                            .font(.subheadline)
+                            .frame(width: 30, alignment: .center)
+                        
+                        Text("\(standing.all.draw)")
+                            .font(.subheadline)
+                            .frame(width: 30, alignment: .center)
+                        
+                        Text("\(standing.all.lose)")
+                            .font(.subheadline)
+                            .frame(width: 30, alignment: .center)
+                        
+                        Text(standing.goalsDiff > 0 ? "+\(standing.goalsDiff)" : "\(standing.goalsDiff)")
+                            .font(.subheadline)
+                            .frame(width: 50, alignment: .center)
+                            .foregroundColor(standing.goalsDiff > 0 ? .green : (standing.goalsDiff < 0 ? .red : .primary))
+                        
+                        Text("\(standing.points)")
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                            .frame(width: 40, alignment: .center)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 4)
+                    .frame(maxWidth: .infinity)
+                    .listRowBackground(
+                        standing.team.id == teamId ?
+                        Color.blue.opacity(0.1) : Color.clear
+                    )
+                    .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
+                }
+                .listRowSeparator(.hidden)
+            }
+            .listStyle(PlainListStyle())
+            .frame(maxWidth: .infinity)
+        }
+        .safeAreaInset(edge: .bottom) {
+            // 범례 표시 (하단에 고정)
+            VStack(alignment: .leading, spacing: 8) {
+                Text("진출권 정보")
+                    .font(.headline)
+                    .padding(.bottom, 4)
+                
+                // 챔피언스리그와 유로파리그는 다른 범례 표시
+                // viewModel.selectedLeagueId를 사용하여 리그 ID 가져오기
+                let leagueId = viewModel.selectedLeagueId ?? 0
+                if leagueId == 2 || leagueId == 3 {
+                    // 유럽 대항전 범례
+                    ForEach([QualificationInfo.knockout16Direct, .knockout16Playoff], id: \.self) { info in
+                        HStack(spacing: 8) {
+                            Rectangle()
+                                .fill(getQualificationColor(for: info))
+                                .frame(width: 12, height: 12)
+                            
+                            Text(getQualificationDescription(for: info))
+                                .font(.caption)
+                                .foregroundColor(.primary)
+                        }
+                    }
+                } else {
+                    // 일반 리그 범례
+                    ForEach([QualificationInfo.championsLeague, .championsLeagueQualification, .europaLeague, .conferenceLeague, .relegation], id: \.self) { info in
+                        if getQualificationDescription(for: info) != "" {
+                            HStack(spacing: 8) {
+                                Rectangle()
+                                    .fill(getQualificationColor(for: info))
+                                    .frame(width: 12, height: 12)
+                                
+                                Text(getQualificationDescription(for: info))
+                                    .font(.caption)
+                                    .foregroundColor(.primary)
+                            }
+                        }
+                    }
+                }
+            }
+            .padding()
+            .background(Color(.systemGroupedBackground))
+            .cornerRadius(8)
+            .padding()
+        }
     }
 }
 

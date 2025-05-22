@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 
 @MainActor
 class TeamProfileViewModel: ObservableObject {
@@ -538,6 +539,22 @@ class TeamProfileViewModel: ObservableObject {
                 TeamTrophy(league: "Coppa Italia", country: "Italy", season: "2015-2016", place: "Winner"),
                 TeamTrophy(league: "UEFA Champions League", country: "Europe", season: "1995-1996", place: "Winner")
             ]
+        case 47: // 토트넘 핫스퍼
+            trophies = [
+                TeamTrophy(league: "Premier League", country: "England", season: "1960-1961", place: "Winner"),
+                TeamTrophy(league: "Premier League", country: "England", season: "1950-1951", place: "Winner"),
+                TeamTrophy(league: "UEFA Europa League", country: "Europe", season: "2024-2025", place: "Winner"),
+                TeamTrophy(league: "UEFA Europa League", country: "Europe", season: "1983-1984", place: "Winner"),
+                TeamTrophy(league: "UEFA Europa League", country: "Europe", season: "1971-1972", place: "Winner"),
+                TeamTrophy(league: "FA Cup", country: "England", season: "1990-1991", place: "Winner"),
+                TeamTrophy(league: "FA Cup", country: "England", season: "1981-1982", place: "Winner"),
+                TeamTrophy(league: "FA Cup", country: "England", season: "1980-1981", place: "Winner"),
+                TeamTrophy(league: "FA Cup", country: "England", season: "1961-1962", place: "Winner"),
+                TeamTrophy(league: "EFL Cup", country: "England", season: "2007-2008", place: "Winner"),
+                TeamTrophy(league: "EFL Cup", country: "England", season: "1998-1999", place: "Winner"),
+                TeamTrophy(league: "EFL Cup", country: "England", season: "1971-1972", place: "Winner"),
+                TeamTrophy(league: "EFL Cup", country: "England", season: "1970-1971", place: "Winner")
+            ]
         default:
             // 기본 트로피 데이터 (모든 팀에 적용)
             trophies = [
@@ -565,10 +582,10 @@ class TeamProfileViewModel: ObservableObject {
         
         do {
             // TeamTrophiesLibrary에서 팀 ID에 해당하는 트로피 데이터 가져오기
-            let trophyData = TeamTrophiesLibrary.getTrophiesForTeam(teamId: teamId)
+            let trophyItems = TeamTrophiesLibrary.getTrophiesForTeam(teamId: teamId)
             
             // 트로피 데이터가 없는 경우 더미 데이터 사용
-            let finalTrophies = trophyData.isEmpty ? createDummyTrophies(teamId: teamId) : trophyData
+            let finalTrophies = trophyItems.isEmpty ? createDummyTrophies(teamId: teamId) : trophyItems.toTeamTrophies()
             
             // 리그 이름 수정 (EPL -> Premier League)
             let correctedTrophies = finalTrophies.map { trophy -> TeamTrophy in
@@ -608,10 +625,10 @@ class TeamProfileViewModel: ObservableObject {
                 
                 // 팀 이름 로깅 (디버깅용)
                 if let teamName = TeamTrophiesLibrary.getTeamName(for: teamId) {
-                    print("✅ 트로피 데이터 소스: \(trophyData.isEmpty ? "더미 데이터" : "\(teamName)의 실제 트로피 데이터")")
+                    print("✅ 트로피 데이터 소스: \(trophyItems.isEmpty ? "더미 데이터" : "\(teamName)의 실제 트로피 데이터")")
                     
                     // 트로피 요약 정보 로깅 (디버깅용)
-                    if !trophyData.isEmpty {
+                    if !trophyItems.isEmpty {
                         let summary = TeamTrophiesLibrary.getTrophySummary(forTeam: teamName)
                         print("📊 트로피 요약:")
                         for (competition, count) in summary {
@@ -619,7 +636,7 @@ class TeamProfileViewModel: ObservableObject {
                         }
                     }
                 } else {
-                    print("✅ 트로피 데이터 소스: \(trophyData.isEmpty ? "더미 데이터" : "TeamTrophiesLibrary")")
+                    print("✅ 트로피 데이터 소스: \(trophyItems.isEmpty ? "더미 데이터" : "TeamTrophiesLibrary")")
                 }
             }
         } catch {
@@ -637,4 +654,3 @@ class TeamProfileViewModel: ObservableObject {
         }
     }
 }
-

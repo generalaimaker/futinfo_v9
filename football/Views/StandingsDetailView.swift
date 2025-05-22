@@ -1,5 +1,81 @@
 import SwiftUI
 import Combine
+import Foundation
+
+// 팀 이름을 3자 약어로 변환하는 함수
+private func getTeamAbbreviation(for teamName: String) -> String {
+    // 특수 케이스 처리
+    let specialCases: [String: String] = [
+        "Manchester United": "MUN",
+        "Manchester City": "MCI",
+        "Liverpool": "LIV",
+        "Chelsea": "CHE",
+        "Arsenal": "ARS",
+        "Tottenham Hotspur": "TOT",
+        "Leicester City": "LEI",
+        "West Ham United": "WHU",
+        "Everton": "EVE",
+        "Newcastle United": "NEW",
+        "Aston Villa": "AVL",
+        "Southampton": "SOU",
+        "Crystal Palace": "CRY",
+        "Brighton & Hove Albion": "BHA",
+        "Wolverhampton Wanderers": "WOL",
+        "Burnley": "BUR",
+        "Leeds United": "LEE",
+        "Watford": "WAT",
+        "Norwich City": "NOR",
+        "Brentford": "BRE",
+        "Real Madrid": "RMA",
+        "Barcelona": "BAR",
+        "Atletico Madrid": "ATM",
+        "Sevilla": "SEV",
+        "Valencia": "VAL",
+        "Villarreal": "VIL",
+        "Athletic Club": "ATH",
+        "Real Sociedad": "RSO",
+        "Real Betis": "BET",
+        "Juventus": "JUV",
+        "Inter Milan": "INT",
+        "AC Milan": "MIL",
+        "Napoli": "NAP",
+        "Roma": "ROM",
+        "Lazio": "LAZ",
+        "Atalanta": "ATA",
+        "Bayern Munich": "BAY",
+        "Borussia Dortmund": "DOR",
+        "RB Leipzig": "RBL",
+        "Bayer Leverkusen": "LEV",
+        "Borussia Monchengladbach": "BMG",
+        "Paris Saint-Germain": "PSG",
+        "Olympique Lyonnais": "LYO",
+        "Olympique Marseille": "MAR",
+        "AS Monaco": "MON",
+        "Ajax": "AJX",
+        "PSV Eindhoven": "PSV",
+        "Feyenoord": "FEY",
+        "FC Porto": "POR",
+        "Benfica": "BEN",
+        "Sporting CP": "SCP"
+    ]
+    
+    // 특수 케이스에 있으면 해당 약어 반환
+    if let abbreviation = specialCases[teamName] {
+        return abbreviation
+    }
+    
+    // 특수 케이스에 없으면 첫 3글자 반환 (공백 제거)
+    let words = teamName.components(separatedBy: " ")
+    if words.count > 1 {
+        // 여러 단어인 경우 각 단어의 첫 글자 조합
+        let abbreviation = words.prefix(3).compactMap { $0.first }.map { String($0) }.joined()
+        return abbreviation.uppercased()
+    } else {
+        // 한 단어인 경우 첫 3글자
+        let index = teamName.index(teamName.startIndex, offsetBy: min(3, teamName.count))
+        return teamName[..<index].uppercased()
+    }
+}
 
 struct StandingsDetailView: View {
     let fixture: Fixture
@@ -8,6 +84,7 @@ struct StandingsDetailView: View {
     
     var body: some View {
         VStack(spacing: 24) {
+            // 전체 뷰를 중앙 정렬하고 너비 제한
             if isLoading {
                 ProgressView()
                     .padding()
@@ -25,8 +102,8 @@ struct StandingsDetailView: View {
                 .padding(32)
             } else {
                 VStack(spacing: 16) {
-                    // 리그 정보
-                    HStack {
+                    // 리그 정보 (좌측 정렬)
+                    HStack(alignment: .center) {
                         LeagueLogoView(logoUrl: fixture.league.logo, size: 30)
                         
                         VStack(alignment: .leading, spacing: 4) {
@@ -38,13 +115,12 @@ struct StandingsDetailView: View {
                                 .foregroundColor(.gray)
                         }
                         
-                        Spacer()
                     }
+                    .padding(.horizontal, 0) // 좌우 패딩 제거
                     
                     // 순위표 (너비 제한 추가)
                     VStack(spacing: 0) {
-                        // 스크롤 가능한 컨테이너로 감싸서 화면 너비를 초과하지 않도록 함
-                        ScrollView(.horizontal, showsIndicators: false) {
+                        // 스크롤 제거하고 화면 너비에 맞게 조정
                         // 헤더
                         HStack {
                             Text("#")
@@ -55,39 +131,39 @@ struct StandingsDetailView: View {
                             Text("팀")
                                 .font(.caption)
                                 .foregroundColor(.gray)
-                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .frame(width: 120, alignment: .leading)
                             
                             Text("경기")
                                 .font(.caption)
                                 .foregroundColor(.gray)
-                                .frame(width: 30, alignment: .center)
+                                .frame(width: 25, alignment: .center)
                             
                             Text("승")
                                 .font(.caption)
                                 .foregroundColor(.gray)
-                                .frame(width: 30, alignment: .center)
+                                .frame(width: 25, alignment: .center)
                             
                             Text("무")
                                 .font(.caption)
                                 .foregroundColor(.gray)
-                                .frame(width: 30, alignment: .center)
+                                .frame(width: 25, alignment: .center)
                             
                             Text("패")
                                 .font(.caption)
                                 .foregroundColor(.gray)
-                                .frame(width: 30, alignment: .center)
+                                .frame(width: 25, alignment: .center)
                             
                             Text("승점")
                                 .font(.caption)
                                 .foregroundColor(.gray)
-                                .frame(width: 30, alignment: .center)
+                                .frame(width: 25, alignment: .center)
                             
                             Text("득실")
                                 .font(.caption)
                                 .foregroundColor(.gray)
-                                .frame(width: 30, alignment: .center)
+                                .frame(width: 25, alignment: .center)
                         }
-                        .padding(.horizontal, 16)
+                        .padding(.horizontal, 0) // 좌우 패딩 제거
                         .padding(.vertical, 8)
                         .background(Color(.systemGray6))
                         
@@ -117,41 +193,42 @@ struct StandingsDetailView: View {
                                         HStack(spacing: 8) {
                                             TeamLogoView(logoUrl: standing.team.logo, size: 20)
                                             
-                                            Text(TeamAbbreviations.abbreviation(for: standing.team.name))
+                                            Text(getTeamAbbreviation(for: standing.team.name))
                                                 .font(.system(.body, design: .rounded))
                                                 .fontWeight(.medium)
-                                                .frame(width: 40)
+                                                .lineLimit(1)
+                                                .foregroundColor(.primary)
                                         }
                                     }
-                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .frame(width: 120, alignment: .leading)
                                     
                                     Text("\(standing.all.played)")
                                         .font(.system(.body, design: .rounded))
-                                        .frame(width: 30, alignment: .center)
+                                        .frame(width: 25, alignment: .center)
                                     
                                     Text("\(standing.all.win)")
                                         .font(.system(.body, design: .rounded))
-                                        .frame(width: 30, alignment: .center)
+                                        .frame(width: 25, alignment: .center)
                                     
                                     Text("\(standing.all.draw)")
                                         .font(.system(.body, design: .rounded))
-                                        .frame(width: 30, alignment: .center)
+                                        .frame(width: 25, alignment: .center)
                                     
                                     Text("\(standing.all.lose)")
                                         .font(.system(.body, design: .rounded))
-                                        .frame(width: 30, alignment: .center)
+                                        .frame(width: 25, alignment: .center)
                                     
                                     Text("\(standing.points)")
                                         .font(.system(.body, design: .rounded))
                                         .fontWeight(.bold)
-                                        .frame(width: 30, alignment: .center)
+                                        .frame(width: 25, alignment: .center)
                                     
                                     Text("\(standing.goalsDiff)")
                                         .font(.system(.body, design: .rounded))
                                         .foregroundColor(standing.goalsDiff >= 0 ? .blue : .red)
-                                        .frame(width: 30, alignment: .center)
+                                        .frame(width: 25, alignment: .center)
                                 }
-                                .padding(.horizontal, 16)
+                                .padding(.horizontal, 0) // 좌우 패딩 제거
                                 .padding(.vertical, 12)
                                 .background(
                                     standing.team.id == fixture.teams.home.id ? Color.blue.opacity(0.1) :
@@ -162,9 +239,9 @@ struct StandingsDetailView: View {
                             .buttonStyle(PlainButtonStyle()) // 기본 버튼 스타일 제거
                         }
                         }
-                    }
+                    // 스크롤 뷰의 닫는 괄호 제거
                     .cornerRadius(8)
-                    .frame(maxWidth: .infinity) // 너비 제한
+                    .frame(maxWidth: .infinity) // 화면 너비에 맞게 조정
                     .overlay(
                         RoundedRectangle(cornerRadius: 8)
                             .stroke(Color(.systemGray5), lineWidth: 1)
@@ -233,13 +310,14 @@ struct StandingsDetailView: View {
                     }
                     .padding(.top, 8)
                 }
-                .frame(maxWidth: .infinity)
-                .padding(16)
+                .frame(maxWidth: .infinity, alignment: .leading) // 좌측 정렬로 변경
+                .padding(.vertical, 16) // 좌우 패딩 제거, 상하 패딩만 유지
                 .background(Color(.systemBackground))
                 .cornerRadius(16)
                 .shadow(color: Color.black.opacity(0.05), radius: 10)
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading) // 화면 너비에 맞게 조정하고 좌측 정렬
         // .padding(.horizontal) 제거 - 화면 이동 문제 해결
         .onAppear {
             loadStandings()
@@ -362,9 +440,22 @@ struct StandingsDetailView: View {
         case .relegation:
             return Color.red
         case .knockout16Direct:
-            return Color.green  // 16강 직행은 녹색
+            // 리그 ID에 따라 다른 색상 적용
+            if fixture.league.id == 2 { // 챔피언스리그
+                return Color(red: 19/255, green: 34/255, blue: 87/255) // 네이비색 #132257
+            } else if fixture.league.id == 3 { // 유로파리그
+                return Color(red: 255/255, green: 165/255, blue: 0/255) // 오렌지색 #FFA500
+            }
+            return Color(red: 255/255, green: 165/255, blue: 0/255) // 기본값: 오렌지색
+            
         case .knockout16Playoff:
-            return Color.orange // 16강 플레이오프는 주황색
+            // 리그 ID에 따라 다른 색상 적용
+            if fixture.league.id == 2 { // 챔피언스리그
+                return Color(red: 255/255, green: 165/255, blue: 0/255) // 오렌지색 #FFA500
+            } else if fixture.league.id == 3 { // 유로파리그
+                return Color(red: 109/255, green: 159/255, blue: 113/255) // 올리브 그린 #6D9F71
+            }
+            return Color(red: 109/255, green: 159/255, blue: 113/255) // 기본값: 올리브 그린
         case .none:
             return Color.clear
         }

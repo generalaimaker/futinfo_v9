@@ -9,6 +9,18 @@
 // TeamTrophiesLibrary.swift
 
 import Foundation
+import SwiftUI // SwiftUI 프레임워크 import
+
+// TeamTrophyItem 구조체 정의 (TeamTrophy와 동일한 구조)
+struct TeamTrophyItem: Codable, Identifiable {
+    let league: String
+    let country: String
+    let season: String
+    let place: String
+    var totalCount: Int = 1 // 총 우승 횟수 추가 (기본값 1로 설정)
+    
+    var id: String { "\(league)-\(season)-\(place)" }
+}
 
 /// 구조체: 각 팀의 주요 우승 기록
 struct TeamTrophies: Identifiable {
@@ -122,7 +134,7 @@ struct TeamTrophiesLibrary {
                      europaLeagueTitles: 0, europaLeagueLastWin: nil,
                      superCupTitles: 1, superCupLastWin: "2023",
                      conferenceLeagueTitles: 0, conferenceLeagueLastWin: nil,
-                     domesticCupTitles: 6, domesticCupLastWin: "2019"),
+                     domesticCupTitles: 7, domesticCupLastWin: "2023"),
 
         TeamTrophies(teamName: "Aston Villa", abbreviation: "AVL", league: "Premier League",
                      leagueTitles: 7, leagueLastWin: "1981",
@@ -149,6 +161,14 @@ struct TeamTrophiesLibrary {
                      domesticCupTitles: 3, domesticCupLastWin: "1980"),
 
     
+        TeamTrophies(teamName: "Tottenham Hotspur", abbreviation: "TOT", league: "Premier League",
+                     leagueTitles: 2, leagueLastWin: "1961",
+                     championsLeagueTitles: 0, championsLeagueLastWin: nil,
+                     europaLeagueTitles: 3, europaLeagueLastWin: "2025",
+                     superCupTitles: 0, superCupLastWin: nil,
+                     conferenceLeagueTitles: 0, conferenceLeagueLastWin: nil,
+                     domesticCupTitles: 8, domesticCupLastWin: "1991"),
+ 
         // La Liga
         TeamTrophies(teamName: "Real Madrid", abbreviation: "RMA", league: "LaLiga",
                      leagueTitles: 36, leagueLastWin: "2024",
@@ -159,7 +179,7 @@ struct TeamTrophiesLibrary {
                      domesticCupTitles: 20, domesticCupLastWin: "2014"),
 
         TeamTrophies(teamName: "Barcelona", abbreviation: "BAR", league: "LaLiga",
-                     leagueTitles: 27, leagueLastWin: "2023",
+                     leagueTitles: 28, leagueLastWin: "2025",
                      championsLeagueTitles: 5, championsLeagueLastWin: "2015",
                      europaLeagueTitles: 0, europaLeagueLastWin: nil,
                      superCupTitles: 5, superCupLastWin: "2015",
@@ -369,7 +389,7 @@ struct TeamTrophiesLibrary {
                  europaLeagueTitles: 0, europaLeagueLastWin: nil,
                  superCupTitles: 0, superCupLastWin: nil,
                  conferenceLeagueTitles: 0, conferenceLeagueLastWin: nil,
-                 domesticCupTitles: 2, domesticCupLastWin: "1974"),
+                 domesticCupTitles: 3, domesticCupLastWin: "2025"),
 
     TeamTrophies(teamName: "Fiorentina", abbreviation: "FIO", league: "Serie A",
                  leagueTitles: 2, leagueLastWin: "1969",
@@ -554,6 +574,7 @@ struct TeamTrophiesLibrary {
         "Aston Villa": 66,
         "Newcastle United": 34,
         "West Ham United": 48,
+        "Tottenham Hotspur": 47,
         
         // La Liga
         "Real Madrid": 541,
@@ -627,7 +648,7 @@ struct TeamTrophiesLibrary {
     // 캐싱을 위한 변수들
     private static var teamNameCache: [Int: String] = [:]
     private static var trophyCache: [String: TeamTrophies] = [:]
-    private static var teamTrophyCache: [Int: [TeamTrophy]] = [:]
+    private static var teamTrophyCache: [Int: [TeamTrophyItem]] = [:]
     private static var trophySummaryCache: [String: [String: Int]] = [:]
     private static var sortedCompetitionsCache: [String: [String]] = [:]
     private static var lastWinYearCache: [String: String] = [:]
@@ -768,7 +789,7 @@ struct TeamTrophiesLibrary {
     }
     
     // 팀 ID에 해당하는 트로피 데이터를 TeamTrophy 배열로 변환하는 함수 (캐싱 추가)
-    static func getTrophiesForTeam(teamId: Int) -> [TeamTrophy] {
+    static func getTrophiesForTeam(teamId: Int) -> [TeamTrophyItem] {
         // 캐시에서 먼저 확인
         if let cachedTrophies = teamTrophyCache[teamId] {
             return cachedTrophies
@@ -781,11 +802,11 @@ struct TeamTrophiesLibrary {
             return []
         }
         
-        var result: [TeamTrophy] = []
+        var result: [TeamTrophyItem] = []
         
         // 리그 우승
         if teamTrophies.leagueTitles > 0 {
-            var trophy = TeamTrophy(
+            var trophy = TeamTrophyItem(
                 league: teamTrophies.league,
                 country: getCountryForLeague(teamTrophies.league),
                 season: teamTrophies.leagueLastWin ?? "N/A",
@@ -797,7 +818,7 @@ struct TeamTrophiesLibrary {
         
         // 챔피언스리그
         if teamTrophies.championsLeagueTitles > 0 {
-            var trophy = TeamTrophy(
+            var trophy = TeamTrophyItem(
                 league: "UEFA Champions League",
                 country: "Europe",
                 season: teamTrophies.championsLeagueLastWin ?? "N/A",
@@ -809,7 +830,7 @@ struct TeamTrophiesLibrary {
         
         // 유로파리그
         if teamTrophies.europaLeagueTitles > 0 {
-            var trophy = TeamTrophy(
+            var trophy = TeamTrophyItem(
                 league: "UEFA Europa League",
                 country: "Europe",
                 season: teamTrophies.europaLeagueLastWin ?? "N/A",
@@ -821,7 +842,7 @@ struct TeamTrophiesLibrary {
         
         // 슈퍼컵
         if teamTrophies.superCupTitles > 0 {
-            var trophy = TeamTrophy(
+            var trophy = TeamTrophyItem(
                 league: "UEFA Super Cup",
                 country: "Europe",
                 season: teamTrophies.superCupLastWin ?? "N/A",
@@ -833,7 +854,7 @@ struct TeamTrophiesLibrary {
         
         // 컨퍼런스리그
         if teamTrophies.conferenceLeagueTitles > 0 {
-            var trophy = TeamTrophy(
+            var trophy = TeamTrophyItem(
                 league: "UEFA Conference League",
                 country: "Europe",
                 season: teamTrophies.conferenceLeagueLastWin ?? "N/A",
@@ -846,7 +867,7 @@ struct TeamTrophiesLibrary {
         // 국내 컵대회
         if teamTrophies.domesticCupTitles > 0 {
             let cupName = getDomesticCupName(teamTrophies.league)
-            var trophy = TeamTrophy(
+            var trophy = TeamTrophyItem(
                 league: cupName,
                 country: getCountryForLeague(teamTrophies.league),
                 season: teamTrophies.domesticCupLastWin ?? "N/A",

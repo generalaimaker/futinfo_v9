@@ -455,20 +455,17 @@ class FootballAPIService {
                     if let emptyResponse = try? self.createEmptyResponse(ofType: T.self) {
                         print("⚠️ 오류 발생으로 빈 응답 처리: \(endpoint)")
                         continuation.resume(returning: emptyResponse)
-                        return
-                    }
-
-                    if let apiError = error as? FootballAPIError {
-                        continuation.resume(throwing: apiError)
                     } else {
-                        continuation.resume(throwing: error)
+                        // 빈 응답 생성 실패 시 에러 전달
+                        if let apiError = error as? FootballAPIError {
+                            continuation.resume(throwing: apiError)
+                        } else {
+                            continuation.resume(throwing: error)
+                        }
                     }
                 }
             }
         }
-        
-        // 디버그 로그 추가
-        print("🔄 요청 실행: \(endpoint)")
     }
 
     // 응답 로깅 메서드 (간소화)

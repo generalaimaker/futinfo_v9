@@ -561,9 +561,22 @@ struct StandingsTabView: View {
         case .relegation:
             return Color.red
         case .knockout16Direct:
-            return Color.green  // 16강 직행은 녹색
+            // 리그 ID에 따라 다른 색상 적용
+            if leagueId == 2 { // 챔피언스리그
+                return Color(red: 19/255, green: 34/255, blue: 87/255) // 네이비색 #132257
+            } else if leagueId == 3 { // 유로파리그
+                return Color(red: 255/255, green: 165/255, blue: 0/255) // 오렌지색 #FFA500
+            }
+            return Color(red: 255/255, green: 165/255, blue: 0/255) // 기본값: 오렌지색
+            
         case .knockout16Playoff:
-            return Color.orange // 16강 플레이오프는 주황색
+            // 리그 ID에 따라 다른 색상 적용
+            if leagueId == 2 { // 챔피언스리그
+                return Color(red: 255/255, green: 165/255, blue: 0/255) // 오렌지색 #FFA500
+            } else if leagueId == 3 { // 유로파리그
+                return Color(red: 109/255, green: 159/255, blue: 113/255) // 올리브 그린 #6D9F71
+            }
+            return Color(red: 109/255, green: 159/255, blue: 113/255) // 기본값: 올리브 그린
         case .none:
             return Color.clear
         }
@@ -648,6 +661,7 @@ struct StandingsTabView: View {
                                     Text(standing.team.name)
                                         .lineLimit(1)
                                         .font(.system(size: 13))
+                                        .fontWeight(.medium)
                                 }
                                 .frame(width: 175, alignment: .leading)
                                 
