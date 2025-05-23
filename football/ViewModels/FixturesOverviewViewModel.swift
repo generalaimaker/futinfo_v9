@@ -167,49 +167,137 @@ class FixturesOverviewViewModel: ObservableObject {
             print("🔍 디버그: 오늘 날짜 = \(formatDateForAPI(today)), 현재 시간 = \(Date())")
             await preloadFixturesWithFallback(for: today, forceRefresh: true)
             
-            // 확장된 날짜 범위 프리로딩 (±7일)
-            print("📱 확장된 날짜 범위 프리로딩 시작 (±7일)")
+            // 주요 리그 데이터 미리 로드 (점진적 로딩)
+            await preloadMainLeaguesData(for: today)
             
-            // 미래 날짜 프리로딩 (1~7일)
-            for i in 1...7 {
+            // 확장된 날짜 범위 프리로딩 (±3일 우선, 나머지는 백그라운드에서)
+            print("📱 확장된 날짜 범위 프리로딩 시작 (±3일 우선)")
+            
+            // 미래 날짜 프리로딩 (1~3일 우선)
+            for i in 1...3 {
                 let futureDate = calendar.date(byAdding: .day, value: i, to: today)!
                 print("🔍 디버그: 미래 날짜 \(i)일 후 = \(formatDateForAPI(futureDate))")
                 await preloadFixturesWithFallback(for: futureDate, forceRefresh: false)
                 
                 // API 요청 제한 방지를 위한 지연
-                if i < 7 {
-                    try? await Task.sleep(nanoseconds: 100_000_000) // 0.1초 지연
-                }
+                try? await Task.sleep(nanoseconds: 100_000_000) // 0.1초 지연
             }
             
-            // 과거 날짜 프리로딩 (1~7일)
-            for i in 1...7 {
+            // 과거 날짜 프리로딩 (1~3일 우선)
+            for i in 1...3 {
                 let pastDate = calendar.date(byAdding: .day, value: -i, to: today)!
                 print("🔍 디버그: 과거 날짜 \(i)일 전 = \(formatDateForAPI(pastDate))")
                 await preloadFixturesWithFallback(for: pastDate, forceRefresh: false)
                 
                 // API 요청 제한 방지를 위한 지연
-                if i < 7 {
-                    try? await Task.sleep(nanoseconds: 100_000_000) // 0.1초 지연
-                }
-            }
-            
-            // 백그라운드 로드가 활성화된 경우에만 추가 데이터 로드
-            if enableBackgroundLoad {
-                // 제한된 날짜 범위에 대한 경기 일정 로드 (리소스 사용 최적화)
-                await loadLimitedFixtures()
-            } else {
-                print("📱 백그라운드 로드 비활성화됨 (개발 모드)")
+                try? await Task.sleep(nanoseconds: 100_000_000) // 0.1초 지연
             }
             
             isLoading = false
             
             // 자동 새로고침 시작
             startAutoRefresh()
+            
+            // 백그라운드에서 나머지 날짜 로드
+            Task.detached(priority: .background) {
+                // 미래 날짜 프리로딩 (4~7일)
+                for i in 4...7 {
+                    let futureDate = self.calendar.date(byAdding: .day, value: i, to: today)!
+                    print("🔍 디버그: 백그라운드 미래 날짜 \(i)일 후 = \(await self.formatDateForAPI(futureDate))")
+                    try? await Task.sleep(nanoseconds: 1_000_000) // 0.001초 지연
+                    await self.preloadFixturesWithFallback(for: futureDate, forceRefresh: false)
+                    
+                    // API 요청 제한 방지를 위한 지연
+                    try? await Task.sleep(nanoseconds: 200_000_000) // 0.2초 지연
+                }
+                
+                // 과거 날짜 프리로딩 (4~7일)
+                for i in 4...7 {
+                    let pastDate = self.calendar.date(byAdding: .day, value: -i, to: today)!
+                    print("🔍 디버그: 백그라운드 과거 날짜 \(i)일 전 = \(await self.formatDateForAPI(pastDate))")
+                    try? await Task.sleep(nanoseconds: 1_000_000) // 0.001초 지연
+                    await self.preloadFixturesWithFallback(for: pastDate, forceRefresh: false)
+                    
+                    // API 요청 제한 방지를 위한 지연
+                    try? await Task.sleep(nanoseconds: 200_000_000) // 0.2초 지연
+                }
+                
+                // 백그라운드 로드가 활성화된 경우에만 추가 데이터 로드
+                if self.enableBackgroundLoad {
+                    // 제한된 날짜 범위에 대한 경기 일정 로드 (리소스 사용 최적화)
+                    await self.loadLimitedFixtures()
+                } else {
+                    print("📱 백그라운드 로드 비활성화됨 (개발 모드)")
+                }
+            }
         }
         
         // 앱 생명주기 이벤트 관찰 설정
         setupAppLifecycleObservers()
+    }
+    
+    // 주요 리그 데이터 미리 로드 (점진적 로딩)
+    @MainActor
+    private func preloadMainLeaguesData(for date: Date) async {
+        print("📱 주요 리그 데이터 미리 로드 시작")
+        
+        // 주요 리그 ID (우선순위 순서)
+        let mainLeagues = [39, 140, 135, 78, 61] // 프리미어 리그, 라리가, 세리에 A, 분데스리가, 리그 1
+        
+        // 현재 시즌
+        let currentSeason = getCurrentSeason()
+        
+        // 날짜 문자열
+        let dateString = formatDateForAPI(date)
+        
+        // 각 리그별로 데이터 로드
+        for (index, leagueId) in mainLeagues.enumerated() {
+            do {
+                print("📡 주요 리그 데이터 로드: 리그 ID \(leagueId)")
+                
+                // 요청 간 지연 추가 (API 요청 제한 방지)
+                if index > 0 {
+                    try await Task.sleep(nanoseconds: 200_000_000) // 0.2초 지연
+                }
+                
+                // FootballAPIService를 통한 직접 API 호출
+                let fixturesForLeague = try await service.getFixtures(
+                    leagueId: leagueId,
+                    season: currentSeason,
+                    from: date,
+                    to: date
+                )
+                
+                // 기존 캐시된 데이터 가져오기
+                var existingFixtures = cachedFixtures[dateString] ?? []
+                
+                // 새로운 데이터 추가 (중복 제거)
+                let existingIds = Set(existingFixtures.map { $0.fixture.id })
+                let newFixtures = fixturesForLeague.filter { !existingIds.contains($0.fixture.id) }
+                existingFixtures.append(contentsOf: newFixtures)
+                
+                // 캐시 업데이트
+                cachedFixtures[dateString] = existingFixtures
+                saveCachedFixtures(for: dateString)
+                
+                // UI 업데이트
+                if let existingDateFixtures = fixtures[date] {
+                    // 기존 데이터에 새 데이터 추가 (중복 제거)
+                    let existingUIIds = Set(existingDateFixtures.map { $0.fixture.id })
+                    let newUIFixtures = fixturesForLeague.filter { !existingUIIds.contains($0.fixture.id) }
+                    fixtures[date] = existingDateFixtures + newUIFixtures
+                } else {
+                    fixtures[date] = fixturesForLeague
+                }
+                
+                print("✅ 리그 \(leagueId) 데이터 로드 완료: \(fixturesForLeague.count)개")
+                
+            } catch {
+                print("❌ 리그 \(leagueId) 데이터 로드 실패: \(error.localizedDescription)")
+            }
+        }
+        
+        print("📱 주요 리그 데이터 미리 로드 완료")
     }
     
     // 캐시 우선 로딩 + 나중에 새로고침 전략을 사용한 프리로딩 메서드
@@ -1690,6 +1778,10 @@ class FixturesOverviewViewModel: ObservableObject {
                 // 작업이 취소되었는지 확인
                 if Task.isCancelled {
                     print("⚠️ 작업이 취소되었습니다: \(dateString)")
+                    // 작업이 취소되어도 로딩 상태 제거
+                    await MainActor.run {
+                        loadingDates.remove(date)
+                    }
                     return
                 }
                 
@@ -1703,11 +1795,22 @@ class FixturesOverviewViewModel: ObservableObject {
                     
                     // 로그 출력
                     print("✅ 경기 일정 로드 완료: \(dateString) (\(fixturesForDate.count)개)")
+                    
+                    // 알림 발송 (UI 업데이트를 위해)
+                    NotificationCenter.default.post(
+                        name: NSNotification.Name("FixturesLoadingCompleted"),
+                        object: nil,
+                        userInfo: ["date": date]
+                    )
                 }
             } catch let error as FootballAPIError {
                 // 작업이 취소되었는지 확인
                 if Task.isCancelled {
                     print("⚠️ 작업이 취소되었습니다: \(dateString)")
+                    // 작업이 취소되어도 로딩 상태 제거
+                    await MainActor.run {
+                        loadingDates.remove(date)
+                    }
                     return
                 }
                 
@@ -1724,6 +1827,13 @@ class FixturesOverviewViewModel: ObservableObject {
                         
                         // 로딩 중인 날짜 목록에서 제거
                         loadingDates.remove(date)
+                        
+                        // 알림 발송 (UI 업데이트를 위해)
+                        NotificationCenter.default.post(
+                            name: NSNotification.Name("FixturesLoadingCompleted"),
+                            object: nil,
+                            userInfo: ["date": date]
+                        )
                     }
                     return
                 }
@@ -1731,7 +1841,7 @@ class FixturesOverviewViewModel: ObservableObject {
                 // 에러 처리
                 await MainActor.run {
                     // 빈 응답 에러 처리
-                    if case .emptyResponse(let message) = error {
+                    if case .emptyResponse(_) = error {
                         // 빈 응답 메시지 설정
                         emptyDates[date] = "해당일에 예정된 경기가 없습니다."
                         
@@ -1752,11 +1862,22 @@ class FixturesOverviewViewModel: ObservableObject {
                     
                     // 로딩 중인 날짜 목록에서 제거
                     loadingDates.remove(date)
+                    
+                    // 알림 발송 (UI 업데이트를 위해)
+                    NotificationCenter.default.post(
+                        name: NSNotification.Name("FixturesLoadingCompleted"),
+                        object: nil,
+                        userInfo: ["date": date]
+                    )
                 }
             } catch let error {
                 // 작업이 취소되었는지 확인
                 if Task.isCancelled {
                     print("⚠️ 작업이 취소되었습니다: \(dateString)")
+                    // 작업이 취소되어도 로딩 상태 제거
+                    await MainActor.run {
+                        loadingDates.remove(date)
+                    }
                     return
                 }
                 
@@ -1771,14 +1892,21 @@ class FixturesOverviewViewModel: ObservableObject {
                     
                     // 로딩 중인 날짜 목록에서 제거
                     loadingDates.remove(date)
+                    
+                    // 알림 발송 (UI 업데이트를 위해)
+                    NotificationCenter.default.post(
+                        name: NSNotification.Name("FixturesLoadingCompleted"),
+                        object: nil,
+                        userInfo: ["date": date]
+                    )
                 }
             }
         }
         
         // 타임아웃 처리 (개선된 버전)
         Task {
-            // 10초 타임아웃 설정
-            try? await Task.sleep(nanoseconds: 10_000_000_000) // 10초
+            // 5초 타임아웃으로 단축 (10초에서 5초로 변경)
+            try? await Task.sleep(nanoseconds: 5_000_000_000) // 5초
             
             // 작업이 아직 완료되지 않았다면 취소
             if loadingDates.contains(date) {

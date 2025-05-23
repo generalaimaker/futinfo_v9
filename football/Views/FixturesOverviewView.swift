@@ -353,19 +353,54 @@ struct FixturesMainContentView: View {
             // 로딩 오버레이 (초기 로드 중이거나 스켈레톤 UI 표시 중일 때만 표시)
             if (viewModel.isLoading && isInitialLoad) || showSkeleton {
                 // 스켈레톤 UI로 대체하여 더 나은 사용자 경험 제공
-                FixtureSkeletonView()
-                    .padding(.horizontal)
-                    .background(Color(.systemBackground).opacity(0.9))
-                    .transition(.opacity)
-                    .onAppear {
-                        // 스켈레톤 UI가 표시된 후 10초 이상 지속되면 자동으로 숨김 처리
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 10) {
+                ZStack {
+                    FixtureSkeletonView()
+                        .padding(.horizontal)
+                        .background(Color(.systemBackground).opacity(0.9))
+                        .transition(.opacity)
+                    
+                    // 5초 이상 로딩 중이면 메시지 표시
+                    if showSkeleton {
+                        VStack {
+                            Spacer()
+                            Text("데이터를 불러오는 중입니다...")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                                .padding()
+                                .background(Color(.systemBackground).opacity(0.8))
+                                .cornerRadius(8)
+                                .padding(.bottom, 20)
+                        }
+                        .transition(.opacity)
+                    }
+                }
+                .onAppear {
+                    // 스켈레톤 UI가 표시된 후 5초 이상 지속되면 메시지 표시
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
+                        withAnimation {
                             if showSkeleton {
-                                print("⏱️ 스켈레톤 UI 자동 숨김 처리 (10초 타임아웃)")
-                                showSkeleton = false
+                                print("⏱️ 스켈레톤 UI 5초 타임아웃 - 메시지 표시")
                             }
                         }
                     }
+                    
+                    // 스켈레톤 UI가 표시된 후 10초 이상 지속되면 자동으로 숨김 처리
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 10) {
+                        withAnimation {
+                            if showSkeleton {
+                                print("⏱️ 스켈레톤 UI 자동 숨김 처리 (10초 타임아웃)")
+                                showSkeleton = false
+                                
+                                // 빈 응답 메시지 설정 (API 응답이 없는 경우)
+                                if let selectedDate = viewModel.dateTabs[safe: selectedDateIndex]?.date,
+                                   viewModel.fixtures[selectedDate]?.isEmpty ?? true,
+                                   viewModel.emptyDates[selectedDate] == nil {
+                                    viewModel.emptyDates[selectedDate] = "해당일에 예정된 경기가 없습니다"
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
     }
