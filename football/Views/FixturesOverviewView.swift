@@ -697,20 +697,46 @@ struct FixturePageView: View {
                 
                 // 데이터가 없는 경우 처리
                 if fixtures.isEmpty {
-                    // 로딩 중이거나 데이터가 없는 경우 스켈레톤 UI 표시
-                    FixtureSkeletonView()
-                        .padding(.horizontal)
-                        .frame(maxWidth: .infinity)
-                        .padding(.top, 20)
-                        .onAppear {
-                            // 데이터가 없고 로딩 중이 아니면 데이터 로드 시도
-                            if !isLoading {
-                                Task {
-                                    // 더미 데이터 생성 요청
-                                    await viewModel.loadFixturesForDate(date, forceRefresh: true)
-                                }
-                            }
+                    // 빈 응답 메시지가 있는지 확인
+                    if let emptyMessage = viewModel.emptyDates[date] {
+                        // 빈 응답 메시지 표시
+                        VStack(spacing: 12) {
+                            Image(systemName: "calendar.badge.exclamationmark")
+                                .font(.system(size: 40))
+                                .foregroundColor(.secondary)
+                            Text(emptyMessage)
+                                .foregroundColor(.secondary)
+                                .multilineTextAlignment(.center)
                         }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 40)
+                    } else if isLoading {
+                        // 로딩 중인 경우 스켈레톤 UI 표시
+                        FixtureSkeletonView()
+                            .padding(.horizontal)
+                            .frame(maxWidth: .infinity)
+                            .padding(.top, 20)
+                    } else {
+                        // 데이터가 없고 로딩 중이 아니면 메시지 표시 및 데이터 로드 시도
+                        VStack(spacing: 12) {
+                            Image(systemName: "calendar.badge.exclamationmark")
+                                .font(.system(size: 40))
+                                .foregroundColor(.secondary)
+                            Text("해당일에 예정된 경기가 없습니다")
+                                .foregroundColor(.secondary)
+                                .multilineTextAlignment(.center)
+                                .onAppear {
+                                    // 데이터 로드 시도
+                                    if !isLoading {
+                                        Task {
+                                            await viewModel.loadFixturesForDate(date, forceRefresh: true)
+                                        }
+                                    }
+                                }
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 40)
+                    }
                 }
             }
             .padding(.horizontal, 20)

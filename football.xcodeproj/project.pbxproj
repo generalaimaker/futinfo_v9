@@ -8,10 +8,12 @@
 
 /* Begin PBXBuildFile section */
 		5E26EF9C2DCB04F600E831F6 /* Kingfisher in Frameworks */ = {isa = PBXBuildFile; productRef = 5E26EF9B2DCB04F600E831F6 /* Kingfisher */; };
+		5ECD50CB2DE04FCA0082FA12 /* FootballApp.xcdatamodeld in Sources */ = {isa = PBXBuildFile; fileRef = 5ECD50C92DE04FCA0082FA12 /* FootballApp.xcdatamodeld */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		5E2610AF2D53A149003489C2 /* football.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = football.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		5ECD50CA2DE04FCA0082FA12 /* FootballApp.xcdatamodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodel; path = FootballApp.xcdatamodel; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -50,6 +52,7 @@
 		5E2610A62D53A149003489C2 = {
 			isa = PBXGroup;
 			children = (
+				5ECD50C92DE04FCA0082FA12 /* FootballApp.xcdatamodeld */,
 				5E2610B12D53A149003489C2 /* football */,
 				5E2610B02D53A149003489C2 /* Products */,
 			);
@@ -141,6 +144,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				5ECD50CB2DE04FCA0082FA12 /* FootballApp.xcdatamodeld in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -388,6 +392,19 @@
 			productName = Kingfisher;
 		};
 /* End XCSwiftPackageProductDependency section */
+
+/* Begin XCVersionGroup section */
+		5ECD50C92DE04FCA0082FA12 /* FootballApp.xcdatamodeld */ = {
+			isa = XCVersionGroup;
+			children = (
+				5ECD50CA2DE04FCA0082FA12 /* FootballApp.xcdatamodel */,
+			);
+			currentVersion = 5ECD50CA2DE04FCA0082FA12 /* FootballApp.xcdatamodel */;
+			path = FootballApp.xcdatamodeld;
+			sourceTree = "<group>";
+			versionGroupType = wrapper.xcdatamodel;
+		};
+/* End XCVersionGroup section */
 	};
 	rootObject = 5E2610A72D53A149003489C2 /* Project object */;
 }

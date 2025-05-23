@@ -106,7 +106,7 @@ struct FixturesView: View {
                                         Image(systemName: selectedTab == 0 ? "flag.checkered" : "calendar.badge.exclamationmark")
                                             .font(.system(size: 40))
                                             .foregroundColor(.secondary)
-                                        Text(selectedTab == 0 ? "표시할 경기 결과가 없습니다" : "예정된 경기가 없습니다")
+                                        Text(selectedTab == 0 ? "표시할 경기 결과가 없습니다" : "해당일에 예정된 경기가 없습니다")
                                             .foregroundColor(.secondary)
                                     }
                                     .frame(maxWidth: .infinity)

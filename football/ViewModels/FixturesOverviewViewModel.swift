@@ -65,6 +65,7 @@ class FixturesOverviewViewModel: ObservableObject {
     private let service = FootballAPIService.shared
     private let requestManager = APIRequestManager.shared
     private let liveMatchService = LiveMatchService.shared
+    private let coreDataManager = CoreDataManager.shared
     private let dateFormatter = DateFormatter()
     
     // 라이브 경기 상태 목록
@@ -800,34 +801,73 @@ class FixturesOverviewViewModel: ObservableObject {
         }
     }
     
-    // 캐시된 경기 일정 로드
+    // 캐시된 경기 일정 로드 (CoreData 및 UserDefaults 모두 사용)
     private func loadCachedFixtures() {
-        // 경기 일정 캐시 로드
-        if let cachedData = UserDefaults.standard.data(forKey: "cachedFixtures") {
-            // try? 사용하여 에러 처리 (catch 블록 제거)
-            if let decodedCache = try? JSONDecoder().decode([String: [Fixture]].self, from: cachedData) {
-                self.cachedFixtures = decodedCache
-                print("✅ 캐시된 경기 일정 로드 성공: \(decodedCache.count) 날짜")
-            } else {
-                print("❌ 캐시된 경기 일정 로드 실패")
-                // 캐시 로드 실패 시 캐시 초기화
-                self.cachedFixtures = [:]
-                UserDefaults.standard.removeObject(forKey: "cachedFixtures")
+        // 1. 먼저 CoreData에서 로드 시도
+        loadCachedFixturesFromCoreData()
+        
+        // 2. CoreData에서 로드 실패 시 UserDefaults에서 로드 (기존 코드)
+        if cachedFixtures.isEmpty {
+            // 경기 일정 캐시 로드
+            if let cachedData = UserDefaults.standard.data(forKey: "cachedFixtures") {
+                // try? 사용하여 에러 처리 (catch 블록 제거)
+                if let decodedCache = try? JSONDecoder().decode([String: [Fixture]].self, from: cachedData) {
+                    self.cachedFixtures = decodedCache
+                    print("✅ UserDefaults에서 캐시된 경기 일정 로드 성공: \(decodedCache.count) 날짜")
+                } else {
+                    print("❌ 캐시된 경기 일정 로드 실패")
+                    // 캐시 로드 실패 시 캐시 초기화
+                    self.cachedFixtures = [:]
+                    UserDefaults.standard.removeObject(forKey: "cachedFixtures")
+                }
+            }
+            
+            // 캐시 날짜 로드
+            if let cachedDatesData = UserDefaults.standard.data(forKey: "cacheDates") {
+                // try? 사용하여 에러 처리 (catch 블록 제거)
+                if let decodedDates = try? JSONDecoder().decode([String: Date].self, from: cachedDatesData) {
+                    self.cacheDates = decodedDates
+                    print("✅ 캐시 날짜 로드 성공: \(decodedDates.count) 항목")
+                } else {
+                    print("❌ 캐시 날짜 로드 실패")
+                    // 캐시 로드 실패 시 캐시 초기화
+                    self.cacheDates = [:]
+                    UserDefaults.standard.removeObject(forKey: "cacheDates")
+                }
             }
         }
+    }
+    
+    // CoreData에서 캐시된 경기 일정 로드
+    private func loadCachedFixturesFromCoreData() {
+        // CoreData에서 모든 FixtureEntity 가져오기
+        let fetchRequest: NSFetchRequest<FixtureEntity> = FixtureEntity.fetchRequest()
         
-        // 캐시 날짜 로드
-        if let cachedDatesData = UserDefaults.standard.data(forKey: "cacheDates") {
-            // try? 사용하여 에러 처리 (catch 블록 제거)
-            if let decodedDates = try? JSONDecoder().decode([String: Date].self, from: cachedDatesData) {
-                self.cacheDates = decodedDates
-                print("✅ 캐시 날짜 로드 성공: \(decodedDates.count) 항목")
-            } else {
-                print("❌ 캐시 날짜 로드 실패")
-                // 캐시 로드 실패 시 캐시 초기화
+        do {
+            let results = try CoreDataManager.shared.context.fetch(fetchRequest)
+            
+            if !results.isEmpty {
+                // 결과가 있으면 캐시 데이터 초기화
+                self.cachedFixtures = [:]
                 self.cacheDates = [:]
-                UserDefaults.standard.removeObject(forKey: "cacheDates")
+                
+                // 각 엔티티에서 데이터 추출
+                for entity in results {
+                    let decoder = JSONDecoder()
+                    if let data = entity.fixtureData, let fixtureData = try? decoder.decode([Fixture].self, from: data) {
+                        if let dateKey = entity.dateKey {
+                            self.cachedFixtures[dateKey] = fixtureData
+                            self.cacheDates[dateKey] = entity.timestamp
+                        }
+                    }
+                }
+                
+                print("✅ CoreData에서 캐시된 경기 일정 로드 성공: \(self.cachedFixtures.count) 날짜")
+            } else {
+                print("ℹ️ CoreData에 저장된 경기 일정 없음")
             }
+        } catch {
+            print("❌ CoreData에서 경기 일정 로드 실패: \(error.localizedDescription)")
         }
     }
     
@@ -1693,7 +1733,7 @@ class FixturesOverviewViewModel: ObservableObject {
                     // 빈 응답 에러 처리
                     if case .emptyResponse(let message) = error {
                         // 빈 응답 메시지 설정
-                        emptyDates[date] = message
+                        emptyDates[date] = "해당일에 예정된 경기가 없습니다."
                         
                         // 빈 배열 설정 (더미 데이터 대신)
                         fixtures[date] = []
