@@ -229,7 +229,7 @@ struct TeamHeaderSection: View {
                     HStack(spacing: 10) {
                         Text(viewModel.teamProfile?.team.country ?? "국가")
                         if let founded = viewModel.teamProfile?.team.founded {
-                            Text("• 창단: \(founded)년")
+                            Text("• 창단: \(String(founded))년")
                         }
                     }
                     .font(.subheadline)
@@ -724,28 +724,37 @@ struct FormSection: View {
             // 안전하게 접근
             if let fixtures = viewModel.recentFixtures, !fixtures.isEmpty {
                 ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 12) {
-                        // 시간순으로 정렬 (과거 -> 최근)
-                        // 최근 5경기만 표시하고, 완료된 경기만 표시
-                        let completedFixtures = fixtures
-                            .filter { $0.fixture.status.short == "FT" || $0.fixture.status.short == "AET" || $0.fixture.status.short == "PEN" }
-                            .sorted(by: { $0.fixture.date > $1.fixture.date })
-                            .prefix(5)
-                        
-                        if completedFixtures.isEmpty {
+                    // 시간순으로 정렬 (과거 -> 최근)
+                    // 최근 5경기만 표시하고, 완료된 경기만 표시
+                    let completedFixtures = fixtures
+                        .filter { $0.fixture.status.short == "FT" || $0.fixture.status.short == "AET" || $0.fixture.status.short == "PEN" }
+                        .sorted(by: { $0.fixture.date > $1.fixture.date })
+                        .prefix(5)
+                    
+                    if completedFixtures.isEmpty {
+                        HStack {
+                            Spacer()
                             Text("최근 완료된 경기가 없습니다")
                                 .font(.subheadline)
                                 .foregroundColor(.secondary)
-                                .frame(maxWidth: .infinity, alignment: .center)
                                 .padding()
-                        } else {
+                            Spacer()
+                        }
+                    } else {
+                        HStack(spacing: 12) {
+                            // 왼쪽 여백을 추가하여 중앙 정렬 효과 생성
+                            Spacer(minLength: 0)
+                            
                             ForEach(Array(completedFixtures.reversed()), id: \.fixture.id) { fixture in
                                 RecentMatchCard(fixture: fixture, currentTeamId: viewModel.teamId)
                             }
+                            
+                            // 오른쪽 여백을 추가하여 중앙 정렬 효과 생성
+                            Spacer(minLength: 0)
                         }
+                        .padding(.horizontal)
+                        .padding(.bottom, 5)
                     }
-                    .padding(.horizontal)
-                    .padding(.bottom, 5)
                 }
             } else {
                 Text("최근 경기 정보 없음")

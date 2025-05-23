@@ -86,8 +86,18 @@ class TeamProfileViewModel: ObservableObject {
     private let maxEmptyResponses = 5 // 최대 빈 응답 허용 횟수
     
     func loadTeamData(teamId: Int, leagueId: Int) async {
-        isLoadingStats = true
-        errorMessage = nil
+        // 이미 로딩 중인 경우 중복 호출 방지
+        guard !isLoadingStats else {
+            print("⚠️ 이미 팀 데이터 로딩 중, 중복 호출 방지")
+            return
+        }
+        
+        // 로딩 상태 설정 및 에러 메시지 초기화
+        await MainActor.run {
+            isLoadingStats = true
+            errorMessage = nil
+            print("🔄 팀 데이터 로드 시작: 팀 ID \(teamId), 리그 ID \(leagueId), 시즌 \(selectedSeason)")
+        }
         
         // 과거 시즌인지 확인
         let currentYear = Calendar.current.component(.year, from: Date())
@@ -95,6 +105,17 @@ class TeamProfileViewModel: ObservableObject {
         
         if isPastSeason {
             print("🔍 과거 시즌 데이터 로드 시도: \(selectedSeason) (현재: \(currentYear))")
+        }
+        
+        // 로딩 상태가 항상 해제되도록 defer 블록 사용
+        defer {
+            Task { @MainActor in
+                // 로딩 완료 후 상태 업데이트
+                if isLoadingStats {
+                    isLoadingStats = false
+                    print("✅ 팀 데이터 로딩 완료 (defer 블록)")
+                }
+            }
         }
         
         do {
@@ -118,18 +139,20 @@ class TeamProfileViewModel: ObservableObject {
                 if emptyResponseCounter >= maxEmptyResponses {
                     print("❌ 최대 빈 응답 횟수 초과: 로딩 중단")
                     
-                    // 과거 시즌인 경우 특별 메시지 표시
-                    if isPastSeason {
-                        errorMessage = "선택한 시즌(\(selectedSeason))의 통계 데이터를 불러올 수 없습니다."
-                    } else {
-                        errorMessage = "팀 통계 데이터를 불러오는데 실패했습니다."
+                    await MainActor.run {
+                        // 과거 시즌인 경우 특별 메시지 표시
+                        if isPastSeason {
+                            errorMessage = "선택한 시즌(\(selectedSeason))의 통계 데이터를 불러올 수 없습니다."
+                        } else {
+                            errorMessage = "팀 통계 데이터를 불러오는데 실패했습니다."
+                        }
+                        
+                        // 차트 데이터 초기화
+                        chartData = []
+                        
+                        // 로딩 상태 해제
+                        isLoadingStats = false
                     }
-                    
-                    // 차트 데이터 초기화
-                    chartData = []
-                    
-                    // 로딩 상태 해제
-                    isLoadingStats = false
                     return
                 }
             } else {
@@ -138,12 +161,10 @@ class TeamProfileViewModel: ObservableObject {
                 print("✅ 유효한 통계 데이터 수신: 카운터 초기화")
             }
             
-            // 통계 데이터 설정
-            teamStatistics = statistics
-            
             // 순위 데이터 로드 (실패해도 계속 진행)
+            var standing: TeamStanding? = nil
             do {
-                teamStanding = try await service.getTeamStanding(
+                standing = try await service.getTeamStanding(
                     teamId: teamId,
                     leagueId: leagueId,
                     season: selectedSeason
@@ -151,45 +172,68 @@ class TeamProfileViewModel: ObservableObject {
             } catch {
                 print("Standing data load failed: \(error)")
                 // 순위 데이터가 없어도 계속 진행
-                teamStanding = nil
+                standing = nil
             }
             
-            // 차트 데이터 생성
-            chartData = [
-                TeamSeasonChartData(type: "승률", stats: statistics),
-                TeamSeasonChartData(type: "경기당 득점", stats: statistics),
-                TeamSeasonChartData(type: "클린시트", stats: statistics)
-            ]
-            
-            // 에러 메시지 초기화
-            errorMessage = nil
+            // 메인 액터에서 UI 업데이트
+            await MainActor.run {
+                // 통계 데이터 설정
+                teamStatistics = statistics
+                
+                // 순위 데이터 설정
+                teamStanding = standing
+                
+                // 차트 데이터 생성
+                chartData = [
+                    TeamSeasonChartData(type: "승률", stats: statistics),
+                    TeamSeasonChartData(type: "경기당 득점", stats: statistics),
+                    TeamSeasonChartData(type: "클린시트", stats: statistics)
+                ]
+                
+                // 에러 메시지 초기화
+                errorMessage = nil
+                
+                // 로딩 상태 해제
+                isLoadingStats = false
+                print("✅ 팀 데이터 로드 성공")
+            }
             
         } catch DecodingError.valueNotFound(let type, let context) {
             // 리그 ID가 null인 경우 처리
             print("Load Team Data Error: valueNotFound(\(type), \(context.debugDescription))")
             
-            // 과거 시즌인 경우 특별 메시지 표시
-            if isPastSeason {
-                errorMessage = "선택한 시즌(\(selectedSeason))의 리그 데이터를 찾을 수 없습니다."
-            } else {
-                errorMessage = "이 팀의 리그 데이터를 찾을 수 없습니다."
+            await MainActor.run {
+                // 과거 시즌인 경우 특별 메시지 표시
+                if isPastSeason {
+                    errorMessage = "선택한 시즌(\(selectedSeason))의 리그 데이터를 찾을 수 없습니다."
+                } else {
+                    errorMessage = "이 팀의 리그 데이터를 찾을 수 없습니다."
+                }
+                
+                chartData = []
+                
+                // 로딩 상태 해제
+                isLoadingStats = false
+                print("❌ 팀 데이터 로드 실패: valueNotFound")
             }
-            
-            chartData = []
         } catch {
             print("Load Team Data Error: \(error)")
             
-            // 과거 시즌인 경우 특별 메시지 표시
-            if isPastSeason {
-                errorMessage = "선택한 시즌(\(selectedSeason))의 데이터를 불러오는데 실패했습니다."
-            } else {
-                errorMessage = "팀 데이터를 불러오는데 실패했습니다: \(error.localizedDescription)"
+            await MainActor.run {
+                // 과거 시즌인 경우 특별 메시지 표시
+                if isPastSeason {
+                    errorMessage = "선택한 시즌(\(selectedSeason))의 데이터를 불러오는데 실패했습니다."
+                } else {
+                    errorMessage = "팀 데이터를 불러오는데 실패했습니다: \(error.localizedDescription)"
+                }
+                
+                chartData = []
+                
+                // 로딩 상태 해제
+                isLoadingStats = false
+                print("❌ 팀 데이터 로드 실패: \(error.localizedDescription)")
             }
-            
-            chartData = []
         }
-        
-        isLoadingStats = false
     }
     
     func loadTeamSquad(teamId: Int) async {
