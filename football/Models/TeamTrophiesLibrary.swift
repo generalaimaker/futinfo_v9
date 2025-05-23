@@ -408,9 +408,9 @@ struct TeamTrophiesLibrary {
                      leagueTitles: 13, leagueLastWin: "2025",
                      championsLeagueTitles: 0, championsLeagueLastWin: nil,
                      europaLeagueTitles: 0, europaLeagueLastWin: nil,
-                     superCupTitles: 9, superCupLastWin: "2023",
+                     superCupTitles: 0, superCupLastWin: nil,
                      conferenceLeagueTitles: 0, conferenceLeagueLastWin: nil,
-                     domesticCupTitles: 14, domesticCupLastWin: "2021"),
+                     domesticCupTitles: 15, domesticCupLastWin: "2024"),
 
         TeamTrophies(teamName: "Marseille", abbreviation: "OM", league: "Ligue 1",
                      leagueTitles: 9, leagueLastWin: "2010",

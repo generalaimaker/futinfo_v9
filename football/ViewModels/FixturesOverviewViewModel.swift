@@ -131,6 +131,9 @@ class FixturesOverviewViewModel: ObservableObject {
         // 캐시된 데이터 로드
         loadCachedFixtures()
         
+        // 빈 응답 캐시 로드
+        loadEmptyResponseCache()
+        
         // 라이브 경기 업데이트 구독
         setupLiveMatchesSubscription()
         
@@ -236,13 +239,96 @@ class FixturesOverviewViewModel: ObservableObject {
         setupAppLifecycleObservers()
     }
     
+    // 최근 본 리그 저장 함수
+    public func saveViewedLeague(_ leagueId: Int) {
+        var recent = UserDefaults.standard.array(forKey: "recentLeagues") as? [Int] ?? []
+        recent.removeAll { $0 == leagueId }
+        recent.insert(leagueId, at: 0)
+        UserDefaults.standard.set(Array(recent.prefix(10)), forKey: "recentLeagues")
+        print("📝 최근 본 리그 저장: \(leagueId)")
+    }
+    
+    // 사용자 선호 리그 가져오기
+    private func getUserPreferredLeagues() -> [Int] {
+        // 최근 본 리그
+        let recentLeagues = UserDefaults.standard.array(forKey: "recentLeagues") as? [Int] ?? []
+        
+        // 즐겨찾기한 팀의 리그
+        let favoriteTeams = FavoriteService.shared.getFavorites(type: .team)
+        
+        // 팀 ID로 리그 ID를 조회하는 로직 (간단한 구현)
+        // 실제로는 팀 정보를 기반으로 리그 ID를 조회해야 함
+        var favoriteTeamLeagues: [Int] = []
+        for favorite in favoriteTeams {
+            // 주요 리그 ID 중 하나를 임의로 할당 (실제로는 팀-리그 매핑 필요)
+            let teamId = favorite.entityId
+            let leagueId = teamIdToLeagueId(teamId)
+            if leagueId > 0 {
+                favoriteTeamLeagues.append(leagueId)
+            }
+        }
+        
+        return Array(Set(recentLeagues + favoriteTeamLeagues)) // 중복 제거
+    }
+    
+    // 팀 ID를 리그 ID로 변환하는 간단한 함수 (실제로는 더 정확한 매핑 필요)
+    private func teamIdToLeagueId(_ teamId: Int) -> Int {
+        // 주요 팀들의 리그 ID 매핑 (간단한 예시)
+        switch teamId {
+        case 33, 40, 42, 47, 49, 50: // 맨유, 리버풀, 아스날, 토트넘, 첼시, 맨시티
+            return 39 // 프리미어 리그
+        case 529, 530, 541, 532, 536, 543: // 바르셀로나, 아틀레티코, 레알 마드리드, 발렌시아, 세비야, 베티스
+            return 140 // 라리가
+        case 487, 489, 492, 496, 497, 505: // 라치오, 밀란, 나폴리, 유벤투스, 로마, 인터
+            return 135 // 세리에 A
+        case 157, 160, 165, 168, 169, 173: // 바이에른, 프라이부르크, 도르트문트, 레버쿠젠, 프랑크푸르트, 라이프치히
+            return 78 // 분데스리가
+        case 79, 80, 85, 91, 94, 95: // 릴, 마르세유, PSG, 모나코, 렌, 리옹
+            return 61 // 리그 1
+        default:
+            return -1 // 알 수 없는 팀
+        }
+    }
+    
     // 주요 리그 데이터 미리 로드 (점진적 로딩)
     @MainActor
     private func preloadMainLeaguesData(for date: Date) async {
         print("📱 주요 리그 데이터 미리 로드 시작")
         
-        // 주요 리그 ID (우선순위 순서)
-        let mainLeagues = [39, 140, 135, 78, 61] // 프리미어 리그, 라리가, 세리에 A, 분데스리가, 리그 1
+        // 우선순위 기반 리그 로딩
+        let priorityLeagues = [39, 140]         // EPL, 라리가
+        let secondaryLeagues = [135, 78, 61]    // 세리에 A, 분데스리가, 리그1
+        let tertiaryLeagues = [2, 3]            // 챔피언스 리그, 유로파 리그
+        
+        // 사용자 선호 리그 가져오기
+        let userPreferredLeagues = getUserPreferredLeagues()
+        print("📊 사용자 선호 리그: \(userPreferredLeagues)")
+        
+        // 로딩 우선순위 설정 (사용자 선호 > 우선순위 > 2차 > 3차)
+        var loadingOrder = userPreferredLeagues
+        
+        // 중복 없이 우선순위 리그 추가
+        for league in priorityLeagues {
+            if !loadingOrder.contains(league) {
+                loadingOrder.append(league)
+            }
+        }
+        
+        // 중복 없이 2차 우선순위 리그 추가
+        for league in secondaryLeagues {
+            if !loadingOrder.contains(league) {
+                loadingOrder.append(league)
+            }
+        }
+        
+        // 중복 없이 3차 우선순위 리그 추가
+        for league in tertiaryLeagues {
+            if !loadingOrder.contains(league) {
+                loadingOrder.append(league)
+            }
+        }
+        
+        print("📊 로딩 우선순위: \(loadingOrder)")
         
         // 현재 시즌
         let currentSeason = getCurrentSeason()
@@ -250,14 +336,16 @@ class FixturesOverviewViewModel: ObservableObject {
         // 날짜 문자열
         let dateString = formatDateForAPI(date)
         
-        // 각 리그별로 데이터 로드
-        for (index, leagueId) in mainLeagues.enumerated() {
+        // 각 리그별로 데이터 로드 (우선순위 순서대로)
+        for (index, leagueId) in loadingOrder.enumerated() {
             do {
-                print("📡 주요 리그 데이터 로드: 리그 ID \(leagueId)")
+                print("📡 리그 데이터 로드: 리그 ID \(leagueId) (우선순위: \(index + 1))")
                 
                 // 요청 간 지연 추가 (API 요청 제한 방지)
                 if index > 0 {
-                    try await Task.sleep(nanoseconds: 200_000_000) // 0.2초 지연
+                    // 우선순위에 따라 지연 시간 조정
+                    let delayTime = index < 3 ? 200_000_000 : 300_000_000 // 0.2초 또는 0.3초
+                    try await Task.sleep(nanoseconds: UInt64(delayTime))
                 }
                 
                 // FootballAPIService를 통한 직접 API 호출
@@ -289,6 +377,13 @@ class FixturesOverviewViewModel: ObservableObject {
                 } else {
                     fixtures[date] = fixturesForLeague
                 }
+                
+                // 알림 발송 (UI 업데이트를 위해)
+                NotificationCenter.default.post(
+                    name: NSNotification.Name("FixturesLoadingCompleted"),
+                    object: nil,
+                    userInfo: ["date": date]
+                )
                 
                 print("✅ 리그 \(leagueId) 데이터 로드 완료: \(fixturesForLeague.count)개")
                 
@@ -709,6 +804,10 @@ class FixturesOverviewViewModel: ObservableObject {
         // UserDefaults 캐시 정리
         clearCache()
         
+        // 빈 응답 캐시 정리
+        emptyResponseCache = [:]
+        UserDefaults.standard.removeObject(forKey: "emptyResponseCache")
+        
         // API 캐시 정리
         APICacheManager.shared.clearAllCache()
         
@@ -1021,6 +1120,7 @@ class FixturesOverviewViewModel: ObservableObject {
     private func isEmptyResponseCacheExpired(for dateString: String, leagueId: Int) -> Bool {
         let cacheKey = "\(dateString)_\(leagueId)"
         guard let cacheDate = emptyResponseCache[cacheKey] else {
+            print("ℹ️ 빈 응답 캐시 없음: \(cacheKey)")
             return true // 캐시 날짜가 없으면 만료된 것으로 간주
         }
         
@@ -1030,8 +1130,12 @@ class FixturesOverviewViewModel: ObservableObject {
         
         if isExpired {
             print("⏰ 빈 응답 캐시 만료됨: \(cacheKey) (저장 시간: \(cacheDate), 현재: \(now), 만료 시간: \(emptyResponseCacheHours)시간)")
+            
+            // 만료된 캐시 항목 제거
+            emptyResponseCache.removeValue(forKey: cacheKey)
+            saveEmptyResponseCacheToUserDefaults()
         } else {
-            print("✅ 빈 응답 캐시 유효함: \(cacheKey) (저장 시간: \(cacheDate), 현재: \(now))")
+            print("✅ 빈 응답 캐시 유효함: \(cacheKey) (저장 시간: \(cacheDate), 현재: \(now), 남은 시간: \(String(format: "%.1f", (expirationInterval - now.timeIntervalSince(cacheDate)) / 3600))시간)")
         }
         
         return isExpired
@@ -1042,6 +1146,50 @@ class FixturesOverviewViewModel: ObservableObject {
         let cacheKey = "\(dateString)_\(leagueId)"
         emptyResponseCache[cacheKey] = Date()
         print("📝 빈 응답 캐시 저장: \(cacheKey)")
+        
+        // UserDefaults에 빈 응답 캐시 저장
+        saveEmptyResponseCacheToUserDefaults()
+    }
+    
+    // 빈 응답 캐시를 UserDefaults에 저장
+    private func saveEmptyResponseCacheToUserDefaults() {
+        let encoder = JSONEncoder()
+        
+        // 캐시 데이터를 직렬화 가능한 형태로 변환
+        var cacheData: [String: Double] = [:]
+        for (key, date) in emptyResponseCache {
+            cacheData[key] = date.timeIntervalSince1970
+        }
+        
+        if let encodedCache = try? encoder.encode(cacheData) {
+            UserDefaults.standard.set(encodedCache, forKey: "emptyResponseCache")
+            print("✅ 빈 응답 캐시 UserDefaults에 저장 성공: \(cacheData.count)개 항목")
+        } else {
+            print("❌ 빈 응답 캐시 UserDefaults 저장 실패")
+        }
+    }
+    
+    // UserDefaults에서 빈 응답 캐시 로드
+    private func loadEmptyResponseCache() {
+        if let cachedData = UserDefaults.standard.data(forKey: "emptyResponseCache") {
+            let decoder = JSONDecoder()
+            if let decodedCache = try? decoder.decode([String: Double].self, from: cachedData) {
+                // 타임스탬프를 Date 객체로 변환
+                var loadedCache: [String: Date] = [:]
+                for (key, timestamp) in decodedCache {
+                    loadedCache[key] = Date(timeIntervalSince1970: timestamp)
+                }
+                
+                self.emptyResponseCache = loadedCache
+                print("✅ 빈 응답 캐시 로드 성공: \(loadedCache.count)개 항목")
+            } else {
+                print("❌ 빈 응답 캐시 로드 실패")
+                self.emptyResponseCache = [:]
+            }
+        } else {
+            print("ℹ️ 저장된 빈 응답 캐시 없음")
+            self.emptyResponseCache = [:]
+        }
     }
     
     // 특정 날짜에 대한 경기 일정 가져오기 (개선된 버전)
@@ -1135,6 +1283,9 @@ class FixturesOverviewViewModel: ObservableObject {
                 if fixturesForLeague.isEmpty {
                     saveEmptyResponseCache(for: dateString, leagueId: leagueId)
                     print("📝 리그 \(leagueId)에 대한 빈 응답 캐시 저장")
+                    
+                    // 빈 응답 캐시 상태 로깅
+                    print("📊 현재 빈 응답 캐시 항목 수: \(emptyResponseCache.count)")
                 }
                 
             } catch let error {
