@@ -168,7 +168,38 @@ class FixturesOverviewViewModel: ObservableObject {
             // 오늘 날짜에 대한 경기 일정 로드 (강제 새로고침 적용)
             print("📱 앱 시작 시 오늘 날짜 데이터 프리로딩 시작 (강제 새로고침)")
             print("🔍 디버그: 오늘 날짜 = \(formatDateForAPI(today)), 현재 시간 = \(Date())")
-            await preloadFixturesWithFallback(for: today, forceRefresh: true)
+            
+            // 오늘 날짜 데이터 로드 (우선순위 높음)
+            do {
+                print("🚀 오늘 날짜 데이터 직접 로드 시작 (높은 우선순위)")
+                let todayFixtures = try await fetchFixturesForDate(today, forceRefresh: true)
+                
+                // UI 즉시 업데이트
+                fixtures[today] = todayFixtures
+                
+                // 캐시 업데이트
+                let todayString = formatDateForAPI(today)
+                cachedFixtures[todayString] = todayFixtures
+                saveCachedFixtures(for: todayString)
+                
+                print("✅ 오늘 날짜 데이터 로드 완료: \(todayFixtures.count)개 경기")
+                
+                // 알림 발송 (UI 업데이트를 위해)
+                NotificationCenter.default.post(
+                    name: NSNotification.Name("FixturesLoadingCompleted"),
+                    object: nil,
+                    userInfo: ["date": today, "forceUpdate": true]
+                )
+            } catch {
+                print("❌ 오늘 날짜 데이터 로드 실패: \(error.localizedDescription)")
+                
+                // 캐시된 데이터가 있으면 사용
+                let todayString = formatDateForAPI(today)
+                if let cachedData = cachedFixtures[todayString], !cachedData.isEmpty {
+                    fixtures[today] = cachedData
+                    print("⚠️ 오늘 날짜 데이터 로드 실패, 캐시 사용: \(cachedData.count)개 경기")
+                }
+            }
             
             // 주요 리그 데이터 미리 로드 (점진적 로딩)
             await preloadMainLeaguesData(for: today)
@@ -402,6 +433,9 @@ class FixturesOverviewViewModel: ObservableObject {
         
         print("🔍 디버그: preloadFixturesWithFallback 시작 - 날짜: \(dateString), 강제 새로고침: \(forceRefresh)")
         
+        // 오늘 날짜인지 확인
+        let isToday = calendar.isDate(date, inSameDayAs: calendar.startOfDay(for: Date()))
+        
         // 1. 먼저 캐시된 데이터가 있으면 즉시 표시 (UI 빠르게 업데이트)
         if let cachedData = cachedFixtures[dateString], !cachedData.isEmpty {
             fixtures[date] = cachedData
@@ -412,10 +446,24 @@ class FixturesOverviewViewModel: ObservableObject {
             let finishedCount = cachedData.filter { $0.fixture.status.short == "FT" }.count
             let upcomingCount = cachedData.filter { $0.fixture.status.short == "NS" }.count
             print("🔍 디버그: 캐시 데이터 상태 - 라이브: \(liveCount), 종료: \(finishedCount), 예정: \(upcomingCount)")
+            
+            // 알림 발송 (UI 업데이트를 위해)
+            NotificationCenter.default.post(
+                name: NSNotification.Name("FixturesLoadingCompleted"),
+                object: nil,
+                userInfo: ["date": date]
+            )
         } else {
             // 캐시된 데이터가 없으면 빈 배열 설정 (스켈레톤 UI 표시 가능)
             fixtures[date] = []
             print("🔍 디버그: 캐시 데이터 없음, 빈 배열 설정")
+            
+            // 오늘 날짜인 경우 로딩 상태 명확히 표시
+            if isToday {
+                loadingDates.insert(date)
+                isLoading = true
+                print("⏳ 오늘 날짜 로딩 상태 설정: \(dateString)")
+            }
         }
         
         // 2. 캐시 만료 여부 확인
@@ -444,7 +492,20 @@ class FixturesOverviewViewModel: ObservableObject {
                 cachedFixtures[dateString] = fixturesForDate
                 saveCachedFixtures(for: dateString)
                 
+                // 로딩 상태 업데이트
+                if isToday {
+                    loadingDates.remove(date)
+                    isLoading = loadingDates.isEmpty
+                }
+                
                 print("✅ API에서 최신 데이터로 업데이트: \(dateString) (\(fixturesForDate.count)개)")
+                
+                // 알림 발송 (UI 업데이트를 위해)
+                NotificationCenter.default.post(
+                    name: NSNotification.Name("FixturesLoadingCompleted"),
+                    object: nil,
+                    userInfo: ["date": date, "forceUpdate": true]
+                )
             } catch {
                 print("❌ 최신 데이터 업데이트 실패: \(error.localizedDescription)")
                 print("🔍 디버그: 오류 타입: \(type(of: error))")
@@ -457,6 +518,19 @@ class FixturesOverviewViewModel: ObservableObject {
                 if fixtures[date]?.isEmpty == true {
                     emptyDates[date] = "경기 일정을 불러오는데 실패했습니다."
                 }
+                
+                // 로딩 상태 업데이트
+                if isToday {
+                    loadingDates.remove(date)
+                    isLoading = loadingDates.isEmpty
+                }
+                
+                // 오류 발생 시에도 알림 발송 (UI 업데이트를 위해)
+                NotificationCenter.default.post(
+                    name: NSNotification.Name("FixturesLoadingCompleted"),
+                    object: nil,
+                    userInfo: ["date": date, "error": true]
+                )
             }
         } else {
             print("✅ 캐시가 유효하므로 API 호출 생략: \(dateString)")
@@ -1063,7 +1137,14 @@ class FixturesOverviewViewModel: ObservableObject {
         // 캐시 저장 시간 기록
         cacheDates[dateKey] = Date()
         
-        // try? 사용하여 에러 처리 (catch 블록 제거)
+        // 1. CoreData에 저장
+        if let fixtures = cachedFixtures[dateKey] {
+            // CoreData에 저장
+            CoreDataManager.shared.saveFixtures(fixtures, for: dateKey)
+            print("✅ CoreData에 경기 일정 저장 성공: \(dateKey) (\(fixtures.count)개)")
+        }
+        
+        // 2. UserDefaults에도 백업으로 저장 (기존 코드)
         let encoder = JSONEncoder()
         
         // 경기 일정 캐시 저장
@@ -1073,12 +1154,12 @@ class FixturesOverviewViewModel: ObservableObject {
             // 캐시 날짜 저장
             if let encodedDates = try? encoder.encode(cacheDates) {
                 UserDefaults.standard.set(encodedDates, forKey: "cacheDates")
-                print("✅ 캐시된 경기 일정 저장 성공: \(dateKey)")
+                print("✅ UserDefaults에 캐시된 경기 일정 저장 성공: \(dateKey)")
             } else {
-                print("❌ 캐시 날짜 저장 실패")
+                print("❌ UserDefaults 캐시 날짜 저장 실패")
             }
         } else {
-            print("❌ 캐시된 경기 일정 저장 실패")
+            print("❌ UserDefaults 캐시된 경기 일정 저장 실패")
         }
     }
     
@@ -1198,7 +1279,17 @@ class FixturesOverviewViewModel: ObservableObject {
         
         print("🔍 디버그: fetchFixturesForDate 시작 - 날짜: \(dateString), 강제 새로고침: \(forceRefresh)")
         
-        // 캐시된 데이터가 있는지 확인 (API 호출 전)
+        // 1. 먼저 CoreData에서 데이터 확인
+        if !forceRefresh {
+            if let coreDataFixtures = CoreDataManager.shared.loadFixtures(for: dateString) {
+                print("✅ CoreData에서 데이터 로드 성공: \(dateString) (\(coreDataFixtures.count)개)")
+                return coreDataFixtures
+            } else {
+                print("ℹ️ CoreData에 데이터 없음: \(dateString)")
+            }
+        }
+        
+        // 2. CoreData에 없으면 캐시된 데이터 확인 (API 호출 전)
         let cachedData = self.cachedFixtures[dateString]
         
         // 캐시 만료 확인
@@ -1208,6 +1299,10 @@ class FixturesOverviewViewModel: ObservableObject {
         // 캐시가 있고, 만료되지 않았으며, 강제 새로고침이 아닌 경우 캐시 사용
         if !forceRefresh && !isCacheExpired, let cachedData = cachedData, !cachedData.isEmpty {
             print("✅ 캐시된 데이터 사용 (API 호출 전): \(dateString) (\(cachedData.count)개)")
+            
+            // CoreData에도 저장 (백업)
+            CoreDataManager.shared.saveFixtures(cachedData, for: dateString)
+            
             return cachedData
         }
         
@@ -1224,7 +1319,13 @@ class FixturesOverviewViewModel: ObservableObject {
         // 리그별 빈 응답 캐시 확인을 위한 필터링된 리그 목록
         let filteredLeagues = mainLeagues.filter { leagueId in
             // 빈 응답 캐시가 만료되었거나 강제 새로고침인 경우에만 포함
-            return forceRefresh || isEmptyResponseCacheExpired(for: dateString, leagueId: leagueId)
+            let shouldInclude = forceRefresh || isEmptyResponseCacheExpired(for: dateString, leagueId: leagueId)
+            
+            if !shouldInclude {
+                print("🔍 디버그: 빈 응답 캐시가 유효하여 리그 \(leagueId) 요청 생략")
+            }
+            
+            return shouldInclude
         }
         
         if filteredLeagues.count < mainLeagues.count {
@@ -1238,6 +1339,7 @@ class FixturesOverviewViewModel: ObservableObject {
         var allFixtures: [Fixture] = []
         var successfulLeagues: [Int] = []
         var failedLeagues: [Int] = []
+        var emptyResponseLeagues: [Int] = []
         
         // 1. 주요 리그 데이터 가져오기
         for leagueId in filteredLeagues {
@@ -1279,9 +1381,10 @@ class FixturesOverviewViewModel: ObservableObject {
                 print("📊 리그 \(leagueId) 받은 경기 수: \(fixturesForLeague.count)")
                 print("📊 누적 경기 수: \(allFixtures.count)개 (리그 \(leagueId) 추가 후)")
                 
-                // 빈 응답인 경우 캐시에 저장
+                // 빈 응답인 경우 캐시에 저장하고 UI에 표시
                 if fixturesForLeague.isEmpty {
                     saveEmptyResponseCache(for: dateString, leagueId: leagueId)
+                    emptyResponseLeagues.append(leagueId)
                     print("📝 리그 \(leagueId)에 대한 빈 응답 캐시 저장")
                     
                     // 빈 응답 캐시 상태 로깅
@@ -1880,7 +1983,56 @@ class FixturesOverviewViewModel: ObservableObject {
             // 빈 데이터로 처리 (더미 데이터 대신)
             fixtures[date] = []
             emptyDates[date] = "해당 날짜의 경기 일정은 아직 확정되지 않았습니다."
+            
+            // 알림 발송 (UI 업데이트를 위해)
+            NotificationCenter.default.post(
+                name: NSNotification.Name("FixturesLoadingCompleted"),
+                object: nil,
+                userInfo: ["date": date, "empty": true]
+            )
             return
+        }
+        
+        // 날짜 문자열 생성
+        let dateString = formatDateForAPI(date)
+        
+        // 1. 먼저 CoreData에서 데이터 확인
+        if !forceRefresh {
+            if let coreDataFixtures = CoreDataManager.shared.loadFixtures(for: dateString) {
+                print("✅ CoreData에서 데이터 로드 성공: \(dateString) (\(coreDataFixtures.count)개)")
+                fixtures[date] = coreDataFixtures
+                
+                // 빈 응답인 경우 UI에 표시
+                if coreDataFixtures.isEmpty {
+                    emptyDates[date] = "해당일에 예정된 경기가 없습니다."
+                    print("ℹ️ CoreData에서 빈 응답 데이터 로드: \(dateString)")
+                } else {
+                    emptyDates[date] = nil
+                }
+                
+                // 알림 발송 (UI 업데이트를 위해)
+                NotificationCenter.default.post(
+                    name: NSNotification.Name("FixturesLoadingCompleted"),
+                    object: nil,
+                    userInfo: ["date": date, "source": "coredata"]
+                )
+                
+                // 백그라운드에서 최신 데이터 확인 (오늘 날짜이거나 라이브 경기가 있는 경우)
+                let isToday = calendar.isDate(date, inSameDayAs: today)
+                let hasLiveMatches = coreDataFixtures.contains { fixture in
+                    liveStatuses.contains(fixture.fixture.status.short)
+                }
+                
+                if isToday || hasLiveMatches {
+                    Task {
+                        await loadFixturesFromAPI(date: date, dateString: dateString, forceRefresh: true)
+                    }
+                }
+                
+                return
+            } else {
+                print("ℹ️ CoreData에 데이터 없음: \(dateString)")
+            }
         }
         
         // 오늘 날짜인지 확인
@@ -1905,9 +2057,6 @@ class FixturesOverviewViewModel: ObservableObject {
         // 로딩 중인 날짜 목록에 추가
         loadingDates.insert(date)
         
-        // 날짜 문자열 생성
-        let dateString = formatDateForAPI(date)
-        
         // 빈 응답 상태 초기화
         emptyDates[date] = nil
         
@@ -1920,11 +2069,21 @@ class FixturesOverviewViewModel: ObservableObject {
             fixtures[date] = []
         }
         
+        // API에서 데이터 로드
+        await loadFixturesFromAPI(date: date, dateString: dateString, forceRefresh: shouldForceRefresh)
+    }
+    
+    // API에서 경기 일정 로드 (분리된 메서드)
+    @MainActor
+    private func loadFixturesFromAPI(date: Date, dateString: String, forceRefresh: Bool) async {
+        // 캐시된 데이터 가져오기
+        let cachedData = self.cachedFixtures[dateString]
+        
         // 타임아웃 처리를 위한 Task 생성
         let task = Task {
             do {
-                // 경기 일정 가져오기 (shouldForceRefresh 사용)
-                let fixturesForDate = try await fetchFixturesForDate(date, forceRefresh: shouldForceRefresh)
+                // 경기 일정 가져오기
+                let fixturesForDate = try await fetchFixturesForDate(date, forceRefresh: forceRefresh)
                 
                 // 작업이 취소되었는지 확인
                 if Task.isCancelled {
@@ -1941,6 +2100,14 @@ class FixturesOverviewViewModel: ObservableObject {
                     // 경기 일정 업데이트 (API에서 가져온 실제 데이터로 교체)
                     fixtures[date] = fixturesForDate
                     
+                    // 빈 응답인 경우 UI에 표시
+                    if fixturesForDate.isEmpty {
+                        emptyDates[date] = "해당일에 예정된 경기가 없습니다."
+                        print("ℹ️ API에서 빈 응답 데이터 로드: \(dateString)")
+                    } else {
+                        emptyDates[date] = nil
+                    }
+                    
                     // 로딩 중인 날짜 목록에서 제거
                     loadingDates.remove(date)
                     
@@ -1951,7 +2118,7 @@ class FixturesOverviewViewModel: ObservableObject {
                     NotificationCenter.default.post(
                         name: NSNotification.Name("FixturesLoadingCompleted"),
                         object: nil,
-                        userInfo: ["date": date]
+                        userInfo: ["date": date, "source": "api"]
                     )
                 }
             } catch let error as FootballAPIError {
@@ -1983,7 +2150,7 @@ class FixturesOverviewViewModel: ObservableObject {
                         NotificationCenter.default.post(
                             name: NSNotification.Name("FixturesLoadingCompleted"),
                             object: nil,
-                            userInfo: ["date": date]
+                            userInfo: ["date": date, "error": true]
                         )
                     }
                     return
@@ -2018,7 +2185,7 @@ class FixturesOverviewViewModel: ObservableObject {
                     NotificationCenter.default.post(
                         name: NSNotification.Name("FixturesLoadingCompleted"),
                         object: nil,
-                        userInfo: ["date": date]
+                        userInfo: ["date": date, "empty": fixtures[date]?.isEmpty ?? true]
                     )
                 }
             } catch let error {
@@ -2048,7 +2215,7 @@ class FixturesOverviewViewModel: ObservableObject {
                     NotificationCenter.default.post(
                         name: NSNotification.Name("FixturesLoadingCompleted"),
                         object: nil,
-                        userInfo: ["date": date]
+                        userInfo: ["date": date, "error": true]
                     )
                 }
             }
@@ -2067,28 +2234,49 @@ class FixturesOverviewViewModel: ObservableObject {
                 await MainActor.run {
                     print("⏱️ 타임아웃: \(dateString)")
                     
-                    // 캐시된 데이터가 있으면 사용
-                    if let cachedData = cachedData, !cachedData.isEmpty {
+                    // 1. 먼저 CoreData에서 데이터 확인
+                    if let coreDataFixtures = CoreDataManager.shared.loadFixtures(for: dateString) {
+                        fixtures[date] = coreDataFixtures
+                        print("✅ 타임아웃 발생, CoreData 데이터 사용: \(dateString) (\(coreDataFixtures.count)개)")
+                        
+                        // 빈 응답인 경우 UI에 표시
+                        if coreDataFixtures.isEmpty {
+                            emptyDates[date] = "해당일에 예정된 경기가 없습니다."
+                        } else {
+                            emptyDates[date] = nil
+                        }
+                    }
+                    // 2. CoreData에 없으면 캐시된 데이터 확인
+                    else if let cachedData = cachedData, !cachedData.isEmpty {
                         fixtures[date] = cachedData
                         print("✅ 타임아웃 발생, 캐시된 데이터 사용: \(dateString) (\(cachedData.count)개)")
-                    } else {
-                        // 캐시된 데이터가 없으면 더미 데이터 생성
-                        let dummyFixtures = createDummyFixtures(for: date)
-                        fixtures[date] = dummyFixtures
-                        print("✅ 타임아웃 발생, 더미 데이터 생성: \(dateString) (\(dummyFixtures.count)개)")
+                        
+                        // CoreData에도 저장 (백업)
+                        CoreDataManager.shared.saveFixtures(cachedData, for: dateString)
+                        
+                        // 빈 응답인 경우 UI에 표시
+                        if cachedData.isEmpty {
+                            emptyDates[date] = "해당일에 예정된 경기가 없습니다."
+                        } else {
+                            emptyDates[date] = nil
+                        }
+                    }
+                    // 3. 빈 응답으로 처리
+                    else {
+                        // 빈 배열 설정
+                        fixtures[date] = []
+                        emptyDates[date] = "경기 일정을 불러오는데 실패했습니다. 다시 시도해주세요."
+                        print("⚠️ 타임아웃 발생, 빈 응답으로 처리: \(dateString)")
                     }
                     
                     // 로딩 중인 날짜 목록에서 제거
                     loadingDates.remove(date)
                     
-                    // 타임아웃 메시지 설정 (UI에 표시되지 않도록 nil로 설정)
-                    emptyDates[date] = nil
-                    
                     // 알림 발송 (UI 업데이트를 위해)
                     NotificationCenter.default.post(
                         name: NSNotification.Name("FixturesLoadingCompleted"),
                         object: nil,
-                        userInfo: ["date": date]
+                        userInfo: ["date": date, "timeout": true, "empty": fixtures[date]?.isEmpty ?? true]
                     )
                 }
             }

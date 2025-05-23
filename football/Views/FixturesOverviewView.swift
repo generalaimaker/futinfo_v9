@@ -302,6 +302,12 @@ struct FixturesMainContentView: View {
                             // 날짜 포맷팅은 로그에서 생략 (MainActor 격리 문제 해결)
                             print("📣 FixturesMainContentView - 경기 일정 로딩 완료 알림 수신")
                             
+                            // 강제 업데이트 플래그 확인
+                            let forceUpdate = userInfo["forceUpdate"] as? Bool ?? false
+                            let hasError = userInfo["error"] as? Bool ?? false
+                            
+                            print("📣 알림 세부 정보 - 강제 업데이트: \(forceUpdate), 오류: \(hasError)")
+                            
                             // 현재 선택된 날짜와 동일한 경우 스켈레톤 UI 숨김
                             // MainActor 격리 문제를 해결하기 위해 Task 내에서 처리
                             Task { @MainActor in
@@ -309,6 +315,20 @@ struct FixturesMainContentView: View {
                                    Calendar.current.isDate(loadedDate, inSameDayAs: selectedDate) {
                                     withAnimation {
                                         showSkeleton = false
+                                    }
+                                    
+                                    // 강제 업데이트인 경우 UI 새로고침 트리거
+                                    if forceUpdate {
+                                        print("🔄 강제 UI 업데이트 트리거")
+                                        // 약간의 지연 후 UI 업데이트 (데이터 바인딩 안정화)
+                                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                            // 임시 변수를 사용하여 강제 UI 업데이트
+                                            let tempDate = selectedDate
+                                            viewModel.selectedDate = Calendar.current.date(byAdding: .second, value: 1, to: tempDate) ?? tempDate
+                                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                                viewModel.selectedDate = tempDate
+                                            }
+                                        }
                                     }
                                 }
                             }

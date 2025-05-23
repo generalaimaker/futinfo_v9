@@ -81,9 +81,21 @@ class TeamProfileViewModel: ObservableObject {
         isLoadingProfile = false
     }
     
+    // 빈 응답 카운터 추가
+    private var emptyResponseCounter = 0
+    private let maxEmptyResponses = 5 // 최대 빈 응답 허용 횟수
+    
     func loadTeamData(teamId: Int, leagueId: Int) async {
         isLoadingStats = true
         errorMessage = nil
+        
+        // 과거 시즌인지 확인
+        let currentYear = Calendar.current.component(.year, from: Date())
+        let isPastSeason = selectedSeason < currentYear
+        
+        if isPastSeason {
+            print("🔍 과거 시즌 데이터 로드 시도: \(selectedSeason) (현재: \(currentYear))")
+        }
         
         do {
             // 통계 데이터 로드
@@ -92,6 +104,41 @@ class TeamProfileViewModel: ObservableObject {
                 leagueId: leagueId,
                 season: selectedSeason
             )
+            
+            // 통계 데이터가 비어 있는지 확인
+            let isEmptyStats = statistics.fixtures?.played.total == 0 &&
+                               statistics.goals?.against.total == nil &&
+                               statistics.goals?.for.total == nil
+            
+            if isEmptyStats {
+                emptyResponseCounter += 1
+                print("⚠️ 빈 통계 데이터 감지 (카운터: \(emptyResponseCounter)/\(maxEmptyResponses))")
+                
+                // 최대 빈 응답 횟수를 초과한 경우
+                if emptyResponseCounter >= maxEmptyResponses {
+                    print("❌ 최대 빈 응답 횟수 초과: 로딩 중단")
+                    
+                    // 과거 시즌인 경우 특별 메시지 표시
+                    if isPastSeason {
+                        errorMessage = "선택한 시즌(\(selectedSeason))의 통계 데이터를 불러올 수 없습니다."
+                    } else {
+                        errorMessage = "팀 통계 데이터를 불러오는데 실패했습니다."
+                    }
+                    
+                    // 차트 데이터 초기화
+                    chartData = []
+                    
+                    // 로딩 상태 해제
+                    isLoadingStats = false
+                    return
+                }
+            } else {
+                // 유효한 데이터를 받으면 카운터 초기화
+                emptyResponseCounter = 0
+                print("✅ 유효한 통계 데이터 수신: 카운터 초기화")
+            }
+            
+            // 통계 데이터 설정
             teamStatistics = statistics
             
             // 순위 데이터 로드 (실패해도 계속 진행)
@@ -120,11 +167,25 @@ class TeamProfileViewModel: ObservableObject {
         } catch DecodingError.valueNotFound(let type, let context) {
             // 리그 ID가 null인 경우 처리
             print("Load Team Data Error: valueNotFound(\(type), \(context.debugDescription))")
-            errorMessage = "이 팀의 리그 데이터를 찾을 수 없습니다."
+            
+            // 과거 시즌인 경우 특별 메시지 표시
+            if isPastSeason {
+                errorMessage = "선택한 시즌(\(selectedSeason))의 리그 데이터를 찾을 수 없습니다."
+            } else {
+                errorMessage = "이 팀의 리그 데이터를 찾을 수 없습니다."
+            }
+            
             chartData = []
         } catch {
             print("Load Team Data Error: \(error)")
-            errorMessage = "팀 데이터를 불러오는데 실패했습니다: \(error.localizedDescription)"
+            
+            // 과거 시즌인 경우 특별 메시지 표시
+            if isPastSeason {
+                errorMessage = "선택한 시즌(\(selectedSeason))의 데이터를 불러오는데 실패했습니다."
+            } else {
+                errorMessage = "팀 데이터를 불러오는데 실패했습니다: \(error.localizedDescription)"
+            }
+            
             chartData = []
         }
         
@@ -172,6 +233,10 @@ class TeamProfileViewModel: ObservableObject {
         let currentYear = Calendar.current.component(.year, from: Date())
         var history: [TeamHistory] = []
         
+        // 실패한 시즌 카운터
+        var failedSeasonCount = 0
+        let maxFailedSeasons = 3 // 최대 실패 허용 시즌 수
+        
         // 최근 5개 시즌만 로드 (미래 시즌 제외)
         for season in seasons.prefix(5).filter({ $0 <= currentYear }) {
             // 각 API 호출을 개별적으로 처리하여 하나가 실패해도 다른 하나는 계속 진행
@@ -184,8 +249,34 @@ class TeamProfileViewModel: ObservableObject {
                     leagueId: leagueId,
                     season: season
                 )
+                
+                // 통계 데이터가 비어 있는지 확인
+                let isEmptyStats = statistics?.fixtures?.played.total == 0 &&
+                                   statistics?.goals?.against.total == nil &&
+                                   statistics?.goals?.for.total == nil
+                
+                if isEmptyStats {
+                    print("⚠️ 시즌 \(season) 빈 통계 데이터 감지")
+                    failedSeasonCount += 1
+                    
+                    // 최대 실패 시즌 수를 초과한 경우 중단
+                    if failedSeasonCount >= maxFailedSeasons {
+                        print("❌ 최대 실패 시즌 수 초과: 히스토리 로드 중단")
+                        break
+                    }
+                    
+                    continue // 빈 데이터인 경우 이 시즌은 건너뜀
+                }
             } catch {
                 print("Failed to load statistics for season \(season): \(error)")
+                failedSeasonCount += 1
+                
+                // 최대 실패 시즌 수를 초과한 경우 중단
+                if failedSeasonCount >= maxFailedSeasons {
+                    print("❌ 최대 실패 시즌 수 초과: 히스토리 로드 중단")
+                    break
+                }
+                
                 continue // 통계 로드 실패 시 이 시즌은 건너뜀
             }
             
@@ -209,11 +300,18 @@ class TeamProfileViewModel: ObservableObject {
                     standing: standing
                 )
                 history.append(seasonHistory)
+                print("✅ 시즌 \(season) 히스토리 추가 성공")
             }
         }
         
         await MainActor.run {
             self.teamHistory = history.sorted { $0.season > $1.season }
+            
+            // 히스토리가 비어 있는 경우 메시지 표시
+            if self.teamHistory.isEmpty && failedSeasonCount > 0 {
+                print("⚠️ 팀 히스토리 데이터 없음")
+                // 에러 메시지는 표시하지 않음 (UI에 영향을 주지 않기 위해)
+            }
         }
     }
     
@@ -239,6 +337,9 @@ class TeamProfileViewModel: ObservableObject {
                 // 현재 시즌이 없으면 가장 최근 시즌 선택
                 selectedSeason = firstSeason
             }
+            
+            // 시즌 선택 시 빈 응답 카운터 초기화
+            emptyResponseCounter = 0
         } catch {
             errorMessage = "시즌 정보를 불러오는데 실패했습니다: \(error.localizedDescription)"
             print("Load Team Seasons Error: \(error)")

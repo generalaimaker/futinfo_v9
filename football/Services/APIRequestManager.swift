@@ -503,9 +503,36 @@ class APIRequestManager {
             // 빈 배열 추가
             modifiedJson["response"] = []
             print("➕ 'response' 필드 추가")
+        } else if let responseDict = modifiedJson["response"] as? [String: Any] {
+            // response 필드가 객체인 경우 (과거 시즌 팀 통계 API 응답 형식)
+            print("🔍 'response' 필드가 객체 형태임: \(endpoint)")
+            
+            // 엔드포인트에 따라 다른 처리
+            if endpoint.contains("teams/statistics") {
+                // 팀 통계 엔드포인트인 경우 객체 그대로 유지
+                print("✅ 팀 통계 엔드포인트 감지: 객체 형태 응답 유지")
+                
+                // 응답 구조 로깅
+                let responseKeys = responseDict.keys.joined(separator: ", ")
+                print("📊 응답 객체 키: \(responseKeys)")
+                
+                // 필요한 필드가 있는지 확인
+                if responseDict["team"] != nil && responseDict["league"] != nil {
+                    print("✅ 팀 통계 응답에 필요한 필드 확인됨")
+                } else {
+                    print("⚠️ 팀 통계 응답에 필요한 필드 누락됨")
+                }
+            } else {
+                // 다른 엔드포인트의 경우 배열로 변환
+                print("⚠️ 'response' 필드가 객체이지만 배열이 필요한 엔드포인트: \(endpoint)")
+                
+                // 객체를 배열에 담아 변환
+                modifiedJson["response"] = [responseDict]
+                print("🔄 객체를 배열로 변환: [객체]")
+            }
         } else if let response = modifiedJson["response"], !(response is [Any]) {
-            // response 필드가 배열이 아닌 경우
-            print("⚠️ 'response' 필드가 배열이 아님, 빈 배열로 대체")
+            // response 필드가 배열이나 객체가 아닌 다른 타입인 경우
+            print("⚠️ 'response' 필드가 배열이나 객체가 아님, 빈 배열로 대체")
             
             // 빈 배열로 대체
             modifiedJson["response"] = []

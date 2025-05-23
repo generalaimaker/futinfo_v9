@@ -157,6 +157,10 @@ struct FixturesView: View {
             viewModel.loadFixtures()
         }
         .onAppear {
+            // 로딩 상태 표시
+            viewModel.isLoading = true
+            
+            // 경기 일정 로드
             viewModel.loadFixtures()
             
             // NotificationCenter 관찰자 등록
@@ -170,10 +174,43 @@ struct FixturesView: View {
                     navigateToTeamProfile = true
                 }
             }
+            
+            // 경기 일정 로딩 완료 알림 관찰자 등록
+            NotificationCenter.default.addObserver(forName: NSNotification.Name("FixturesLoadingCompleted"), object: nil, queue: .main) { notification in
+                if let userInfo = notification.userInfo {
+                    print("📣 FixturesView - 경기 일정 로딩 완료 알림 수신")
+                    
+                    // 강제 업데이트 플래그 확인
+                    let forceUpdate = userInfo["forceUpdate"] as? Bool ?? false
+                    let hasError = userInfo["error"] as? Bool ?? false
+                    
+                    print("📣 알림 세부 정보 - 강제 업데이트: \(forceUpdate), 오류: \(hasError)")
+                    
+                    // 로딩 상태 업데이트
+                    DispatchQueue.main.async {
+                        viewModel.isLoading = false
+                        
+                        // 강제 업데이트인 경우 UI 새로고침 트리거
+                        if forceUpdate && !hasError {
+                            print("🔄 FixturesView - 강제 UI 업데이트 트리거")
+                            // 약간의 지연 후 UI 업데이트 (데이터 바인딩 안정화)
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                // 임시 변수를 사용하여 강제 UI 업데이트
+                                let tempLeagueId = viewModel.leagueId
+                                viewModel.leagueId = -1 // 임시 값으로 변경
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                    viewModel.leagueId = tempLeagueId // 원래 값으로 복원
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
         .onDisappear {
             // NotificationCenter 관찰자 제거
             NotificationCenter.default.removeObserver(self, name: NSNotification.Name("ShowTeamProfile"), object: nil)
+            NotificationCenter.default.removeObserver(self, name: NSNotification.Name("FixturesLoadingCompleted"), object: nil)
         }
         .navigationDestination(isPresented: $navigateToTeamProfile) {
             TeamProfileView(teamId: selectedTeamId, leagueId: selectedTeamLeagueId)
