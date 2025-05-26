@@ -36,7 +36,7 @@ struct FixturesView: View {
                                 }
                             }
                         }
-                        .padding(.horizontal)
+                        .frame(maxWidth: .infinity, alignment: .center) // 가운데 정렬로 변경
                     }
                     .padding(.vertical, 8)
                     .background(Color(.systemBackground))
@@ -55,7 +55,9 @@ struct FixturesView: View {
                         
                         Spacer()
                     }
-                    .padding()
+                    .frame(maxWidth: .infinity, alignment: .center) // 가운데 정렬로 변경
+                    .padding(.vertical)
+                    .padding(.horizontal, 10)
                     .background(Color(.systemBackground))
                     
                     // 결과/예정 선택
@@ -66,7 +68,9 @@ struct FixturesView: View {
                             .tag(1)
                     }
                     .pickerStyle(SegmentedPickerStyle())
-                    .padding()
+                    .frame(maxWidth: .infinity, alignment: .center) // 가운데 정렬로 변경
+                    .padding(.vertical)
+                    .padding(.horizontal, 10)
                     
                     // 경기 목록
                     if viewModel.isLoading {
@@ -125,6 +129,7 @@ struct FixturesView: View {
                                 }
                             }
                             .padding(.vertical)
+                            .frame(maxWidth: .infinity, alignment: .center) // 가운데 정렬 추가
                         }
                         .refreshable {
                             viewModel.loadFixtures()

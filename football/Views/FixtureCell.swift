@@ -68,7 +68,7 @@ struct FixtureCell: View {
                 .padding(.horizontal, 10)
                 .background(Color(.systemBackground))
                 .cornerRadius(10)
-                .frame(width: UIScreen.main.bounds.width - 40) // 화면 너비에서 좌우 여백 20씩 뺀 값
+                .frame(maxWidth: .infinity, alignment: .center) // 가운데 정렬로 변경
                 
                 // 상태 뱃지 또는 경기 시간 (우상단 귀퉁이에 배치)
                 if ["NS", "TBD"].contains(fixture.fixture.status.short) {

@@ -52,7 +52,7 @@ struct LeagueTabItem: View {
                 .foregroundColor(isSelected ? .blue : .gray)
         }
         .padding(.vertical, 8)
-        .padding(.horizontal, 12)
+        .padding(.horizontal, 10)
         .background(
             RoundedRectangle(cornerRadius: 8)
                 .fill(isSelected ? Color.blue.opacity(0.1) : Color.clear)

@@ -80,17 +80,30 @@ private func getTeamAbbreviation(for teamName: String) -> String {
         "Borussia Mönchengladbach": "BMG",
         "Cologne": "KOE",
         "Augsburg": "FCA",
+        "FC Augsburg": "FCA",
         "Stuttgart": "VFB",
         "Werder Bremen": "SVW",
         "Bochum": "BOC",
-        "Heidenheim": "HDH",
+        "Heidenheim": "FCH",
+        "1. FC Heidenheim": "FCH",
+        "1.FC Heidenheim": "FCH",
+        "1 FC Heidenheim": "FCH",
+        "FC Heidenheim": "FCH",
         "Darmstadt": "SVD",
         "Hoffenheim": "TSG",
+        "1899 Hoffenheim": "TSG",
+        "TSG 1899 Hoffenheim": "TSG",
+        "TSG Hoffenheim": "TSG",
+        "FC St. Pauli": "FCSP",
+        "FC St Pauli": "FCSP",
+        "St. Pauli": "FCSP",
+        "St Pauli": "FCSP",
         // Ligue 1
         "Paris Saint-Germain": "PSG",
         "Paris Saint Germain": "PSG",
         "Marseille": "OM",
-        "Lyon": "LYO",
+        "Lyon": "OL",
+        "Olympique Lyonnais": "OL",
         "Monaco": "ASM",
         "Lille": "LIL",
         "Rennes": "REN",
@@ -188,6 +201,8 @@ struct StandingsDetailView: View {
                         // 스크롤 제거하고 화면 너비에 맞게 조정
                         // 헤더
                         HStack {
+                            // HStack이 전체 너비를 차지하도록 설정
+                            Spacer(minLength: 0)
                             Text("#")
                                 .font(.caption)
                                 .foregroundColor(.gray)
@@ -196,38 +211,41 @@ struct StandingsDetailView: View {
                             Text("팀")
                                 .font(.caption)
                                 .foregroundColor(.gray)
-                                .frame(width: 120, alignment: .leading)
+                                .frame(minWidth: 75, maxWidth: .infinity, alignment: .leading)
                             
                             Text("경기")
                                 .font(.caption)
                                 .foregroundColor(.gray)
-                                .frame(width: 30, alignment: .center)
+                                .frame(width: 23, alignment: .center)
                             
                             Text("승")
                                 .font(.caption)
                                 .foregroundColor(.gray)
-                                .frame(width: 30, alignment: .center)
+                                .frame(width: 23, alignment: .center)
                             
                             Text("무")
                                 .font(.caption)
                                 .foregroundColor(.gray)
-                                .frame(width: 30, alignment: .center)
+                                .frame(width: 23, alignment: .center)
                             
                             Text("패")
                                 .font(.caption)
                                 .foregroundColor(.gray)
-                                .frame(width: 30, alignment: .center)
+                                .frame(width: 23, alignment: .center)
                             
                             Text("승점")
                                 .font(.caption)
                                 .foregroundColor(.gray)
-                                .frame(width: 30, alignment: .center)
+                                .frame(width: 23, alignment: .center)
                             
                             Text("득실")
                                 .font(.caption)
                                 .foregroundColor(.gray)
-                                .frame(width: 40, alignment: .center)
+                                .frame(width: 28, alignment: .center)
+                                
+                            Spacer(minLength: 0)
                         }
+                        .frame(maxWidth: .infinity) // HStack이 전체 너비를 차지하도록 설정
                         .padding(.horizontal, 0) // 좌우 패딩 제거
                         .padding(.vertical, 8)
                         .background(Color(.systemGray6))
@@ -239,6 +257,7 @@ struct StandingsDetailView: View {
                             
                             NavigationLink(destination: TeamProfileView(teamId: standing.team.id, leagueId: fixture.league.id)) {
                                 HStack {
+                                    Spacer(minLength: 0)
                                     // 순위 및 진출권 표시
                                     HStack(spacing: 0) {
                                         // 진출권 색상 띠
@@ -265,40 +284,43 @@ struct StandingsDetailView: View {
                                                 .foregroundColor(.primary)
                                         }
                                     }
-                                    .frame(width: 120, alignment: .leading)
+                                    .frame(minWidth: 75, maxWidth: .infinity, alignment: .leading)
                                     
                                     Text("\(standing.all.played)")
                                         .font(.system(.body, design: .rounded))
-                                        .frame(width: 30, alignment: .center)
+                                        .frame(width: 23, alignment: .center)
                                         .lineLimit(1)
                                     
                                     Text("\(standing.all.win)")
                                         .font(.system(.body, design: .rounded))
-                                        .frame(width: 30, alignment: .center)
+                                        .frame(width: 23, alignment: .center)
                                         .lineLimit(1)
                                     
                                     Text("\(standing.all.draw)")
                                         .font(.system(.body, design: .rounded))
-                                        .frame(width: 30, alignment: .center)
+                                        .frame(width: 23, alignment: .center)
                                         .lineLimit(1)
                                     
                                     Text("\(standing.all.lose)")
                                         .font(.system(.body, design: .rounded))
-                                        .frame(width: 30, alignment: .center)
+                                        .frame(width: 23, alignment: .center)
                                         .lineLimit(1)
                                     
                                     Text("\(standing.points)")
                                         .font(.system(.body, design: .rounded))
                                         .fontWeight(.bold)
-                                        .frame(width: 30, alignment: .center)
+                                        .frame(width: 23, alignment: .center)
                                         .lineLimit(1)
                                     
                                     Text("\(standing.goalsDiff)")
                                         .font(.system(.body, design: .rounded))
                                         .foregroundColor(standing.goalsDiff >= 0 ? .blue : .red)
-                                        .frame(width: 40, alignment: .center)
+                                        .frame(width: 28, alignment: .center)
                                         .lineLimit(1) // 한 줄에 표시되도록 설정
+                                        
+                                    Spacer(minLength: 0)
                                 }
+                                .frame(maxWidth: .infinity) // HStack이 전체 너비를 차지하도록 설정
                                 .padding(.horizontal, 0) // 좌우 패딩 제거
                                 .padding(.vertical, 12)
                                 .background(
@@ -312,7 +334,7 @@ struct StandingsDetailView: View {
                         }
                     // 스크롤 뷰의 닫는 괄호 제거
                     .cornerRadius(8)
-                    .frame(width: 400) // 모든 열 너비 증가에 맞춰 전체 너비 조정
+                    .frame(maxWidth: 380) // 테이블 전체 너비 제한
                     .overlay(
                         RoundedRectangle(cornerRadius: 8)
                             .stroke(Color(.systemGray5), lineWidth: 1)
@@ -364,7 +386,7 @@ struct StandingsDetailView: View {
                                 }
                             } else {
                                 // 일반 리그 범례
-                                ForEach([QualificationInfo.championsLeague, .championsLeagueQualification, .europaLeague, .conferenceLeague, .relegation], id: \.self) { info in
+                                ForEach([QualificationInfo.championsLeague, .championsLeagueQualification, .europaLeague, .conferenceLeague, .relegation, .relegationPlayoff], id: \.self) { info in
                                     if getQualificationDescription(for: info) != "" && isQualificationRelevant(for: info) {
                                         HStack(spacing: 8) {
                                             Rectangle()
@@ -382,7 +404,7 @@ struct StandingsDetailView: View {
                     .padding(.top, 8)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading) // 좌측 정렬로 변경
-                .padding(.vertical, 16) // 좌우 패딩 제거, 상하 패딩만 유지
+                .padding(.vertical, 16) // 상하 패딩 유지
                 .background(Color(.systemBackground))
                 .cornerRadius(16)
                 .shadow(color: Color.black.opacity(0.05), radius: 10)
@@ -411,8 +433,11 @@ struct StandingsDetailView: View {
         case championsLeague
         case championsLeagueQualification
         case europaLeague
+        case europaLeagueQualification
         case conferenceLeague
+        case conferenceLeagueQualification
         case relegation
+        case relegationPlayoff
         case none
         case knockout16Direct      // 16강 직행 (챔피언스리그, 유로파리그)
         case knockout16Playoff     // 16강 플레이오프 (챔피언스리그, 유로파리그)
@@ -445,6 +470,10 @@ struct StandingsDetailView: View {
                 return .europaLeague
             } else if rank == 7 {
                 return .conferenceLeague
+            } else if rank == 12 {
+                return .europaLeague // 12위: 유로파리그 진출
+            } else if rank == 17 {
+                return .championsLeague // 17위: 챔피언스리그 진출
             } else if rank >= totalTeams - 2 {
                 return .relegation
             }
@@ -460,13 +489,26 @@ struct StandingsDetailView: View {
                 return .relegation
             }
             
-        case 78, 135: // 분데스리가, 세리에 A
+        case 78: // 분데스리가
             if rank <= 4 {
                 return .championsLeague
             } else if rank == 5 {
                 return .europaLeague
             } else if rank == 6 {
                 return .conferenceLeague
+            } else if rank == 16 {
+                return .relegationPlayoff // 16위: 강등 플레이오프
+            } else if rank >= totalTeams - 2 && rank != 16 {
+                return .relegation
+            }
+            
+        case 135: // 세리에 A
+            if rank <= 4 {
+                return .championsLeague
+            } else if rank == 5 {
+                return .europaLeague
+            } else if rank == 6 {
+                return .conferenceLeagueQualification // 6위: 컨퍼런스리그 예선
             } else if rank >= totalTeams - 2 {
                 return .relegation
             }
@@ -479,8 +521,10 @@ struct StandingsDetailView: View {
             } else if rank == 5 {
                 return .europaLeague
             } else if rank == 6 {
-                return .conferenceLeague
-            } else if rank >= totalTeams - 2 {
+                return .conferenceLeagueQualification // 6위: 컨퍼런스리그 예선
+            } else if rank == 16 {
+                return .relegationPlayoff // 16위: 강등 플레이오프
+            } else if rank >= totalTeams - 2 && rank != 16 {
                 return .relegation
             }
             
@@ -507,10 +551,19 @@ struct StandingsDetailView: View {
             return Color(red: 66/255, green: 165/255, blue: 245/255) // 밝은 하늘색
         case .europaLeague:
             return Color.orange
+        case .europaLeagueQualification:
+            // 유로파리그 예선 - 연한 오렌지색
+            return Color(red: 255/255, green: 183/255, blue: 77/255) // 연한 오렌지색
         case .conferenceLeague:
             return Color.green
+        case .conferenceLeagueQualification:
+            // 컨퍼런스리그 예선 - 연한 녹색
+            return Color(red: 129/255, green: 199/255, blue: 132/255) // 연한 녹색
         case .relegation:
             return Color.red
+        case .relegationPlayoff:
+            // 강등 플레이오프 - 연한 빨간색
+            return Color(red: 255/255, green: 138/255, blue: 128/255) // 연한 빨간색
         case .knockout16Direct:
             // 리그 ID에 따라 다른 색상 적용
             if fixture.league.id == 2 { // 챔피언스리그
@@ -542,10 +595,16 @@ struct StandingsDetailView: View {
             return "챔피언스리그 예선"
         case .europaLeague:
             return "유로파리그"
+        case .europaLeagueQualification:
+            return "유로파리그 예선"
         case .conferenceLeague:
             return "컨퍼런스리그"
+        case .conferenceLeagueQualification:
+            return "컨퍼런스리그 예선"
         case .relegation:
             return "강등권"
+        case .relegationPlayoff:
+            return "강등 플레이오프"
         case .knockout16Direct:
             return "16강 직행"
         case .knockout16Playoff:
@@ -561,15 +620,21 @@ struct StandingsDetailView: View {
         
         switch info {
         case .championsLeague:
-            return leagueId != 2 && leagueId != 3 // 챔피언스리그와 유로파리그가 아닌 리그에만 적용
+            return leagueId != 2 && leagueId != 3 || (leagueId == 2 && info == .championsLeague) // 챔피언스리그와 유로파리그가 아닌 리그에만 적용 (예외: 챔스 17위)
         case .championsLeagueQualification:
             return leagueId == 61 // 리그앙에만 적용
         case .europaLeague:
-            return leagueId != 2 && leagueId != 3 // 챔피언스리그와 유로파리그가 아닌 리그에만 적용
+            return leagueId != 2 && leagueId != 3 || (leagueId == 2 && info == .europaLeague) // 챔피언스리그와 유로파리그가 아닌 리그에만 적용 (예외: 챔스 12위)
+        case .europaLeagueQualification:
+            return false // 현재 사용되지 않음
         case .conferenceLeague:
             return leagueId != 2 && leagueId != 3 // 챔피언스리그와 유로파리그가 아닌 리그에만 적용
+        case .conferenceLeagueQualification:
+            return leagueId == 61 || leagueId == 135 // 리그앙과 세리에 A에만 적용
         case .relegation:
             return leagueId != 2 && leagueId != 3 // 챔피언스리그와 유로파리그가 아닌 리그에만 적용
+        case .relegationPlayoff:
+            return leagueId == 61 || leagueId == 78 // 리그앙과 분데스리가에만 적용
         case .knockout16Direct:
             return leagueId == 2 || leagueId == 3 // 챔피언스리그와 유로파리그에만 적용
         case .knockout16Playoff:

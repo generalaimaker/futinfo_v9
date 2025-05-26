@@ -495,6 +495,10 @@ struct StandingsTabView: View {
                 return .europaLeague
             } else if rank == 7 {
                 return .conferenceLeague
+            } else if rank == 12 {
+                return .europaLeague // 12위: 유로파리그 진출
+            } else if rank == 17 {
+                return .championsLeague // 17위: 챔피언스리그 진출
             } else if rank >= standings.count - 2 {
                 return .relegation
             }
@@ -510,7 +514,20 @@ struct StandingsTabView: View {
                 return .relegation
             }
             
-        case 78, 135: // 분데스리가, 세리에 A
+        case 78: // 분데스리가
+            if rank <= 4 {
+                return .championsLeague
+            } else if rank == 5 {
+                return .europaLeague
+            } else if rank == 6 {
+                return .conferenceLeague
+            } else if rank == 16 {
+                return .relegationPlayoff // 16위: 강등 플레이오프
+            } else if rank >= standings.count - 2 && rank != 16 {
+                return .relegation
+            }
+            
+        case 135: // 세리에 A
             if rank <= 4 {
                 return .championsLeague
             } else if rank == 5 {
@@ -530,7 +547,9 @@ struct StandingsTabView: View {
                 return .europaLeague
             } else if rank == 6 {
                 return .conferenceLeague
-            } else if rank >= standings.count - 2 {
+            } else if rank == 16 {
+                return .relegationPlayoff // 16위: 강등 플레이오프
+            } else if rank >= standings.count - 2 && rank != 16 {
                 return .relegation
             }
             
@@ -561,6 +580,9 @@ struct StandingsTabView: View {
             return Color.green
         case .relegation:
             return Color.red
+        case .relegationPlayoff:
+            // 강등 플레이오프 - 연한 빨간색
+            return Color(red: 255/255, green: 138/255, blue: 128/255) // 연한 빨간색
         case .knockout16Direct:
             // 리그 ID에 따라 다른 색상 적용
             if leagueId == 2 { // 챔피언스리그
@@ -596,6 +618,8 @@ struct StandingsTabView: View {
             return "컨퍼런스 리그"
         case .relegation:
             return "강등권"
+        case .relegationPlayoff:
+            return "강등 플레이오프"
         case .knockout16Direct:
             return "16강 직행"
         case .knockout16Playoff:
@@ -719,7 +743,7 @@ struct StandingsTabView: View {
                             }
                         } else {
                             // 일반 리그 범례
-                            ForEach([QualificationInfo.championsLeague, .championsLeagueQualification, .europaLeague, .conferenceLeague, .relegation], id: \.self) { info in
+                            ForEach([QualificationInfo.championsLeague, .championsLeagueQualification, .europaLeague, .conferenceLeague, .relegationPlayoff, .relegation], id: \.self) { info in
                                 if getQualificationDescription(for: info) != "" {
                                     HStack(spacing: 8) {
                                         Rectangle()
@@ -750,6 +774,7 @@ struct StandingsTabView: View {
         case europaLeague
         case conferenceLeague
         case relegation
+        case relegationPlayoff     // 강등 플레이오프 (분데스리가, 리그앙 16위)
         case none
         case knockout16Direct      // 16강 직행 (챔피언스리그, 유로파리그)
         case knockout16Playoff     // 16강 플레이오프 (챔피언스리그, 유로파리그)

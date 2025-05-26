@@ -848,6 +848,7 @@ struct FixturePageView: View {
 
                                 Spacer()
                             }
+                            .frame(maxWidth: .infinity, alignment: .center) // 가운데 정렬로 변경
                             .padding(.leading, 12)
                             .padding(.trailing, 8)
                             .padding(.vertical, 6)
@@ -926,6 +927,7 @@ struct FixturePageView: View {
             }
             .padding(.horizontal, 20)
             .padding(.bottom, 20)
+            .frame(maxWidth: .infinity, alignment: .center) // 가운데 정렬 추가
         }
         .refreshable {
             // 현재 선택된 날짜 데이터 강제 새로고침
@@ -1092,7 +1094,7 @@ struct FixtureCardView: View {
                 .padding(.horizontal, 10)
                 .background(Color(.systemBackground))
                 .cornerRadius(10)
-                .frame(width: UIScreen.main.bounds.width - 40) // 화면 너비에서 좌우 여백 20씩 뺀 값
+                .frame(maxWidth: .infinity, alignment: .center) // 가운데 정렬로 변경
                 
                 // 상태 뱃지 (우상단 귀퉁이에 배치) - 경기 예정이 아닌 경우에만 표시
                 if !["NS", "TBD"].contains(fixture.fixture.status.short) {
@@ -1462,3 +1464,4 @@ struct FixtureCardView: View {
     }
     
 }
+
