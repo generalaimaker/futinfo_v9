@@ -1,4 +1,6 @@
 import SwiftUI
+import Combine
+import Foundation
 
 struct FixturesView: View {
     @State private var selectedLeagueId: Int
@@ -96,7 +98,7 @@ struct FixturesView: View {
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                     } else {
                         ScrollView {
-                            LazyVStack(spacing: 16) {
+                            LazyVStack(spacing: 8) { // 16 -> 8로 줄임
                                 let fixtures = selectedTab == 0 ? 
                                     viewModel.fixtures.filter { $0.fixture.status.short == "FT" }.sorted(by: { $0.fixture.date > $1.fixture.date }) : // 결과는 최신순
                                     viewModel.fixtures.filter { $0.fixture.status.short == "NS" }.sorted(by: { $0.fixture.date < $1.fixture.date }) // 예정은 날짜순
@@ -117,7 +119,8 @@ struct FixturesView: View {
                                             fixture: fixture,
                                             formattedDate: viewModel.formatDate(fixture.fixture.date)
                                         )
-                                        .padding(.horizontal)
+                                        .padding(.horizontal, 10) // 패딩 값 명시
+                                        .padding(.vertical, 2) // 세로 패딩 추가
                                     }
                                 }
                             }
@@ -163,6 +166,13 @@ struct FixturesView: View {
             // 경기 일정 로드
             viewModel.loadFixtures()
             
+            // LiveMatchService 폴링 중지 알림 발송
+            print("📱 FixturesView - 화면에 나타남, LiveMatchService 폴링 중지 알림 발송")
+            NotificationCenter.default.post(
+                name: NSNotification.Name("StopLivePolling"),
+                object: nil
+            )
+            
             // NotificationCenter 관찰자 등록
             NotificationCenter.default.addObserver(forName: NSNotification.Name("ShowTeamProfile"), object: nil, queue: .main) { notification in
                 if let userInfo = notification.userInfo,
@@ -193,13 +203,15 @@ struct FixturesView: View {
                         // 강제 업데이트인 경우 UI 새로고침 트리거
                         if forceUpdate && !hasError {
                             print("🔄 FixturesView - 강제 UI 업데이트 트리거")
-                            // 약간의 지연 후 UI 업데이트 (데이터 바인딩 안정화)
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                            // 지연 시간 단축 및 UI 업데이트 메커니즘 개선
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
                                 // 임시 변수를 사용하여 강제 UI 업데이트
                                 let tempLeagueId = viewModel.leagueId
                                 viewModel.leagueId = -1 // 임시 값으로 변경
-                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
                                     viewModel.leagueId = tempLeagueId // 원래 값으로 복원
+                                    // 추가 UI 새로고침 트리거
+                                    viewModel.objectWillChange.send()
                                 }
                             }
                         }

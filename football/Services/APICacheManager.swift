@@ -36,11 +36,11 @@ class APICacheManager {
         
         var timeInterval: TimeInterval {
             switch self {
-            case .veryShort: return 15 * 60
-            case .short:     return 30 * 60
-            case .medium:    return 60 * 60
-            case .long:      return 6 * 60 * 60
-            case .veryLong:  return 24 * 60 * 60
+            case .veryShort: return 5 * 60  // 15분에서 5분으로 단축
+            case .short:     return 15 * 60 // 30분에서 15분으로 단축
+            case .medium:    return 30 * 60 // 60분에서 30분으로 단축
+            case .long:      return 3 * 60 * 60 // 6시간에서 3시간으로 단축
+            case .veryLong:  return 12 * 60 * 60 // 24시간에서 12시간으로 단축
             case .never:     return TimeInterval.greatestFiniteMagnitude
             case .custom(let seconds): return seconds
             }
@@ -49,8 +49,8 @@ class APICacheManager {
     
     private init() {
         // 메모리 캐시 설정
-        memoryCache.countLimit = 200 // 최대 200개 항목
-        memoryCache.totalCostLimit = 100 * 1024 * 1024 // 100MB
+        memoryCache.countLimit = 300 // 최대 항목 수 증가 (200개에서 300개로)
+        memoryCache.totalCostLimit = 150 * 1024 * 1024 // 메모리 한도 증가 (100MB에서 150MB로)
         
         // 디스크 캐시 디렉토리 설정
         let cachesDirectory = fileManager.urls(for: .cachesDirectory, in: .userDomainMask)[0]

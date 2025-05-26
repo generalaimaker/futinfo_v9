@@ -104,6 +104,22 @@ struct TeamProfileView: View {
                 }
             }
         }
+        .onAppear {
+            // LiveMatchService 폴링 중지 알림 발송
+            print("📱 TeamProfileView - 화면에 나타남, LiveMatchService 폴링 중지 알림 발송")
+            NotificationCenter.default.post(
+                name: NSNotification.Name("StopLivePolling"),
+                object: nil
+            )
+        }
+        .onDisappear {
+            // LiveMatchService 폴링 재시작 알림 발송
+            print("📱 TeamProfileView - 화면에서 사라짐, LiveMatchService 폴링 재시작 알림 발송")
+            NotificationCenter.default.post(
+                name: NSNotification.Name("StartLivePolling"),
+                object: nil
+            )
+        }
         .task {
             // 데이터가 로드되지 않은 경우에만 로드
             if viewModel.teamProfile == nil {

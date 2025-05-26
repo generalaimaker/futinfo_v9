@@ -14,60 +14,84 @@ struct FixtureCell: View {
     
     var body: some View {
         NavigationLink(destination: FixtureDetailView(fixture: fixture)) {
-            VStack(spacing: 16) {
-                // 날짜와 상태
-                HStack {
-                    Text(formattedDate)
-                        .font(.subheadline)
-                        .foregroundColor(.gray)
-                    
-                    Spacer()
-                    
-                    // 경기 상태에 따른 다른 스타일 적용
-                    StatusBadgeView(status: fixture.fixture.status.short)
-                }
-                
-                // 팀 정보
-                HStack(alignment: .center, spacing: 12) {
-                    // Home team abbreviation and logo
-                    TeamView(team: fixture.teams.home, leagueId: fixture.league.id, isHome: true)
-                        .frame(height: 30)
+            ZStack(alignment: .topTrailing) {
+                // 메인 카드 컨텐츠
+                VStack(spacing: 0) {
+                    // 팀 정보와 스코어를 포함한 중앙 컨텐츠
+                    HStack(alignment: .center, spacing: 8) {
+                        // Home team abbreviation and logo
+                        TeamView(team: fixture.teams.home, leagueId: fixture.league.id, isHome: true)
+                            .frame(height: 24)
 
-                    // Score
-                    ScoreView(
-                        homeScore: fixture.goals?.home,
-                        awayScore: fixture.goals?.away,
-                        isLive: ["1H", "2H", "HT", "ET", "BT", "P"].contains(fixture.fixture.status.short),
-                        elapsed: fixture.fixture.status.elapsed,
-                        status: fixture.fixture.status.short,
-                        fixture: fixture
-                    )
-                    .frame(width: 60)
+                        // Score - 중앙에 배치
+                        ScoreView(
+                            homeScore: fixture.goals?.home,
+                            awayScore: fixture.goals?.away,
+                            isLive: ["1H", "2H", "HT", "ET", "BT", "P"].contains(fixture.fixture.status.short),
+                            elapsed: fixture.fixture.status.elapsed,
+                            status: fixture.fixture.status.short,
+                            fixture: fixture
+                        )
+                        .frame(width: 50)
 
-                    // Away team logo and abbreviation
-                    TeamView(team: fixture.teams.away, leagueId: fixture.league.id, isHome: false)
-                        .frame(height: 30)
-                }
-                
-                // 라운드 정보
-                HStack(spacing: 8) {
-                    Text(formatRound(fixture.league.round))
-                        .font(.caption)
-                        .foregroundColor(.gray)
+                        // Away team logo and abbreviation
+                        TeamView(team: fixture.teams.away, leagueId: fixture.league.id, isHome: false)
+                            .frame(height: 24)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity) // 수직 중앙 정렬을 위해 최대 높이 설정
+                    .padding(.vertical, 10) // 팀 정보 주변에 패딩 추가
                     
-                    Spacer()
-                    
-                    if let venue = fixture.fixture.venue.name {
-                        Text(venue)
-                            .font(.caption)
+                    // 라운드 정보 (중앙 정렬)
+                    HStack {
+                        Spacer()
+                        
+                        Text(formatRound(fixture.league.round))
+                            .font(.caption2)
                             .foregroundColor(.gray)
+                        
+                        if let venue = fixture.fixture.venue.name {
+                            Text("•")
+                                .font(.caption2)
+                                .foregroundColor(.gray)
+                                .padding(.horizontal, 2)
+                            
+                            Text(venue)
+                                .font(.caption2)
+                                .foregroundColor(.gray)
+                                .lineLimit(1)
+                        }
+                        
+                        Spacer()
                     }
                 }
+                .padding(.vertical, 10)
+                .padding(.horizontal, 10)
+                .background(Color(.systemBackground))
+                .cornerRadius(10)
+                .frame(width: UIScreen.main.bounds.width - 40) // 화면 너비에서 좌우 여백 20씩 뺀 값
+                
+                // 상태 뱃지 또는 경기 시간 (우상단 귀퉁이에 배치)
+                if ["NS", "TBD"].contains(fixture.fixture.status.short) {
+                    // 경기 예정인 경우 시간 표시
+                    Text(formattedDate)
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(.blue)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color.blue.opacity(0.1))
+                        .cornerRadius(4)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 4)
+                                .stroke(Color.blue.opacity(0.3), lineWidth: 0.5)
+                        )
+                        .padding(6)
+                } else {
+                    // 다른 상태인 경우 상태 뱃지 표시
+                    MiniStatusBadgeView(status: fixture.fixture.status.short)
+                        .padding(6)
+                }
             }
-            .padding()
-            .background(Color(.systemBackground))
-            .cornerRadius(12)
-            .shadow(color: Color.black.opacity(0.1), radius: 5, x: 0, y: 2)
+            .shadow(color: Color.black.opacity(0.1), radius: 3, x: 0, y: 1)
         }
     }
     
@@ -78,26 +102,28 @@ struct FixtureCell: View {
         let isHome: Bool
 
         var body: some View {
-            HStack(spacing: 6) {
+            HStack(spacing: 3) {
                 if isHome {
-                    Text(TeamAbbreviations.abbreviation(for: team.name))
-                        .font(.title3)
-                        .bold()
+                    Text(TeamAbbreviations.shortenedName(for: team.name))
+                        .font(.system(size: 12, weight: .semibold))
+                        .lineLimit(1)
+                        .frame(width: 100, alignment: .trailing)
                 }
 
-                // 팀 로고 (탭 기능 제거)
+                // 팀 로고
                 CachedImageView(
                     url: URL(string: team.logo),
                     placeholder: Image(systemName: "sportscourt.fill"),
                     failureImage: Image(systemName: "sportscourt.fill"),
                     contentMode: .fit
                 )
-                .frame(width: 30, height: 30)
+                .frame(width: 22, height: 22)
 
                 if !isHome {
-                    Text(TeamAbbreviations.abbreviation(for: team.name))
-                        .font(.title3)
-                        .bold()
+                    Text(TeamAbbreviations.shortenedName(for: team.name))
+                        .font(.system(size: 12, weight: .semibold))
+                        .lineLimit(1)
+                        .frame(width: 100, alignment: .leading)
                 }
             }
         }
@@ -135,9 +161,7 @@ struct FixtureCell: View {
             print("🏆 FixtureCell - 합산 스코어 계산 시작: \(fixture.fixture.id)")
             
             // 로딩 상태 설정
-            // 로딩 상태 설정
             isLoadingAggregateScore = true
-            // 로딩 상태 설정
             await MainActor.run { isLoadingAggregateScore = true } // Ensure UI update for loading
 
             let service = FootballAPIService.shared
@@ -216,116 +240,18 @@ struct FixtureCell: View {
         }
         
         var body: some View {
-            VStack(spacing: 4) {
-                // 경기 상태에 따른 추가 정보 표시
-                if isLive {
-                    if let elapsed = elapsed, status == "1H" || status == "2H" {
-                        // 전/후반전 - 경과 시간 표시
-                        Text("\(elapsed)'")
-                            .font(.caption)
-                            .foregroundColor(.red)
-                    } else if status == "HT" {
-                        // 하프타임
-                        Text("HT")
-                            .font(.caption)
-                            .foregroundColor(.red)
-                    } else if status == "ET" {
-                        // 연장전
-                        Text("ET")
-                            .font(.caption)
-                            .foregroundColor(.red)
-                    } else if status == "P" {
-                        // 승부차기
-                        Text("PEN")
-                            .font(.caption)
-                            .foregroundColor(.red)
-                    }
-                } else if status == "AET" {
-                    // 연장 종료
-                    Text("AET")
-                        .font(.caption)
-                        .foregroundColor(.gray)
-                } else if status == "PEN" {
-                    // 승부차기 종료
-                    HStack(spacing: 4) {
-                        Text("PEN")
-                            .font(.caption)
-                            .foregroundColor(.gray)
-                        
-                        // 승부차기 스코어 (있는 경우)
-                        if let penalty = penaltyScores {
-                            Text("(\(penalty.home):\(penalty.away))")
-                                .font(.caption)
-                                .foregroundColor(.gray)
-                        }
-                    }
-                }
-                
-                // 정규 시간 스코어
-                HStack(spacing: 8) {
-                    // 경기 상태가 NS일 경우 "-" 표시, 아닐 경우 스코어 표시 (nil이면 0)
-                    Text(status == "NS" ? "-" : "\(homeScore ?? 0)")
-                    Text(":")
-                    Text(status == "NS" ? "-" : "\(awayScore ?? 0)")
-                }
-                .font(.title3.bold())
-                .onAppear {
-                    // 디버깅을 위해 스코어 출력
-                    print("📊 스코어: \(homeScore ?? 0) - \(awayScore ?? 0), 상태: \(status)")
-                    
-                    // 합산 스코어 계산 시작
-                    if [2, 3].contains(fixture.league.id) {
-                        print("🏆 ScoreView onAppear - 리그 ID: \(fixture.league.id), 라운드: \(fixture.league.round)")
-                        Task {
-                            // do-catch 제거: calculateAggregateScore 내부에서 에러 처리
-                            await calculateAggregateScore()
-                            print("🏆 ScoreView Task - calculateAggregateScore 호출 완료 (fixture: \(fixture.fixture.id))")
-                            // 에러는 calculateAggregateScore 내부에서 print됨
-                            // 에러는 calculateAggregateScore 내부에서 print됨
-                        }
-                    }
-                }
-
-                // 합산 스코어 표시
-                Group {
-                    if isLoadingAggregateScore {
-                        // 로딩 중 표시
-                        Text("합산 계산 중...")
-                            .font(.caption)
-                            .foregroundColor(.gray)
-                            .padding(.horizontal, 4)
-                            .padding(.vertical, 2)
-                    } else if let aggregate = aggregateScores {
-                        // 합산 스코어 표시 (계산 완료)
-                        Text("합산 \(aggregate.home):\(aggregate.away)")
-                            .font(.caption)
-                            .fontWeight(.bold)
-                            .foregroundColor(.white)
-                            .padding(.horizontal, 4)
-                            .padding(.vertical, 2)
-                            .background(Color.blue)
-                            .cornerRadius(4)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 4)
-                                    .stroke(Color.white, lineWidth: 1)
-                            )
-                            .shadow(color: Color.black.opacity(0.2), radius: 1, x: 0, y: 1)
-                    } else {
-                        // 로딩이 끝났는데 aggregateScores가 nil인 경우 (실패 또는 해당 없음)
-                        // 여기에 로그를 추가하여 실패 메시지 출처 확인
-                        let _ = print("🏆 ScoreView - 최종 합산 스코어 nil (fixture: \(fixture.fixture.id), round: \(fixture.league.round))")
-                        // 필요하다면 여기에 사용자에게 보여줄 메시지 추가 가능
-                        // Text("정보 없음")
-                        //     .font(.caption)
-                        //     .foregroundColor(.gray)
-                    }
-                }
+            // 정규 시간 스코어만 표시
+            HStack(spacing: 8) {
+                // 경기 상태가 NS일 경우 "-" 표시, 아닐 경우 스코어 표시 (nil이면 0)
+                Text(status == "NS" ? "-" : "\(homeScore ?? 0)")
+                Text(":")
+                Text(status == "NS" ? "-" : "\(awayScore ?? 0)")
             }
-            .frame(width: 60)
+            .font(.title3.bold())
         }
     }
     
-    // MARK: - Status Badge View
+    // MARK: - Status Badge View (기존)
     struct StatusBadgeView: View {
         let status: String
         @State private var isBlinking = false
@@ -349,24 +275,21 @@ struct FixtureCell: View {
                 }
                 
                 Text(statusText)
-                    .font(isLive ? .caption.bold() : .caption)
+                    .font(isLive ? .caption2.bold() : .caption2)
                     .foregroundColor(statusColor)
             }
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 2)
             .background(statusColor.opacity(0.1))
-            .cornerRadius(6)
+            .cornerRadius(4)
             .overlay(
-                RoundedRectangle(cornerRadius: 6)
-                    .stroke(statusColor.opacity(0.3), lineWidth: 1)
+                RoundedRectangle(cornerRadius: 4)
+                    .stroke(statusColor.opacity(0.3), lineWidth: 0.5)
             )
         }
         
         // 상태에 따른 텍스트 반환
         private var statusText: String {
-            // 디버깅을 위해 상태 값 출력
-            print("📊 경기 상태: \(status)")
-            
             switch status {
             // 경기 진행 중인 상태
             case "1H", "2H", "HT", "ET", "BT", "P":
@@ -390,8 +313,6 @@ struct FixtureCell: View {
                 
             // 기타 상태
             default:
-                // 기본값을 "UPCOMING"에서 "FT"로 변경
-                // 이미 진행된 경기가 "UPCOMING"으로 표시되는 문제 해결
                 return "FT"
             }
         }
@@ -421,7 +342,103 @@ struct FixtureCell: View {
                 
             // 기타 상태
             default:
-                // 기본값을 .blue에서 .gray로 변경
+                return .gray
+            }
+        }
+        
+        // 현재 경기 중인지 여부
+        private var isLive: Bool {
+            return ["1H", "2H", "HT", "ET", "BT", "P"].contains(status)
+        }
+    }
+    
+    // MARK: - Mini Status Badge View (우상단 귀퉁이용)
+    struct MiniStatusBadgeView: View {
+        let status: String
+        @State private var isBlinking = false
+        
+        var body: some View {
+            HStack(spacing: 2) {
+                // 라이브 경기인 경우 깜빡이는 원 표시
+                if isLive {
+                    Circle()
+                        .fill(Color.red)
+                        .frame(width: 5, height: 5)
+                        .opacity(isBlinking ? 0.5 : 1.0)
+                        .animation(Animation.easeInOut(duration: 0.8).repeatForever(autoreverses: true), value: isBlinking)
+                        .onAppear {
+                            isBlinking = true
+                        }
+                }
+                
+                Text(statusText)
+                    .font(.system(size: 8, weight: isLive ? .bold : .regular))
+                    .foregroundColor(statusColor)
+            }
+            .padding(.horizontal, 4)
+            .padding(.vertical, 1)
+            .background(statusColor.opacity(0.1))
+            .cornerRadius(3)
+            .overlay(
+                RoundedRectangle(cornerRadius: 3)
+                    .stroke(statusColor.opacity(0.3), lineWidth: 0.5)
+            )
+        }
+        
+        // 상태에 따른 텍스트 반환
+        private var statusText: String {
+            switch status {
+            // 경기 진행 중인 상태
+            case "1H", "2H", "HT", "ET", "BT", "P":
+                return "LIVE"
+                
+            // 경기 종료 상태
+            case "FT", "AET", "PEN":
+                return "FT"
+                
+            // 경기 취소/연기 상태
+            case "SUSP", "INT", "PST", "CANC", "ABD", "AWD", "WO":
+                return status
+                
+            // 경기 예정 상태
+            case "NS", "TBD":
+                return "UPCOMING"
+                
+            // 경기 종료 상태 (추가)
+            case "MATCH_FINISHED", "FINISHED", "FULL_TIME", "AFTER_EXTRA_TIME", "AFTER_PENALTIES":
+                return "FT"
+                
+            // 기타 상태
+            default:
+                return "FT"
+            }
+        }
+        
+        // 상태에 따른 색상 반환
+        private var statusColor: Color {
+            switch status {
+            // 경기 진행 중인 상태
+            case "1H", "2H", "HT", "ET", "BT", "P":
+                return .red
+                
+            // 경기 종료 상태
+            case "FT", "AET", "PEN":
+                return .gray
+                
+            // 경기 취소/연기 상태
+            case "SUSP", "INT", "PST", "CANC", "ABD", "AWD", "WO":
+                return .orange
+                
+            // 경기 예정 상태
+            case "NS", "TBD":
+                return .blue
+                
+            // 경기 종료 상태 (추가)
+            case "MATCH_FINISHED", "FINISHED", "FULL_TIME", "AFTER_EXTRA_TIME", "AFTER_PENALTIES":
+                return .gray
+                
+            // 기타 상태
+            default:
                 return .gray
             }
         }

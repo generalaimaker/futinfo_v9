@@ -2061,7 +2061,7 @@ class FixturesOverviewViewModel: ObservableObject {
         emptyDates[date] = nil
         
         // 캐시된 데이터 가져오기
-        let cachedData = self.cachedFixtures[dateString]
+        _ = self.cachedFixtures[dateString]
         
         // 데이터가 없는 경우 빈 배열 설정 (더미 데이터 대신)
         if fixtures[date] == nil {
@@ -2089,7 +2089,7 @@ class FixturesOverviewViewModel: ObservableObject {
                 if Task.isCancelled {
                     print("⚠️ 작업이 취소되었습니다: \(dateString)")
                     // 작업이 취소되어도 로딩 상태 제거
-                    await MainActor.run {
+                    _ = await MainActor.run {
                         loadingDates.remove(date)
                     }
                     return
@@ -2126,7 +2126,7 @@ class FixturesOverviewViewModel: ObservableObject {
                 if Task.isCancelled {
                     print("⚠️ 작업이 취소되었습니다: \(dateString)")
                     // 작업이 취소되어도 로딩 상태 제거
-                    await MainActor.run {
+                    _ = await MainActor.run {
                         loadingDates.remove(date)
                     }
                     return
@@ -2193,7 +2193,7 @@ class FixturesOverviewViewModel: ObservableObject {
                 if Task.isCancelled {
                     print("⚠️ 작업이 취소되었습니다: \(dateString)")
                     // 작업이 취소되어도 로딩 상태 제거
-                    await MainActor.run {
+                    _ = await MainActor.run {
                         loadingDates.remove(date)
                     }
                     return

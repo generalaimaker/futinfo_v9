@@ -15,7 +15,7 @@ class APIRequestManager {
     
     // 마지막 요청 시간 추적 (API 요청 제한 방지)
     private var lastRequestTime: Date?
-    private let minRequestInterval: TimeInterval = 0.15 // 최소 요청 간격 (0.15초로 단축)
+    private let minRequestInterval: TimeInterval = 0.1 // 최소 요청 간격 (0.15초에서 0.1초로 추가 단축)
     
     // 최대 재시도 횟수
     private let maxRetryCount = 2
@@ -240,7 +240,7 @@ class APIRequestManager {
             print("🔗 최종 URL: \(url.absoluteString)")
             
             // 타임아웃 설정 및 캐시 정책 설정
-            var request = URLRequest(url: url, timeoutInterval: 30.0) // 타임아웃 시간 증가
+            var request = URLRequest(url: url, timeoutInterval: 20.0) // 타임아웃 시간 최적화 (30초에서 20초로 단축)
             request.httpMethod = "GET"
             request.cachePolicy = .reloadIgnoringLocalCacheData // 항상 서버에서 새로운 데이터 가져오기
             
@@ -252,10 +252,10 @@ class APIRequestManager {
             
             // 세션 구성 (타임아웃 및 재시도 설정)
             let config = URLSessionConfiguration.default
-            config.timeoutIntervalForRequest = 30.0 // 타임아웃 시간 증가
-            config.timeoutIntervalForResource = 60.0 // 리소스 타임아웃 시간 증가
+            config.timeoutIntervalForRequest = 20.0 // 타임아웃 시간 최적화 (30초에서 20초로 단축)
+            config.timeoutIntervalForResource = 30.0 // 리소스 타임아웃 시간 최적화 (60초에서 30초로 단축)
             config.waitsForConnectivity = true // 연결이 복원될 때까지 대기
-            config.httpMaximumConnectionsPerHost = 5 // 동시 연결 수 증가
+            config.httpMaximumConnectionsPerHost = 8 // 동시 연결 수 증가 (5에서 8로 증가)
             
             let session = URLSession(configuration: config)
             

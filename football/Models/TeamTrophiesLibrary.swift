@@ -352,7 +352,7 @@ struct TeamTrophiesLibrary {
                  domesticCupTitles: 5, domesticCupLastWin: "2003"),
 
     TeamTrophies(teamName: "Napoli", abbreviation: "NAP", league: "Serie A",
-                 leagueTitles: 3, leagueLastWin: "2023",
+                 leagueTitles: 4, leagueLastWin: "2025",
                  championsLeagueTitles: 0, championsLeagueLastWin: nil,
                  europaLeagueTitles: 1, europaLeagueLastWin: "1989",
                  superCupTitles: 0, superCupLastWin: nil,
