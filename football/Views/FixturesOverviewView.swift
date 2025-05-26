@@ -834,14 +834,14 @@ struct FixturePageView: View {
                                     Color.white
                                     if let leagueLogo = leagueFixtures.first?.league.logo, let logoURL = URL(string: leagueLogo) {
                                         CachedImageView(url: logoURL, placeholder: Image(systemName: "trophy"), contentMode: .fit)
-                                            .frame(width: 42, height: 42)
+                                            .frame(width: 36, height: 36) // 로고 크기 조정 (32x32 -> 36x36)
                                     }
                                 }
-                                .frame(width: 56, height: 44)
+                                .frame(width: 50, height: 40) // 프레임 크기 조정 (46x36 -> 50x40)
                                 .clipShape(RoundedRectangle(cornerRadius: 8))
 
                                 Text(leagueName)
-                                    .font(.system(size: 16, weight: .bold))
+                                    .font(.system(size: 14, weight: .bold)) // 폰트 크기 축소 (16 -> 14)
                                     .foregroundColor(.white)
                                     .frame(maxHeight: .infinity, alignment: .center)
                                     .padding(.leading, 4)
@@ -849,9 +849,9 @@ struct FixturePageView: View {
                                 Spacer()
                             }
                             .frame(maxWidth: .infinity, alignment: .center) // 가운데 정렬로 변경
-                            .padding(.leading, 12)
-                            .padding(.trailing, 8)
-                            .padding(.vertical, 6)
+                            .padding(.leading, 10)
+                            .padding(.trailing, 6)
+                            .padding(.vertical, 4) // 상하 패딩 축소 (6 -> 4)
                             .background(
                                 LinearGradient(
                                     gradient: Gradient(colors: [
@@ -1143,16 +1143,16 @@ struct FixtureCardView: View {
                 ZStack {
                     Circle()
                         .fill(Color(.systemBackground))
-                        .frame(width: 32, height: 32)
+                        .frame(width: 36, height: 36) // 배경 크기 증가 (32x32 -> 36x36)
                     CachedImageView(
                         url: URL(string: team.logo),
                         placeholder: Image(systemName: "sportscourt.fill"),
                         failureImage: Image(systemName: "sportscourt.fill"),
                         contentMode: .fit
                     )
-                    .frame(width: 24, height: 24)
+                    .frame(width: 28, height: 28) // 로고 크기 증가 (24x24 -> 28x28)
                 }
-                .frame(width: 32) // 로고 영역 너비 고정
+                .frame(width: 36) // 로고 영역 너비 증가 (32 -> 36)
             }
         
             private var teamNameText: some View {
