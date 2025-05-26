@@ -1071,7 +1071,7 @@ struct FixtureCardView: View {
                         // 홈팀
                         FixtureTeamView(team: fixture.teams.home, isHome: true)
                         
-                        // 스코어 - 중앙에 배치
+                        // 스코어 또는 경기 시간 - 중앙에 배치
                         FixtureCell.ScoreView(
                             homeScore: fixture.goals?.home,
                             awayScore: fixture.goals?.away,
@@ -1080,7 +1080,7 @@ struct FixtureCardView: View {
                             status: fixture.fixture.status.short,
                             fixture: fixture
                         )
-                        .frame(width: 50)
+                        .frame(width: 70) // 너비 증가 (50 -> 70)
                         
                         // 원정팀
                         FixtureTeamView(team: fixture.teams.away, isHome: false)
@@ -1094,23 +1094,8 @@ struct FixtureCardView: View {
                 .cornerRadius(10)
                 .frame(width: UIScreen.main.bounds.width - 40) // 화면 너비에서 좌우 여백 20씩 뺀 값
                 
-                // 상태 뱃지 또는 경기 시간 (우상단 귀퉁이에 배치)
-                if ["NS", "TBD"].contains(fixture.fixture.status.short) {
-                    // 경기 예정인 경우 시간 표시
-                    Text(formatTime(fixture.fixture.date))
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundColor(.blue)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(Color.blue.opacity(0.1))
-                        .cornerRadius(4)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 4)
-                                .stroke(Color.blue.opacity(0.3), lineWidth: 0.5)
-                        )
-                        .padding(6)
-                } else {
-                    // 다른 상태인 경우 상태 뱃지 표시
+                // 상태 뱃지 (우상단 귀퉁이에 배치) - 경기 예정이 아닌 경우에만 표시
+                if !["NS", "TBD"].contains(fixture.fixture.status.short) {
                     FixtureCell.MiniStatusBadgeView(status: fixture.fixture.status.short)
                         .padding(6)
                 }

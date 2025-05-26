@@ -240,14 +240,58 @@ struct FixtureCell: View {
         }
         
         var body: some View {
-            // 정규 시간 스코어만 표시
-            HStack(spacing: 8) {
-                // 경기 상태가 NS일 경우 "-" 표시, 아닐 경우 스코어 표시 (nil이면 0)
-                Text(status == "NS" ? "-" : "\(homeScore ?? 0)")
-                Text(":")
-                Text(status == "NS" ? "-" : "\(awayScore ?? 0)")
+            // 경기 예정인 경우 시간 표시, 그렇지 않은 경우 스코어 표시
+            if status == "NS" || status == "TBD" {
+                // 경기 예정 시간 표시
+                Text(formatMatchTime())
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundColor(.blue)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Color.blue.opacity(0.1))
+                    .cornerRadius(6)
+            } else {
+                // 정규 시간 스코어 표시
+                ZStack {
+                    // 중앙에 ":" 배치
+                    Text(":")
+                        .font(.title3.bold())
+                        .frame(maxWidth: .infinity)
+                    
+                    // 홈팀과 원정팀 스코어
+                    HStack {
+                        // 홈팀 스코어 (왼쪽 정렬)
+                        Text("\(homeScore ?? 0)")
+                            .font(.title3.bold())
+                            .frame(maxWidth: .infinity, alignment: .trailing)
+                            .padding(.trailing, 10)
+                        
+                        // 중앙 여백 (":"가 위치할 공간)
+                        Spacer()
+                            .frame(width: 10)
+                        
+                        // 원정팀 스코어 (오른쪽 정렬)
+                        Text("\(awayScore ?? 0)")
+                            .font(.title3.bold())
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.leading, 10)
+                    }
+                }
             }
-            .font(.title3.bold())
+        }
+        
+        // 경기 시간 포맷팅 함수
+        private func formatMatchTime() -> String {
+            let dateFormatter = DateFormatter()
+            dateFormatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ssZ"
+            dateFormatter.timeZone = TimeZone(identifier: "Asia/Seoul")
+            
+            if let date = dateFormatter.date(from: fixture.fixture.date) {
+                dateFormatter.dateFormat = "HH:mm"
+                return dateFormatter.string(from: date)
+            }
+            
+            return "TBD"
         }
     }
     
