@@ -59,7 +59,10 @@
       "Bash(npm init:*)",
       "Bash(git init:*)",
       "Bash(git remote:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(sudo chown:*)"
     ],
     "deny": []
   }

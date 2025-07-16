@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { ArrowRight, Users, MessageCircle, Trophy, Globe } from 'lucide-react'
+import { ArrowRight, Users, MessageCircle, Trophy, Globe, Calendar, BarChart3 } from 'lucide-react'
 
 export default function HomePage() {
   return (
@@ -15,6 +15,12 @@ export default function HomePage() {
               <h1 className="text-2xl font-bold text-gray-900">FutInfo</h1>
             </div>
             <div className="flex items-center space-x-4">
+              <Link href="/fixtures">
+                <Button variant="ghost">경기 일정</Button>
+              </Link>
+              <Link href="/leagues">
+                <Button variant="ghost">리그</Button>
+              </Link>
               <Link href="/community">
                 <Button variant="ghost">커뮤니티</Button>
               </Link>
@@ -39,15 +45,16 @@ export default function HomePage() {
             웹과 모바일 앱에서 완벽하게 동기화된 축구 커뮤니티를 경험해보세요.
           </p>
           <div className="flex items-center justify-center space-x-4">
-            <Link href="/community">
+            <Link href="/fixtures">
               <Button size="lg" className="text-base">
-                커뮤니티 둘러보기
+                오늘의 경기 보기
                 <ArrowRight className="ml-2 h-5 w-5" />
               </Button>
             </Link>
-            <Link href="/download">
+            <Link href="/community">
               <Button variant="outline" size="lg" className="text-base">
-                앱 다운로드
+                <Users className="mr-2 h-5 w-5" />
+                커뮤니티 참여
               </Button>
             </Link>
           </div>
@@ -56,41 +63,82 @@ export default function HomePage() {
 
       {/* Features */}
       <section className="container mx-auto px-4 py-16">
-        <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
-          <Card className="text-center">
+        <h3 className="text-3xl font-bold text-center mb-12">모든 축구 정보를 한 곳에서</h3>
+        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8 max-w-6xl mx-auto">
+          <Card className="text-center hover:shadow-lg transition-shadow">
             <CardHeader>
               <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-blue-100">
-                <Users className="h-6 w-6 text-blue-600" />
+                <Calendar className="h-6 w-6 text-blue-600" />
+              </div>
+              <CardTitle>실시간 경기 일정</CardTitle>
+              <CardDescription>
+                전 세계 주요 리그의 경기 일정과 결과를 실시간으로 확인
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Link href="/fixtures">
+                <Button variant="ghost" size="sm" className="w-full">
+                  경기 일정 보기
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
+
+          <Card className="text-center hover:shadow-lg transition-shadow">
+            <CardHeader>
+              <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-green-100">
+                <BarChart3 className="h-6 w-6 text-green-600" />
+              </div>
+              <CardTitle>리그 순위표</CardTitle>
+              <CardDescription>
+                각 리그별 실시간 순위와 팀 통계를 한눈에 파악
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Link href="/leagues">
+                <Button variant="ghost" size="sm" className="w-full">
+                  리그 정보 보기
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
+
+          <Card className="text-center hover:shadow-lg transition-shadow">
+            <CardHeader>
+              <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-purple-100">
+                <Users className="h-6 w-6 text-purple-600" />
               </div>
               <CardTitle>팀별 커뮤니티</CardTitle>
               <CardDescription>
-                좋아하는 팀의 전용 게시판에서 같은 팬들과 소통하세요
+                좋아하는 팀의 전용 게시판에서 같은 팬들과 소통
               </CardDescription>
             </CardHeader>
+            <CardContent>
+              <Link href="/community">
+                <Button variant="ghost" size="sm" className="w-full">
+                  커뮤니티 참여
+                </Button>
+              </Link>
+            </CardContent>
           </Card>
 
-          <Card className="text-center">
+          <Card className="text-center hover:shadow-lg transition-shadow">
             <CardHeader>
-              <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-green-100">
-                <MessageCircle className="h-6 w-6 text-green-600" />
+              <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-orange-100">
+                <MessageCircle className="h-6 w-6 text-orange-600" />
               </div>
               <CardTitle>실시간 동기화</CardTitle>
               <CardDescription>
-                웹과 모바일 앱 간 완벽한 실시간 동기화로 어디서든 연결
+                웹과 모바일 앱 간 완벽한 실시간 동기화
               </CardDescription>
             </CardHeader>
-          </Card>
-
-          <Card className="text-center">
-            <CardHeader>
-              <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-purple-100">
-                <Globe className="h-6 w-6 text-purple-600" />
-              </div>
-              <CardTitle>글로벌 커뮤니티</CardTitle>
-              <CardDescription>
-                전 세계 축구 팬들과 함께 경기를 즐기고 정보를 공유
-              </CardDescription>
-            </CardHeader>
+            <CardContent>
+              <Link href="/download">
+                <Button variant="ghost" size="sm" className="w-full">
+                  앱 다운로드
+                </Button>
+              </Link>
+            </CardContent>
           </Card>
         </div>
       </section>
