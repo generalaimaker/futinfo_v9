@@ -86,9 +86,16 @@ class APICacheManager {
         return cacheDirectory.appendingPathComponent(filename)
     }
     
-    // 캐시에 데이터 저장
+    // 캐시에 데이터 저장 (빈 응답 필터링 추가)
     func setCache(data: Data, for endpoint: String, parameters: [String: String]? = nil, expiration: CacheExpiration = .medium) {
         let key = cacheKey(for: endpoint, parameters: parameters)
+        
+        // 🚫 빈 응답 캐시 방지 로직
+        if shouldSkipCaching(data: data, endpoint: endpoint, parameters: parameters) {
+            print("🚫 빈 응답 캐시 건너뜀: \(key)")
+            return
+        }
+        
         let cacheEntry = CacheEntry(data: data, expirationInterval: expiration.timeInterval)
         
         // 메모리 캐시에 저장
@@ -121,6 +128,38 @@ class APICacheManager {
         } catch {
             print("❌ Failed to write cache to disk: \(error)")
         }
+    }
+    
+    // 빈 응답 캐시 건너뛰기 판단
+    private func shouldSkipCaching(data: Data, endpoint: String, parameters: [String: String]?) -> Bool {
+        // JSON 응답 파싱 시도
+        do {
+            if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let response = json["response"] as? [Any] {
+                
+                // 빈 응답인 경우
+                if response.isEmpty {
+                    // 라이브 경기 요청인 경우 캐시하지 않음
+                    if endpoint == "fixtures" && parameters?["live"] == "all" {
+                        print("🚫 라이브 경기 빈 응답 - 캐시 건너뜀")
+                        return true
+                    }
+                    
+                    // 특정 날짜/리그 조합의 빈 응답도 캐시하지 않음
+                    if endpoint == "fixtures" &&
+                       parameters?["from"] != nil &&
+                       parameters?["to"] != nil &&
+                       parameters?["league"] != nil {
+                        print("🚫 특정 날짜/리그 빈 응답 - 캐시 건너뜀")
+                        return true
+                    }
+                }
+            }
+        } catch {
+            // JSON 파싱 실패 시 일반 캐시 진행
+        }
+        
+        return false
     }
     
     // 캐시에서 데이터 가져오기

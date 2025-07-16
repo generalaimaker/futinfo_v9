@@ -1418,7 +1418,7 @@ struct PositionGroupView: View {
 
 // 선수 행 뷰 (복잡한 표현식 분리)
 struct PlayerRowView: View {
-    let playerInfo: PlayerResponse
+    let playerInfo: SquadPlayerResponse
     
     var body: some View {
         Button(action: {
@@ -1735,8 +1735,8 @@ struct TeamInfoTabView: View {
     }
     
     // 주요 선수 선택 함수
-    private func selectTopPlayers(from squadGroups: [SquadGroup]) -> [PlayerResponse] {
-        var result: [PlayerResponse] = []
+    private func selectTopPlayers(from squadGroups: [SquadGroup]) -> [SquadPlayerResponse] {
+        var result: [SquadPlayerResponse] = []
         
         // 1. 주장이 있으면 먼저 추가
         let captains = squadGroups.flatMap { $0.players }.filter { player in
@@ -1796,7 +1796,7 @@ struct TeamInfoTabView: View {
     }
     
     // 특정 포지션에서 가장 중요한 선수 찾기
-    private func findBestPlayer(in players: [PlayerResponse]) -> PlayerResponse? {
+    private func findBestPlayer(in players: [SquadPlayerResponse]) -> SquadPlayerResponse? {
         guard !players.isEmpty else { return nil }
         
         return players.sorted { (a, b) -> Bool in
@@ -1942,7 +1942,7 @@ struct TeamSquadTabView: View {
     }
     
     // 선수를 등번호 순으로 정렬하는 함수
-    private func sortPlayersByNumber(_ players: [PlayerResponse]) -> [PlayerResponse] {
+    private func sortPlayersByNumber(_ players: [SquadPlayerResponse]) -> [SquadPlayerResponse] {
         // 디버깅을 위해 정렬 전 선수 목록 출력
         print("정렬 전 선수 목록:")
         for player in players {
@@ -1993,7 +1993,7 @@ struct TeamSquadTabView: View {
 
 // 컴팩트한 선수 카드 뷰 (목록형)
 struct EnhancedPlayerCardView: View {
-    let playerInfo: PlayerResponse
+    let playerInfo: SquadPlayerResponse
     
     var body: some View {
         Button(action: {

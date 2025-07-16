@@ -6,7 +6,7 @@ class LeaguesViewModel: ObservableObject {
     @Published var isLoading = false
     @Published var errorMessage: String?
     
-    private let service = FootballAPIService.shared
+    private let service = SupabaseFootballAPIService.shared
     
     func loadLeagues() {
         isLoading = true
@@ -159,6 +159,30 @@ class LeaguesViewModel: ObservableObject {
                     logo: "https://media.api-sports.io/football/leagues/81.png"
                 ),
                 country: Country(name: "Germany", code: "DE", flag: nil),
+                seasons: nil
+            ))
+            
+            // FIFA Club World Cup
+            hardcodedLeagues.append(LeagueDetails(
+                league: LeagueInfo(
+                    id: 15,
+                    name: "FIFA Club World Cup",
+                    type: "Cup",
+                    logo: "https://media.api-sports.io/football/leagues/15.png"
+                ),
+                country: Country(name: "World", code: "WW", flag: nil),
+                seasons: nil
+            ))
+            
+            // MLS (Major League Soccer)
+            hardcodedLeagues.append(LeagueDetails(
+                league: LeagueInfo(
+                    id: 253,
+                    name: "Major League Soccer",
+                    type: "League",
+                    logo: "https://media.api-sports.io/football/leagues/253.png"
+                ),
+                country: Country(name: "USA", code: "US", flag: nil),
                 seasons: nil
             ))
             

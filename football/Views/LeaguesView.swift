@@ -2,6 +2,8 @@ import SwiftUI
 
 struct LeaguesView: View {
     @StateObject private var viewModel = LeaguesViewModel()
+    @StateObject private var leagueFollowService = LeagueFollowService.shared
+    @State private var showingAddLeague = false
     
     private func formatSeason(_ year: Int) -> String {
         let nextYear = (year + 1) % 100
@@ -45,7 +47,10 @@ struct LeaguesView: View {
                 } else {
                     ScrollView {
                         LazyVStack(spacing: 12) {
-                            ForEach(viewModel.leagues, id: \.league.id) { league in
+                            // 팔로우한 리그만 표시
+                            ForEach(viewModel.leagues.filter { league in
+                                leagueFollowService.isFollowing(leagueId: league.league.id)
+                            }, id: \.league.id) { league in
                                 NavigationLink(
                                     destination: LeagueProfileView(leagueId: league.league.id)
                                 ) {
@@ -53,6 +58,33 @@ struct LeaguesView: View {
                                         .padding(.horizontal)
                                 }
                             }
+                            
+                            // 리그 추가 버튼
+                            Button(action: {
+                                showingAddLeague = true
+                            }) {
+                                HStack {
+                                    Image(systemName: "plus.circle.fill")
+                                        .font(.title2)
+                                        .foregroundColor(.blue)
+                                    
+                                    Text("리그 추가")
+                                        .font(.headline)
+                                        .foregroundColor(.blue)
+                                    
+                                    Spacer()
+                                    
+                                    Image(systemName: "chevron.right")
+                                        .font(.caption)
+                                        .foregroundColor(.gray)
+                                }
+                                .padding()
+                                .background(Color(.systemBackground))
+                                .cornerRadius(12)
+                                .shadow(color: Color.black.opacity(0.1), radius: 3, x: 0, y: 2)
+                            }
+                            .padding(.horizontal)
+                            .padding(.top, 8)
                         }
                         .padding(.vertical)
                     }
@@ -83,6 +115,9 @@ struct LeaguesView: View {
         }
         .onAppear {
             viewModel.loadLeagues()
+        }
+        .sheet(isPresented: $showingAddLeague) {
+            AddLeagueView()
         }
     }
 }

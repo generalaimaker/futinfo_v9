@@ -8,11 +8,15 @@ enum FootballAPIError: LocalizedError, Equatable {
     case decodingError(Error)
     case missingAPIKey
     case invalidAPIKey
-    case firebaseFunctionError(String)
-    case serverError
+    case edgeFunctionError(String)
+    case serverError(Int)
     case emptyResponse(String)
     case invalidParameters(String)
     case requestInProgress
+    case invalidDateFormat
+    case invalidRequest
+    case httpError(Int)
+    case networkError(Error)
     
     static func == (lhs: FootballAPIError, rhs: FootballAPIError) -> Bool {
         switch (lhs, rhs) {
@@ -21,20 +25,28 @@ enum FootballAPIError: LocalizedError, Equatable {
              (.rateLimitExceeded, .rateLimitExceeded),
              (.missingAPIKey, .missingAPIKey),
              (.invalidAPIKey, .invalidAPIKey),
-             (.serverError, .serverError),
-             (.requestInProgress, .requestInProgress):
+             (.invalidRequest, .invalidRequest),
+             (.requestInProgress, .requestInProgress),
+             (.invalidDateFormat, .invalidDateFormat):
             return true
         case (.apiError(let lhsErrors), .apiError(let rhsErrors)):
             return lhsErrors == rhsErrors
         case (.decodingError, .decodingError):
             // Error 프로토콜은 Equatable을 준수하지 않으므로 타입만 비교
             return true
-        case (.firebaseFunctionError(let lhsMessage), .firebaseFunctionError(let rhsMessage)):
+        case (.serverError(let lhsCode), .serverError(let rhsCode)):
+            return lhsCode == rhsCode
+        case (.edgeFunctionError(let lhsMessage), .edgeFunctionError(let rhsMessage)):
             return lhsMessage == rhsMessage
         case (.emptyResponse(let lhsMessage), .emptyResponse(let rhsMessage)):
             return lhsMessage == rhsMessage
         case (.invalidParameters(let lhsMessage), .invalidParameters(let rhsMessage)):
             return lhsMessage == rhsMessage
+        case (.httpError(let lhsCode), .httpError(let rhsCode)):
+            return lhsCode == rhsCode
+        case (.networkError, .networkError):
+            // Error 프로토콜은 Equatable을 준수하지 않으므로 타입만 비교
+            return true
         default:
             return false
         }
@@ -56,16 +68,24 @@ enum FootballAPIError: LocalizedError, Equatable {
             return "API 키를 찾을 수 없습니다."
         case .invalidAPIKey:
             return "유효하지 않은 API 키입니다."
-        case .firebaseFunctionError(let message):
-            return "Firebase 함수 호출 중 오류: \(message)"
-        case .serverError:
-            return "서버 오류가 발생했습니다."
+        case .edgeFunctionError(let message):
+            return "Edge Function 호출 중 오류: \(message)"
+        case .serverError(let statusCode):
+            return "서버 오류가 발생했습니다. (상태 코드: \(statusCode))"
         case .emptyResponse(let message):
             return message
         case .invalidParameters(let message):
             return message
         case .requestInProgress:
             return "이미 진행 중인 요청입니다."
+        case .invalidDateFormat:
+            return "잘못된 날짜 형식입니다."
+        case .invalidRequest:
+            return "잘못된 요청입니다."
+        case .httpError(let statusCode):
+            return "HTTP 오류가 발생했습니다. (상태 코드: \(statusCode))"
+        case .networkError(let error):
+            return "네트워크 오류: \(error.localizedDescription)"
         }
     }
 }

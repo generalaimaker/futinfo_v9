@@ -1,6 +1,10 @@
 import Foundation
 import SwiftUI
 
+// Type aliases for consistent naming
+typealias FixtureEventsResponse = FixtureEventResponse
+typealias FixtureLineupsResponse = FixtureLineupResponse
+
 // MARK: - Injuries
 struct InjuriesResponse: Codable, APIErrorCheckable { // APIErrorCheckable 채택
     let get: String

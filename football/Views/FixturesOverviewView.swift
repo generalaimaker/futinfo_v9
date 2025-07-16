@@ -115,52 +115,91 @@ struct FixturesErrorView: View {
 struct FixturesDateTabsView: View {
     let viewModel: FixturesOverviewViewModel
     @Binding var selectedDateIndex: Int
+    @State private var showCalendarPicker = false
     
     var body: some View {
-        ScrollViewReader { scrollProxy in
-            ScrollView(.horizontal, showsIndicators: false) {
+        HStack(spacing: 0) {
+            // 빠른 과거 이동 (1주일)
+            Button(action: {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                    let newIndex = max(0, selectedDateIndex - 7)
+                    selectedDateIndex = newIndex
+                }
+            }) {
+                Image(systemName: "chevron.left.2")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(selectedDateIndex > 6 ? .blue : .gray.opacity(0.5))
+                    .frame(width: 28, height: 44)
+                    .contentShape(Rectangle())
+            }
+            .disabled(selectedDateIndex <= 6)
+            
+            // 좌측 화살표 (과거)
+            Button(action: {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                    if selectedDateIndex > 0 {
+                        selectedDateIndex -= 1
+                    }
+                }
+            }) {
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(selectedDateIndex > 0 ? .blue : .gray.opacity(0.5))
+                    .frame(width: 32, height: 44)
+                    .contentShape(Rectangle())
+            }
+            .disabled(selectedDateIndex <= 0)
+            
+            ScrollViewReader { scrollProxy in
+                ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 10) {
+                    // 오늘 버튼 (현재 날짜가 오늘이 아닐 때만 표시)
+                    if !Calendar.current.isDateInToday(viewModel.selectedDate) {
+                        Button(action: {
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                                // 오늘 날짜의 인덱스 찾기
+                                if let todayIndex = viewModel.dateTabs.firstIndex(where: { 
+                                    Calendar.current.isDateInToday($0.date) 
+                                }) {
+                                    selectedDateIndex = todayIndex
+                                    scrollProxy.scrollTo(todayIndex, anchor: .center)
+                                }
+                            }
+                        }) {
+                            VStack(spacing: 4) {
+                                Image(systemName: "calendar.circle.fill")
+                                    .font(.system(size: 20))
+                                    .foregroundColor(.white)
+                                
+                                Text("오늘")
+                                    .font(.caption)
+                                    .fontWeight(.bold)
+                                    .foregroundColor(.white)
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 8)
+                            .background(
+                                RoundedRectangle(cornerRadius: 16)
+                                    .fill(Color.green)
+                            )
+                            .shadow(color: Color.green.opacity(0.3), radius: 4, x: 0, y: 2)
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                        
+                        Divider()
+                            .frame(height: 30)
+                            .background(Color.gray.opacity(0.3))
+                            .padding(.horizontal, 4)
+                    }
+                    
                     ForEach(0..<viewModel.dateTabs.count, id: \.self) { index in
                         Button(action: {
-                            withAnimation {
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.8, blendDuration: 0)) {
                                 selectedDateIndex = index
-                                viewModel.selectedDate = viewModel.dateTabs[index].date
                                 
-                                // 선택된 날짜에 대한 경기 일정 로드
+                                // 최적화된 날짜 선택 메서드 사용
                                 Task {
-                                    // 1. 현재 선택된 날짜 로드 (오늘 날짜이거나 라이브 경기가 있는 경우 강제 새로고침)
-                                    let today = Calendar.current.startOfDay(for: Date())
-                                    let selectedDate = viewModel.dateTabs[index].date
-                                    let isToday = Calendar.current.isDate(selectedDate, inSameDayAs: today)
-                                    
-                                    // 라이브 경기가 있는지 확인
-                                    let hasLiveMatches = viewModel.fixtures[selectedDate]?.contains { fixture in
-                                        ["1H", "2H", "HT", "ET", "P", "BT", "LIVE"].contains(fixture.fixture.status.short)
-                                    } ?? false
-                                    
-                                    // 오늘 날짜이거나 라이브 경기가 있는 경우 강제 새로고침
-                                    let forceRefresh = isToday || hasLiveMatches
-                                    
-                                    print("📱 날짜 탭 선택 - 날짜: \(viewModel.formatDateForAPI(selectedDate)), 오늘 여부: \(isToday), 라이브 경기: \(hasLiveMatches), 강제 새로고침: \(forceRefresh)")
-                                    
-                                    // 선택된 날짜 로드
-                                    await viewModel.loadFixturesForDate(selectedDate, forceRefresh: forceRefresh)
-                                    
-                                    // 2. 다음 날짜들의 경기 일정도 미리 로드 (UX 향상)
-                                    if index + 1 < viewModel.dateTabs.count {
-                                        // 다음 날짜 로드
-                                        await viewModel.loadFixturesForDate(viewModel.dateTabs[index + 1].date)
-                                        
-                                        // 그 다음 날짜도 로드
-                                        if index + 2 < viewModel.dateTabs.count {
-                                            await viewModel.loadFixturesForDate(viewModel.dateTabs[index + 2].date)
-                                        }
-                                    }
-                                    
-                                    // 3. 이전 날짜도 미리 로드 (뒤로 가기 UX 향상)
-                                    if index > 0 {
-                                        await viewModel.loadFixturesForDate(viewModel.dateTabs[index - 1].date)
-                                    }
+                                    await viewModel.selectDate(viewModel.dateTabs[index].date)
                                 }
                                 
                                 // 날짜 범위 업데이트 (필요한 경우)
@@ -185,24 +224,39 @@ struct FixturesDateTabsView: View {
                                     .padding(.horizontal, 12)
                                     .padding(.vertical, 6)
                                     .foregroundColor(selectedDateIndex == index ? .blue : .gray)
+                                    .scaleEffect(selectedDateIndex == index ? 1.05 : 1.0)
+                                    .animation(.spring(response: 0.3, dampingFraction: 0.8), value: selectedDateIndex == index)
                                 
                                 // 선택 표시 막대
                                 Rectangle()
                                     .fill(selectedDateIndex == index ? Color.blue : Color.clear)
                                     .frame(height: 3)
                                     .cornerRadius(1.5)
+                                    .animation(.spring(response: 0.3, dampingFraction: 0.8), value: selectedDateIndex == index)
                             }
                         }
+                        .buttonStyle(PlainButtonStyle())
                         .id(index)
+                        .transition(.asymmetric(
+                            insertion: .scale.combined(with: .opacity),
+                            removal: .scale.combined(with: .opacity)
+                        ))
                         .overlay {
-                            // 로딩 인디케이터
-                            if viewModel.loadingDates.contains(viewModel.dateTabs[index].date) {
+                            // 로딩 인디케이터 또는 스켈레톤
+                            if viewModel.isShowingSkeleton && selectedDateIndex == index {
                                 ProgressView()
                                     .scaleEffect(0.7)
                                     .padding(4)
                                     .background(Color(.systemBackground).opacity(0.7))
                                     .cornerRadius(8)
                                     .offset(y: 20)
+                            } else if viewModel.loadingDates.contains(viewModel.dateTabs[index].date) {
+                                ProgressView()
+                                    .scaleEffect(0.5)
+                                    .padding(2)
+                                    .background(Color(.systemBackground).opacity(0.5))
+                                    .cornerRadius(4)
+                                    .offset(y: 16)
                             }
                         }
                     }
@@ -211,7 +265,7 @@ struct FixturesDateTabsView: View {
                 .padding(.vertical, 8)
                 .onChange(of: selectedDateIndex) { oldIndex, newIndex in
                     // 선택된 날짜가 변경되면 해당 날짜로 스크롤
-                    withAnimation {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8, blendDuration: 0)) {
                         scrollProxy.scrollTo(newIndex, anchor: .center)
                     }
                 }
@@ -219,13 +273,108 @@ struct FixturesDateTabsView: View {
             .background(Color(.systemBackground))
             .onAppear {
                 // 초기 로드 시 오늘 날짜로 스크롤
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                    withAnimation {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    withAnimation(.easeInOut(duration: 0.3)) {
                         scrollProxy.scrollTo(selectedDateIndex, anchor: .center)
                     }
                 }
             }
+            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("CalendarDateSelected"))) { notification in
+                // 캘린더에서 날짜 선택 시 스크롤
+                if let index = notification.userInfo?["index"] as? Int {
+                    withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                        scrollProxy.scrollTo(index, anchor: .center)
+                    }
+                }
+            }
         }
+        
+        // 우측 화살표 (미래)
+        Button(action: {
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                if selectedDateIndex < viewModel.dateTabs.count - 1 {
+                    selectedDateIndex += 1
+                }
+            }
+        }) {
+            Image(systemName: "chevron.right")
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundColor(selectedDateIndex < viewModel.dateTabs.count - 1 ? .blue : .gray.opacity(0.5))
+                .frame(width: 32, height: 44)
+                .contentShape(Rectangle())
+        }
+        .disabled(selectedDateIndex >= viewModel.dateTabs.count - 1)
+        
+        // 빠른 미래 이동 (1주일)
+        Button(action: {
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                let newIndex = min(viewModel.dateTabs.count - 1, selectedDateIndex + 7)
+                selectedDateIndex = newIndex
+            }
+        }) {
+            Image(systemName: "chevron.right.2")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(selectedDateIndex < viewModel.dateTabs.count - 7 ? .blue : .gray.opacity(0.5))
+                .frame(width: 28, height: 44)
+                .contentShape(Rectangle())
+        }
+        .disabled(selectedDateIndex >= viewModel.dateTabs.count - 7)
+    }
+    .background(Color(.systemBackground))
+}
+
+    // 캘린더에서 날짜 선택 시 처리
+    private func handleDateSelection(_ date: Date) async {
+        let calendar = Calendar.current
+        
+        // 날짜 범위 확인 및 확장
+        let needsExtension = !viewModel.allDateRange.contains(where: { calendar.isDate($0, inSameDayAs: date) })
+        
+        if needsExtension {
+            // 현재 날짜 범위를 확장하여 선택한 날짜 포함
+            await expandDateRangeToInclude(date)
+        }
+        
+        // 선택한 날짜의 인덱스 찾기
+        if let index = viewModel.visibleDateRange.firstIndex(where: { calendar.isDate($0, inSameDayAs: date) }) {
+            selectedDateIndex = index
+            
+            // 날짜 선택 및 데이터 로드
+            await viewModel.selectDate(date)
+            
+            // NotificationCenter를 통해 스크롤 위치 업데이트
+            NotificationCenter.default.post(
+                name: NSNotification.Name("CalendarDateSelected"),
+                object: nil,
+                userInfo: ["index": index]
+            )
+        }
+    }
+    
+    // 날짜 범위를 확장하여 특정 날짜 포함
+    private func expandDateRangeToInclude(_ targetDate: Date) async {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        
+        // 오늘부터 목표 날짜까지의 날짜 범위 생성
+        let startDate = min(targetDate, viewModel.allDateRange.first ?? today)
+        let endDate = max(targetDate, viewModel.allDateRange.last ?? today)
+        
+        var newDates: [Date] = []
+        var currentDate = startDate
+        
+        while currentDate <= endDate {
+            if !viewModel.allDateRange.contains(where: { calendar.isDate($0, inSameDayAs: currentDate) }) {
+                newDates.append(currentDate)
+            }
+            currentDate = calendar.date(byAdding: .day, value: 1, to: currentDate)!
+        }
+        
+        // 날짜 범위 업데이트
+        viewModel.allDateRange = (viewModel.allDateRange + newDates).sorted()
+        viewModel.visibleDateRange = viewModel.allDateRange
+        
+        print("📅 날짜 범위 확장: \(newDates.count)개 날짜 추가")
     }
 }
 
@@ -233,6 +382,7 @@ struct FixturesDateTabsView: View {
 struct FixturesPageTabView: View {
     let viewModel: FixturesOverviewViewModel
     @Binding var selectedDateIndex: Int
+    @GestureState private var dragOffset: CGFloat = 0
     
     var body: some View {
         TabView(selection: $selectedDateIndex) {
@@ -247,45 +397,21 @@ struct FixturesPageTabView: View {
             }
         }
         .tabViewStyle(PageTabViewStyle(indexDisplayMode: .never))
+        .animation(.interactiveSpring(response: 0.4, dampingFraction: 0.85, blendDuration: 0.25), value: selectedDateIndex)
         .onChange(of: selectedDateIndex) { oldValue, newValue in
-            // 날짜 범위 업데이트는 FixturesDateTabsView에서만 처리하도록 수정
-            // 중복 호출 방지를 위해 이 부분 제거
-            
-            // 선택된 날짜가 변경되면 경기 일정 로드 (UX 향상)
+            // 최적화된 날짜 선택 메서드 사용
             Task {
-                // 1. 현재 선택된 날짜 로드 (오늘 날짜이거나 라이브 경기가 있는 경우 강제 새로고침)
-                let today = Calendar.current.startOfDay(for: Date())
-                let selectedDate = viewModel.dateTabs[newValue].date
-                let isToday = Calendar.current.isDate(selectedDate, inSameDayAs: today)
-                
-                // 라이브 경기가 있는지 확인
-                let hasLiveMatches = viewModel.fixtures[selectedDate]?.contains { fixture in
-                    ["1H", "2H", "HT", "ET", "P", "BT", "LIVE"].contains(fixture.fixture.status.short)
-                } ?? false
-                
-                // 오늘 날짜이거나 라이브 경기가 있는 경우 강제 새로고침
-                let forceRefresh = isToday || hasLiveMatches
-                
-                print("📱 페이지 탭 변경 - 날짜: \(viewModel.formatDateForAPI(selectedDate)), 오늘 여부: \(isToday), 라이브 경기: \(hasLiveMatches), 강제 새로고침: \(forceRefresh)")
-                
-                // 선택된 날짜 로드
-                await viewModel.loadFixturesForDate(selectedDate, forceRefresh: forceRefresh)
-                
-                // 2. 다음 날짜들의 경기 일정 미리 로드
-                if newValue + 1 < viewModel.dateTabs.count {
-                    // 다음 날짜 로드
-                    await viewModel.loadFixturesForDate(viewModel.dateTabs[newValue + 1].date)
-                    
-                    // 그 다음 날짜도 로드
-                    if newValue + 2 < viewModel.dateTabs.count {
-                        await viewModel.loadFixturesForDate(viewModel.dateTabs[newValue + 2].date)
-                    }
-                }
-                
-                // 3. 이전 날짜도 미리 로드 (뒤로 가기 UX 향상)
-                if newValue > 0 {
-                    await viewModel.loadFixturesForDate(viewModel.dateTabs[newValue - 1].date)
-                }
+                await viewModel.selectDate(viewModel.dateTabs[newValue].date)
+            }
+            
+            // 날짜 범위 확장 체크
+            let isNearStart = newValue < 3
+            let isNearEnd = newValue > viewModel.dateTabs.count - 4
+            
+            if isNearStart {
+                viewModel.extendDateRange(forward: false)
+            } else if isNearEnd {
+                viewModel.extendDateRange(forward: true)
             }
         }
     }
@@ -314,6 +440,9 @@ struct FixturesMainContentView: View {
                     selectedDateIndex: $selectedDateIndex
                 )
                 .onAppear {
+                    // 캐시된 데이터를 미리 적용
+                    viewModel.prePopulateCachedFixtures()
+                    
                     // 메인 컨텐츠 뷰가 나타날 때 현재 선택된 날짜에 데이터가 있는지 확인
                     if let selectedDate = viewModel.dateTabs[safe: selectedDateIndex]?.date {
                         let hasData = viewModel.fixtures[selectedDate]?.isEmpty == false
@@ -526,6 +655,64 @@ struct FixturesOverviewView: View {
     @State private var navigateToPlayerProfile: Bool = false
     @State private var selectedPlayerId: Int = 0
     
+    // 캘린더 픽커 상태
+    @State private var showCalendarPicker: Bool = false
+    
+    // MARK: - Helper Functions
+    private func navigateToDate(_ date: Date) async {
+        let calendar = Calendar.current
+        
+        // 현재 날짜 범위 확인
+        if let firstDate = viewModel.visibleDateRange.first,
+           let lastDate = viewModel.visibleDateRange.last {
+            
+            // 선택된 날짜가 현재 범위 내에 있는지 확인
+            if date >= firstDate && date <= lastDate {
+                // 범위 내에 있으면 해당 인덱스로 이동
+                if let index = viewModel.visibleDateRange.firstIndex(where: { calendar.isDate($0, inSameDayAs: date) }) {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                        selectedDateIndex = index
+                    }
+                    await viewModel.selectDate(date)
+                }
+            } else {
+                // 범위 밖에 있으면 날짜 범위 확장 후 이동
+                await expandDateRangeToInclude(date)
+            }
+        }
+    }
+    
+    private func expandDateRangeToInclude(_ targetDate: Date) async {
+        let calendar = Calendar.current
+        let target = calendar.startOfDay(for: targetDate)
+        
+        // 새로운 날짜 범위 생성 (타겟 날짜 ±7일)
+        let startDate = calendar.date(byAdding: .day, value: -7, to: target)!
+        let endDate = calendar.date(byAdding: .day, value: 7, to: target)!
+        
+        var newDates: [Date] = []
+        var currentDate = startDate
+        
+        while currentDate <= endDate {
+            newDates.append(currentDate)
+            currentDate = calendar.date(byAdding: .day, value: 1, to: currentDate)!
+        }
+        
+        // ViewModel 업데이트
+        await MainActor.run {
+            viewModel.visibleDateRange = newDates
+            viewModel.allDateRange = newDates
+            
+            // 타겟 날짜의 인덱스 찾기
+            if let targetIndex = newDates.firstIndex(where: { calendar.isDate($0, inSameDayAs: targetDate) }) {
+                selectedDateIndex = targetIndex
+            }
+        }
+        
+        // 선택된 날짜 데이터 로드
+        await viewModel.selectDate(targetDate)
+    }
+    
     var body: some View {
         NavigationStack {
             ZStack {
@@ -544,6 +731,13 @@ struct FixturesOverviewView: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     HStack(spacing: 16) {
+                        // 캘린더 버튼
+                        Button(action: {
+                            showCalendarPicker = true
+                        }) {
+                            Image(systemName: "calendar")
+                        }
+                        
                         // 검색 버튼
                         NavigationLink(destination: SearchView()) {
                             Image(systemName: "magnifyingglass")
@@ -561,6 +755,25 @@ struct FixturesOverviewView: View {
                     }
                 }
             }
+        }
+        .sheet(isPresented: $showCalendarPicker) {
+            CalendarPickerView(
+                selectedDate: $viewModel.selectedDate,
+                isPresented: $showCalendarPicker,
+                onDateSelected: { date in
+                    // 선택된 날짜로 이동
+                    Task {
+                        await navigateToDate(date)
+                        
+                        // 화면 업데이트를 위한 알림
+                        NotificationCenter.default.post(
+                            name: NSNotification.Name("CalendarDateSelected"),
+                            object: nil,
+                            userInfo: ["date": date, "index": selectedDateIndex]
+                        )
+                    }
+                }
+            )
         }
         .task {
             // 선택된 날짜 인덱스 설정 (오늘 날짜에 해당하는 인덱스)
@@ -678,12 +891,42 @@ struct FixturesOverviewView: View {
                     }
                 }
             }
+            
+            // 캐시 초기화 알림 관찰자 등록
+            NotificationCenter.default.addObserver(forName: NSNotification.Name("ClearAllCache"), object: nil, queue: .main) { _ in
+                print("📣 FixturesOverviewView - 캐시 초기화 알림 수신")
+                Task { @MainActor in
+                    viewModel.clearAllCaches()
+                }
+            }
+            
+            // 부분 실패 알림 관찰자 등록
+            NotificationCenter.default.addObserver(forName: NSNotification.Name("PartialFixturesLoadFailure"), object: nil, queue: .main) { notification in
+                if let userInfo = notification.userInfo,
+                   let successCount = (userInfo["successCount"] as? NSNumber)?.intValue,
+                   let totalCount = (userInfo["totalCount"] as? NSNumber)?.intValue {
+                    print("📣 FixturesOverviewView - 부분 실패 알림 수신: \(successCount)/\(totalCount)")
+                    
+                    // 사용자에게 부분 실패 알림 (Toast 메시지)
+                    DispatchQueue.main.async {
+                        let message = "일부 리그 데이터 로드 실패 (\(successCount)/\(totalCount) 성공)"
+                        viewModel.errorMessage = message
+                        
+                        // 3초 후 자동으로 에러 메시지 제거
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                            viewModel.errorMessage = nil
+                        }
+                    }
+                }
+            }
         }
         .onDisappear {
             // NotificationCenter 관찰자 제거
             NotificationCenter.default.removeObserver(self, name: NSNotification.Name("ShowTeamProfile"), object: nil)
             NotificationCenter.default.removeObserver(self, name: NSNotification.Name("ShowPlayerProfile"), object: nil)
             NotificationCenter.default.removeObserver(self, name: NSNotification.Name("DateRangeExtended"), object: nil)
+            NotificationCenter.default.removeObserver(self, name: NSNotification.Name("ClearAllCache"), object: nil)
+            NotificationCenter.default.removeObserver(self, name: NSNotification.Name("PartialFixturesLoadFailure"), object: nil)
         }
         .navigationDestination(isPresented: $navigateToTeamProfile) {
             TeamProfileView(teamId: selectedTeamId, leagueId: selectedTeamLeagueId)
@@ -701,22 +944,79 @@ struct FixturePageView: View {
     let index: Int
     let selectedIndex: Int
     
+    // 리그별 접기/펼치기 상태 저장 (UserDefaults 사용)
+    @State private var collapsedLeagues: Set<Int> = {
+        if let saved = UserDefaults.standard.array(forKey: "collapsedLeagues") as? [Int] {
+            return Set(saved)
+        }
+        return []
+    }()
+    
+    // 리그 우선순위 함수
+    func getPriority(for leagueId: Int) -> Int {
+        switch leagueId {
+        // 5대 리그 (최우선)
+        case 39, 140, 135, 78, 61: return 0
+        // UEFA 대회
+        case 2, 3, 4: return 1
+        // 클럽 월드컵
+        case 15: return 2
+        // 주요 컵 대회
+        case 45, 143, 137, 66, 81: return 3
+        // K리그
+        case 292, 293: return 4
+        // 기타
+        default: return 5
+        }
+    }
+    
     var body: some View {
+        let favoriteFixtures: [Fixture] = {
+            guard let fixturesForDate = viewModel.fixtures[date] else { return [] }
+            
+            // 팀 즐겨찾기 필터링
+            let teamFavorites = FavoriteService.shared.getFavorites(type: .team)
+            
+            return fixturesForDate.filter { fixture in
+                teamFavorites.contains { favorite in
+                    favorite.entityId == fixture.teams.home.id || favorite.entityId == fixture.teams.away.id
+                }
+            }
+        }()
+        
+        let leagueFollowService = LeagueFollowService.shared
+        let followedLeagueIds = leagueFollowService.followedLeagueIds
+        
+        // 팔로우한 리그 중에서 우선순위 정렬
+        let prioritizedLeagues = followedLeagueIds.sorted { id1, id2 in
+            let priority1 = getPriority(for: id1)
+            let priority2 = getPriority(for: id2)
+            return priority1 < priority2
+        }
+        
+        // 리그별 경기 그룹화
+        let fixturesByLeague: [Int: [Fixture]] = {
+            guard let fixturesForDate = viewModel.fixtures[date] else { return [:] }
+            
+            // 즐겨찾기 팀 경기는 제외
+            let nonFavoriteFixtures = fixturesForDate.filter { fixture in
+                !favoriteFixtures.contains(fixture)
+            }
+            
+            // 리그별로 그룹화
+            var result: [Int: [Fixture]] = [:]
+            for fixture in nonFavoriteFixtures {
+                let leagueId = fixture.league.id
+                if result[leagueId] == nil {
+                    result[leagueId] = []
+                }
+                result[leagueId]?.append(fixture)
+            }
+            return result
+        }()
+        
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
-                // 즐겨찾기 팀 일정
-                let favoriteFixtures: [Fixture] = {
-                    guard let fixturesForDate = viewModel.fixtures[date] else { return [] }
-                    
-                    // 팀 즐겨찾기 필터링
-                    let teamFavorites = FavoriteService.shared.getFavorites(type: .team)
-                    
-                    return fixturesForDate.filter { fixture in
-                        teamFavorites.contains { favorite in
-                            favorite.entityId == fixture.teams.home.id || favorite.entityId == fixture.teams.away.id
-                        }
-                    }
-                }()
                 
                 if !favoriteFixtures.isEmpty {
                     VStack(alignment: .leading, spacing: 8) {
@@ -738,50 +1038,14 @@ struct FixturePageView: View {
                         .padding(.vertical, 8)
                 }
                 
-                // 리그별 일정 (우선순위 순서대로)
-                let prioritizedLeagues = [
-                    // 주요 리그
-                    39, 140, 135, 78, 61, // 프리미어 리그, 라리가, 세리에 A, 분데스리가, 리그 1
-                    
-                    // UEFA 대회
-                    2, 3, 4, 5, // 챔피언스 리그, 유로파 리그, 컨퍼런스 리그, 유로 챔피언십
-                    
-                    // 국제대회 - 월드컵 및 예선
-                    1, 31, 32, 33, 34, 35, 36, // 월드컵, 유럽/아시아/아프리카/북중미/남미/오세아니아 예선
-                    
-                    // 국제대회 - 대륙별 대회
-                    9, 10, 11, 12, 13, // 유럽/남미/아시아/아프리카/북중미 챔피언십
-                    
-                    // 주요 컵 대회
-                    45, 143, 137, 66, 81, // FA컵, 코파 델 레이, 코파 이탈리아, 쿠프 드 프랑스, DFB 포칼
-                    
-                    // 기타 리그
-                    144, 88, 94, 71, 848, 207 // 벨기에, 네덜란드, 포르투갈, 브라질, ACL, K리그
-                ]
                 
-                // 리그별 경기 그룹화
-                let fixturesByLeague: [Int: [Fixture]] = {
-                    guard let fixturesForDate = viewModel.fixtures[date] else { return [:] }
-                    
-                    // 즐겨찾기 팀 경기는 제외
-                    let nonFavoriteFixtures = fixturesForDate.filter { fixture in
-                        !favoriteFixtures.contains(fixture)
+                // 우선순위 순서대로 리그 표시 (0으로 나누기 방지)
+                ForEach(prioritizedLeagues.filter { leagueId in
+                    if let fixtures = fixturesByLeague[leagueId] {
+                        return !fixtures.isEmpty
                     }
-                    
-                    // 리그별로 그룹화
-                    var result: [Int: [Fixture]] = [:]
-                    for fixture in nonFavoriteFixtures {
-                        let leagueId = fixture.league.id
-                        if result[leagueId] == nil {
-                            result[leagueId] = []
-                        }
-                        result[leagueId]?.append(fixture)
-                    }
-                    return result
-                }()
-                
-                // 우선순위 순서대로 리그 표시
-                ForEach(prioritizedLeagues, id: \.self) { leagueId in
+                    return false
+                }, id: \.self) { leagueId in
                     if let leagueFixtures = fixturesByLeague[leagueId], !leagueFixtures.isEmpty {
                         VStack(alignment: .leading, spacing: 8) {
                             // 리그 배너 헤더
@@ -797,21 +1061,24 @@ struct FixturePageView: View {
                                 case 2: return "챔피언스 리그"
                                 case 3: return "유로파 리그"
                                 case 4: return "컨퍼런스 리그"
-                                case 5: return "유로 챔피언십"
+                                // case 5는 네이션스 리그로 사용됨
+                                // 클럽 월드컵
+                                case 15: return "FIFA 클럽 월드컵"
                                 // 국제대회 - 월드컵 및 예선
                                 case 1: return "FIFA 월드컵"
-                                case 31: return "유럽 월드컵 예선"
-                                case 32: return "아시아 월드컵 예선"
-                                case 33: return "아프리카 월드컵 예선"
-                                case 34: return "북중미 월드컵 예선"
-                                case 35: return "남미 월드컵 예선"
-                                case 36: return "오세아니아 월드컵 예선"
+                                case 29: return "월드컵 예선 - 아시아"
+                                case 31: return "월드컵 예선 - 유럽 (다른 예선)"
+                                case 32: return "월드컵 예선 - 유럽"
+                                case 33: return "월드컵 예선 - 아프리카"
+                                case 34: return "월드컵 예선 - 남미"
+                                case 35: return "월드컵 예선 - 북중미"
+                                case 36: return "월드컵 예선 - 오세아니아"
                                 // 국제대회 - 대륙별 대회
                                 case 9: return "유럽 챔피언십"
                                 case 10: return "코파 아메리카"
                                 case 11: return "아시안컵"
                                 case 12: return "아프리카컵"
-                                case 13: return "골드컵"
+                                // case 13은 코파 리베르타도레스로 사용됨
                                 // 주요 컵 대회
                                 case 45: return "FA컵"
                                 case 143: return "코파 델 레이"
@@ -824,7 +1091,34 @@ struct FixturePageView: View {
                                 case 94: return "프리메이라 리가"
                                 case 71: return "브라질 세리에 A"
                                 case 848: return "아시안 챔피언스 리그"
-                                case 207: return "K리그"
+                                case 292: return "K리그1"
+                                case 293: return "K리그2"
+                                case 253: return "MLS"
+                                case 98: return "J1 리그"
+                                case 169: return "중국 슈퍼리그"
+                                // case 5: return "네이션스 리그" - 이미 위에서 정의됨
+                                // case 1: return "FIFA 월드컵" - 이미 위에서 정의됨
+                                // case 32: return "월드컵 예선 - 유럽" - 이미 위에서 정의됨
+                                // case 34: return "월드컵 예선 - 남미" - 이미 위에서 정의됨
+                                // case 29: return "월드컵 예선 - 아시아" - 아래에서 정의됨
+                                case 128: return "아르헨티나 리가 프로페시오날"
+                                // 추가 유럽 리그
+                                case 179: return "스코틀랜드 프리미어십"
+                                case 103: return "노르웨이 엘리테세리엔"
+                                case 113: return "스웨덴 알스벤스칸"
+                                // 추가 컵 대회
+                                case 48: return "EFL 컵"
+                                case 556: return "UEFA 슈퍼컵"
+                                case 528: return "커뮤니티 실드"
+                                case 531: return "수페르코파"
+                                case 547: return "슈퍼코파 이탈리아"
+                                case 529: return "DFL 슈퍼컵"
+                                case 526: return "트로페 데 샹피온"
+                                // 기타 국제 대회
+                                // case 5: return "네이션스 리그" - 이미 위에서 정의됨
+                                case 6: return "아프리카 네이션스컵"
+                                case 13: return "코파 리베르타도레스"
+                                case 302: return "KFA FA컵"
                                 default: return "리그 \(leagueId)"
                                 }
                             }()
@@ -847,6 +1141,20 @@ struct FixturePageView: View {
                                     .padding(.leading, 4)
 
                                 Spacer()
+                                
+                                // 접기/펼치기 아이콘과 경기 수 표시
+                                HStack(spacing: 8) {
+                                    Text("\(leagueFixtures.count)")
+                                        .font(.system(size: 12, weight: .medium))
+                                        .foregroundColor(.white.opacity(0.9))
+                                    
+                                    Image(systemName: collapsedLeagues.contains(leagueId) ? "chevron.down" : "chevron.up")
+                                        .font(.system(size: 12, weight: .medium))
+                                        .foregroundColor(.white)
+                                        .rotationEffect(.degrees(collapsedLeagues.contains(leagueId) ? 0 : 0))
+                                        .animation(.easeInOut(duration: 0.2), value: collapsedLeagues.contains(leagueId))
+                                }
+                                .padding(.trailing, 8)
                             }
                             .frame(maxWidth: .infinity, alignment: .center) // 가운데 정렬로 변경
                             .padding(.leading, 10)
@@ -866,10 +1174,25 @@ struct FixturePageView: View {
                             )
                             .padding(.top, 4) // 8 -> 4로 줄임
                             .padding(.bottom, 2) // 4 -> 2로 줄임
+                            .onTapGesture {
+                                withAnimation(.easeInOut(duration: 0.3)) {
+                                    if collapsedLeagues.contains(leagueId) {
+                                        collapsedLeagues.remove(leagueId)
+                                    } else {
+                                        collapsedLeagues.insert(leagueId)
+                                    }
+                                    // UserDefaults에 저장
+                                    UserDefaults.standard.set(Array(collapsedLeagues), forKey: "collapsedLeagues")
+                                }
+                            }
 
-                            ForEach(leagueFixtures) { fixture in
-                                FixtureCardView(fixture: fixture, viewModel: viewModel)
-                                    .padding(.vertical, 2) // 4 -> 2로 줄임
+                            // 접혀있지 않은 경우에만 경기 표시
+                            if !collapsedLeagues.contains(leagueId) {
+                                ForEach(leagueFixtures) { fixture in
+                                    FixtureCardView(fixture: fixture, viewModel: viewModel)
+                                        .padding(.vertical, 2) // 4 -> 2로 줄임
+                                        .transition(.opacity.combined(with: .move(edge: .top)))
+                                }
                             }
                         }
                         Divider()
@@ -883,45 +1206,50 @@ struct FixturePageView: View {
                 
                 // 데이터가 없는 경우 처리
                 if fixtures.isEmpty {
-                    // 빈 응답 메시지가 있는지 확인
-                    if let emptyMessage = viewModel.emptyDates[date] {
-                        // 빈 응답 메시지 표시
-                        VStack(spacing: 12) {
-                            Image(systemName: "calendar.badge.exclamationmark")
-                                .font(.system(size: 40))
-                                .foregroundColor(.secondary)
-                            Text(emptyMessage)
-                                .foregroundColor(.secondary)
-                                .multilineTextAlignment(.center)
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 40)
-                    } else if isLoading {
-                        // 로딩 중인 경우 스켈레톤 UI 표시
+                    // 로딩 중이거나 스켈레톤 표시 중인 경우
+                    if isLoading || viewModel.isShowingSkeleton || viewModel.loadingDates.contains(date) {
                         FixtureSkeletonView()
                             .padding(.horizontal)
                             .frame(maxWidth: .infinity)
                             .padding(.top, 20)
                     } else {
-                        // 데이터가 없고 로딩 중이 아니면 메시지 표시 및 데이터 로드 시도
-                        VStack(spacing: 12) {
-                            Image(systemName: "calendar.badge.exclamationmark")
-                                .font(.system(size: 40))
-                                .foregroundColor(.secondary)
-                            Text("해당일에 예정된 경기가 없습니다")
-                                .foregroundColor(.secondary)
-                                .multilineTextAlignment(.center)
+                        // 캐시 확인
+                        let dateString = viewModel.formatDateForAPI(date)
+                        let hasCachedData = viewModel.cachedFixtures[dateString] != nil
+                        
+                        // 캐시가 있지만 아직 UI에 반영되지 않은 경우 스켈레톤 표시
+                        if hasCachedData {
+                            FixtureSkeletonView()
+                                .padding(.horizontal)
+                                .frame(maxWidth: .infinity)
+                                .padding(.top, 20)
                                 .onAppear {
-                                    // 데이터 로드 시도
-                                    if !isLoading {
-                                        Task {
-                                            await viewModel.loadFixturesForDate(date, forceRefresh: true)
-                                        }
+                                    // 캐시 데이터 즉시 적용
+                                    if let cachedData = viewModel.cachedFixtures[dateString] {
+                                        viewModel.fixtures[date] = cachedData
                                     }
                                 }
+                        } else {
+                            // 정말로 데이터가 없는 경우에만 빈 상태 메시지 표시
+                            VStack(spacing: 12) {
+                                Image(systemName: "calendar.badge.exclamationmark")
+                                    .font(.system(size: 40))
+                                    .foregroundColor(.secondary)
+                                Text(viewModel.emptyDates[date] ?? "해당일에 예정된 경기가 없습니다")
+                                    .foregroundColor(.secondary)
+                                    .multilineTextAlignment(.center)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 40)
+                            .onAppear {
+                                // 데이터 로드 시도
+                                if !isLoading && !viewModel.loadingDates.contains(date) {
+                                    Task {
+                                        await viewModel.loadFixturesForDate(date, forceRefresh: false)
+                                    }
+                                }
+                            }
                         }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 40)
                     }
                 }
             }
@@ -932,6 +1260,13 @@ struct FixturePageView: View {
         .refreshable {
             // 현재 선택된 날짜 데이터 강제 새로고침
             print("📱 Pull-to-Refresh 실행 - 날짜: \(viewModel.formatDateForAPI(date))")
+            
+            // 과거 날짜인 경우 캐시 먼저 삭제
+            let today = Calendar.current.startOfDay(for: Date())
+            if date < today {
+                print("🗑️ 과거 날짜 캐시 삭제: \(viewModel.formatDateForAPI(date))")
+                viewModel.clearCacheForDate(date)
+            }
             
             // 강제 새로고침으로 데이터 로드
             await viewModel.loadFixturesForDate(date, forceRefresh: true)
@@ -966,6 +1301,15 @@ struct FixturePageView: View {
             }
         }
         .onAppear {
+            // 캐시된 데이터가 있으면 즉시 표시 (빈 상태 메시지 방지)
+            let dateString = viewModel.formatDateForAPI(date)
+            if let cachedData = viewModel.cachedFixtures[dateString], !cachedData.isEmpty {
+                if viewModel.fixtures[date]?.isEmpty ?? true {
+                    viewModel.fixtures[date] = cachedData
+                    print("✅ 페이지 등장 시 캐시 데이터 즉시 적용: \(dateString) (\(cachedData.count)개)")
+                }
+            }
+            
             // 모든 페이지에 대해 데이터 로드 시도 (선택된 페이지가 아니더라도)
             let fixtures = viewModel.fixtures[date] ?? []
             let isLoading = viewModel.loadingDates.contains(date)
@@ -1026,6 +1370,17 @@ struct FixturePageView: View {
         case 61: return Color(red: 49 / 255, green: 108 / 255, blue: 244 / 255) // Ligue 1: Clean Blue
         case 2: return Color(red: 0 / 255, green: 51 / 255, blue: 153 / 255) // Champions League: Deep Blue
         case 3: return Color(red: 255 / 255, green: 102 / 255, blue: 0 / 255) // Europa League: Orange
+        case 4: return Color(red: 0 / 255, green: 168 / 255, blue: 89 / 255) // Conference League: Green
+        case 15: return Color(red: 255 / 255, green: 215 / 255, blue: 0 / 255) // Club World Cup: Gold
+        // 컵 대회
+        case 45: return Color(red: 128 / 255, green: 0 / 255, blue: 128 / 255) // FA Cup: Purple
+        case 143: return Color(red: 153 / 255, green: 0 / 255, blue: 76 / 255) // Copa del Rey: Deep Red
+        case 137: return Color(red: 0 / 255, green: 115 / 255, blue: 230 / 255) // Coppa Italia: Blue
+        case 81: return Color(red: 204 / 255, green: 0 / 255, blue: 0 / 255) // DFB Pokal: Red
+        case 66: return Color(red: 0 / 255, green: 85 / 255, blue: 164 / 255) // Coupe de France: Blue
+        // K리그
+        case 292: return Color(red: 0 / 255, green: 71 / 255, blue: 187 / 255) // K League 1: Blue
+        case 293: return Color(red: 255 / 255, green: 87 / 255, blue: 34 / 255) // K League 2: Orange
         default: return Color.gray
         }
     }
@@ -1110,12 +1465,14 @@ struct FixtureCardView: View {
         func formatTime(_ dateString: String) -> String {
             let dateFormatter = DateFormatter()
             dateFormatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ssZ"
-            dateFormatter.timeZone = TimeZone(identifier: "Asia/Seoul")
+            dateFormatter.timeZone = TimeZone(identifier: "UTC")
             
             guard let date = dateFormatter.date(from: dateString) else {
                 return dateString
             }
             
+            // 유저의 현재 시간대로 변환
+            dateFormatter.timeZone = TimeZone.current
             dateFormatter.dateFormat = "HH:mm"
             return dateFormatter.string(from: date)
         }

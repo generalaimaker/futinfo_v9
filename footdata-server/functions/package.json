@@ -2,15 +2,17 @@
   "name": "functions",
   "description": "Cloud Functions for Firebase",
   "scripts": {
-    "lint": "echo \"Skipping lint\"",
+    "lint": "eslint .",
     "serve": "firebase emulators:start --only functions",
     "shell": "firebase functions:shell",
     "start": "npm run shell",
     "deploy": "firebase deploy --only functions",
-    "logs": "firebase functions:log"
+    "deploy:force": "firebase deploy --only functions --force",
+    "logs": "firebase functions:log",
+    "test-env": "node -e \"require('dotenv').config(); console.log('API_KEY:', process.env.API_KEY ? 'Set' : 'Not set'); console.log('API_HOST:', process.env.API_HOST || 'Not set');\""
   },
   "engines": {
-    "node": "22"
+    "node": "20"
   },
   "main": "index.js",
   "dependencies": {

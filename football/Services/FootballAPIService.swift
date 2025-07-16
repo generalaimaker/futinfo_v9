@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import Combine
 
 // 한글-영문 팀 이름 매핑 딕셔너리 직접 정의
 // TeamData.swift에서 복사해온 딕셔너리
@@ -204,20 +205,28 @@ struct Birth: Codable {
 class FootballAPIService {
     let baseURL = "https://api-football-v1.p.rapidapi.com/v3"
     let host = "api-football-v1.p.rapidapi.com"
+    let apiHost = "api-football-v1.p.rapidapi.com" // TestAPIView에서 사용
     let apiKey: String
 
     // 캐시 및 요청 관리자
     private let cacheManager = APICacheManager.shared
     private let requestManager = APIRequestManager.shared
+    // Supabase Edge Functions \uc0ac\uc6a9
+    private let config = AppConfiguration.shared
 
     static let shared = FootballAPIService()
+    
+    // API 키 유효성 검사 (Supabase Edge Functions 사용 시 항상 true)
+    var isAPIKeyValid: Bool {
+        // Supabase Edge Functions를 사용하므로 클라이언트에서는 API 키를 직접 검증하지 않음
+        return true
+    }
 
     private init() {
-        // Info.plist에서 API 키 읽기
-        guard let apiKey = Bundle.main.object(forInfoDictionaryKey: "FootballAPIKey") as? String else {
-            fatalError("FootballAPIKey not found in Info.plist")
-        }
-        self.apiKey = apiKey
+        // API 키는 Supabase Edge Functions secrets에서 관리됨
+        // 클라이언트에서는 더미 키 사용 (실제 키는 서버에서만 사용)
+        self.apiKey = "dummy-key-for-client"
+        print("ℹ️ API 키는 Supabase Edge Functions에서 관리됩니다")
     }
 
     // 요청 생성 (파라미터 지원 추가)
@@ -419,49 +428,24 @@ class FootballAPIService {
                                 }
                             }
 
-                            // 빈 응답 생성 시도
-                            if let emptyResponse = try? self.createEmptyResponse(ofType: T.self) {
-                                print("⚠️ 빈 응답으로 처리: \(endpoint)")
-                                continuation.resume(returning: emptyResponse)
-                                return
-                            }
-
-                            // 마지막 수단으로 더미 데이터 생성 시도
-                            if let dummyResponse = try? self.createDummyResponse(ofType: T.self, endpoint: endpoint, parameters: parameters) {
-                                print("⚠️ 더미 데이터로 처리: \(endpoint)")
-                                continuation.resume(returning: dummyResponse)
-                                return
-                            }
-
+                            // 실제 API 데이터만 사용 - 더미 데이터 생성 제거
                             continuation.resume(throwing: FootballAPIError.decodingError(error))
                         }
                     } catch {
                         print("❌ 응답 처리 오류: \(error)")
 
-                        // 빈 응답 생성 시도
-                        if let emptyResponse = try? self.createEmptyResponse(ofType: T.self) {
-                            print("⚠️ 빈 응답으로 처리: \(endpoint)")
-                            continuation.resume(returning: emptyResponse)
-                            return
-                        }
-
+                        // 실제 API 데이터만 사용 - 빈 응답 생성 제거
                         continuation.resume(throwing: FootballAPIError.decodingError(error))
                     }
 
                 case .failure(let error):
                     print("❌ API 요청 실패: \(error.localizedDescription)")
 
-                    // 오류 발생 시 빈 응답 생성 시도
-                    if let emptyResponse = try? self.createEmptyResponse(ofType: T.self) {
-                        print("⚠️ 오류 발생으로 빈 응답 처리: \(endpoint)")
-                        continuation.resume(returning: emptyResponse)
+                    // 실제 API 데이터만 사용 - 빈 응답 생성 제거
+                    if let apiError = error as? FootballAPIError {
+                        continuation.resume(throwing: apiError)
                     } else {
-                        // 빈 응답 생성 실패 시 에러 전달
-                        if let apiError = error as? FootballAPIError {
-                            continuation.resume(throwing: apiError)
-                        } else {
-                            continuation.resume(throwing: error)
-                        }
+                        continuation.resume(throwing: error)
                     }
                 }
             }
@@ -723,271 +707,7 @@ class FootballAPIService {
         }
     }
 
-    // 더미 응답 생성 함수 (JSON 문자열 디코딩 방식으로 변경)
-    private func createDummyResponse<T: Decodable>(ofType: T.Type, endpoint: String, parameters: [String: String]? = nil) throws -> T {
-        print("🔄 더미 응답 생성 시도: \(String(describing: T.self)) - 엔드포인트: \(endpoint)")
-        
-        // 기본 JSON 구조 생성
-        let jsonString: String
-        
-        // FixturesResponse 타입인 경우
-        if T.self is FixturesResponse.Type {
-            // 날짜 파라미터 확인
-            let date = parameters?["date"] ?? "2025-04-04"
-            
-            // 리그 ID 파라미터 확인
-            var leagueId = 39
-            if let leagueParam = parameters?["league"], let id = Int(leagueParam) {
-                leagueId = id
-            }
-            
-            // 시즌 파라미터 확인
-            var season = 2024
-            if let seasonParam = parameters?["season"], let s = Int(seasonParam) {
-                season = s
-            }
-            
-            // 리그 정보 설정
-            var leagueName = "Unknown League"
-            var leagueCountry = "Unknown"
-            var leagueLogo = ""
-            
-            // 리그 ID에 따라 정보 설정
-            switch leagueId {
-            case 39:
-                leagueName = "Premier League"
-                leagueCountry = "England"
-                leagueLogo = "https://media.api-sports.io/football/leagues/39.png"
-            case 140:
-                leagueName = "La Liga"
-                leagueCountry = "Spain"
-                leagueLogo = "https://media.api-sports.io/football/leagues/140.png"
-            case 135:
-                leagueName = "Serie A"
-                leagueCountry = "Italy"
-                leagueLogo = "https://media.api-sports.io/football/leagues/135.png"
-            case 78:
-                leagueName = "Bundesliga"
-                leagueCountry = "Germany"
-                leagueLogo = "https://media.api-sports.io/football/leagues/78.png"
-            case 61:
-                leagueName = "Ligue 1"
-                leagueCountry = "France"
-                leagueLogo = "https://media.api-sports.io/football/leagues/61.png"
-            case 2:
-                leagueName = "UEFA Champions League"
-                leagueCountry = "UEFA"
-                leagueLogo = "https://media.api-sports.io/football/leagues/2.png"
-            case 3:
-                leagueName = "UEFA Europa League"
-                leagueCountry = "UEFA"
-                leagueLogo = "https://media.api-sports.io/football/leagues/3.png"
-            default:
-                leagueName = "League \(leagueId)"
-                leagueCountry = "Unknown"
-                leagueLogo = "https://media.api-sports.io/football/leagues/\(leagueId).png"
-            }
-            
-            // 팀 정보 (리그별로 다른 팀 사용)
-            var homeTeam1Id = 33
-            var homeTeam1Name = "Manchester United"
-            var homeTeam1Logo = "https://media.api-sports.io/football/teams/33.png"
-            var awayTeam1Id = 40
-            var awayTeam1Name = "Liverpool"
-            var awayTeam1Logo = "https://media.api-sports.io/football/teams/40.png"
-            var homeTeam2Id = 50
-            var homeTeam2Name = "Manchester City"
-            var homeTeam2Logo = "https://media.api-sports.io/football/teams/50.png"
-            var awayTeam2Id = 47
-            var awayTeam2Name = "Tottenham"
-            var awayTeam2Logo = "https://media.api-sports.io/football/teams/47.png"
-            
-            // 리그 ID에 따라 팀 설정
-            switch leagueId {
-            case 140: // 라리가
-                homeTeam1Id = 541
-                homeTeam1Name = "Real Madrid"
-                homeTeam1Logo = "https://media.api-sports.io/football/teams/541.png"
-                awayTeam1Id = 529
-                awayTeam1Name = "Barcelona"
-                awayTeam1Logo = "https://media.api-sports.io/football/teams/529.png"
-                homeTeam2Id = 530
-                homeTeam2Name = "Atletico Madrid"
-                homeTeam2Logo = "https://media.api-sports.io/football/teams/530.png"
-                awayTeam2Id = 532
-                awayTeam2Name = "Valencia"
-                awayTeam2Logo = "https://media.api-sports.io/football/teams/532.png"
-            case 135: // 세리에 A
-                homeTeam1Id = 489
-                homeTeam1Name = "AC Milan"
-                homeTeam1Logo = "https://media.api-sports.io/football/teams/489.png"
-                awayTeam1Id = 505
-                awayTeam1Name = "Inter"
-                awayTeam1Logo = "https://media.api-sports.io/football/teams/505.png"
-                homeTeam2Id = 496
-                homeTeam2Name = "Juventus"
-                homeTeam2Logo = "https://media.api-sports.io/football/teams/496.png"
-                awayTeam2Id = 497
-                awayTeam2Name = "AS Roma"
-                awayTeam2Logo = "https://media.api-sports.io/football/teams/497.png"
-            default:
-                // 기본값은 프리미어 리그 팀
-                break
-            }
-            
-            // 경기 ID 생성 (고유한 ID 생성)
-            let fixtureId1 = Int.random(in: 1000000..<9999999)
-            let fixtureId2 = Int.random(in: 1000000..<9999999)
-            
-            // 경기 시간
-            let matchTime1 = "15:00"
-            let matchTime2 = "20:00"
-            
-            // 경기 날짜 문자열 생성
-            let matchDateString1 = "\(date)T\(matchTime1):00+00:00"
-            let matchDateString2 = "\(date)T\(matchTime2):00+00:00"
-            
-            // 경기 라운드
-            let round1 = "Regular Season - \(Int.random(in: 1...19))"
-            let round2 = "Regular Season - \(Int.random(in: 20...38))"
-            
-            // 경기장 정보
-            let venueId1 = 1001
-            let venueName1 = "\(homeTeam1Name) Stadium"
-            let venueId2 = 1002
-            let venueName2 = "\(homeTeam2Name) Stadium"
-            
-            // JSON 문자열 생성
-            jsonString = """
-            {
-                "get": "fixtures",
-                "parameters": {
-                    "league": "\(leagueId)",
-                    "season": "\(season)",
-                    "date": "\(date)"
-                },
-                "errors": [],
-                "results": 2,
-                "paging": {"current": 1, "total": 1},
-                "response": [
-                    {
-                        "fixture": {
-                            "id": \(fixtureId1),
-                            "date": "\(matchDateString1)",
-                            "status": {
-                                "long": "Not Started",
-                                "short": "NS",
-                                "elapsed": null
-                            },
-                            "venue": {
-                                "id": \(venueId1),
-                                "name": "\(venueName1)",
-                                "city": "\(leagueCountry)"
-                            },
-                            "timezone": "UTC",
-                            "referee": null
-                        },
-                        "league": {
-                            "id": \(leagueId),
-                            "name": "\(leagueName)",
-                            "country": "\(leagueCountry)",
-                            "logo": "\(leagueLogo)",
-                            "flag": null,
-                            "season": \(season),
-                            "round": "\(round1)",
-                            "standings": true
-                        },
-                        "teams": {
-                            "home": {
-                                "id": \(homeTeam1Id),
-                                "name": "\(homeTeam1Name)",
-                                "logo": "\(homeTeam1Logo)",
-                                "winner": null
-                            },
-                            "away": {
-                                "id": \(awayTeam1Id),
-                                "name": "\(awayTeam1Name)",
-                                "logo": "\(awayTeam1Logo)",
-                                "winner": null
-                            }
-                        },
-                        "goals": {
-                            "home": null,
-                            "away": null
-                        }
-                    },
-                    {
-                        "fixture": {
-                            "id": \(fixtureId2),
-                            "date": "\(matchDateString2)",
-                            "status": {
-                                "long": "Not Started",
-                                "short": "NS",
-                                "elapsed": null
-                            },
-                            "venue": {
-                                "id": \(venueId2),
-                                "name": "\(venueName2)",
-                                "city": "\(leagueCountry)"
-                            },
-                            "timezone": "UTC",
-                            "referee": null
-                        },
-                        "league": {
-                            "id": \(leagueId),
-                            "name": "\(leagueName)",
-                            "country": "\(leagueCountry)",
-                            "logo": "\(leagueLogo)",
-                            "flag": null,
-                            "season": \(season),
-                            "round": "\(round2)",
-                            "standings": true
-                        },
-                        "teams": {
-                            "home": {
-                                "id": \(homeTeam2Id),
-                                "name": "\(homeTeam2Name)",
-                                "logo": "\(homeTeam2Logo)",
-                                "winner": null
-                            },
-                            "away": {
-                                "id": \(awayTeam2Id),
-                                "name": "\(awayTeam2Name)",
-                                "logo": "\(awayTeam2Logo)",
-                                "winner": null
-                            }
-                        },
-                        "goals": {
-                            "home": null,
-                            "away": null
-                        }
-                    }
-                ]
-            }
-            """
-            
-            print("✅ 리그 \(leagueId)에 대한 더미 경기 일정 생성 완료")
-        }
-        else {
-            // 다른 응답 타입에 대한 처리는 빈 응답 생성 함수로 위임
-            return try createEmptyResponse(ofType: T.self)
-        }
-        
-        // JSON 문자열을 데이터로 변환
-        guard let jsonData = jsonString.data(using: .utf8) else {
-            throw FootballAPIError.decodingError(NSError(domain: "FootballAPI", code: 0,
-                userInfo: [NSLocalizedDescriptionKey: "JSON 문자열을 데이터로 변환할 수 없습니다."]))
-        }
-        
-        // 데이터를 디코딩
-        do {
-            let decoder = JSONDecoder()
-            return try decoder.decode(T.self, from: jsonData)
-        } catch {
-            print("❌ 더미 응답 디코딩 실패: \(error.localizedDescription)")
-            throw FootballAPIError.decodingError(error)
-        }
-    }
+    // 더미 응답 생성 함수 제거됨 - 실제 API 데이터만 사용
 
     // 빈 Parameters 생성 함수
     private func createEmptyParameters() -> ResponseParameters {
@@ -999,76 +719,9 @@ class FootballAPIService {
         return APIPaging(current: 1, total: 1)
     }
 
-    // 더미 이벤트 생성 함수
-    private func createDummyEvents() -> [FixtureEvent] {
-        let homeTeam = Team(id: 1, name: "홈팀", logo: "", winner: true)
-        let awayTeam = Team(id: 2, name: "원정팀", logo: "", winner: false)
+    // 더미 이벤트 생성 함수 제거됨 - 실제 API 데이터만 사용
 
-        let events = [
-            FixtureEvent(
-                time: EventTime(elapsed: 23, extra: nil),
-                team: homeTeam,
-                player: EventPlayer(id: 1, name: "선수 1"),
-                assist: EventPlayer(id: 2, name: "선수 2"),
-                type: "Goal",
-                detail: "Normal Goal",
-                comments: nil
-            ),
-            FixtureEvent(
-                time: EventTime(elapsed: 45, extra: nil),
-                team: homeTeam,
-                player: EventPlayer(id: 3, name: "선수 3"),
-                assist: nil,
-                type: "Goal",
-                detail: "Normal Goal",
-                comments: nil
-            ),
-            FixtureEvent(
-                time: EventTime(elapsed: 55, extra: nil),
-                team: awayTeam,
-                player: EventPlayer(id: 4, name: "선수 4"),
-                assist: nil,
-                type: "Goal",
-                detail: "Normal Goal",
-                comments: nil
-            )
-        ]
-
-        return events
-    }
-
-    // 더미 통계 생성 함수
-    private func createDummyStatistics() -> [TeamStatistics] {
-        let homeTeam = Team(id: 1, name: "홈팀", logo: "", winner: true)
-        let awayTeam = Team(id: 2, name: "원정팀", logo: "", winner: false)
-
-        let homeStats = [
-            FixtureStatistic(type: "Shots on Goal", value: .int(5)),
-            FixtureStatistic(type: "Total Shots", value: .int(14)),
-            FixtureStatistic(type: "Possession", value: .string("58%")),
-            FixtureStatistic(type: "Passes", value: .int(487)),
-            FixtureStatistic(type: "Passes accurate", value: .int(412)),
-            FixtureStatistic(type: "Fouls", value: .int(11)),
-            FixtureStatistic(type: "Corner Kicks", value: .int(7)),
-            FixtureStatistic(type: "Offsides", value: .int(2))
-        ]
-
-        let awayStats = [
-            FixtureStatistic(type: "Shots on Goal", value: .int(3)),
-            FixtureStatistic(type: "Total Shots", value: .int(9)),
-            FixtureStatistic(type: "Possession", value: .string("42%")),
-            FixtureStatistic(type: "Passes", value: .int(352)),
-            FixtureStatistic(type: "Passes accurate", value: .int(281)),
-            FixtureStatistic(type: "Fouls", value: .int(14)),
-            FixtureStatistic(type: "Corner Kicks", value: .int(4)),
-            FixtureStatistic(type: "Offsides", value: .int(1))
-        ]
-
-        return [
-            TeamStatistics(team: homeTeam, statistics: homeStats),
-            TeamStatistics(team: awayTeam, statistics: awayStats)
-        ]
-    }
+    // 더미 통계 생성 함수 제거됨 - 실제 API 데이터만 사용
 
     // 빈 FixtureParameters 생성 함수 제거
     // private func createEmptyFixtureParameters() -> FixtureParameters { ... } // 제거
@@ -1156,7 +809,7 @@ class FootballAPIService {
     ) async throws -> [Fixture] {
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "yyyy-MM-dd"
-        dateFormatter.timeZone = TimeZone(identifier: "UTC")
+        dateFormatter.timeZone = TimeZone(identifier: "Asia/Seoul") // UTC에서 Asia/Seoul로 변경하여 날짜 불일치 문제 해결
 
         var parameters: [String: String] = [
             "league": leagueIds.map { String($0) }.joined(separator: ","),
@@ -1438,13 +1091,8 @@ class FootballAPIService {
                 cachePolicy: .medium // 팀 통계는 경기 후 변경될 수 있으므로 중간 캐싱
             )
 
-            // response가 배열로 변경되었으므로 첫 번째 항목 반환
-            if let firstItem = response.response.first {
-                return firstItem
-            } else {
-                print("⚠️ 팀 통계 응답이 비어 있습니다.")
-                throw FootballAPIError.emptyResponse("팀 통계 데이터가 없습니다.")
-            }
+            // response는 단일 객체
+            return response.response
         } catch {
             print("⚠️ 팀 통계 가져오기 실패: \(error.localizedDescription)")
 
@@ -1511,135 +1159,15 @@ class FootballAPIService {
         } catch {
             print("❌ 팀 순위 정보 요청 실패: \(error.localizedDescription)")
             
-            // 에러 발생 시 더미 데이터 생성 시도
-            if let dummyStanding = createDummyTeamStanding(teamId: teamId, leagueId: leagueId, season: season) {
-                print("⚠️ 더미 팀 순위 데이터 생성: 팀 ID \(teamId), 리그 ID \(leagueId)")
-                return dummyStanding
-            }
-            
+            // 실제 API 데이터만 사용 - 더미 데이터 생성 제거
             throw error
         }
     }
     
-    // 더미 팀 순위 데이터 생성 함수 (새로 추가)
-    private func createDummyTeamStanding(teamId: Int, leagueId: Int, season: Int) -> TeamStanding? {
-        // 팀 정보 가져오기 시도
-        guard let teamInfo = getDummyTeamInfo(teamId: teamId) else {
-            return nil
-        }
-        
-        // 리그에 따른 기본 순위 설정
-        var defaultRank = 5
-        
-        // 인기 팀은 상위 순위로 설정
-        let topTeams = [
-            33, 40, 50, 49, 42, 47, // 프리미어 리그 상위 팀
-            541, 529, 530, // 라리가 상위 팀
-            489, 505, 496, // 세리에 A 상위 팀
-            157, 165, 182, // 분데스리가 상위 팀
-            85, 91, 79 // 리그 앙 상위 팀
-        ]
-        
-        if topTeams.contains(teamId) {
-            defaultRank = Int.random(in: 1...4)
-        }
-        
-        // 더미 팀 순위 데이터 생성
-        return TeamStanding(
-            rank: defaultRank,
-            team: TeamInfo(
-                id: teamInfo.id,
-                name: teamInfo.name,
-                code: nil,
-                country: teamInfo.country,
-                founded: nil,
-                national: false,
-                logo: teamInfo.logo
-            ),
-            points: 65 - defaultRank * 3,
-            goalsDiff: 30 - defaultRank * 5,
-            group: "Premier League",
-            form: "WDWLW",
-            status: "same",
-            description: nil,
-            all: TeamStats(
-                played: 30,
-                win: 20 - defaultRank,
-                draw: 5,
-                lose: 5 + defaultRank,
-                goals: TeamGoals(
-                    for: 50 - defaultRank * 2,
-                    against: 20 + defaultRank * 3
-                )
-            ),
-            home: TeamStats(
-                played: 15,
-                win: 12 - defaultRank / 2,
-                draw: 2,
-                lose: 1 + defaultRank / 2,
-                goals: TeamGoals(
-                    for: 30 - defaultRank,
-                    against: 10 + defaultRank
-                )
-            ),
-            away: TeamStats(
-                played: 15,
-                win: 8 - defaultRank / 2,
-                draw: 3,
-                lose: 4 + defaultRank / 2,
-                goals: TeamGoals(
-                    for: 20 - defaultRank,
-                    against: 10 + defaultRank * 2
-                )
-            ),
-            update: "2025-04-30T00:00:00+00:00"
-        )
-    }
-    
-    // 더미 팀 정보 가져오기 함수 (새로 추가)
-    private func getDummyTeamInfo(teamId: Int) -> (id: Int, name: String, country: String, logo: String)? {
-        // 주요 팀 정보 (ID, 이름, 국가, 로고)
-        let teams: [(id: Int, name: String, country: String, logo: String)] = [
-            // 프리미어 리그
-            (33, "Manchester United", "England", "https://media.api-sports.io/football/teams/33.png"),
-            (40, "Liverpool", "England", "https://media.api-sports.io/football/teams/40.png"),
-            (50, "Manchester City", "England", "https://media.api-sports.io/football/teams/50.png"),
-            (49, "Chelsea", "England", "https://media.api-sports.io/football/teams/49.png"),
-            (42, "Arsenal", "England", "https://media.api-sports.io/football/teams/42.png"),
-            (47, "Tottenham", "England", "https://media.api-sports.io/football/teams/47.png"),
-            
-            // 라리가
-            (541, "Real Madrid", "Spain", "https://media.api-sports.io/football/teams/541.png"),
-            (529, "Barcelona", "Spain", "https://media.api-sports.io/football/teams/529.png"),
-            (530, "Atletico Madrid", "Spain", "https://media.api-sports.io/football/teams/530.png"),
-            
-            // 세리에 A
-            (489, "AC Milan", "Italy", "https://media.api-sports.io/football/teams/489.png"),
-            (505, "Inter", "Italy", "https://media.api-sports.io/football/teams/505.png"),
-            (496, "Juventus", "Italy", "https://media.api-sports.io/football/teams/496.png"),
-            
-            // 분데스리가
-            (157, "Bayern Munich", "Germany", "https://media.api-sports.io/football/teams/157.png"),
-            (165, "Borussia Dortmund", "Germany", "https://media.api-sports.io/football/teams/165.png"),
-            (182, "Bayer Leverkusen", "Germany", "https://media.api-sports.io/football/teams/182.png"),
-            
-            // 리그 앙
-            (85, "Paris Saint Germain", "France", "https://media.api-sports.io/football/teams/85.png"),
-            (91, "Monaco", "France", "https://media.api-sports.io/football/teams/91.png"),
-            (79, "Lille", "France", "https://media.api-sports.io/football/teams/79.png")
-        ]
-        
-        // 팀 ID로 팀 정보 찾기
-        if let team = teams.first(where: { $0.id == teamId }) {
-            return team
-        }
-        
-        // 기본 팀 정보 반환
-        return (teamId, "Team \(teamId)", "Unknown", "https://media.api-sports.io/football/teams/\(teamId).png")
-    }
+    // 더미 팀 순위 데이터 생성 함수 제거됨 - 실제 API 데이터만 사용
 
     // 팀 스쿼드 가져오기 (캐싱 적용)
-    func getTeamSquad(teamId: Int) async throws -> [PlayerResponse] {
+    func getTeamSquad(teamId: Int) async throws -> [SquadPlayerResponse] {
         let parameters = ["team": String(teamId)]
 
         // 엔드포인트 변환 로깅
@@ -1656,7 +1184,7 @@ class FootballAPIService {
             throw FootballAPIError.apiError(["스쿼드 정보를 찾을 수 없습니다."])
         }
 
-        // TeamSquadResponse를 [PlayerResponse]로 변환
+        // TeamSquadResponse를 [SquadPlayerResponse]로 변환
         return squadResponse.toPlayerResponses()
     }
 
@@ -1726,82 +1254,77 @@ class FootballAPIService {
         return response.response.sorted(by: >) // Return sorted seasons (latest first)
     }
 
-    // 선수 프로필 가져오기 (캐싱 적용) - 수정: 가장 최신 시즌 정보 우선 조회
+    // 선수 프로필 가져오기 (모든 시즌 통계 통합)
     func getPlayerProfile(playerId: Int) async throws -> PlayerProfileData {
-        var latestSeason: Int? = nil
-        var seasonsTried: [Int] = [] // Track seasons attempted
-
-        // 1. 선수가 활동한 시즌 목록 가져오기
-        do {
-            let seasons = try await getPlayerSeasons(playerId: playerId)
-            latestSeason = seasons.first // getPlayerSeasons already sorts descending
-            if let season = latestSeason {
-                print("🔍 선수 시즌 목록 조회 성공: ID \(playerId), 최신 시즌 \(season)")
-                seasonsTried.append(season) // Add latest season to tried list
-            } else {
-                print("⚠️ 선수 시즌 목록 없음: ID \(playerId)")
-            }
-        } catch {
-            print("❌ 선수 시즌 목록 조회 실패: ID \(playerId), 오류: \(error.localizedDescription)")
-            // 시즌 목록 조회 실패 시, 현재 시즌 기준으로 폴백 시도
+        // 1. 선수가 활동한 모든 시즌 목록 가져오기
+        let seasons = try await getPlayerSeasons(playerId: playerId)
+        guard !seasons.isEmpty else {
+            print("⚠️ 선수 시즌 목록 없음: ID \(playerId). 현재 시즌으로 단일 조회를 시도합니다.")
+            return try await getSingleSeasonPlayerProfile(playerId: playerId, season: Date().getCurrentSeason())
         }
 
-        // 2. 최신 시즌 또는 현재 시즌 기준으로 프로필 조회 시도
-        // getCurrentSeason은 비동기 메서드가 아니므로 await 키워드 제거
-        // 현재 시즌 직접 계산 (SearchViewModel.getCurrentSeason 대신)
-        let calendar = Calendar.current
-        let now = Date()
-        let year = calendar.component(.year, from: now)
-        let month = calendar.component(.month, from: now)
-        let currentSeason = month < 7 ? year - 1 : year
-        let seasonToTry = latestSeason ?? currentSeason
-        if !seasonsTried.contains(seasonToTry) { // Avoid retrying if latestSeason was already tried
-             seasonsTried.append(seasonToTry)
-        }
+        // 2. 모든 시즌의 통계를 병렬로 가져오기
+        var allStatistics: [PlayerSeasonStats] = []
+        var playerInfo: PlayerInfo?
+        
+        // 최신 시즌부터 조회하여 첫 번째 유효한 playerInfo를 사용
+        let sortedSeasons = seasons.sorted(by: >)
 
-        var lastError: Error? = nil
-
-        // 시도할 시즌 목록 (최신 시즌 -> 현재 시즌 -> 과거 시즌 순)
-        // getCurrentSeason은 비동기 메서드가 아니므로 await 키워드 제거
-        let fallbackSeasons = [currentSeason - 1, currentSeason - 2]
-        let seasonsToAttempt = seasonsTried + fallbackSeasons.filter { !seasonsTried.contains($0) } // Combine and remove duplicates
-
-        print("🔍 선수 프로필 조회 시도 순서: ID \(playerId), 시즌 \(seasonsToAttempt)")
-
-        for season in seasonsToAttempt {
-            do {
-                let parameters = ["id": String(playerId), "season": String(season)]
-                print("   -> 시도 중: 시즌 \(season)")
-                let response: PlayerProfileResponse = try await performRequest(
-                    endpoint: "players",
-                    parameters: parameters,
-                    cachePolicy: .medium
-                )
-
-                guard response.results > 0, let profile = response.response.first else {
-                    print("   ⚠️ 선수 프로필 없음 (시즌: \(season))")
-                    lastError = FootballAPIError.apiError(["선수 정보를 찾을 수 없습니다 (시즌: \(season))"]) // Store specific error
-                    continue // 다음 시즌 시도
+        await withTaskGroup(of: PlayerProfileData?.self) { group in
+            for season in sortedSeasons {
+                group.addTask {
+                    try? await self.getSingleSeasonPlayerProfile(playerId: playerId, season: season)
                 }
+            }
 
-                print("✅ 선수 프로필 조회 성공: \(profile.player.name ?? "Unknown") (시즌: \(season))")
-                return profile // 성공 시 반환
-            } catch {
-                print("   ❌ 선수 프로필 조회 실패 (시즌: \(season)): \(error.localizedDescription)")
-                lastError = error // Store the last encountered error
-                continue // 다음 시즌 시도
+            for await profileData in group {
+                if let data = profileData {
+                    if playerInfo == nil { // 첫 번째 성공적인 응답에서 선수 정보 설정
+                        playerInfo = data.player
+                    }
+                    if let stats = data.statistics {
+                        allStatistics.append(contentsOf: stats)
+                    }
+                }
             }
         }
 
-        // 모든 시즌에서 실패한 경우
-        print("❌ 모든 시즌에서 선수 프로필 조회 실패 (ID: \(playerId))")
-        if let error = lastError {
-            // 마지막 에러가 디코딩 에러 등 다른 에러일 수 있으므로 FootballAPIError로 래핑하지 않음
-             throw error
-        } else {
-            // 특정 에러 없이 결과가 없었던 경우
-            throw FootballAPIError.apiError(["선수 정보를 찾을 수 없습니다."])
+        guard let finalPlayerInfo = playerInfo else {
+            throw FootballAPIError.apiError(["선수 정보를 가져올 수 없습니다."])
         }
+
+        // 중복된 통계 제거 (리그 ID, 팀 ID, 시즌 ID 기준)
+        var uniqueStats: [PlayerSeasonStats] = []
+        var seen = Set<String>()
+        for stat in allStatistics {
+            let key = "\(stat.league?.id ?? 0)-\(stat.team?.id ?? 0)-\(stat.league?.season ?? 0)"
+            if !seen.contains(key) {
+                uniqueStats.append(stat)
+                seen.insert(key)
+            }
+        }
+        
+        print("✅ 모든 시즌(\(seasons.count)개)의 통계 통합 완료. 총 \(uniqueStats.count)개의 고유 통계.")
+
+        return PlayerProfileData(player: finalPlayerInfo, statistics: uniqueStats)
+    }
+
+    // 특정 시즌의 선수 프로필을 가져오는 헬퍼 함수
+    private func getSingleSeasonPlayerProfile(playerId: Int, season: Int) async throws -> PlayerProfileData {
+        let parameters = ["id": String(playerId), "season": String(season)]
+        print("   -> 단일 시즌 프로필 조회 시도: 시즌 \(season)")
+        let response: PlayerProfileResponse = try await performRequest(
+            endpoint: "/players",
+            parameters: parameters,
+            cachePolicy: .long // 개별 시즌 데이터는 길게 캐시
+        )
+
+        guard let profile = response.response.first else {
+            throw FootballAPIError.apiError(["선수 정보를 찾을 수 없습니다 (시즌: \(season))"])
+        }
+        
+        print("   ✅ 단일 시즌 프로필 조회 성공 (시즌: \(season))")
+        return profile
     }
 
     // 선수 경력 통계 가져오기 (캐싱 적용)
@@ -2237,281 +1760,166 @@ class FootballAPIService {
         return result
     }
     
-    // 더미 팀 데이터 생성 함수
-    private func createDummyTeams(query: String) -> [TeamProfile] {
-        print("🔄 더미 팀 데이터 생성: \(query)")
+    // MARK: - Team Squad (현재 스쿼드)
+    func getTeamSquad(teamId: Int) async throws -> [SquadPlayer] {
+        let parameters = ["team": String(teamId)]
         
-        // 검색어를 소문자로 변환
-        let lowercaseQuery = query.lowercased()
-        
-        // 주요 팀 목록
-        let teams: [(id: Int, name: String, country: String, logo: String)] = [
-            (33, "Manchester United", "England", "https://media.api-sports.io/football/teams/33.png"),
-            (40, "Liverpool", "England", "https://media.api-sports.io/football/teams/40.png"),
-            (50, "Manchester City", "England", "https://media.api-sports.io/football/teams/50.png"),
-            (47, "Tottenham", "England", "https://media.api-sports.io/football/teams/47.png"),
-            (42, "Arsenal", "England", "https://media.api-sports.io/football/teams/42.png"),
-            (49, "Chelsea", "England", "https://media.api-sports.io/football/teams/49.png"),
-            (541, "Real Madrid", "Spain", "https://media.api-sports.io/football/teams/541.png"),
-            (529, "Barcelona", "Spain", "https://media.api-sports.io/football/teams/529.png"),
-            (530, "Atletico Madrid", "Spain", "https://media.api-sports.io/football/teams/530.png"),
-            (157, "Bayern Munich", "Germany", "https://media.api-sports.io/football/teams/157.png"),
-            (165, "Borussia Dortmund", "Germany", "https://media.api-sports.io/football/teams/165.png"),
-            (505, "Inter", "Italy", "https://media.api-sports.io/football/teams/505.png"),
-            (489, "AC Milan", "Italy", "https://media.api-sports.io/football/teams/489.png"),
-            (496, "Juventus", "Italy", "https://media.api-sports.io/football/teams/496.png"),
-            (85, "Paris Saint Germain", "France", "https://media.api-sports.io/football/teams/85.png")
-        ]
-        
-        // 검색어와 일치하는 팀 필터링
-        let filteredTeams = teams.filter { team in
-            team.name.lowercased().contains(lowercaseQuery) ||
-            team.country.lowercased().contains(lowercaseQuery)
+        struct SquadResponse: Codable {
+            let response: [SquadData]
         }
         
-        // TeamProfile 객체로 변환
-        return filteredTeams.map { team in
-            let teamInfo = TeamInfo(
-                id: team.id,
-                name: team.name,
-                code: nil,
-                country: team.country,
-                founded: nil,
-                national: false,
-                logo: team.logo
-            )
-            
-            let venueInfo = VenueInfo(
-                id: nil,
-                name: "\(team.name) Stadium",
-                address: nil,
-                city: team.country,
-                capacity: nil,
-                surface: nil,
-                image: nil
-            )
-            
-            return TeamProfile(team: teamInfo, venue: venueInfo)
+        struct SquadData: Codable {
+            let team: Team
+            let players: [SquadPlayer]
         }
+        
+        let response: SquadResponse = try await performRequest(
+            endpoint: "/players/squads",
+            parameters: parameters,
+            cachePolicy: .medium // 스쿼드는 자주 변경되지 않으므로 중간 캐싱
+        )
+        
+        // 첫 번째 스쿼드 데이터 반환
+        if let squadData = response.response.first {
+            return squadData.players
+        }
+        return []
     }
     
-    // 더미 리그 데이터 생성 함수
-    private func createDummyLeagues(query: String) -> [LeagueDetails] {
-        print("🔄 더미 리그 데이터 생성: \(query)")
+    // MARK: - Transfers (이적 정보)
+    func getTeamTransfers(teamId: Int) async throws -> [APITransfer] {
+        // 현재 시즌 계산 (7월부터 다음해 6월까지)
+        let currentDate = Date()
+        let calendar = Calendar.current
+        let year = calendar.component(.year, from: currentDate)
+        let month = calendar.component(.month, from: currentDate)
         
-        // 검색어를 소문자로 변환
-        let lowercaseQuery = query.lowercased()
+        // 시스템 날짜가 2025년이므로 2024 시즌으로 고정
+        let actualSeason = 2024
         
-        // 주요 리그 목록
-        let leagues: [(id: Int, name: String, country: String, logo: String, flag: String?)] = [
-            (39, "Premier League", "England", "https://media.api-sports.io/football/leagues/39.png", "https://media.api-sports.io/flags/gb.svg"),
-            (140, "La Liga", "Spain", "https://media.api-sports.io/football/leagues/140.png", "https://media.api-sports.io/flags/es.svg"),
-            (135, "Serie A", "Italy", "https://media.api-sports.io/football/leagues/135.png", "https://media.api-sports.io/flags/it.svg"),
-            (78, "Bundesliga", "Germany", "https://media.api-sports.io/football/leagues/78.png", "https://media.api-sports.io/flags/de.svg"),
-            (61, "Ligue 1", "France", "https://media.api-sports.io/football/leagues/61.png", "https://media.api-sports.io/flags/fr.svg"),
-            (2, "UEFA Champions League", "UEFA", "https://media.api-sports.io/football/leagues/2.png", nil),
-            (3, "UEFA Europa League", "UEFA", "https://media.api-sports.io/football/leagues/3.png", nil),
-            (4, "UEFA Conference League", "World", "https://media.api-sports.io/football/leagues/4.png", nil),
-            (1, "World Cup", "World", "https://media.api-sports.io/football/leagues/1.png", nil),
-            (45, "FA Cup", "England", "https://media.api-sports.io/football/leagues/45.png", "https://media.api-sports.io/flags/gb.svg")
+        let parameters = [
+            "team": String(teamId),
+            "season": String(actualSeason)  // 2024 시즌 고정
         ]
         
-        // 검색어와 일치하는 리그 필터링
-        let filteredLeagues = leagues.filter { league in
-            league.name.lowercased().contains(lowercaseQuery) ||
-            league.country.lowercased().contains(lowercaseQuery)
+        print("🔍 이적 조회 파라미터: 팀ID=\(teamId), 시즌=\(actualSeason) (시스템 날짜: \(year)-\(month))")
+        
+        struct TransfersResponse: Codable {
+            let response: [TransferData]
         }
         
-        // LeagueDetails 객체로 변환
-        return filteredLeagues.map { league in
-            let leagueInfo = LeagueInfo(
-                id: league.id,
-                name: league.name,
-                type: league.id == 2 || league.id == 3 || league.id == 4 || league.id == 1 ? "Cup" : "League",
-                logo: league.logo
-            )
-            
-            let countryInfo = Country(
-                name: league.country,
-                code: nil,
-                flag: league.flag
-            )
-            
-            let seasons = [
-                Season(year: 2024, start: "2024-08-01", end: "2025-05-31", current: true, coverage: nil),
-                Season(year: 2023, start: "2023-08-01", end: "2024-05-31", current: false, coverage: nil)
-            ]
-            
-            return LeagueDetails(league: leagueInfo, country: countryInfo, seasons: seasons)
-        }
-    }
-    
-    // 더미 선수 데이터 생성 함수
-    private func createDummyPlayers(query: String, leagueId: Int) -> [PlayerProfileData] {
-        print("🔄 더미 선수 데이터 생성: \(query), 리그: \(leagueId)")
-        
-        // 검색어를 소문자로 변환
-        let lowercaseQuery = query.lowercased()
-        
-        // 리그별 주요 선수 목록
-        var players: [(id: Int, name: String, age: Int, nationality: String, photo: String, teamId: Int, teamName: String, teamLogo: String)] = []
-        
-        // 리그별 선수 데이터 설정
-        switch leagueId {
-        case 39: // 프리미어 리그
-            players = [
-                (278, "Harry Kane", 30, "England", "https://media.api-sports.io/football/players/278.png", 47, "Tottenham", "https://media.api-sports.io/football/teams/47.png"),
-                (18788, "Marcus Rashford", 26, "England", "https://media.api-sports.io/football/players/18788.png", 33, "Manchester United", "https://media.api-sports.io/football/teams/33.png"),
-                (1100, "Kevin De Bruyne", 32, "Belgium", "https://media.api-sports.io/football/players/1100.png", 50, "Manchester City", "https://media.api-sports.io/football/teams/50.png"),
-                (306, "Mohamed Salah", 31, "Egypt", "https://media.api-sports.io/football/players/306.png", 40, "Liverpool", "https://media.api-sports.io/football/teams/40.png")
-            ]
-        case 140: // 라리가
-            players = [
-                (874, "Karim Benzema", 35, "France", "https://media.api-sports.io/football/players/874.png", 541, "Real Madrid", "https://media.api-sports.io/football/teams/541.png"),
-                (154, "Luka Modric", 38, "Croatia", "https://media.api-sports.io/football/players/154.png", 541, "Real Madrid", "https://media.api-sports.io/football/teams/541.png"),
-                (521, "Robert Lewandowski", 35, "Poland", "https://media.api-sports.io/football/players/521.png", 529, "Barcelona", "https://media.api-sports.io/football/teams/529.png")
-            ]
-        case 135: // 세리에 A
-            players = [
-                (1550, "Romelu Lukaku", 30, "Belgium", "https://media.api-sports.io/football/players/1550.png", 505, "Inter", "https://media.api-sports.io/football/teams/505.png"),
-                (742, "Paulo Dybala", 30, "Argentina", "https://media.api-sports.io/football/players/742.png", 497, "AS Roma", "https://media.api-sports.io/football/teams/497.png")
-            ]
-        default:
-            players = [
-                (278, "Harry Kane", 30, "England", "https://media.api-sports.io/football/players/278.png", 47, "Tottenham", "https://media.api-sports.io/football/teams/47.png"),
-                (874, "Karim Benzema", 35, "France", "https://media.api-sports.io/football/players/874.png", 541, "Real Madrid", "https://media.api-sports.io/football/teams/541.png"),
-                (521, "Robert Lewandowski", 35, "Poland", "https://media.api-sports.io/football/players/521.png", 529, "Barcelona", "https://media.api-sports.io/football/teams/529.png"),
-                (1550, "Romelu Lukaku", 30, "Belgium", "https://media.api-sports.io/football/players/1550.png", 505, "Inter", "https://media.api-sports.io/football/teams/505.png")
-            ]
+        struct TransferData: Codable {
+            let player: TransferPlayer
+            let update: String
+            let transfers: [APITransfer]
         }
         
-        // 검색어와 일치하는 선수 필터링
-        let filteredPlayers = players.filter { player in
-            player.name.lowercased().contains(lowercaseQuery) ||
-            player.nationality.lowercased().contains(lowercaseQuery) ||
-            player.teamName.lowercased().contains(lowercaseQuery)
+        struct TransferPlayer: Codable {
+            let id: Int
+            let name: String
         }
         
-        // PlayerProfileData 객체로 변환
-        return filteredPlayers.map { player in
-            let playerInfo = PlayerInfo(
-                id: player.id,
-                name: player.name,
-                firstname: player.name.components(separatedBy: " ").first,
-                lastname: player.name.components(separatedBy: " ").last,
-                age: player.age,
-                nationality: player.nationality,
-                height: nil,
-                weight: nil,
-                photo: player.photo,
-                injured: false,
-                birth: nil
-            )
-            
-            let teamInfo = StatisticsTeam(
-                id: player.teamId,
-                name: player.teamName,
-                logo: player.teamLogo
-            )
-            
-            let leagueInfo = StatisticsLeague(
-                id: leagueId,
-                name: leagueId == 39 ? "Premier League" :
-                      leagueId == 140 ? "La Liga" :
-                      leagueId == 135 ? "Serie A" : "Unknown League",
-                country: leagueId == 39 ? "England" :
-                         leagueId == 140 ? "Spain" :
-                         leagueId == 135 ? "Italy" : "Unknown",
-                logo: "https://media.api-sports.io/football/leagues/\(leagueId).png",
-                flag: nil,
-                season: 2024
-            )
-            
-            // 사용되지 않는 statistics 변수 제거
-            let _ = [
-                PlayerStatistics(
-                    team: teamInfo,
-                    league: leagueInfo,
-                    games: PlayerGames(
-                        appearences: 30,
-                        lineups: 28,
-                        minutes: 2520,
-                        number: nil,
-                        position: "Attacker",
-                        rating: "7.5",
-                        captain: false
-                    ),
-                    shots: Shots(total: 80, on: 40),
-                    goals: FootballPlayerGoals(total: 20, conceded: nil, assists: 5, saves: nil),
-                    passes: Passes(total: 500, key: 30, accuracy: 85),
-                    tackles: Tackles(total: 15, blocks: 5, interceptions: 10),
-                    duels: Duels(total: 200, won: 120),
-                    dribbles: Dribbles(attempts: 50, success: 30, past: nil),
-                    fouls: Fouls(drawn: 40, committed: 20),
-                    cards: Cards(yellow: 3, yellowred: 0, red: 0),
-                    penalty: Penalty(won: 2, committed: 0, scored: 3, missed: 1, saved: nil)
-                )
-            ]
-            
-            // 빈 PlayerSeasonStats 배열 생성 (타입 변환 문제 해결)
-            let seasonStats: [PlayerSeasonStats] = []
-            
-            return PlayerProfileData(player: playerInfo, statistics: seasonStats)
-        }
-    }
-    
-    // 더미 감독 데이터 생성 함수
-    private func createDummyCoaches(query: String) -> [CoachInfo] {
-        print("🔄 더미 감독 데이터 생성: \(query)")
+        let response: TransfersResponse = try await performRequest(
+            endpoint: "/transfers",
+            parameters: parameters,
+            cachePolicy: .short // 이적은 자주 업데이트되므로 짧은 캐싱
+        )
         
-        // 검색어를 소문자로 변환
-        let lowercaseQuery = query.lowercased()
+        // 디버그: API 응답 확인
+        print("🔍 API-Football 이적 데이터 응답: 총 \(response.response.count)명의 선수")
         
-        // 주요 감독 목록
-        let coaches: [(id: Int, name: String, age: Int, nationality: String, photo: String, teamId: Int, teamName: String)] = [
-            (1, "Pep Guardiola", 53, "Spain", "https://media.api-sports.io/football/coachs/1.png", 50, "Manchester City"),
-            (2, "Jurgen Klopp", 56, "Germany", "https://media.api-sports.io/football/coachs/2.png", 40, "Liverpool"),
-            (3, "Carlo Ancelotti", 64, "Italy", "https://media.api-sports.io/football/coachs/3.png", 541, "Real Madrid"),
-            (4, "Thomas Tuchel", 50, "Germany", "https://media.api-sports.io/football/coachs/4.png", 157, "Bayern Munich"),
-            (5, "Xavi Hernandez", 44, "Spain", "https://media.api-sports.io/football/coachs/5.png", 529, "Barcelona")
-        ]
-        
-        // 검색어와 일치하는 감독 필터링
-        let filteredCoaches = coaches.filter { coach in
-            coach.name.lowercased().contains(lowercaseQuery) ||
-            coach.nationality.lowercased().contains(lowercaseQuery) ||
-            coach.teamName.lowercased().contains(lowercaseQuery)
+        // 최신 이적 5개 출력
+        for (index, transferData) in response.response.prefix(5).enumerated() {
+            print("📋 선수 \(index + 1): \(transferData.player.name)")
+            for (tIndex, transfer) in transferData.transfers.prefix(3).enumerated() {
+                print("   - 이적 \(tIndex + 1): \(transfer.teams.out.name) → \(transfer.teams.in.name) [\(transfer.date ?? "날짜없음")] 타입: \(transfer.type ?? "N/A")")
+            }
         }
         
-        // CoachInfo 객체로 변환
-        return filteredCoaches.map { coach in
-            // 팀 정보만 생성 (careerInfo 변수 제거)
-            
-            let teamInfo = Team(
-                id: coach.teamId,
-                name: coach.teamName,
-                logo: "https://media.api-sports.io/football/teams/\(coach.teamId).png",
-                winner: nil
-            )
-            
-            return CoachInfo(
-                id: coach.id,
-                name: coach.name,
-                firstname: coach.name.components(separatedBy: " ").first ?? "",
-                lastname: coach.name.components(separatedBy: " ").last ?? "",
-                age: coach.age,
-                birth: nil, // Birth 타입 변환 문제 해결을 위해 nil 사용
-                nationality: coach.nationality,
-                height: nil,
-                weight: nil,
-                photo: coach.photo,
-                team: teamInfo, // 누락된 team 파라미터 추가
-                career: [] // CoachCareer 타입 변환 문제 해결을 위해 빈 배열 사용
-            )
+        // 2024 시즌 시작일 (2023년 7월 1일)
+        let seasonStart = ISO8601DateFormatter().date(from: "2023-07-01T00:00:00Z") ?? Date()
+        
+        // 날짜 참조점 설정 (2024년 12월로 가정)
+        let referenceDate = ISO8601DateFormatter().date(from: "2024-12-01T00:00:00Z") ?? Date()
+        let oneWeekAgo = Calendar.current.date(byAdding: .weekOfYear, value: -1, to: referenceDate) ?? referenceDate
+        let oneMonthAgo = Calendar.current.date(byAdding: .month, value: -1, to: referenceDate) ?? referenceDate
+        
+        // 모든 이적 정보를 하나의 배열로 합치고 최근 날짜순으로 정렬
+        var allTransfers: [APITransfer] = []
+        var recentWeekCount = 0
+        var recentMonthCount = 0
+        
+        for transferData in response.response {
+            for transfer in transferData.transfers {
+                // 날짜 확인
+                if let dateString = transfer.date,
+                   let transferDate = ISO8601DateFormatter().date(from: dateString) {
+                    
+                    // 최근 이적 통계
+                    if transferDate > oneWeekAgo {
+                        recentWeekCount += 1
+                        print("📌 최근 1주일 이적: \(transferData.player.name) - \(transfer.teams.out.name) → \(transfer.teams.in.name) [\(dateString)]")
+                    } else if transferDate > oneMonthAgo {
+                        recentMonthCount += 1
+                    }
+                    
+                    // 시즌 시작 이후 이적만 추가
+                    if transferDate > seasonStart {
+                        // 플레이어 정보 추가
+                        var enrichedTransfer = transfer
+                        enrichedTransfer.playerName = transferData.player.name
+                        allTransfers.append(enrichedTransfer)
+                    } else {
+                        print("⏩ 시즌 이전 이적 제외: \(transferData.player.name) - \(transfer.date ?? "날짜 없음")")
+                    }
+                } else {
+                    print("⚠️ 날짜 파싱 실패: \(transferData.player.name) - \(transfer.date ?? "날짜 없음")")
+                }
+            }
+        }
+        
+        print("📊 이적 통계 - 최근 1주일: \(recentWeekCount)건, 최근 1개월: \(recentMonthCount)건, 전체: \(allTransfers.count)건")
+        
+        // 날짜순 정렬 (최신 순)
+        return allTransfers.sorted { transfer1, transfer2 in
+            guard let date1 = ISO8601DateFormatter().date(from: transfer1.date ?? ""),
+                  let date2 = ISO8601DateFormatter().date(from: transfer2.date ?? "") else {
+                return false
+            }
+            return date1 > date2
         }
     }
 
 } // 클래스 닫는 괄호 확인
+
+// MARK: - Transfer Models
+public struct APITransfer: Codable {
+    public let date: String?
+    public let type: String?
+    public let teams: TransferTeams
+    public var playerName: String? // 나중에 추가
+}
+
+public struct TransferTeams: Codable {
+    public let `in`: TransferTeam
+    public let out: TransferTeam
+}
+
+public struct TransferTeam: Codable {
+    public let id: Int
+    public let name: String
+    public let logo: String
+}
+
+// MARK: - Squad Player Model
+public struct SquadPlayer: Codable {
+    public let id: Int
+    public let name: String
+    public let age: Int?
+    public let number: Int?
+    public let position: String?
+    public let photo: String?
+}
 
 // MARK: - 헬퍼 메서드 확장
 extension FootballAPIService {
@@ -2536,5 +1944,118 @@ extension FootballAPIService {
         }
         
         return false
+    }
+}
+
+// Date 확장 - 현재 시즌 가져오기
+extension Date {
+    func getCurrentSeason() -> Int {
+        let calendar = Calendar.current
+        let year = calendar.component(.year, from: self)
+        let month = calendar.component(.month, from: self)
+        // 축구 시즌은 일반적으로 8월에 시작하고 다음해 5월에 끝남
+        // 8월-12월: 현재 연도가 시즌
+        // 1월-7월: 이전 연도가 시즌
+        // 예: 2025년 7월이면 2024-25 시즌(2024)
+        return month < 8 ? year - 1 : year
+    }
+}
+
+// MARK: - Supabase Edge Functions 통합
+extension FootballAPIService {
+    
+    // Supabase Edge Functions를 통한 경기 일정 가져오기
+    func getFixturesWithServerCache(
+        date: String,
+        leagueId: Int? = nil,
+        seasonYear: Int? = nil,
+        forceRefresh: Bool = false
+    ) async throws -> [Fixture] {
+        if config.useSupabaseEdgeFunctions {
+            // TODO: Implement Supabase Edge Functions call
+            throw FootballAPIError.invalidRequest
+        } else {
+            // 기존 직접 API 호출
+            let dateFormatter = DateFormatter()
+            dateFormatter.dateFormat = "yyyy-MM-dd"
+            dateFormatter.timeZone = TimeZone(identifier: "Asia/Seoul") // 시간대 설정 추가하여 날짜 일치 보장
+            guard let dateObj = dateFormatter.date(from: date) else {
+                throw FootballAPIError.invalidDateFormat
+            }
+            
+            return try await getFixtures(
+                leagueIds: leagueId != nil ? [leagueId!] : [],
+                season: seasonYear ?? Date().getCurrentSeason(),
+                from: dateObj,
+                to: dateObj
+            )
+        }
+    }
+    
+    // Supabase Edge Functions를 통한 경기 통계 가져오기
+    func getFixtureStatisticsWithServerCache(fixtureId: Int) async throws -> [TeamStatistics] {
+        if config.useSupabaseEdgeFunctions {
+            // TODO: Implement Supabase Edge Functions calls
+            throw FootballAPIError.invalidRequest
+            // return try await supabaseEdgeFunctions.fetchFixtureStatistics(fixtureId: fixtureId)
+        } else {
+            return try await getFixtureStatistics(fixtureId: fixtureId)
+        }
+    }
+    
+    // Supabase Edge Functions를 통한 경기 이벤트 가져오기
+    func getFixtureEventsWithServerCache(fixtureId: Int) async throws -> [FixtureEvent] {
+        if config.useSupabaseEdgeFunctions {
+            // TODO: Implement Supabase Edge Functions calls
+            throw FootballAPIError.invalidRequest
+            // return try await supabaseEdgeFunctions.fetchFixtureEvents(fixtureId: fixtureId)
+        } else {
+            return try await getFixtureEvents(fixtureId: fixtureId)
+        }
+    }
+    
+    // Supabase Edge Functions를 통한 순위 가져오기
+    func getStandingsWithServerCache(leagueId: Int, season: Int) async throws -> [StandingResponse] {
+        if config.useSupabaseEdgeFunctions {
+            // TODO: Implement Supabase Edge Functions calls
+            throw FootballAPIError.invalidRequest
+            // return try await supabaseEdgeFunctions.fetchStandings(leagueId: leagueId, season: season)
+        } else {
+            // getStandings는 [Standing]을 반환하므로, StandingResponse로 변환
+            let _ = try await getStandings(leagueId: leagueId, season: season)
+            
+            // Standing을 StandingResponse로 변환
+            // 임시로 빈 배열 반환 (실제 변환 로직 필요)
+            return []
+        }
+    }
+    
+    // Supabase Edge Functions를 통한 상대 전적 가져오기
+    func getHeadToHeadWithServerCache(team1: Int, team2: Int) async throws -> [Fixture] {
+        if config.useSupabaseEdgeFunctions {
+            // TODO: Implement Supabase Edge Functions calls
+            throw FootballAPIError.invalidRequest
+            // return try await supabaseEdgeFunctions.fetchHeadToHead(team1: team1, team2: team2)
+        } else {
+            return try await getFixtures(
+                leagueIds: [],
+                season: Date().getCurrentSeason(),
+                last: 10
+            ).filter { fixture in
+                (fixture.teams.home.id == team1 && fixture.teams.away.id == team2) ||
+                (fixture.teams.home.id == team2 && fixture.teams.away.id == team1)
+            }
+        }
+    }
+    
+    // 캐시 통계 가져오기 (관리자용)
+    func getCacheStats() async throws -> CacheStats? {
+        if config.useSupabaseEdgeFunctions {
+            // TODO: Implement Supabase Edge Functions calls
+            throw FootballAPIError.invalidRequest
+            // return try await supabaseEdgeFunctions.getCacheStats()
+        } else {
+            return nil // 직접 API 호출 시에는 캐시 통계 없음
+        }
     }
 }

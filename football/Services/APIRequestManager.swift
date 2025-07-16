@@ -146,7 +146,7 @@ class APIRequestManager {
             let searchEndpoints = ["coachs", "leagues", "teams", "players", "venues"]
             let isSearchEndpoint = searchEndpoints.contains { fixedEndpoint.starts(with: $0) }
             
-            // Firebase Functions 엔드포인트를 Rapid API 엔드포인트로 변환
+            // Edge Functions 엔드포인트를 Rapid API 엔드포인트로 변환
             if endpoint == "getFixtures" || endpoint.starts(with: "getFixtures?") {
                 fixedEndpoint = "fixtures"
             } else if endpoint.contains("headtohead") {
@@ -170,6 +170,7 @@ class APIRequestManager {
                       !endpoint.starts(with: "teams") && !endpoint.starts(with: "players") && 
                       !endpoint.starts(with: "standings") && !endpoint.starts(with: "/standings") &&
                       !endpoint.starts(with: "injuries") && !endpoint.starts(with: "/injuries") &&
+                      !endpoint.starts(with: "transfers") && !endpoint.starts(with: "/transfers") &&
                       !isSearchEndpoint { // 검색 엔드포인트가 아닌 경우에만 fixtures/ 추가
                 // 이미 fixtures가 포함되어 있는지 확인
                 if !endpoint.contains("fixtures") {
@@ -203,13 +204,11 @@ class APIRequestManager {
             
             print("🔗 기본 URL: \(urlString)")
             
-            // API 키 가져오기
-            guard let apiKey = Bundle.main.object(forInfoDictionaryKey: "FootballAPIKey") as? String else {
+            // API 키 확인 (현재 Supabase Edge Functions에서 관리되므로 체크만 수행)
+            guard Bundle.main.object(forInfoDictionaryKey: "FootballAPIKey") != nil else {
                 completion(.failure(FootballAPIError.invalidAPIKey))
                 return
             }
-            
-            let host = "api-football-v1.p.rapidapi.com"
             
             // URLComponents를 사용하여 URL 생성
             guard var urlComponents = URLComponents(string: urlString) else {
@@ -240,20 +239,23 @@ class APIRequestManager {
             print("🔗 최종 URL: \(url.absoluteString)")
             
             // 타임아웃 설정 및 캐시 정책 설정
-            var request = URLRequest(url: url, timeoutInterval: 20.0) // 타임아웃 시간 최적화 (30초에서 20초로 단축)
+            var request = URLRequest(url: url, timeoutInterval: 3.0) // 타임아웃 시간 최적화 (20초에서 3초로 단축)
             request.httpMethod = "GET"
             request.cachePolicy = .reloadIgnoringLocalCacheData // 항상 서버에서 새로운 데이터 가져오기
             
             // Rapid API 헤더 추가
-            request.addValue(apiKey, forHTTPHeaderField: "x-rapidapi-key")
-            request.addValue(host, forHTTPHeaderField: "x-rapidapi-host")
+            // API 키는 Supabase Edge Functions에서 관리되므로 클라이언트에서는 더미 값 사용
+            let dummyApiKey = "dummy-key-for-client"
+            let apiHost = "api-football-v1.p.rapidapi.com"
+            request.addValue(dummyApiKey, forHTTPHeaderField: "x-rapidapi-key")
+            request.addValue(apiHost, forHTTPHeaderField: "x-rapidapi-host")
             
             print("🌐 Request URL: \(url.absoluteString) \(forceRefresh ? "(Force Refresh)" : "")")
             
             // 세션 구성 (타임아웃 및 재시도 설정)
             let config = URLSessionConfiguration.default
-            config.timeoutIntervalForRequest = 20.0 // 타임아웃 시간 최적화 (30초에서 20초로 단축)
-            config.timeoutIntervalForResource = 30.0 // 리소스 타임아웃 시간 최적화 (60초에서 30초로 단축)
+            config.timeoutIntervalForRequest = 3.0 // 타임아웃 시간 최적화 (20초에서 3초로 단축)
+            config.timeoutIntervalForResource = 5.0 // 리소스 타임아웃 시간 최적화 (30초에서 5초로 단축)
             config.waitsForConnectivity = true // 연결이 복원될 때까지 대기
             config.httpMaximumConnectionsPerHost = 8 // 동시 연결 수 증가 (5에서 8로 증가)
             
@@ -325,7 +327,7 @@ class APIRequestManager {
                         return
                     }
                     
-                    completion(.failure(FootballAPIError.firebaseFunctionError(errorMessage)))
+                    completion(.failure(FootballAPIError.edgeFunctionError(errorMessage)))
                     return
                 }
                 

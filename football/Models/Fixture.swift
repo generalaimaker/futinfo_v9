@@ -81,6 +81,16 @@ public struct FixturesResponse: Codable, APIErrorCheckable { // APIErrorCheckabl
     private enum CodingKeys: String, CodingKey {
         case get, parameters, errors, results, paging, response
     }
+    
+    // 직접 생성자 추가 (JSON 직렬화 오류 방지용)
+    public init(get: String, parameters: ResponseParameters, errors: Any, results: Int, paging: APIPaging, response: [Fixture]) {
+        self.get = get
+        self.parameters = parameters
+        self.errors = errors
+        self.results = results
+        self.paging = paging
+        self.response = response
+    }
 }
 
 // 기존 타입과의 호환성을 위한 타입 별칭 제거

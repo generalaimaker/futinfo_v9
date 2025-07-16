@@ -238,7 +238,7 @@ struct PlayerDot: View {
     }
 }
 
-struct PlayerCard: View {
+struct LineupPlayerCard: View {
     let number: Int
     let name: String
     let position: String

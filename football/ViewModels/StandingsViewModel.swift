@@ -6,7 +6,7 @@ class StandingsViewModel: ObservableObject {
     @Published var isLoading = false
     @Published var errorMessage: String?
     
-    private let service = FootballAPIService.shared
+    private let service = SupabaseFootballAPIService.shared
     
     func loadStandings(leagueId: Int, season: Int = 2024) {
         isLoading = true

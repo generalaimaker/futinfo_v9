@@ -86,7 +86,7 @@ struct VenueInfo: Codable {
 }
 
 // MARK: - Team Statistics Response
-struct TeamStatisticsResponse: Codable, APIErrorCheckable { // APIErrorCheckable 추가
+struct TeamStatisticsAPIResponse: Codable, APIErrorCheckable { // APIErrorCheckable 추가
     let get: String
     let parameters: TeamStatisticsParameters
     let errors: Any

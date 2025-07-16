@@ -16,10 +16,24 @@
 	<string>$(PRODUCT_BUNDLE_PACKAGE_TYPE)</string>
 	<key>CFBundleShortVersionString</key>
 	<string>1.0</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.hyunwoopark.futinfo</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>futinfo</string>
+			</array>
+		</dict>
+	</array>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>googlechromes</string>
+		<string>safari</string>
+	</array>
 	<key>CFBundleVersion</key>
 	<string>1</string>
-	<key>FootballAPIKey</key>
-	<string>bd09a1efecmshf47e95710709f44p1dcafdjsn072eabc66aa4</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSAppTransportSecurity</key>
@@ -34,6 +48,8 @@
 	</dict>
 	<key>UILaunchScreen</key>
 	<dict/>
+	<key>FootballAPIKey</key>
+	<string>dummy-key-for-edge-functions</string>
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>

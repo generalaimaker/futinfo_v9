@@ -1,6 +1,8 @@
 import Foundation
 import SwiftUI
+#if canImport(UIKit)
 import UIKit
+#endif
 
 // MARK: - 부상 선수 모델
 struct PlayerInjury: Identifiable {
@@ -153,7 +155,7 @@ class FixtureDetailViewModel: ObservableObject {
     @Published var isLoadingInjuries = false
 
     // MARK: - 프라이빗 속성
-    private let service = FootballAPIService.shared
+    private let service = SupabaseFootballAPIService.shared
     private let fixtureId: Int
     private let season: Int
     public var currentFixture: Fixture?

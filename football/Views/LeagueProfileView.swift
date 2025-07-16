@@ -288,7 +288,9 @@ struct LeagueHeaderView: View {
                             }
                             
                             // 챔피언스리그와 유로파리그는 "World" 대신 "UEFA"로 표시
-                            Text(leagueDetails.league.id == 2 || leagueDetails.league.id == 3 ? "UEFA" : country.name)
+                            // 클럽 월드컵은 "FIFA"로 표시
+                            Text(leagueDetails.league.id == 2 || leagueDetails.league.id == 3 ? "UEFA" : 
+                                 leagueDetails.league.id == 15 ? "FIFA" : country.name)
                                 .font(.subheadline)
                                 .foregroundColor(.gray)
                         }
@@ -799,7 +801,7 @@ struct LeagueFixturesTabView: View {
 
                     // ───────── 1) 예정된 경기 ─────────
                     if !upcomingFixtures.isEmpty {
-                        SectionHeader(title: "예정된 경기")
+                        SectionHeader(title: "예정된 경기", icon: "calendar")
                             .id("upcoming")
 
                         ForEach(upcomingFixtures) { fixture in
@@ -813,7 +815,7 @@ struct LeagueFixturesTabView: View {
 
                     // ───────── 2) 오늘 경기 ─────────
                     if !todayFixtures.isEmpty {
-                        SectionHeader(title: "오늘 경기")
+                        SectionHeader(title: "오늘 경기", icon: "sportscourt.fill")
                             .id("today")
 
                         ForEach(todayFixtures) { fixture in
@@ -827,7 +829,7 @@ struct LeagueFixturesTabView: View {
 
                     // ───────── 3) 지난 경기 ─────────
                     if !pastFixtures.isEmpty {
-                        SectionHeader(title: "지난 경기")
+                        SectionHeader(title: "지난 경기", icon: "clock.arrow.circlepath")
                             .id("past")
 
                         ForEach(pastFixtures) { fixture in
@@ -982,7 +984,7 @@ struct TeamStatsTabView: View {
 }
 
 // MARK: - 섹션 헤더
-struct SectionHeader: View {
+struct LeagueSectionHeader: View {
     let title: String
     
     var body: some View {
@@ -1033,7 +1035,7 @@ struct StatsSectionView: View {
     
     var body: some View {
         VStack(spacing: 12) {
-            SectionHeader(title: title)
+            SectionHeader(title: title, icon: "star.fill")
             
             ForEach(Array(players.prefix(3).enumerated()), id: \.element.player.id) { index, player in
                 Button(action: {
@@ -1147,7 +1149,7 @@ struct TeamStatsSectionView: View {
     
     var body: some View {
         VStack(spacing: 12) {
-            SectionHeader(title: title)
+            SectionHeader(title: title, icon: "chart.bar.fill")
             
             ForEach(Array(teams.prefix(3).enumerated()), id: \.element.team.id) { index, team in
                 TeamStatRow(

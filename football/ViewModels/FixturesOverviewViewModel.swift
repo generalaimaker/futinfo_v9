@@ -23,10 +23,10 @@ class FixturesOverviewViewModel: ObservableObject {
     @Published var lastLiveUpdateTime: String = "업데이트 정보 없음"
     
     // 날짜 탭 관련 변수
-    @Published var visibleDateRange: [Date] = []
-    @Published var allDateRange: [Date] = []
+    @Published public var visibleDateRange: [Date] = []
+    @Published public var allDateRange: [Date] = []
     private let initialVisibleCount = 10 // 초기에 표시할 날짜 수 (오늘 기준 좌우 5일씩)
-    private let additionalLoadCount = 5 // 추가로 로드할 날짜 수
+    private let additionalLoadCount = 10 // 추가로 로드할 날짜 수 (5에서 10으로 증가)
     private let calendar = Calendar.current
     
     // API 요청 제한 관련 변수
@@ -34,13 +34,19 @@ class FixturesOverviewViewModel: ObservableObject {
     private var rateLimitTimer: Timer?
     
     // 캐싱 관련 변수
-    private var cachedFixtures: [String: [Fixture]] = [:] // 날짜 문자열을 키로 사용
-    private var cacheDates: [String: Date] = [:] // 캐시 저장 시간 기록
+    internal var cachedFixtures: [String: [Fixture]] = [:] // 날짜 문자열을 키로 사용
+    internal var cacheDates: [String: Date] = [:] // 캐시 저장 시간 기록
     private let cacheExpirationMinutes: Double = 15 // 기본 캐시 만료 시간 (5분에서 15분으로 증가)
     
     // 빈 응답 캐싱을 위한 변수
     private var emptyResponseCache: [String: Date] = [:] // 빈 응답을 받은 날짜+리그 조합과 시간
-    private let emptyResponseCacheHours: Double = 6 // 빈 응답 캐시 만료 시간 (6시간)
+    private let emptyResponseCacheHours: Double = 0.25 // 빈 응답 캐시 만료 시간 (15분으로 단축)
+    
+    // 프리페칭을 위한 변수
+    private var prefetchingDates: Set<Date> = []
+    private var prefetchTask: Task<Void, Never>?
+    private var dateSelectionTask: Task<Void, Never>?
+    private var activeTasks: [String: Task<Void, Never>] = [:] // 활성 작업 추적
     
     // 경기 상태별 캐시 만료 시간 (분 단위)
     private let liveMatchCacheMinutes: Double = 1 // 진행 중인 경기는 1분 유지
@@ -52,6 +58,12 @@ class FixturesOverviewViewModel: ObservableObject {
     private var refreshTimer: Timer?
     private let autoRefreshInterval: TimeInterval = 60 // 60초마다 자동 새로고침 (30초에서 60초로 변경)
     
+    // 배치 요청을 위한 로딩 작업 추적
+    internal var loadingTasks: [String: Task<Void, Never>] = [:]
+    
+    // 로딩 스켈레톤을 위한 변수
+    @Published var isShowingSkeleton: Bool = false
+    
     // 개발 모드에서 백그라운드 로드 활성화 여부
     #if DEBUG
     private let enableBackgroundLoad = false // 개발 중에는 백그라운드 로드 비활성화
@@ -62,10 +74,13 @@ class FixturesOverviewViewModel: ObservableObject {
     // 즐겨찾기 서비스
     private let favoriteService = FavoriteService.shared
     
-    private let service = FootballAPIService.shared
+    // 리그 팔로우 서비스
+    internal let leagueFollowService = LeagueFollowService.shared
+    
+    internal let service = SupabaseFootballAPIService.shared
     private let requestManager = APIRequestManager.shared
     private let liveMatchService = LiveMatchService.shared
-    private let coreDataManager = CoreDataManager.shared
+    internal let coreDataManager = CoreDataManager.shared
     private let dateFormatter = DateFormatter()
     
     // 라이브 경기 상태 목록
@@ -82,8 +97,490 @@ class FixturesOverviewViewModel: ObservableObject {
     public func formatDateForAPI(_ date: Date) -> String {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd"
-        formatter.timeZone = TimeZone(identifier: "UTC")
+        formatter.timeZone = TimeZone.current // 사용자의 현재 시간대 사용
         return formatter.string(from: date)
+    }
+    
+    // 날짜 선택 최적화 메서드
+    @MainActor
+    public func selectDate(_ date: Date) async {
+        // 이전 작업 취소
+        dateSelectionTask?.cancel()
+        
+        // 선택된 날짜 설정
+        selectedDate = date
+        
+        // 날짜 범위 확인 및 자동 확장
+        let needsExtension = !allDateRange.contains(where: { calendar.isDate($0, inSameDayAs: date) })
+        if needsExtension {
+            await expandDateRangeToInclude(date)
+        }
+        
+        dateSelectionTask = Task {
+            // 1. 메모리 캐시 확인
+            let dateString = formatDateForAPI(date)
+            
+            // 메모리 캐시가 있고 유효하면 즉시 표시
+            if let cached = cachedFixtures[dateString], !cached.isEmpty, !isCacheExpired(for: dateString) {
+                fixtures[date] = cached
+                print("✅ 메모리 캐시에서 즉시 로드: \(dateString) (\(cached.count)개)")
+                
+                // 캐시가 유효해도 오늘 날짜나 라이브 경기가 있으면 백그라운드에서 업데이트
+                let isToday = calendar.isDate(date, inSameDayAs: calendar.startOfDay(for: Date()))
+                let hasLiveMatches = cached.contains { liveStatuses.contains($0.fixture.status.short) }
+                
+                if isToday || hasLiveMatches {
+                    Task {
+                        await loadFixturesOptimized(for: date, forceRefresh: true)
+                    }
+                }
+                return
+            }
+            
+            // 스켈레톤 표시 (캐시가 없는 경우만)
+            if fixtures[date]?.isEmpty != false {
+                isShowingSkeleton = true
+                fixtures[date] = []
+            }
+            
+            // 2. 데이터 로드 (중복 제거와 배치 요청 사용)
+            await withTaskCancellationHandler {
+                await deduplicatedLoad(for: date)
+                isShowingSkeleton = false
+            } onCancel: {
+                print("⚠️ 날짜 선택 작업 취소: \(dateString)")
+                Task { @MainActor in
+                    isShowingSkeleton = false
+                }
+            }
+            
+            // 3. 스마트 프리페칭 (±2일만)
+            if !Task.isCancelled {
+                await smartPrefetch(around: date)
+            }
+        }
+    }
+    
+    // 날짜 범위를 확장하여 특정 날짜 포함
+    @MainActor
+    private func expandDateRangeToInclude(_ targetDate: Date) async {
+        let today = calendar.startOfDay(for: Date())
+        
+        // 최대 날짜 범위 제한 확인
+        let maxDaysFromToday = 365
+        let daysFromToday = abs(calendar.dateComponents([.day], from: today, to: targetDate).day ?? 0)
+        
+        if daysFromToday > maxDaysFromToday {
+            print("⚠️ 요청한 날짜가 최대 범위를 초과: \(formatDateForAPI(targetDate))")
+            return
+        }
+        
+        // 현재 범위와 목표 날짜를 포함하는 새로운 범위 계산
+        let currentStart = allDateRange.first ?? today
+        let currentEnd = allDateRange.last ?? today
+        let newStart = min(targetDate, currentStart)
+        let newEnd = max(targetDate, currentEnd)
+        
+        var newDates: [Date] = []
+        var currentDate = newStart
+        
+        while currentDate <= newEnd {
+            newDates.append(currentDate)
+            currentDate = calendar.date(byAdding: .day, value: 1, to: currentDate)!
+        }
+        
+        // 날짜 범위 업데이트
+        allDateRange = newDates
+        visibleDateRange = newDates
+        
+        print("📅 날짜 범위 확장 완료: \(formatDateForAPI(newStart)) ~ \(formatDateForAPI(newEnd))")
+    }
+    
+    // 인접 날짜 프리페칭
+    @MainActor
+    private func prefetchNearbyDates(for date: Date) async {
+        // 이전 프리페칭 작업 취소
+        prefetchTask?.cancel()
+        
+        prefetchTask = Task {
+            // ±7일 범위 프리페칭 (가까운 날짜부터 우선순위)
+            let daysToFetch = [1, -1, 2, -2, 3, -3, 4, -4, 5, -5, 6, -6, 7, -7]
+            
+            var fetchedCount = 0
+            let maxFetchPerBatch = 6 // 한 번에 최대 6개까지만 (API 제한 고려)
+            
+            for dayOffset in daysToFetch {
+                guard !Task.isCancelled else { break }
+                
+                if let targetDate = calendar.date(byAdding: .day, value: dayOffset, to: date) {
+                    let dateString = formatDateForAPI(targetDate)
+                    
+                    // 이미 활성 작업이 있거나 프리페칭 중이면 건너뛰기
+                    if activeTasks[dateString] != nil || prefetchingDates.contains(targetDate) {
+                        continue
+                    }
+                    
+                    // 이미 캐시되어 있고 유효하면 건너뛰기
+                    if let cached = cachedFixtures[dateString], !cached.isEmpty && !isCacheExpired(for: dateString) {
+                        print("🔍 프리페칭 스킵 (캐시 유효): \(dateString)")
+                        continue
+                    }
+                    
+                    // 모든 팔로우한 리그에 대해 빈 응답 캐시가 있는지 확인
+                    let followedLeagues = leagueFollowService.getActiveLeagueIds(for: targetDate)
+                    let allHaveEmptyCache = !followedLeagues.isEmpty && followedLeagues.allSatisfy { leagueId in
+                        !isEmptyResponseCacheExpired(for: dateString, leagueId: leagueId)
+                    }
+                    
+                    if allHaveEmptyCache {
+                        print("🔍 프리페칭 스킵 (모든 리그 빈 응답 캐시): \(dateString)")
+                        continue
+                    }
+                    
+                    // 프리페칭 시작
+                    prefetchingDates.insert(targetDate)
+                    fetchedCount += 1
+                    
+                    print("🔄 프리페칭 시작: \(dateString) (offset: \(dayOffset))")
+                    
+                    let task = Task {
+                        await loadFixturesForDate(targetDate, forceRefresh: false)
+                        prefetchingDates.remove(targetDate)
+                        activeTasks.removeValue(forKey: dateString)
+                        print("✅ 프리페칭 완료: \(dateString)")
+                    }
+                    
+                    activeTasks[dateString] = task
+                    
+                    // API 요청 제한 방지 (점진적으로 증가, 429 에러 방지를 위해 기본 지연 시간 증가)
+                    let delay = UInt64(500_000_000 * (fetchedCount / 3 + 1)) // 0.5초, 1초, 1.5초...
+                    try? await Task.sleep(nanoseconds: delay)
+                    
+                    // 배치 제한에 도달하면 잠시 대기
+                    if fetchedCount >= maxFetchPerBatch {
+                        print("⏸️ 프리페칭 일시 중지: \(fetchedCount)개 완료")
+                        try? await Task.sleep(nanoseconds: 2_000_000_000) // 2초 대기
+                        fetchedCount = 0
+                    }
+                }
+            }
+            
+            print("📱 프리페칭 작업 완료: ±7일 범위")
+            
+            // 메모리 관리: 14일 범위를 벗어난 오래된 캐시 정리
+            await cleanupOldCache(centerDate: date)
+        }
+    }
+    
+    // 오래된 캐시 정리
+    @MainActor
+    private func cleanupOldCache(centerDate: Date) async {
+        let maxDaysToKeep = 10 // ±10일 범위만 유지 (여유분 포함)
+        
+        for (dateString, _) in cachedFixtures {
+            // 날짜 문자열을 Date로 변환
+            let formatter = DateFormatter()
+            formatter.dateFormat = "yyyy-MM-dd"
+            
+            if let cachedDate = formatter.date(from: dateString) {
+                let daysDifference = abs(calendar.dateComponents([.day], from: centerDate, to: cachedDate).day ?? 0)
+                
+                if daysDifference > maxDaysToKeep {
+                    cachedFixtures.removeValue(forKey: dateString)
+                    cacheDates.removeValue(forKey: dateString)
+                    print("🗑️ 오래된 캐시 제거: \(dateString) (현재 날짜로부터 \(daysDifference)일)")
+                }
+            }
+        }
+    }
+    
+    // 특정 날짜의 캐시 초기화
+    public func clearCacheForDate(_ date: Date) {
+        let dateString = formatDateForAPI(date)
+        
+        // 메모리 캐시 제거
+        fixtures[date] = nil
+        cachedFixtures[dateString] = nil
+        
+        // API 캐시 제거
+        for leagueId in leagueFollowService.getActiveLeagueIds(for: date) {
+            let parameters: [String: String] = [
+                "from": dateString,
+                "to": dateString,
+                "league": String(leagueId),
+                "season": String(getCurrentSeason())
+            ]
+            APICacheManager.shared.removeCache(for: "/fixtures", parameters: parameters)
+        }
+        
+        // CoreData 캐시 제거
+        CoreDataManager.shared.deleteFixtures(for: dateString)
+        
+        print("🗜️ 날짜 \(dateString)의 모든 캐시 제거")
+    }
+    
+    // 모든 캐시 초기화 (더미 데이터 제거용)
+    public func clearAllCaches() {
+        print("🗑️ 모든 캐시 초기화 시작...")
+        
+        // 메모리 캐시 초기화
+        fixtures.removeAll()
+        cachedFixtures.removeAll()
+        emptyDates.removeAll()
+        loadingDates.removeAll()
+        emptyResponseCache.removeAll()
+        cacheDates.removeAll()
+        
+        // UserDefaults 모든 키 삭제
+        let userDefaults = UserDefaults.standard
+        userDefaults.removeObject(forKey: "cachedFixtures")
+        userDefaults.removeObject(forKey: "cacheDates")
+        userDefaults.removeObject(forKey: "emptyResponseCache")
+        
+        // UserDefaults에서 fixtures 관련 모든 키 삭제
+        let keys = userDefaults.dictionaryRepresentation().keys
+        for key in keys {
+            if key.contains("fixtures") || key.contains("cache") || key.contains("empty") || key.contains("Fixture") {
+                userDefaults.removeObject(forKey: key)
+                print("🗑️ UserDefaults 키 삭제: \(key)")
+            }
+        }
+        userDefaults.synchronize()
+        
+        // API 캐시 전체 삭제
+        APICacheManager.shared.clearAllCache()
+        
+        // CoreData 캐시 전체 삭제
+        CoreDataManager.shared.deleteAllFixtures()
+        CoreDataManager.shared.clearAllData()
+        
+        // 요청 취소
+        requestManager.cancelAllRequests()
+        
+        // init에서 로드되는 캐시 방지를 위한 플래그
+        print("✅ 모든 캐시가 완전히 제거되었습니다.")
+        print("🔄 이제 실제 API 데이터만 사용합니다.")
+        print("⚠️ 앱을 재시작하거나 화면을 새로고침하세요.")
+    }
+    
+    // 디버그: 현재 로드된 경기 데이터 확인
+    public func debugPrintLoadedFixtures() {
+        print("\n🔍 현재 로드된 경기 데이터:")
+        
+        for (date, fixtureList) in fixtures.sorted(by: { $0.key < $1.key }) {
+            let dateString = formatDateForAPI(date)
+            print("\n📅 날짜: \(dateString) - 총 \(fixtureList.count)개 경기")
+            
+            // 각 날짜별 처음 3개 경기만 출력
+            for (index, fixture) in fixtureList.prefix(3).enumerated() {
+                print("  \(index + 1). \(fixture.teams.home.name) vs \(fixture.teams.away.name)")
+                print("     - 실제 경기 날짜: \(fixture.fixture.date)")
+                print("     - 경기 ID: \(fixture.fixture.id)")
+            }
+            
+            if fixtureList.count > 3 {
+                print("  ... 그 외 \(fixtureList.count - 3)개 경기")
+            }
+        }
+        
+        print("\n📊 캐시 상태:")
+        print("  - 메모리 캐시: \(cachedFixtures.count)개 날짜")
+        print("  - 빈 날짜: \(emptyDates.count)개")
+        print("  - 로딩 중: \(loadingDates.count)개")
+        print("\n")
+    }
+    
+    // 클럽 월드컵 디버그 테스트
+    private func testClubWorldCup() async {
+        print("\n🏆 ===== 클럽 월드컵 및 기타 리그 테스트 시작 =====")
+        
+        // API 키 검증 테스트
+        print("\n🔐 API 키 검증 테스트:")
+        do {
+            let statusParams = ["league": "39", "season": "2024"]
+            let statusResponse: LeaguesResponse = try await service.performRequest(
+                endpoint: "/leagues",
+                parameters: statusParams,
+                cachePolicy: .never,
+                forceRefresh: true
+            )
+            
+            if let league = statusResponse.response.first {
+                print("✅ API 키 유효: \(league.league.name)")
+                print("  - 국가: \(league.country?.name ?? "N/A")")
+                print("  - 시즌 수: \(league.seasons?.count ?? 0)")
+            } else {
+                print("❌ API 키 문제: 응답 없음")
+            }
+        } catch {
+            print("❌ API 키 검증 실패: \(error)")
+            if let apiError = error as? FootballAPIError {
+                switch apiError {
+                case .invalidAPIKey:
+                    print("  ⚠️ 잘못된 API 키입니다")
+                case .rateLimitExceeded:
+                    print("  ⚠️ API 요청 한도 초과")
+                case .serverError(let code):
+                    print("  ⚠️ 서버 오류: \(code)")
+                default:
+                    print("  ⚠️ 기타 오류: \(apiError)")
+                }
+            }
+            return // API 키 문제가 있으면 나머지 테스트 중단
+        }
+        
+        // 여러 날짜와 시즌 조합 테스트
+        let testCases = [
+            ("2024-12-11", 2024),  // 기존 포맷
+            ("2025-01-05", 2024),  // 기존 포맷
+            ("2025-06-15", 2024),  // 새로운 포맷
+            ("2025-06-15", 2025),  // 다른 시즌도 테스트
+            ("2025-07-01", 2024),  // 새로운 포맷
+            ("2025-07-01", 2025)   // 다른 시즌도 테스트
+        ]
+        
+        let df = DateFormatter()
+        df.dateFormat = "yyyy-MM-dd"
+        df.timeZone = TimeZone(identifier: "UTC")
+        
+        for (index, (dateStr, season)) in testCases.enumerated() {
+            // 첫 번째 테스트가 아니면 지연 추가
+            if index > 0 {
+                try? await Task.sleep(nanoseconds: 500_000_000) // 0.5초 대기
+            }
+            
+            if df.date(from: dateStr) != nil {
+                print("\n📅 테스트: 날짜=\(dateStr), 시즌=\(season)")
+                
+                do {
+                    // 직접 API 호출 (강제 새로고침으로 캐시 우회)
+                    let parameters = [
+                        "league": "15",
+                        "season": String(season),
+                        "from": dateStr,
+                        "to": dateStr
+                    ]
+                    
+                    let response: FixturesResponse = try await service.performRequest(
+                        endpoint: "/fixtures",
+                        parameters: parameters,
+                        cachePolicy: .never,
+                        forceRefresh: true
+                    )
+                    
+                    let fixtures = response.response
+                    
+                    if fixtures.isEmpty {
+                        print("  ⚠️ 빈 응답 (경기 없음)")
+                    } else {
+                        print("  ✅ \(fixtures.count)개 경기 발견:")
+                        for fixture in fixtures.prefix(3) {
+                            print("    - \(fixture.teams.home.name) vs \(fixture.teams.away.name)")
+                        }
+                    }
+                } catch {
+                    print("  ❌ API 오류: \(error)")
+                }
+            }
+        }
+        
+        print("\n🏆 ===== 클럽 월드컵 테스트 종료 =====\n")
+        
+        // 전체 시즌 조회도 테스트
+        print("\n📊 전체 시즌 조회 테스트:")
+        
+        // 다른 시즌들도 테스트
+        let seasons = [2024, 2023, 2022, 2021]
+        for testSeason in seasons {
+            print("\n🗓️ \(testSeason) 시즌 테스트:")
+            do {
+                let allParameters = [
+                    "league": "15",
+                    "season": String(testSeason)
+                ]
+                
+                let allResponse: FixturesResponse = try await service.performRequest(
+                    endpoint: "/fixtures",
+                    parameters: allParameters,
+                    cachePolicy: .never,
+                    forceRefresh: true
+                )
+                
+                if allResponse.response.isEmpty {
+                    print("  ⚠️ \(testSeason) 시즌: 데이터 없음")
+                } else {
+                    print("  ✅ \(testSeason) 시즌: \(allResponse.response.count)개 경기")
+                    if let first = allResponse.response.first {
+                        print("    첫 경기: \(first.fixture.date)")
+                    }
+                    if let last = allResponse.response.last {
+                        print("    마지막 경기: \(last.fixture.date)")
+                    }
+                }
+                
+                // API 제한 방지를 위한 지연
+                try? await Task.sleep(nanoseconds: 300_000_000) // 0.3초
+            } catch {
+                print("  ❌ \(testSeason) 시즌 오류: \(error)")
+            }
+        }
+        
+        // API 직접 테스트
+        print("\n🔑 API 직접 테스트:")
+        print("- Supabase Edge Functions 사용 여부: \(AppConfiguration.shared.useSupabaseEdgeFunctions)")
+        print("- Service: SupabaseFootballAPIService")
+        
+        // 간단한 리그 정보 조회로 API 연결 테스트
+        do {
+            let endpoint = "/leagues"
+            let parameters = ["id": "15"]
+            let response: LeaguesResponse = try await service.performRequest(
+                endpoint: endpoint,
+                parameters: parameters,
+                cachePolicy: .never,
+                forceRefresh: true
+            )
+            
+            if let league = response.response.first {
+                print("✅ API 연결 성공: \(league.league.name)")
+                print("  - 타입: \(league.league.type)")
+                print("  - 시즌 수: \(league.seasons?.count ?? 0)")
+                if let seasons = league.seasons {
+                    print("  - 사용 가능한 시즌: \(seasons.map { $0.year }.sorted())")
+                }
+            }
+        } catch {
+            print("❌ API 직접 테스트 실패: \(error)")
+        }
+        
+        // 프리미어리그 테스트 (비교용)
+        print("\n⚽ 프리미어리그 테스트:")
+        do {
+            let plParameters = [
+                "league": "39",
+                "season": "2024",
+                "from": "2025-01-06",
+                "to": "2025-01-06"
+            ]
+            
+            let plResponse: FixturesResponse = try await service.performRequest(
+                endpoint: "/fixtures",
+                parameters: plParameters,
+                cachePolicy: .never,
+                forceRefresh: true
+            )
+            
+            if plResponse.response.isEmpty {
+                print("  ⚠️ 프리미어리그도 빈 응답")
+            } else {
+                print("  ✅ 프리미어리그: \(plResponse.response.count)개 경기")
+                for fixture in plResponse.response.prefix(2) {
+                    print("    - \(fixture.teams.home.name) vs \(fixture.teams.away.name)")
+                }
+            }
+        } catch {
+            print("  ❌ 프리미어리그 API 오류: \(error)")
+        }
     }
     
     // 날짜에 따른 레이블 생성
@@ -128,7 +625,13 @@ class FixturesOverviewViewModel: ObservableObject {
         // 날짜 범위 초기화
         initializeDateRanges()
         
-        // 캐시된 데이터 로드
+        // 클럽 월드컵 테스트 - 비활성화 (필요시에만 활성화)
+        // Task {
+        //     try? await Task.sleep(nanoseconds: 2_000_000_000) // 2초 대기
+        //     await testClubWorldCup()
+        // }
+        
+        // 캐시된 데이터 로드 (가장 먼저 실행)
         loadCachedFixtures()
         
         // 빈 응답 캐시 로드
@@ -136,6 +639,20 @@ class FixturesOverviewViewModel: ObservableObject {
         
         // 라이브 경기 업데이트 구독
         setupLiveMatchesSubscription()
+        
+        // 캐시 초기화 알림 구독
+        NotificationCenter.default.addObserver(
+            forName: NSNotification.Name("ClearFixturesCache"),
+            object: nil,
+            queue: .main
+        ) { _ in
+            Task { @MainActor in
+                self.clearAllCaches()
+            }
+        }
+        
+        // 리그 팔로우 업데이트 알림 구독
+        setupLeagueFollowObserver()
         
         // 오늘 날짜 확인 (시간대 고려)
         let now = Date()
@@ -148,16 +665,22 @@ class FixturesOverviewViewModel: ObservableObject {
         print("📱 앱 시작 시 현재 시간: \(now)")
         print("📱 앱 시작 시 오늘 날짜: \(dateFormatter.string(from: today))")
         
-        // 캐시된 데이터가 있는지 확인
-        let dateString = formatDateForAPI(today)
-        if let cachedData = cachedFixtures[dateString], !cachedData.isEmpty {
-            // 캐시된 데이터가 있으면 사용
-            fixtures[today] = cachedData
-            print("📱 앱 시작 시 캐시된 데이터 사용: \(cachedData.count)개")
+        // 캐시된 데이터가 있으면 즉시 UI에 표시
+        let todayString = formatDateForAPI(today)
+        if let cachedTodayData = cachedFixtures[todayString], !cachedTodayData.isEmpty {
+            fixtures[today] = cachedTodayData
+            print("✅ 앱 시작 시 캐시된 오늘 데이터 즉시 표시: \(cachedTodayData.count)개")
         } else {
-            // 캐시된 데이터가 없으면 빈 배열 설정
-            fixtures[today] = []
-            print("📱 앱 시작 시 데이터 없음: 경기 일정을 불러오는 중...")
+            // 캐시가 없는 경우 CoreData에서 확인
+            if let coreDataFixtures = CoreDataManager.shared.loadFixtures(for: todayString), !coreDataFixtures.isEmpty {
+                fixtures[today] = coreDataFixtures
+                cachedFixtures[todayString] = coreDataFixtures
+                print("✅ 앱 시작 시 CoreData에서 데이터 로드: \(coreDataFixtures.count)개")
+            } else {
+                // 데이터가 없는 경우 빈 배열 설정
+                fixtures[today] = []
+                print("📱 앱 시작 시 데이터 없음")
+            }
         }
         
         // 앱 시작 시 경기 일정 미리 로드 (프리로딩)
@@ -201,30 +724,30 @@ class FixturesOverviewViewModel: ObservableObject {
                 }
             }
             
-            // 주요 리그 데이터 미리 로드 (점진적 로딩)
-            await preloadMainLeaguesData(for: today)
+            // 팔로우한 리그 데이터 미리 로드 (점진적 로딩)
+            await preloadFollowedLeaguesData(for: today)
             
-            // 확장된 날짜 범위 프리로딩 (±3일 우선, 나머지는 백그라운드에서)
-            print("📱 확장된 날짜 범위 프리로딩 시작 (±3일 우선)")
+            // 확장된 날짜 범위 프리로딩 (±2일로 축소)
+            print("📱 확장된 날짜 범위 프리로딩 시작 (±2일)")
             
-            // 미래 날짜 프리로딩 (1~3일 우선)
-            for i in 1...3 {
+            // 미래 날짜 프리로딩 (1~2일만)
+            for i in 1...2 {
                 let futureDate = calendar.date(byAdding: .day, value: i, to: today)!
                 print("🔍 디버그: 미래 날짜 \(i)일 후 = \(formatDateForAPI(futureDate))")
                 await preloadFixturesWithFallback(for: futureDate, forceRefresh: false)
                 
-                // API 요청 제한 방지를 위한 지연
-                try? await Task.sleep(nanoseconds: 100_000_000) // 0.1초 지연
+                // API 요청 제한 방지를 위한 지연 (429 에러 방지를 위해 증가)
+                try? await Task.sleep(nanoseconds: 300_000_000) // 0.3초 지연
             }
             
-            // 과거 날짜 프리로딩 (1~3일 우선)
-            for i in 1...3 {
+            // 과거 날짜 프리로딩 (1~2일만)
+            for i in 1...2 {
                 let pastDate = calendar.date(byAdding: .day, value: -i, to: today)!
                 print("🔍 디버그: 과거 날짜 \(i)일 전 = \(formatDateForAPI(pastDate))")
                 await preloadFixturesWithFallback(for: pastDate, forceRefresh: false)
                 
-                // API 요청 제한 방지를 위한 지연
-                try? await Task.sleep(nanoseconds: 100_000_000) // 0.1초 지연
+                // API 요청 제한 방지를 위한 지연 (429 에러 방지를 위해 증가)
+                try? await Task.sleep(nanoseconds: 300_000_000) // 0.3초 지연
             }
             
             isLoading = false
@@ -232,38 +755,8 @@ class FixturesOverviewViewModel: ObservableObject {
             // 자동 새로고침 시작
             startAutoRefresh()
             
-            // 백그라운드에서 나머지 날짜 로드
-            Task.detached(priority: .background) {
-                // 미래 날짜 프리로딩 (4~7일)
-                for i in 4...7 {
-                    let futureDate = self.calendar.date(byAdding: .day, value: i, to: today)!
-                    print("🔍 디버그: 백그라운드 미래 날짜 \(i)일 후 = \(await self.formatDateForAPI(futureDate))")
-                    try? await Task.sleep(nanoseconds: 1_000_000) // 0.001초 지연
-                    await self.preloadFixturesWithFallback(for: futureDate, forceRefresh: false)
-                    
-                    // API 요청 제한 방지를 위한 지연
-                    try? await Task.sleep(nanoseconds: 200_000_000) // 0.2초 지연
-                }
-                
-                // 과거 날짜 프리로딩 (4~7일)
-                for i in 4...7 {
-                    let pastDate = self.calendar.date(byAdding: .day, value: -i, to: today)!
-                    print("🔍 디버그: 백그라운드 과거 날짜 \(i)일 전 = \(await self.formatDateForAPI(pastDate))")
-                    try? await Task.sleep(nanoseconds: 1_000_000) // 0.001초 지연
-                    await self.preloadFixturesWithFallback(for: pastDate, forceRefresh: false)
-                    
-                    // API 요청 제한 방지를 위한 지연
-                    try? await Task.sleep(nanoseconds: 200_000_000) // 0.2초 지연
-                }
-                
-                // 백그라운드 로드가 활성화된 경우에만 추가 데이터 로드
-                if self.enableBackgroundLoad {
-                    // 제한된 날짜 범위에 대한 경기 일정 로드 (리소스 사용 최적화)
-                    await self.loadLimitedFixtures()
-                } else {
-                    print("📱 백그라운드 로드 비활성화됨 (개발 모드)")
-                }
-            }
+            // 백그라운드 로딩은 사용자 요청 시에만 수행하도록 제거
+            // 필요한 날짜는 사용자가 스크롤할 때 로드되도록 함
         }
         
         // 앱 생명주기 이벤트 관찰 설정
@@ -316,20 +809,29 @@ class FixturesOverviewViewModel: ObservableObject {
             return 78 // 분데스리가
         case 79, 80, 85, 91, 94, 95: // 릴, 마르세유, PSG, 모나코, 렌, 리옹
             return 61 // 리그 1
+        case 1595, 1596, 1598, 1599, 1600, 1601, 1602, 1604, 1605, 1607, 1609, 1610, 1611, 1612, 1613, 1614, 1615, 1616, 1617, 1619, 1625, 15617, 15618, 15620, 15621, 15622, 15623, 15624, 18406, 18569: 
+            // LA Galaxy, Inter Miami, LA FC, Atlanta United, New York City FC, Portland Timbers, Seattle Sounders, Toronto FC, 
+            // DC United, New York Red Bulls, Philadelphia Union, Columbus Crew, Chicago Fire, FC Cincinnati, Minnesota United,
+            // Nashville SC, Orlando City, Real Salt Lake, San Jose Earthquakes, Montreal Impact, Austin FC, Charlotte FC,
+            // St. Louis City, Vancouver Whitecaps, Colorado Rapids, Houston Dynamo, New England Revolution, FC Dallas, Sporting Kansas City
+            return 253 // MLS
         default:
             return -1 // 알 수 없는 팀
         }
     }
     
-    // 주요 리그 데이터 미리 로드 (점진적 로딩)
+    // 팔로우한 리그 데이터 미리 로드 (점진적 로딩)
     @MainActor
-    private func preloadMainLeaguesData(for date: Date) async {
-        print("📱 주요 리그 데이터 미리 로드 시작")
+    private func preloadFollowedLeaguesData(for date: Date) async {
+        print("📱 팔로우한 리그 데이터 미리 로드 시작")
         
-        // 우선순위 기반 리그 로딩
-        let priorityLeagues = [39, 140]         // EPL, 라리가
-        let secondaryLeagues = [135, 78, 61]    // 세리에 A, 분데스리가, 리그1
-        let tertiaryLeagues = [2, 3]            // 챔피언스 리그, 유로파 리그
+        // 팔로우한 리그 중 활성화된 리그만
+        let followedLeagues = leagueFollowService.getActiveLeagueIds(for: date)
+        
+        // 우선순위 기반 리그 로딩 (5대 리그 + MLS 우선)
+        let priorityLeagues = followedLeagues.filter { [39, 140].contains($0) }         // EPL, 라리가
+        let secondaryLeagues = followedLeagues.filter { [135, 78, 61, 253].contains($0) }    // 세리에 A, 분데스리가, 리그1, MLS
+        let tertiaryLeagues = followedLeagues.filter { ![39, 140, 135, 78, 61, 253].contains($0) }  // 기타 리그
         
         // 사용자 선호 리그 가져오기
         let userPreferredLeagues = getUserPreferredLeagues()
@@ -362,10 +864,11 @@ class FixturesOverviewViewModel: ObservableObject {
         print("📊 로딩 우선순위: \(loadingOrder)")
         
         // 현재 시즌
-        let currentSeason = getCurrentSeason()
+        _ = getCurrentSeason()
         
         // 날짜 문자열
         let dateString = formatDateForAPI(date)
+        
         
         // 각 리그별로 데이터 로드 (우선순위 순서대로)
         for (index, leagueId) in loadingOrder.enumerated() {
@@ -374,17 +877,31 @@ class FixturesOverviewViewModel: ObservableObject {
                 
                 // 요청 간 지연 추가 (API 요청 제한 방지)
                 if index > 0 {
-                    // 우선순위에 따라 지연 시간 조정
-                    let delayTime = index < 3 ? 200_000_000 : 300_000_000 // 0.2초 또는 0.3초
+                    // 우선순위에 따라 지연 시간 조정 (429 에러 방지를 위해 충분히 증가)
+                    let delayTime = index < 3 ? 1_000_000_000 : 2_000_000_000 // 1초 또는 2초
                     try await Task.sleep(nanoseconds: UInt64(delayTime))
                 }
                 
-                // FootballAPIService를 통한 직접 API 호출
-                let fixturesForLeague = try await service.getFixtures(
+                // 리그별 시즌 설정 (날짜 기준)
+                let seasonForRequest = service.getSeasonForLeagueAndDate(leagueId, date: date)
+                
+                // 리그별 시즌 로깅
+                if leagueId == 15 {
+                    print("⚽ FIFA 클럽 월드컵 시즌: \(seasonForRequest) (새로운 포맷)")
+                } else if leagueId == 292 || leagueId == 293 {
+                    print("⚽ K리그 시즌: \(seasonForRequest) (3월-11월)")
+                } else if leagueId == 253 {
+                    print("⚽ MLS 시즌: \(seasonForRequest) (3월-11월)")
+                } else {
+                    print("⚽ 리그 \(leagueId) 시즌: \(seasonForRequest)")
+                }
+                
+                // Supabase Edge Functions를 통한 서버 캐시 API 호출
+                let fixturesForLeague = try await service.getFixturesWithServerCache(
+                    date: dateString,
                     leagueId: leagueId,
-                    season: currentSeason,
-                    from: date,
-                    to: date
+                    seasonYear: seasonForRequest,
+                    forceRefresh: false
                 )
                 
                 // 기존 캐시된 데이터 가져오기
@@ -399,22 +916,8 @@ class FixturesOverviewViewModel: ObservableObject {
                 cachedFixtures[dateString] = existingFixtures
                 saveCachedFixtures(for: dateString)
                 
-                // UI 업데이트
-                if let existingDateFixtures = fixtures[date] {
-                    // 기존 데이터에 새 데이터 추가 (중복 제거)
-                    let existingUIIds = Set(existingDateFixtures.map { $0.fixture.id })
-                    let newUIFixtures = fixturesForLeague.filter { !existingUIIds.contains($0.fixture.id) }
-                    fixtures[date] = existingDateFixtures + newUIFixtures
-                } else {
-                    fixtures[date] = fixturesForLeague
-                }
-                
-                // 알림 발송 (UI 업데이트를 위해)
-                NotificationCenter.default.post(
-                    name: NSNotification.Name("FixturesLoadingCompleted"),
-                    object: nil,
-                    userInfo: ["date": date]
-                )
+                // UI 업데이트 - 전체 데이터를 다시 설정
+                fixtures[date] = sortFixturesByPriority(existingFixtures)
                 
                 print("✅ 리그 \(leagueId) 데이터 로드 완료: \(fixturesForLeague.count)개")
                 
@@ -429,6 +932,7 @@ class FixturesOverviewViewModel: ObservableObject {
     // 캐시 우선 로딩 + 나중에 새로고침 전략을 사용한 프리로딩 메서드
     @MainActor
     private func preloadFixturesWithFallback(for date: Date, forceRefresh: Bool = false) async {
+        var shouldForceRefresh = forceRefresh
         let dateString = formatDateForAPI(date)
         
         print("🔍 디버그: preloadFixturesWithFallback 시작 - 날짜: \(dateString), 강제 새로고침: \(forceRefresh)")
@@ -437,30 +941,29 @@ class FixturesOverviewViewModel: ObservableObject {
         let isToday = calendar.isDate(date, inSameDayAs: calendar.startOfDay(for: Date()))
         
         // 1. 먼저 캐시된 데이터가 있으면 즉시 표시 (UI 빠르게 업데이트)
-        if let cachedData = cachedFixtures[dateString], !cachedData.isEmpty {
-            fixtures[date] = cachedData
-            print("✅ 캐시 데이터로 빠르게 UI 업데이트: \(dateString) (\(cachedData.count)개)")
-            
-            // 캐시된 데이터의 경기 상태 로깅
-            let liveCount = cachedData.filter { liveStatuses.contains($0.fixture.status.short) }.count
-            let finishedCount = cachedData.filter { $0.fixture.status.short == "FT" }.count
-            let upcomingCount = cachedData.filter { $0.fixture.status.short == "NS" }.count
-            print("🔍 디버그: 캐시 데이터 상태 - 라이브: \(liveCount), 종료: \(finishedCount), 예정: \(upcomingCount)")
-            
-            // 알림 발송 (UI 업데이트를 위해)
-            NotificationCenter.default.post(
-                name: NSNotification.Name("FixturesLoadingCompleted"),
-                object: nil,
-                userInfo: ["date": date]
-            )
+        if let cachedData = cachedFixtures[dateString] {
+            if !cachedData.isEmpty {
+                fixtures[date] = cachedData
+                print("✅ 캐시 데이터로 빠르게 UI 업데이트: \(dateString) (\(cachedData.count)개)")
+                
+                // 캐시된 데이터의 경기 상태 로깅
+                let liveCount = cachedData.filter { liveStatuses.contains($0.fixture.status.short) }.count
+                let finishedCount = cachedData.filter { $0.fixture.status.short == "FT" }.count
+                let upcomingCount = cachedData.filter { $0.fixture.status.short == "NS" }.count
+                print("🔍 디버그: 캐시 데이터 상태 - 라이브: \(liveCount), 종료: \(finishedCount), 예정: \(upcomingCount)")
+            } else {
+                print("⚠️ 빈 캐시 감지: \(dateString) - 강제로 새로운 데이터 로드 필요")
+                // 빈 캐시는 무시하고 새로 로드
+                shouldForceRefresh = true
+            }
         } else {
             // 캐시된 데이터가 없으면 빈 배열 설정 (스켈레톤 UI 표시 가능)
             fixtures[date] = []
             print("🔍 디버그: 캐시 데이터 없음, 빈 배열 설정")
             
-            // 오늘 날짜인 경우 로딩 상태 명확히 표시
+            // 로딩 상태 명확히 표시
+            loadingDates.insert(date)
             if isToday {
-                loadingDates.insert(date)
                 isLoading = true
                 print("⏳ 오늘 날짜 로딩 상태 설정: \(dateString)")
             }
@@ -471,13 +974,13 @@ class FixturesOverviewViewModel: ObservableObject {
         print("🔍 디버그: 캐시 만료 여부: \(isCacheExpired)")
         
         // 3. 캐시가 만료되었거나 데이터가 없는 경우 또는 강제 새로고침인 경우 API 호출
-        if isCacheExpired || fixtures[date]?.isEmpty == true || forceRefresh {
-            print("🔍 디버그: API 호출 조건 충족 - 캐시 만료: \(isCacheExpired), 데이터 없음: \(fixtures[date]?.isEmpty == true), 강제 새로고침: \(forceRefresh)")
+        if isCacheExpired || fixtures[date]?.isEmpty == true || shouldForceRefresh {
+            print("🔍 디버그: API 호출 조건 충족 - 캐시 만료: \(isCacheExpired), 데이터 없음: \(fixtures[date]?.isEmpty == true), 강제 새로고침: \(shouldForceRefresh)")
             
             do {
                 // API에서 최신 데이터 가져오기
-                print("🔍 디버그: fetchFixturesForDate 호출 시작 - 날짜: \(dateString), 강제 새로고침: \(forceRefresh)")
-                let fixturesForDate = try await fetchFixturesForDate(date, forceRefresh: forceRefresh)
+                print("🔍 디버그: fetchFixturesForDate 호출 시작 - 날짜: \(dateString), 강제 새로고침: \(shouldForceRefresh)")
+                let fixturesForDate = try await fetchFixturesForDate(date, forceRefresh: shouldForceRefresh)
                 
                 // 가져온 데이터 상태 로깅
                 let liveCount = fixturesForDate.filter { liveStatuses.contains($0.fixture.status.short) }.count
@@ -486,26 +989,26 @@ class FixturesOverviewViewModel: ObservableObject {
                 print("🔍 디버그: API 응답 데이터 상태 - 라이브: \(liveCount), 종료: \(finishedCount), 예정: \(upcomingCount)")
                 
                 // UI 업데이트
-                fixtures[date] = fixturesForDate
+                fixtures[date] = sortFixturesByPriority(fixturesForDate)
                 
                 // 캐시 업데이트
                 cachedFixtures[dateString] = fixturesForDate
                 saveCachedFixtures(for: dateString)
                 
                 // 로딩 상태 업데이트
+                loadingDates.remove(date)
                 if isToday {
-                    loadingDates.remove(date)
                     isLoading = loadingDates.isEmpty
                 }
                 
                 print("✅ API에서 최신 데이터로 업데이트: \(dateString) (\(fixturesForDate.count)개)")
                 
-                // 알림 발송 (UI 업데이트를 위해)
-                NotificationCenter.default.post(
-                    name: NSNotification.Name("FixturesLoadingCompleted"),
-                    object: nil,
-                    userInfo: ["date": date, "forceUpdate": true]
-                )
+                // 빈 응답인 경우 메시지 설정
+                if fixturesForDate.isEmpty {
+                    emptyDates[date] = "해당일에 예정된 경기가 없습니다."
+                } else {
+                    emptyDates[date] = nil
+                }
             } catch {
                 print("❌ 최신 데이터 업데이트 실패: \(error.localizedDescription)")
                 print("🔍 디버그: 오류 타입: \(type(of: error))")
@@ -520,20 +1023,29 @@ class FixturesOverviewViewModel: ObservableObject {
                 }
                 
                 // 로딩 상태 업데이트
+                loadingDates.remove(date)
                 if isToday {
-                    loadingDates.remove(date)
                     isLoading = loadingDates.isEmpty
                 }
                 
-                // 오류 발생 시에도 알림 발송 (UI 업데이트를 위해)
-                NotificationCenter.default.post(
-                    name: NSNotification.Name("FixturesLoadingCompleted"),
-                    object: nil,
-                    userInfo: ["date": date, "error": true]
-                )
+                // 오류 시 로딩 상태만 업데이트
+                // 로딩 상태 업데이트
+                loadingDates.remove(date)
+                if isToday {
+                    isLoading = loadingDates.isEmpty
+                }
             }
         } else {
             print("✅ 캐시가 유효하므로 API 호출 생략: \(dateString)")
+            
+            // 캐시가 유효하고 API 호출을 생략했지만 로딩 상태가 남아있다면 해제
+            if loadingDates.contains(date) {
+                loadingDates.remove(date)
+                if isToday {
+                    isLoading = loadingDates.isEmpty
+                }
+                print("🔍 디버그: 캐시 사용으로 로딩 상태 해제: \(dateString)")
+            }
         }
     }
     
@@ -682,6 +1194,7 @@ class FixturesOverviewViewModel: ObservableObject {
         }
     }
     
+    
     // 자동 새로고침 중지
     private func stopAutoRefresh() {
         refreshTimer?.invalidate()
@@ -789,6 +1302,7 @@ class FixturesOverviewViewModel: ObservableObject {
         
         // 오늘 날짜 확인
         let today = calendar.startOfDay(for: now)
+        let isToday = calendar.isDate(keyDate, inSameDayAs: today)
         
         // 과거/현재/미래 날짜 여부 확인
         let isPastDay = keyDate < today
@@ -800,7 +1314,7 @@ class FixturesOverviewViewModel: ObservableObject {
             if !fixturesForDate.isEmpty {
                 // 진행 중인 경기가 있는지 확인
                 let hasLiveMatches = fixturesForDate.contains { fixture in
-                    ["1H", "2H", "HT", "ET", "P"].contains(fixture.fixture.status.short)
+                    liveStatuses.contains(fixture.fixture.status.short)
                 }
                 
                 // 예정된 경기가 있는지 확인
@@ -811,31 +1325,23 @@ class FixturesOverviewViewModel: ObservableObject {
                 // 경기 상태에 따른 캐시 만료 시간 결정
                 var expirationMinutes: Double
                 
-                if hasLiveMatches {
-                    // 진행 중인 경기가 있으면 짧은 캐시 시간 적용
+                if hasLiveMatches || (isToday && hasUpcomingMatches) {
+                    // 진행 중인 경기가 있거나 오늘 예정된 경기가 있으면 짧은 캐시 시간
                     expirationMinutes = liveMatchCacheMinutes
-                    print("⏱️ 진행 중인 경기가 있어 짧은 캐시 시간 적용: \(liveMatchCacheMinutes)분")
-                } else if hasUpcomingMatches {
-                    // 예정된 경기가 있으면 중간 캐시 시간 적용
+                } else if hasUpcomingMatches && !isPastDay {
+                    // 미래의 예정된 경기는 중간 캐시 시간
                     expirationMinutes = upcomingMatchCacheMinutes
-                    print("⏱️ 예정된 경기가 있어 중간 캐시 시간 적용: \(upcomingMatchCacheMinutes)분")
                 } else if isPastDay {
-                    // 과거 날짜의 종료된 경기는 긴 캐시 시간 적용
+                    // 과거 날짜는 긴 캐시 시간
                     expirationMinutes = pastDayCacheMinutes
-                    print("⏱️ 과거 날짜의 종료된 경기는 긴 캐시 시간 적용: \(pastDayCacheMinutes)분")
                 } else {
-                    // 오늘/미래 날짜의 종료된 경기는 중간 캐시 시간 적용
+                    // 오늘/미래 날짜의 종료된 경기는 중간 캐시 시간
                     expirationMinutes = finishedMatchCacheMinutes
-                    print("⏱️ 오늘/미래 날짜의 종료된 경기는 중간 캐시 시간 적용: \(finishedMatchCacheMinutes)분")
                 }
                 
                 // 캐시 만료 여부 확인
                 let expirationInterval = expirationMinutes * 60 // 초 단위로 변환
                 let isExpired = now.timeIntervalSince(cacheDate) > expirationInterval
-                
-                if isExpired {
-                    print("⏰ 캐시 만료됨: \(dateKey) (저장 시간: \(cacheDate), 현재: \(now), 만료 시간: \(expirationMinutes)분)")
-                }
                 
                 return isExpired
             }
@@ -847,19 +1353,16 @@ class FixturesOverviewViewModel: ObservableObject {
         if isPastDay {
             // 과거 날짜는 더 긴 캐시 시간 적용
             defaultExpirationMinutes = pastDayCacheMinutes
-            print("⏱️ 과거 날짜는 더 긴 캐시 시간 적용: \(pastDayCacheMinutes)분")
         } else if isFutureDay {
             // 미래 날짜는 중간 캐시 시간 적용
             defaultExpirationMinutes = upcomingMatchCacheMinutes
-            print("⏱️ 미래 날짜는 중간 캐시 시간 적용: \(upcomingMatchCacheMinutes)분")
+        } else if isToday {
+            // 오늘 날짜는 짧은 캐시 시간
+            defaultExpirationMinutes = liveMatchCacheMinutes
         }
         
         let expirationInterval = defaultExpirationMinutes * 60 // 초 단위로 변환
         let isExpired = now.timeIntervalSince(cacheDate) > expirationInterval
-        
-        if isExpired {
-            print("⏰ 캐시 만료됨: \(dateKey) (저장 시간: \(cacheDate), 현재: \(now), 기본 만료 시간: \(defaultExpirationMinutes)분)")
-        }
         
         return isExpired
     }
@@ -873,28 +1376,6 @@ class FixturesOverviewViewModel: ObservableObject {
         print("🧹 캐시 초기화 완료")
     }
     
-    // 모든 캐시 정리 함수 (API 캐시 포함)
-    public func clearAllCaches() {
-        // UserDefaults 캐시 정리
-        clearCache()
-        
-        // 빈 응답 캐시 정리
-        emptyResponseCache = [:]
-        UserDefaults.standard.removeObject(forKey: "emptyResponseCache")
-        
-        // API 캐시 정리
-        APICacheManager.shared.clearAllCache()
-        
-        // 요청 관리자 캐시 정리
-        requestManager.cancelAllRequests()
-        
-        print("🧹 모든 캐시 정리 완료")
-        
-        // 현재 선택된 날짜의 데이터 다시 로드
-        Task {
-            await self.loadFixturesForDate(selectedDate, forceRefresh: true)
-        }
-    }
     
     // 현재 날짜에 따라 시즌 결정
     private func getCurrentSeason() -> Int {
@@ -903,9 +1384,11 @@ class FixturesOverviewViewModel: ObservableObject {
         let year = calendar.component(.year, from: now)
         let month = calendar.component(.month, from: now)
         
-        // 7월 이전이면 이전 시즌, 7월 이후면 현재 시즌
-        // 예: 2025년 3월이면 2024-25 시즌(2024), 2025년 8월이면 2025-26 시즌(2025)
-        return month < 7 ? year - 1 : year
+        // 축구 시즌은 일반적으로 8월에 시작하고 다음해 5월에 끝남
+        // 8월-12월: 현재 연도가 시즌
+        // 1월-7월: 이전 연도가 시즌
+        // 예: 2025년 7월이면 2024-25 시즌(2024)
+        return month < 8 ? year - 1 : year
     }
     
     // 날짜 범위 초기화
@@ -923,9 +1406,10 @@ class FixturesOverviewViewModel: ObservableObject {
         print("📅 현재 시간: \(now)")
         print("📅 오늘 날짜 설정: \(dateFormatter.string(from: today))")
         
-        // 초기 날짜 범위 생성 (오늘 날짜로부터 -5일 ~ +5일)
-        let startDate = calendar.date(byAdding: .day, value: -5, to: today)!
-        let endDate = calendar.date(byAdding: .day, value: 5, to: today)!
+        // 초기 날짜 범위 생성 (오늘 날짜로부터 -60일 ~ +30일로 확대)
+        // 2025년 7월은 대부분 리그가 오프시즌이므로 과거 날짜를 더 많이 포함
+        let startDate = calendar.date(byAdding: .day, value: -60, to: today)!
+        let endDate = calendar.date(byAdding: .day, value: 30, to: today)!
         
         var currentDate = startDate
         var dates: [Date] = []
@@ -937,6 +1421,9 @@ class FixturesOverviewViewModel: ObservableObject {
         
         allDateRange = dates
         visibleDateRange = dates
+        
+        print("📅 초기 날짜 범위: \(dateFormatter.string(from: startDate)) ~ \(dateFormatter.string(from: endDate))")
+        print("📅 총 날짜 수: \(dates.count)일")
         
         // 오늘 날짜를 선택
         selectedDate = today
@@ -954,6 +1441,20 @@ class FixturesOverviewViewModel: ObservableObject {
     // 날짜 범위 확장 중인지 확인하는 플래그
     private var isExtendingDateRange = false
     
+    /// 표시 가능한 날짜 범위의 캐시된 데이터를 미리 적용
+    @MainActor
+    public func prePopulateCachedFixtures() {
+        for date in visibleDateRange {
+            let dateString = formatDateForAPI(date)
+            if let cachedData = cachedFixtures[dateString], !cachedData.isEmpty {
+                if fixtures[date]?.isEmpty ?? true {
+                    fixtures[date] = cachedData
+                    print("✅ 캐시 데이터 미리 적용: \(dateString) (\(cachedData.count)개)")
+                }
+            }
+        }
+    }
+    
     @MainActor
     public func extendDateRange(forward: Bool) {
         // 이미 확장 중이면 중복 호출 방지
@@ -962,21 +1463,43 @@ class FixturesOverviewViewModel: ObservableObject {
             return
         }
         
+        // 최대 날짜 범위 제한 (±365일)
+        let maxDaysFromToday = 365
+        let today = calendar.startOfDay(for: Date())
+        
         // 확장 시작
         isExtendingDateRange = true
         
         if forward {
             // 미래 날짜 추가
             if let lastDate = allDateRange.last {
+                // 오늘로부터 최대 날짜 확인
+                let daysFromToday = calendar.dateComponents([.day], from: today, to: lastDate).day ?? 0
+                
+                if daysFromToday >= maxDaysFromToday {
+                    print("⚠️ 최대 미래 날짜 도달: \(formatDateForAPI(lastDate))")
+                    isExtendingDateRange = false
+                    return
+                }
+                
                 print("📅 미래 날짜 확장 시작 - 마지막 날짜: \(formatDateForAPI(lastDate))")
                 
-                let newEndDate = calendar.date(byAdding: .day, value: additionalLoadCount, to: lastDate)!
+                let maxAllowedDate = calendar.date(byAdding: .day, value: maxDaysFromToday, to: today)!
+                let targetEndDate = calendar.date(byAdding: .day, value: additionalLoadCount, to: lastDate)!
+                let newEndDate = min(targetEndDate, maxAllowedDate)
+                
                 var currentDate = calendar.date(byAdding: .day, value: 1, to: lastDate)!
                 var newDates: [Date] = []
                 
                 while currentDate <= newEndDate {
                     newDates.append(currentDate)
                     currentDate = calendar.date(byAdding: .day, value: 1, to: currentDate)!
+                }
+                
+                if newDates.isEmpty {
+                    print("⚠️ 추가할 미래 날짜 없음")
+                    isExtendingDateRange = false
+                    return
                 }
                 
                 print("📅 미래 날짜 \(newDates.count)개 추가")
@@ -986,14 +1509,16 @@ class FixturesOverviewViewModel: ObservableObject {
                 
                 // 새로 추가된 날짜에 대한 경기 일정 로드 (최대 3일만)
                 Task {
+                    defer {
+                        // 작업 완료 후 항상 플래그 해제
+                        Task { @MainActor in
+                            self.isExtendingDateRange = false
+                        }
+                    }
+                    
                     // 새로 추가된 날짜 중 앞쪽 3일에 대해서만 경기 일정 로드
                     for date in newDates.prefix(3) {
                         await self.loadFixturesForDate(date, forceRefresh: false)
-                    }
-                    
-                    // 확장 완료
-                    await MainActor.run {
-                        self.isExtendingDateRange = false
                     }
                 }
             } else {
@@ -1002,18 +1527,33 @@ class FixturesOverviewViewModel: ObservableObject {
         } else {
             // 과거 날짜 추가
             if let firstDate = allDateRange.first {
+                // 오늘로부터 최대 날짜 확인
+                let daysFromToday = calendar.dateComponents([.day], from: firstDate, to: today).day ?? 0
+                
+                if daysFromToday >= maxDaysFromToday {
+                    print("⚠️ 최대 과거 날짜 도달: \(formatDateForAPI(firstDate))")
+                    isExtendingDateRange = false
+                    return
+                }
+                
                 print("📅 과거 날짜 확장 시작 - 첫 날짜: \(formatDateForAPI(firstDate))")
                 
-                // 정확히 additionalLoadCount일 전 날짜 계산
-                let newStartDate = calendar.date(byAdding: .day, value: -additionalLoadCount, to: firstDate)!
-                print("📅 새 시작 날짜: \(formatDateForAPI(newStartDate))")
+                let minAllowedDate = calendar.date(byAdding: .day, value: -maxDaysFromToday, to: today)!
+                let targetStartDate = calendar.date(byAdding: .day, value: -additionalLoadCount, to: firstDate)!
+                let newStartDate = max(targetStartDate, minAllowedDate)
                 
                 var newDates: [Date] = []
+                var currentDate = newStartDate
                 
-                // 날짜 범위 생성 (newStartDate부터 firstDate 전까지)
-                for i in 0..<additionalLoadCount {
-                    let date = calendar.date(byAdding: .day, value: i, to: newStartDate)!
-                    newDates.append(date)
+                while currentDate < firstDate {
+                    newDates.append(currentDate)
+                    currentDate = calendar.date(byAdding: .day, value: 1, to: currentDate)!
+                }
+                
+                if newDates.isEmpty {
+                    print("⚠️ 추가할 과거 날짜 없음")
+                    isExtendingDateRange = false
+                    return
                 }
                 
                 print("📅 과거 날짜 \(newDates.count)개 추가")
@@ -1046,14 +1586,16 @@ class FixturesOverviewViewModel: ObservableObject {
                 
                 // 새로 추가된 날짜에 대한 경기 일정 로드 (최대 3일만)
                 Task {
+                    defer {
+                        // 작업 완료 후 항상 플래그 해제
+                        Task { @MainActor in
+                            self.isExtendingDateRange = false
+                        }
+                    }
+                    
                     // 새로 추가된 날짜 중 뒤쪽 3일에 대해서만 경기 일정 로드
                     for date in newDates.suffix(3) {
                         await self.loadFixturesForDate(date, forceRefresh: false)
-                    }
-                    
-                    // 확장 완료
-                    await MainActor.run {
-                        self.isExtendingDateRange = false
                     }
                 }
             } else {
@@ -1062,41 +1604,26 @@ class FixturesOverviewViewModel: ObservableObject {
         }
     }
     
-    // 캐시된 경기 일정 로드 (CoreData 및 UserDefaults 모두 사용)
+    // 캐시된 경기 일정 로드 (CoreData만 사용)
     private func loadCachedFixtures() {
-        // 1. 먼저 CoreData에서 로드 시도
+        // CoreData에서만 로드 (UserDefaults는 JSON 인코딩 문제로 제거)
         loadCachedFixturesFromCoreData()
         
-        // 2. CoreData에서 로드 실패 시 UserDefaults에서 로드 (기존 코드)
-        if cachedFixtures.isEmpty {
-            // 경기 일정 캐시 로드
-            if let cachedData = UserDefaults.standard.data(forKey: "cachedFixtures") {
-                // try? 사용하여 에러 처리 (catch 블록 제거)
-                if let decodedCache = try? JSONDecoder().decode([String: [Fixture]].self, from: cachedData) {
-                    self.cachedFixtures = decodedCache
-                    print("✅ UserDefaults에서 캐시된 경기 일정 로드 성공: \(decodedCache.count) 날짜")
-                } else {
-                    print("❌ 캐시된 경기 일정 로드 실패")
-                    // 캐시 로드 실패 시 캐시 초기화
-                    self.cachedFixtures = [:]
-                    UserDefaults.standard.removeObject(forKey: "cachedFixtures")
-                }
-            }
+        // 캐시 날짜 정보만 UserDefaults에서 로드
+        let today = Date()
+        let calendar = Calendar.current
+        
+        for dayOffset in -30...30 {
+            guard let date = calendar.date(byAdding: .day, value: dayOffset, to: today) else { continue }
+            let dateKey = formatDateForAPI(date)
             
-            // 캐시 날짜 로드
-            if let cachedDatesData = UserDefaults.standard.data(forKey: "cacheDates") {
-                // try? 사용하여 에러 처리 (catch 블록 제거)
-                if let decodedDates = try? JSONDecoder().decode([String: Date].self, from: cachedDatesData) {
-                    self.cacheDates = decodedDates
-                    print("✅ 캐시 날짜 로드 성공: \(decodedDates.count) 항목")
-                } else {
-                    print("❌ 캐시 날짜 로드 실패")
-                    // 캐시 로드 실패 시 캐시 초기화
-                    self.cacheDates = [:]
-                    UserDefaults.standard.removeObject(forKey: "cacheDates")
-                }
+            // 캐시 날짜 정보 로드
+            if let cacheDate = UserDefaults.standard.object(forKey: "cacheDate_\(dateKey)") as? Date {
+                cacheDates[dateKey] = cacheDate
             }
         }
+        
+        print("✅ 캐시 데이터 로드 완료: \(cachedFixtures.count) 날짜")
     }
     
     // CoreData에서 캐시된 경기 일정 로드
@@ -1133,33 +1660,18 @@ class FixturesOverviewViewModel: ObservableObject {
     }
     
     // 캐시된 경기 일정 저장 (특정 날짜에 대해서만)
-    private func saveCachedFixtures(for dateKey: String) {
+    internal func saveCachedFixtures(for dateKey: String) {
         // 캐시 저장 시간 기록
         cacheDates[dateKey] = Date()
         
-        // 1. CoreData에 저장
+        // CoreData에만 저장 (UserDefaults는 JSON 인코딩 문제로 제거)
         if let fixtures = cachedFixtures[dateKey] {
             // CoreData에 저장
             CoreDataManager.shared.saveFixtures(fixtures, for: dateKey)
             print("✅ CoreData에 경기 일정 저장 성공: \(dateKey) (\(fixtures.count)개)")
-        }
-        
-        // 2. UserDefaults에도 백업으로 저장 (기존 코드)
-        let encoder = JSONEncoder()
-        
-        // 경기 일정 캐시 저장
-        if let encodedCache = try? encoder.encode(cachedFixtures) {
-            UserDefaults.standard.set(encodedCache, forKey: "cachedFixtures")
             
-            // 캐시 날짜 저장
-            if let encodedDates = try? encoder.encode(cacheDates) {
-                UserDefaults.standard.set(encodedDates, forKey: "cacheDates")
-                print("✅ UserDefaults에 캐시된 경기 일정 저장 성공: \(dateKey)")
-            } else {
-                print("❌ UserDefaults 캐시 날짜 저장 실패")
-            }
-        } else {
-            print("❌ UserDefaults 캐시된 경기 일정 저장 실패")
+            // 캐시 날짜만 UserDefaults에 저장
+            UserDefaults.standard.set(Date(), forKey: "cacheDate_\(dateKey)")
         }
     }
     
@@ -1234,6 +1746,9 @@ class FixturesOverviewViewModel: ObservableObject {
     
     // 빈 응답 캐시를 UserDefaults에 저장
     private func saveEmptyResponseCacheToUserDefaults() {
+        // 저장 전에 캐시 정리
+        cleanupEmptyResponseCache()
+        
         let encoder = JSONEncoder()
         
         // 캐시 데이터를 직렬화 가능한 형태로 변환
@@ -1313,8 +1828,15 @@ class FixturesOverviewViewModel: ObservableObject {
         
         print("📡 경기 일정 로드 시작: \(dateString) \(forceRefresh ? "(강제 새로고침)" : "")")
         
-        // 주요 리그만 가져오기 (API 요청 제한 방지)
-        let mainLeagues = [39, 140, 135, 78, 61, 2, 3] // 프리미어 리그, 라리가, 세리에 A, 분데스리가, 리그 1, 챔피언스 리그, 유로파 리그
+        // 팔로우한 리그만 가져오기 (시즌별 활성화된 리그만)
+        let mainLeagues = leagueFollowService.getActiveLeagueIds(for: date)
+        
+        if mainLeagues.isEmpty {
+            print("⚠️ 팔로우한 리그가 없습니다")
+            return []
+        }
+        
+        print("📅 팔로우한 활성 리그: \(mainLeagues)")
         
         // 리그별 빈 응답 캐시 확인을 위한 필터링된 리그 목록
         let filteredLeagues = mainLeagues.filter { leagueId in
@@ -1332,9 +1854,14 @@ class FixturesOverviewViewModel: ObservableObject {
             print("🔍 디버그: 빈 응답 캐시로 인해 \(mainLeagues.count - filteredLeagues.count)개 리그 요청 생략")
         }
         
-        // 현재 날짜에 따른 시즌 설정
-        let currentSeason = getCurrentSeason()
-        print("📅 현재 시즌 설정: \(currentSeason)")
+        // 요청하는 날짜에 따른 시즌 설정 (현재 날짜가 아닌 요청 날짜 기준)
+        // 기본 시즌은 유럽 리그 기준으로 설정
+        let requestCalendar = Calendar.current
+        let requestYear = requestCalendar.component(.year, from: date)
+        let requestMonth = requestCalendar.component(.month, from: date)
+        let defaultSeason = requestMonth < 8 ? requestYear - 1 : requestYear
+        print("📅 요청 날짜(\(dateString)) 기준 기본 시즌 설정: \(defaultSeason)")
+        
         
         var allFixtures: [Fixture] = []
         var successfulLeagues: [Int] = []
@@ -1345,7 +1872,10 @@ class FixturesOverviewViewModel: ObservableObject {
         for leagueId in filteredLeagues {
             do {
                 // 이미 진행 중인 요청이 있는지 확인 (중복 요청 방지)
-                let requestKey = "getFixtures_\(dateString)_\(leagueId)_\(currentSeason)"
+                // 리그별 시즌 설정 (날짜 기준)
+                let seasonForRequest = service.getSeasonForLeagueAndDate(leagueId, date: date)
+                
+                let requestKey = "getFixtures_\(dateString)_\(leagueId)_\(seasonForRequest)"
                 if requestManager.isRequestInProgress(requestKey) {
                     print("⚠️ 이미 진행 중인 요청입니다: \(requestKey)")
                     
@@ -1360,25 +1890,61 @@ class FixturesOverviewViewModel: ObservableObject {
                     }
                 }
                 
-                print("📡 경기 일정 로드 시도: 날짜: \(dateString), 리그: \(leagueId), 시즌: \(currentSeason)")
-                
-                // 요청 간 지연 추가 (API 요청 제한 방지)
-                if leagueId != mainLeagues.first {
-                    try await Task.sleep(nanoseconds: 300_000_000) // 0.3초 지연
+                // 리그별 시즌 로깅
+                if leagueId == 15 {
+                    print("⚽ FIFA 클럽 월드컵 시즌: \(seasonForRequest) (새로운 포맷)")
+                } else if leagueId == 292 || leagueId == 293 {
+                    print("⚽ K리그 시즌: \(seasonForRequest) (3월-11월)")
+                } else if leagueId == 253 {
+                    print("⚽ MLS 시즌: \(seasonForRequest) (3월-11월)")
+                } else {
+                    print("⚽ 리그 \(leagueId) 시즌: \(seasonForRequest)")
                 }
                 
-                // FootballAPIService를 통한 직접 API 호출
-                let fixturesForLeague = try await service.getFixtures(
-                    leagueId: leagueId,
-                    season: currentSeason,
-                    from: date,
-                    to: date
-                )
+                print("📡 경기 일정 로드 시도: 날짜: \(dateString), 리그: \(leagueId), 시즌: \(seasonForRequest)")
                 
-                // 이 리그의 경기를 전체 목록에 추가
+                // 요청 간 지연 추가 (API 요청 제한 방지)
+                if leagueId != filteredLeagues.first {
+                    // Rate Limit 방지를 위해 충분한 지연 시간
+                    try await Task.sleep(nanoseconds: 500_000_000) // 0.5초로 조정
+                }
+                
+                // Supabase Edge Functions를 통한 서버 캐시 API 호출
+                print("📡 API 요청 시작: 리그 \(leagueId), 날짜 \(dateString), 시즌 \(seasonForRequest)")
+                
+                var fixturesForLeague: [Fixture] = []
+                do {
+                    fixturesForLeague = try await service.getFixturesWithServerCache(
+                        date: dateString,
+                        leagueId: leagueId,
+                        seasonYear: seasonForRequest,
+                        forceRefresh: forceRefresh
+                    )
+                } catch FootballAPIError.edgeFunctionError(_) {
+                    print("⚠️ Edge Function 실패, 직접 API로 시도")
+                    // 날짜 문자열을 Date 객체로 변환
+                    let dateFormatter = DateFormatter()
+                    dateFormatter.dateFormat = "yyyy-MM-dd"
+                    dateFormatter.timeZone = TimeZone(identifier: "Asia/Seoul")
+                    
+                    if let dateObj = dateFormatter.date(from: dateString) {
+                        fixturesForLeague = try await FootballAPIService.shared.getFixtures(
+                            leagueId: leagueId,
+                            season: seasonForRequest,
+                            from: dateObj,
+                            to: dateObj
+                        )
+                    } else {
+                        throw FootballAPIError.invalidDateFormat
+                    }
+                }
+                
+                // 서버에서 이미 날짜별로 필터링된 데이터를 반환하므로
+                // 추가 필터링 없이 모든 경기 추가
                 allFixtures.append(contentsOf: fixturesForLeague)
+                
+                print("✅ 리그 \(leagueId): \(fixturesForLeague.count)개 경기 로드")
                 successfulLeagues.append(leagueId)
-                print("📊 리그 \(leagueId) 받은 경기 수: \(fixturesForLeague.count)")
                 print("📊 누적 경기 수: \(allFixtures.count)개 (리그 \(leagueId) 추가 후)")
                 
                 // 빈 응답인 경우 캐시에 저장하고 UI에 표시
@@ -1395,34 +1961,66 @@ class FixturesOverviewViewModel: ObservableObject {
                 print("❌ 리그 \(leagueId) API 요청 오류: \(error.localizedDescription)")
                 failedLeagues.append(leagueId)
                 
+                // 404 에러인 경우 해당 날짜에 경기가 없음을 의미
+                if let apiError = error as? FootballAPIError,
+                   case .serverError(let statusCode) = apiError,
+                   statusCode == 404 {
+                    print("ℹ️ 리그 \(leagueId): 해당 날짜에 경기 없음 (404)")
+                    // 빈 응답으로 처리
+                    saveEmptyResponseCache(for: dateString, leagueId: leagueId)
+                    emptyResponseLeagues.append(leagueId)
+                }
+                
                 // 다음 리그로 넘어감
                 continue
             }
         }
         
-        // 모든 리그에서 실패한 경우 캐시된 데이터 사용 또는 더미 데이터 생성
-        if successfulLeagues.isEmpty && failedLeagues.count == mainLeagues.count {
+        // 모든 리그에서 실패한 경우 빈 배열 반환 (캐시된 데이터 사용하지 않음)
+        if successfulLeagues.isEmpty && failedLeagues.count == filteredLeagues.count {
             print("⚠️ 모든 리그에서 데이터 로드 실패")
+            print("  - 시도한 리그: \(filteredLeagues)")
+            print("  - 실패한 리그: \(failedLeagues)")
             
-            // 캐시된 데이터가 있으면 사용
-            if let cachedData = cachedData, !cachedData.isEmpty {
-                print("✅ 모든 리그 실패로 캐시된 데이터 사용: \(dateString) (\(cachedData.count)개)")
-                return cachedData
-            }
+            // 캐시된 데이터를 사용하지 않고 빈 배열 반환
+            // 이렇게 하면 각 날짜별로 올바른 데이터만 표시됨
+            print("⚠️ API 요청 실패, 빈 배열 반환 (캐시 사용하지 않음)")
+            let emptyFixtures: [Fixture] = []
             
-            // 캐시된 데이터가 없으면 더미 데이터 생성
-            print("⚠️ 캐시된 데이터 없음, 더미 데이터 생성")
-            let dummyFixtures = createDummyFixtures(for: date)
+            // 실패한 날짜를 기록하여 나중에 재시도할 수 있도록 함
+            print("❌ 실패한 날짜 기록: \(dateString)")
             
-            // 더미 데이터 캐싱
-            self.cachedFixtures[dateString] = dummyFixtures
-            self.saveCachedFixtures(for: dateString)
-            
-            print("✅ 더미 데이터 생성 완료: \(dummyFixtures.count)개")
-            return dummyFixtures
+            return emptyFixtures
         }
         
-        // 라이브 경기와 팔로잉하는 팀의 경기가 최상단에 오도록 정렬
+        // 리그 우선순위 정의
+        let leaguePriority: [Int: Int] = [
+            39: 1,   // 프리미어 리그
+            140: 2,  // 라리가
+            135: 3,  // 세리에 A
+            78: 4,   // 분데스리가
+            61: 5,   // 리그 1
+            2: 6,    // 챔피언스 리그
+            3: 7,    // 유로파 리그
+            4: 8,    // 컨퍼런스 리그
+            292: 9,  // K리그1
+            293: 10, // K리그2
+            253: 11, // MLS
+            71: 12,  // 브라질 세리에 A
+            5: 13,   // 네이션스 리그
+            1: 14,   // FIFA 월드컵
+            32: 15,  // 월드컵 예선 - 유럽
+            34: 16,  // 월드컵 예선 - 남미
+            29: 17,  // 월드컵 예선 - 아시아
+            15: 18,  // FIFA 클럽 월드컵
+            45: 19,  // FA컵
+            143: 20, // 코파 델 레이
+            137: 21, // 코파 이탈리아
+            81: 22,  // DFB 포칼
+            66: 23   // 쿠프 드 프랑스
+        ]
+        
+        // 라이브 경기, 팔로잉 팀, 리그 우선순위를 고려한 정렬
         allFixtures.sort { fixture1, fixture2 in
             // 첫 번째 경기가 라이브인지 확인
             let isFixture1Live = liveStatuses.contains(fixture1.fixture.status.short)
@@ -1443,13 +2041,22 @@ class FixturesOverviewViewModel: ObservableObject {
             let isTeam2Following = favoriteService.isFavorite(type: .team, entityId: fixture2.teams.home.id) ||
                                    favoriteService.isFavorite(type: .team, entityId: fixture2.teams.away.id)
             
-            // 둘 다 팔로잉하는 팀이거나 둘 다 아닌 경우 날짜순으로 정렬
-            if isTeam1Following == isTeam2Following {
-                return fixture1.fixture.date < fixture2.fixture.date
+            // 팔로잉하는 팀이 있는 경기가 먼저 오도록 정렬
+            if isTeam1Following != isTeam2Following {
+                return isTeam1Following && !isTeam2Following
             }
             
-            // 팔로잉하는 팀이 있는 경기가 먼저 오도록 정렬
-            return isTeam1Following && !isTeam2Following
+            // 리그 우선순위 가져오기 (없으면 낮은 우선순위)
+            let priority1 = leaguePriority[fixture1.league.id] ?? 999
+            let priority2 = leaguePriority[fixture2.league.id] ?? 999
+            
+            // 리그 우선순위로 정렬
+            if priority1 != priority2 {
+                return priority1 < priority2
+            }
+            
+            // 같은 리그인 경우 날짜순으로 정렬
+            return fixture1.fixture.date < fixture2.fixture.date
         }
         
         // 결과 캐싱 (빈 배열이라도 캐싱하여 불필요한 API 호출 방지)
@@ -1545,741 +2152,137 @@ class FixturesOverviewViewModel: ObservableObject {
 //        return (home: aggregateHomeScore, away: aggregateAwayScore)
     }
     */
-
-    // 특정 리그에 대한 더미 경기 일정 생성 함수
-    private func createDummyFixturesForLeague(leagueId: Int, date: String, season: Int) -> [Fixture] {
-        print("🔄 리그 \(leagueId)에 대한 더미 경기 일정 생성 시작")
-        
-        // 날짜 정보
-        let dateFormatter = DateFormatter()
-        dateFormatter.dateFormat = "yyyy-MM-dd"
-        
-        guard dateFormatter.date(from: date) != nil else {
-            print("❌ 날짜 파싱 실패: \(date)")
-            return []
-        }
-        
-        dateFormatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ssZ"
-        dateFormatter.timeZone = TimeZone(identifier: "UTC")
-        
-        // 리그 정보 설정
-        var leagueName = "Unknown League"
-        var leagueCountry = "Unknown"
-        var leagueLogo = ""
-        
-        // 리그 ID에 따라 정보 설정
-        switch leagueId {
-        case 39:
-            leagueName = "Premier League"
-            leagueCountry = "England"
-            leagueLogo = "https://media.api-sports.io/football/leagues/39.png"
-        case 140:
-            leagueName = "La Liga"
-            leagueCountry = "Spain"
-            leagueLogo = "https://media.api-sports.io/football/leagues/140.png"
-        case 135:
-            leagueName = "Serie A"
-            leagueCountry = "Italy"
-            leagueLogo = "https://media.api-sports.io/football/leagues/135.png"
-        case 78:
-            leagueName = "Bundesliga"
-            leagueCountry = "Germany"
-            leagueLogo = "https://media.api-sports.io/football/leagues/78.png"
-        case 61:
-            leagueName = "Ligue 1"
-            leagueCountry = "France"
-            leagueLogo = "https://media.api-sports.io/football/leagues/61.png"
-        case 2:
-            leagueName = "UEFA Champions League"
-            leagueCountry = "UEFA"
-            leagueLogo = "https://media.api-sports.io/football/leagues/2.png"
-        case 3:
-            leagueName = "UEFA Europa League"
-            leagueCountry = "UEFA"
-            leagueLogo = "https://media.api-sports.io/football/leagues/3.png"
-        default:
-            leagueName = "League \(leagueId)"
-            leagueCountry = "Unknown"
-            leagueLogo = "https://media.api-sports.io/football/leagues/\(leagueId).png"
-        }
-        
-        // 팀 정보 (리그별로 다른 팀 사용)
-        var teams: [(id: Int, name: String, logo: String)] = []
-        
-        // 리그 ID에 따라 팀 설정
-        switch leagueId {
-        case 39: // 프리미어 리그
-            teams = [
-                (id: 33, name: "Manchester United", logo: "https://media.api-sports.io/football/teams/33.png"),
-                (id: 40, name: "Liverpool", logo: "https://media.api-sports.io/football/teams/40.png"),
-                (id: 50, name: "Manchester City", logo: "https://media.api-sports.io/football/teams/50.png"),
-                (id: 47, name: "Tottenham", logo: "https://media.api-sports.io/football/teams/47.png")
-            ]
-        case 140: // 라리가
-            teams = [
-                (id: 541, name: "Real Madrid", logo: "https://media.api-sports.io/football/teams/541.png"),
-                (id: 529, name: "Barcelona", logo: "https://media.api-sports.io/football/teams/529.png"),
-                (id: 530, name: "Atletico Madrid", logo: "https://media.api-sports.io/football/teams/530.png"),
-                (id: 532, name: "Valencia", logo: "https://media.api-sports.io/football/teams/532.png")
-            ]
-        case 135: // 세리에 A
-            teams = [
-                (id: 489, name: "AC Milan", logo: "https://media.api-sports.io/football/teams/489.png"),
-                (id: 505, name: "Inter", logo: "https://media.api-sports.io/football/teams/505.png"),
-                (id: 496, name: "Juventus", logo: "https://media.api-sports.io/football/teams/496.png"),
-                (id: 497, name: "AS Roma", logo: "https://media.api-sports.io/football/teams/497.png")
-            ]
-        case 78: // 분데스리가
-            teams = [
-                (id: 157, name: "Bayern Munich", logo: "https://media.api-sports.io/football/teams/157.png"),
-                (id: 165, name: "Borussia Dortmund", logo: "https://media.api-sports.io/football/teams/165.png"),
-                (id: 160, name: "SC Freiburg", logo: "https://media.api-sports.io/football/teams/160.png"),
-                (id: 173, name: "RB Leipzig", logo: "https://media.api-sports.io/football/teams/173.png")
-            ]
-        case 61: // 리그 1
-            teams = [
-                (id: 85, name: "Paris Saint Germain", logo: "https://media.api-sports.io/football/teams/85.png"),
-                (id: 91, name: "Monaco", logo: "https://media.api-sports.io/football/teams/91.png"),
-                (id: 79, name: "Lille", logo: "https://media.api-sports.io/football/teams/79.png"),
-                (id: 80, name: "Marseille", logo: "https://media.api-sports.io/football/teams/80.png")
-            ]
-        case 2: // 챔피언스 리그
-            teams = [
-                (id: 33, name: "Manchester United", logo: "https://media.api-sports.io/football/teams/33.png"),
-                (id: 541, name: "Real Madrid", logo: "https://media.api-sports.io/football/teams/541.png"),
-                (id: 489, name: "AC Milan", logo: "https://media.api-sports.io/football/teams/489.png"),
-                (id: 157, name: "Bayern Munich", logo: "https://media.api-sports.io/football/teams/157.png")
-            ]
-        case 3: // 유로파 리그
-            teams = [
-                (id: 47, name: "Tottenham", logo: "https://media.api-sports.io/football/teams/47.png"),
-                (id: 530, name: "Atletico Madrid", logo: "https://media.api-sports.io/football/teams/530.png"),
-                (id: 497, name: "AS Roma", logo: "https://media.api-sports.io/football/teams/497.png"),
-                (id: 79, name: "Lille", logo: "https://media.api-sports.io/football/teams/79.png")
-            ]
-        default:
-            teams = [
-                (id: 1000 + leagueId, name: "Team A", logo: "https://media.api-sports.io/football/teams/33.png"),
-                (id: 2000 + leagueId, name: "Team B", logo: "https://media.api-sports.io/football/teams/40.png")
-            ]
-        }
-        
-        // 경기 시간 생성 (12:00 ~ 22:00)
-        var fixtures: [Fixture] = []
-        let matchTimes = [
-            "12:00", "14:30", "17:00", "19:30", "22:00"
-        ]
-        
-        // 경기 수 결정 (1-2개)
-        let matchCount = min(2, teams.count / 2)
-        
-        // 경기 생성
-        for i in 0..<matchCount {
-            // 팀 선택
-            let homeTeamIndex = i * 2
-            let awayTeamIndex = i * 2 + 1
-            
-            // 인덱스 범위 확인
-            guard homeTeamIndex < teams.count && awayTeamIndex < teams.count else {
-                continue
-            }
-            
-            let homeTeam = teams[homeTeamIndex]
-            let awayTeam = teams[awayTeamIndex]
-            
-            // 경기 시간 선택
-            let timeIndex = i % matchTimes.count
-            let matchTime = matchTimes[timeIndex]
-            
-            // 날짜 문자열 생성
-            let matchDateString = "\(date)T\(matchTime):00+00:00"
-            
-            // 경기 ID 생성 (고유한 ID 생성)
-            let fixtureId = Int.random(in: 1000000..<9999999)
-            
-            // 경기 생성
-            let fixture = Fixture(
-                fixture: FixtureDetails(
-                    id: fixtureId,
-                    date: matchDateString,
-                    status: FixtureStatus(
-                        long: "Not Started",
-                        short: "NS",
-                        elapsed: nil
-                    ),
-                    venue: Venue(
-                        id: 1000 + i,
-                        name: "\(homeTeam.name) Stadium",
-                        city: leagueCountry
-                    ),
-                    timezone: "UTC",
-                    referee: generateRefereeNameForLeague(leagueId)
-                ),
-                league: LeagueFixtureInfo(
-                    id: leagueId,
-                    name: leagueName,
-                    country: leagueCountry,
-                    logo: leagueLogo,
-                    flag: nil,
-                    season: season,
-                    round: "Regular Season - \(Int.random(in: 1...38))",
-                    standings: true
-                ),
-                teams: Teams(
-                    home: Team(
-                        id: homeTeam.id,
-                        name: homeTeam.name,
-                        logo: homeTeam.logo,
-                        winner: nil
-                    ),
-                    away: Team(
-                        id: awayTeam.id,
-                        name: awayTeam.name,
-                        logo: awayTeam.logo,
-                        winner: nil
-                    )
-                ),
-                goals: Goals(
-                    home: nil,
-                    away: nil
-                )
-            )
-            
-            fixtures.append(fixture)
-        }
-        
-        print("✅ 리그 \(leagueId)에 대한 더미 경기 일정 생성 완료: \(fixtures.count)개")
-        return fixtures
-    }
-    
-    // 더미 경기 일정 생성 함수 (날짜 기준)
-    private func createDummyFixtures(for date: Date) -> [Fixture] {
-        print("🔄 더미 경기 일정 생성 시작: \(formatDateForAPI(date))")
-        
-        // 날짜 정보
-        let dateString = formatDateForAPI(date)
-        
-        // 주요 리그에 대한 더미 데이터 생성
-        let mainLeagues = [39, 140, 135, 78, 61, 2, 3]
-        var allFixtures: [Fixture] = []
-        
-        for leagueId in mainLeagues {
-            let leagueFixtures = createDummyFixturesForLeague(leagueId: leagueId, date: dateString, season: getCurrentSeason())
-            allFixtures.append(contentsOf: leagueFixtures)
-        }
-        
-        print("✅ 더미 경기 일정 생성 완료: \(allFixtures.count)개")
-        return allFixtures
-    }
-    
-    // 팀 정보를 포함한 더미 경기 일정 생성 함수
-    private func createDummyFixturesWithTeams(for date: Date) -> [Fixture] {
-        print("🔄 팀 정보를 포함한 더미 경기 일정 생성 시작: \(formatDateForAPI(date))")
-        
-        // 날짜 정보
-        let dateString = formatDateForAPI(date)
-        
-        // 리그 정보 정의
-        let leagues = [
-            LeagueFixtureInfo(id: 39, name: "Premier League", country: "England", logo: "https://media.api-sports.io/football/leagues/39.png", flag: nil, season: getCurrentSeason(), round: "Regular Season", standings: true),
-            LeagueFixtureInfo(id: 140, name: "La Liga", country: "Spain", logo: "https://media.api-sports.io/football/leagues/140.png", flag: nil, season: getCurrentSeason(), round: "Regular Season", standings: true),
-            LeagueFixtureInfo(id: 135, name: "Serie A", country: "Italy", logo: "https://media.api-sports.io/football/leagues/135.png", flag: nil, season: getCurrentSeason(), round: "Regular Season", standings: true),
-            LeagueFixtureInfo(id: 78, name: "Bundesliga", country: "Germany", logo: "https://media.api-sports.io/football/leagues/78.png", flag: nil, season: getCurrentSeason(), round: "Regular Season", standings: true),
-            LeagueFixtureInfo(id: 61, name: "Ligue 1", country: "France", logo: "https://media.api-sports.io/football/leagues/61.png", flag: nil, season: getCurrentSeason(), round: "Regular Season", standings: true),
-            LeagueFixtureInfo(id: 2, name: "UEFA Champions League", country: "UEFA", logo: "https://media.api-sports.io/football/leagues/2.png", flag: nil, season: getCurrentSeason(), round: "Group Stage", standings: true),
-            LeagueFixtureInfo(id: 3, name: "UEFA Europa League", country: "UEFA", logo: "https://media.api-sports.io/football/leagues/3.png", flag: nil, season: getCurrentSeason(), round: "Group Stage", standings: true)
-        ]
-        
-        // 팀 정보 정의
-        let teams = [
-            // 프리미어 리그 팀
-            [(id: 33, name: "Manchester United", logo: "https://media.api-sports.io/football/teams/33.png"),
-             (id: 40, name: "Liverpool", logo: "https://media.api-sports.io/football/teams/40.png"),
-             (id: 50, name: "Manchester City", logo: "https://media.api-sports.io/football/teams/50.png"),
-             (id: 47, name: "Tottenham", logo: "https://media.api-sports.io/football/teams/47.png"),
-             (id: 42, name: "Arsenal", logo: "https://media.api-sports.io/football/teams/42.png"),
-             (id: 49, name: "Chelsea", logo: "https://media.api-sports.io/football/teams/49.png")],
-            
-            // 라리가 팀
-            [(id: 529, name: "Barcelona", logo: "https://media.api-sports.io/football/teams/529.png"),
-             (id: 541, name: "Real Madrid", logo: "https://media.api-sports.io/football/teams/541.png"),
-             (id: 530, name: "Atletico Madrid", logo: "https://media.api-sports.io/football/teams/530.png"),
-             (id: 532, name: "Valencia", logo: "https://media.api-sports.io/football/teams/532.png"),
-             (id: 536, name: "Sevilla", logo: "https://media.api-sports.io/football/teams/536.png"),
-             (id: 543, name: "Real Betis", logo: "https://media.api-sports.io/football/teams/543.png")],
-            
-            // 세리에 A 팀
-            [(id: 489, name: "AC Milan", logo: "https://media.api-sports.io/football/teams/489.png"),
-             (id: 505, name: "Inter", logo: "https://media.api-sports.io/football/teams/505.png"),
-             (id: 496, name: "Juventus", logo: "https://media.api-sports.io/football/teams/496.png"),
-             (id: 497, name: "AS Roma", logo: "https://media.api-sports.io/football/teams/497.png"),
-             (id: 492, name: "Napoli", logo: "https://media.api-sports.io/football/teams/492.png"),
-             (id: 487, name: "Lazio", logo: "https://media.api-sports.io/football/teams/487.png")],
-            
-            // 분데스리가 팀
-            [(id: 157, name: "Bayern Munich", logo: "https://media.api-sports.io/football/teams/157.png"),
-             (id: 165, name: "Borussia Dortmund", logo: "https://media.api-sports.io/football/teams/165.png"),
-             (id: 173, name: "RB Leipzig", logo: "https://media.api-sports.io/football/teams/173.png"),
-             (id: 169, name: "Eintracht Frankfurt", logo: "https://media.api-sports.io/football/teams/169.png"),
-             (id: 160, name: "SC Freiburg", logo: "https://media.api-sports.io/football/teams/160.png"),
-             (id: 168, name: "Bayer Leverkusen", logo: "https://media.api-sports.io/football/teams/168.png")],
-            
-            // 리그 1 팀
-            [(id: 85, name: "Paris Saint Germain", logo: "https://media.api-sports.io/football/teams/85.png"),
-             (id: 91, name: "Monaco", logo: "https://media.api-sports.io/football/teams/91.png"),
-             (id: 80, name: "Marseille", logo: "https://media.api-sports.io/football/teams/80.png"),
-             (id: 94, name: "Rennes", logo: "https://media.api-sports.io/football/teams/94.png"),
-             (id: 79, name: "Lille", logo: "https://media.api-sports.io/football/teams/79.png"),
-             (id: 95, name: "Lyon", logo: "https://media.api-sports.io/football/teams/95.png")],
-             
-            // 챔피언스 리그 팀
-            [(id: 33, name: "Manchester United", logo: "https://media.api-sports.io/football/teams/33.png"),
-             (id: 541, name: "Real Madrid", logo: "https://media.api-sports.io/football/teams/541.png"),
-             (id: 489, name: "AC Milan", logo: "https://media.api-sports.io/football/teams/489.png"),
-             (id: 157, name: "Bayern Munich", logo: "https://media.api-sports.io/football/teams/157.png")],
-             
-            // 유로파 리그 팀
-            [(id: 47, name: "Tottenham", logo: "https://media.api-sports.io/football/teams/47.png"),
-             (id: 530, name: "Atletico Madrid", logo: "https://media.api-sports.io/football/teams/530.png"),
-             (id: 497, name: "AS Roma", logo: "https://media.api-sports.io/football/teams/497.png"),
-             (id: 79, name: "Lille", logo: "https://media.api-sports.io/football/teams/79.png")]
-        ]
-        
-        // 경기 시간 정의
-        let matchTimes = ["12:00", "14:30", "17:00", "19:30", "22:00"]
-        
-        // 각 리그별로 2-3개의 경기 생성
-        var fixturesList: [Fixture] = []
-        
-        for (leagueIndex, league) in leagues.enumerated() {
-            // 이 리그의 팀 목록
-            let leagueTeams = teams[leagueIndex]
-            
-            // 경기 수 결정 (2-3개)
-            let matchCount = Int.random(in: 2...3)
-            
-            for i in 0..<matchCount {
-                // 홈팀과 원정팀 선택 (중복 방지)
-                let homeIndex = i * 2 % leagueTeams.count
-                let awayIndex = (i * 2 + 1) % leagueTeams.count
-                
-                let homeTeam = leagueTeams[homeIndex]
-                let awayTeam = leagueTeams[awayIndex]
-                
-                // 경기 시간 설정
-                let timeIndex = (leagueIndex + i) % matchTimes.count
-                let matchTime = matchTimes[timeIndex]
-                let matchDateString = "\(dateString)T\(matchTime):00+00:00"
-                
-                // 경기 상태 설정 (예정된 경기)
-                let fixtureStatus = FixtureStatus(
-                    long: "Not Started",
-                    short: "NS",
-                    elapsed: nil
-                )
-                
-                // 경기 정보 생성
-                let fixture = Fixture(
-                    fixture: FixtureDetails(
-                        id: Int.random(in: 1000000...9999999),
-                        date: matchDateString,
-                        status: fixtureStatus,
-                        venue: Venue(id: nil, name: nil, city: nil),
-                        timezone: "UTC",
-                        referee: generateRefereeNameForLeague(league.id)
-                    ),
-                    league: LeagueFixtureInfo(
-                        id: league.id,
-                        name: league.name,
-                        country: league.country,
-                        logo: league.logo,
-                        flag: nil,
-                        season: getCurrentSeason(),
-                        round: "Regular Season - \(Int.random(in: 1...38))",
-                        standings: false
-                    ),
-                    teams: Teams(
-                        home: Team(
-                            id: homeTeam.id,
-                            name: homeTeam.name,
-                            logo: homeTeam.logo,
-                            winner: nil
-                        ),
-                        away: Team(
-                            id: awayTeam.id,
-                            name: awayTeam.name,
-                            logo: awayTeam.logo,
-                            winner: nil
-                        )
-                    ),
-                    goals: Goals(
-                        home: nil,
-                        away: nil
-                    )
-                )
-                
-                fixturesList.append(fixture)
-            }
-        }
-        
-        print("✅ 더미 경기 일정 생성 완료: \(fixturesList.count)개")
-        return fixturesList
-    }
-    
-    // 리그별 심판 이름 생성 함수
-    private func generateRefereeNameForLeague(_ leagueId: Int) -> String? {
-        // 모든 리그에 대해 심판 정보 제공
-        let refereeNames = [
-            // 영국 심판
-            "Michael Oliver", "Anthony Taylor", "Martin Atkinson", "Mike Dean", "Jonathan Moss",
-            // 스페인 심판
-            "Antonio Mateu Lahoz", "Carlos Del Cerro Grande", "Jesús Gil Manzano", "Ricardo De Burgos", "José María Sánchez Martínez",
-            // 이탈리아 심판
-            "Daniele Orsato", "Paolo Valeri", "Maurizio Mariani", "Fabio Maresca", "Davide Massa",
-            // 독일 심판
-            "Felix Brych", "Daniel Siebert", "Tobias Stieler", "Felix Zwayer", "Bastian Dankert",
-            // 프랑스 심판
-            "Clément Turpin", "François Letexier", "Benoît Bastien", "Ruddy Buquet", "Antony Gautier",
-            // 국제 심판
-            "Björn Kuipers", "Danny Makkelie", "Szymon Marciniak", "Cüneyt Çakır", "Damir Skomina"
-        ]
-        
-        // 리그 ID에 따라 다른 심판 선택
-        switch leagueId {
-        case 39: // 프리미어 리그
-            return refereeNames[Int.random(in: 0..<5)]
-        case 140: // 라리가
-            return refereeNames[Int.random(in: 5..<10)]
-        case 135: // 세리에 A
-            return refereeNames[Int.random(in: 10..<15)]
-        case 78: // 분데스리가
-            return refereeNames[Int.random(in: 15..<20)]
-        case 61: // 리그 1
-            return refereeNames[Int.random(in: 20..<25)]
-        case 2, 3: // 챔피언스 리그, 유로파 리그
-            return refereeNames[Int.random(in: 25..<30)]
-        default:
-            return nil
-        }
-    }
     
     // 특정 날짜에 대한 경기 일정 로드 (UI 업데이트 포함)
     @MainActor
     public func loadFixturesForDate(_ date: Date, forceRefresh: Bool = false) async {
-        print("🔍 디버그: loadFixturesForDate 시작 - 날짜: \(formatDateForAPI(date)), 강제 새로고침: \(forceRefresh)")
-        
-        // 이미 로딩 중인 날짜인지 확인
-        if loadingDates.contains(date) {
-            print("⚠️ 이미 로딩 중인 날짜입니다: \(formatDateForAPI(date))")
-            return
-        }
-        
-        // 먼 미래 날짜 처리 (현재로부터 3개월 이상 미래인 경우)
-        let today = calendar.startOfDay(for: Date())
-        let threeMonthsLater = calendar.date(byAdding: .month, value: 3, to: today)!
-        
-        if date > threeMonthsLater {
-            print("⚠️ 먼 미래 날짜입니다. 빈 데이터로 처리합니다: \(formatDateForAPI(date))")
-            // 빈 데이터로 처리 (더미 데이터 대신)
-            fixtures[date] = []
-            emptyDates[date] = "해당 날짜의 경기 일정은 아직 확정되지 않았습니다."
-            
-            // 알림 발송 (UI 업데이트를 위해)
-            NotificationCenter.default.post(
-                name: NSNotification.Name("FixturesLoadingCompleted"),
-                object: nil,
-                userInfo: ["date": date, "empty": true]
-            )
-            return
-        }
-        
-        // 날짜 문자열 생성
         let dateString = formatDateForAPI(date)
         
-        // 1. 먼저 CoreData에서 데이터 확인
-        if !forceRefresh {
-            if let coreDataFixtures = CoreDataManager.shared.loadFixtures(for: dateString) {
-                print("✅ CoreData에서 데이터 로드 성공: \(dateString) (\(coreDataFixtures.count)개)")
-                fixtures[date] = coreDataFixtures
-                
-                // 빈 응답인 경우 UI에 표시
-                if coreDataFixtures.isEmpty {
-                    emptyDates[date] = "해당일에 예정된 경기가 없습니다."
-                    print("ℹ️ CoreData에서 빈 응답 데이터 로드: \(dateString)")
-                } else {
-                    emptyDates[date] = nil
-                }
-                
-                // 알림 발송 (UI 업데이트를 위해)
-                NotificationCenter.default.post(
-                    name: NSNotification.Name("FixturesLoadingCompleted"),
-                    object: nil,
-                    userInfo: ["date": date, "source": "coredata"]
-                )
-                
-                // 백그라운드에서 최신 데이터 확인 (오늘 날짜이거나 라이브 경기가 있는 경우)
-                let isToday = calendar.isDate(date, inSameDayAs: today)
-                let hasLiveMatches = coreDataFixtures.contains { fixture in
-                    liveStatuses.contains(fixture.fixture.status.short)
-                }
-                
-                if isToday || hasLiveMatches {
-                    Task {
-                        await loadFixturesFromAPI(date: date, dateString: dateString, forceRefresh: true)
-                    }
-                }
-                
-                return
-            } else {
-                print("ℹ️ CoreData에 데이터 없음: \(dateString)")
-            }
+        // 이미 로딩 중이면 스킵
+        if loadingDates.contains(date) {
+            print("⚠️ 이미 로딩 중: \(dateString)")
+            return
         }
         
-        // 오늘 날짜인지 확인
-        let isToday = calendar.isDate(date, inSameDayAs: today)
-        print("🔍 디버그: 오늘 날짜 여부: \(isToday)")
-        
-        // 오늘 날짜이거나 라이브 경기가 있는 경우 강제 새로고침
-        var shouldForceRefresh = forceRefresh
-        
-        // 라이브 경기가 있는지 확인
-        let hasLiveMatches = fixtures[date]?.contains { fixture in
-            liveStatuses.contains(fixture.fixture.status.short)
-        } ?? false
-        print("🔍 디버그: 라이브 경기 있음: \(hasLiveMatches)")
-        
-        // 오늘 날짜이거나 라이브 경기가 있으면 강제 새로고침
-        if isToday || hasLiveMatches {
-            shouldForceRefresh = true
-            print("🔄 오늘 날짜 또는 라이브 경기가 있어 강제 새로고침: \(formatDateForAPI(date))")
+        // 캐시된 데이터가 있으면 즉시 UI에 표시
+        if let cachedData = cachedFixtures[dateString], !cachedData.isEmpty {
+            fixtures[date] = cachedData
+            print("✅ 캐시 데이터 즉시 표시: \(dateString) (\(cachedData.count)개)")
         }
         
-        // 로딩 중인 날짜 목록에 추가
-        loadingDates.insert(date)
-        
-        // 빈 응답 상태 초기화
-        emptyDates[date] = nil
-        
-        // 캐시된 데이터 가져오기
-        _ = self.cachedFixtures[dateString]
-        
-        // 데이터가 없는 경우 빈 배열 설정 (더미 데이터 대신)
-        if fixtures[date] == nil {
-            print("🔄 데이터가 없어 빈 배열 설정: \(dateString)")
-            fixtures[date] = []
-        }
-        
-        // API에서 데이터 로드
-        await loadFixturesFromAPI(date: date, dateString: dateString, forceRefresh: shouldForceRefresh)
+        // 최적화된 배치 요청 사용
+        await loadFixturesOptimized(for: date, forceRefresh: forceRefresh)
     }
     
-    // API에서 경기 일정 로드 (분리된 메서드)
-    @MainActor
-    private func loadFixturesFromAPI(date: Date, dateString: String, forceRefresh: Bool) async {
-        // 캐시된 데이터 가져오기
-        let cachedData = self.cachedFixtures[dateString]
+    // MARK: - Helper Methods
+    
+    /// 사용자가 선호하는 리그 반환
+    func getPreferredLeagues() -> [Int] {
+        let followedLeagues = leagueFollowService.followedLeagueIds
         
-        // 타임아웃 처리를 위한 Task 생성
-        let task = Task {
-            do {
-                // 경기 일정 가져오기
-                let fixturesForDate = try await fetchFixturesForDate(date, forceRefresh: forceRefresh)
-                
-                // 작업이 취소되었는지 확인
-                if Task.isCancelled {
-                    print("⚠️ 작업이 취소되었습니다: \(dateString)")
-                    // 작업이 취소되어도 로딩 상태 제거
-                    _ = await MainActor.run {
-                        loadingDates.remove(date)
-                    }
-                    return
-                }
-                
-                // UI 업데이트
-                await MainActor.run {
-                    // 경기 일정 업데이트 (API에서 가져온 실제 데이터로 교체)
-                    fixtures[date] = fixturesForDate
-                    
-                    // 빈 응답인 경우 UI에 표시
-                    if fixturesForDate.isEmpty {
-                        emptyDates[date] = "해당일에 예정된 경기가 없습니다."
-                        print("ℹ️ API에서 빈 응답 데이터 로드: \(dateString)")
-                    } else {
-                        emptyDates[date] = nil
-                    }
-                    
-                    // 로딩 중인 날짜 목록에서 제거
-                    loadingDates.remove(date)
-                    
-                    // 로그 출력
-                    print("✅ 경기 일정 로드 완료: \(dateString) (\(fixturesForDate.count)개)")
-                    
-                    // 알림 발송 (UI 업데이트를 위해)
-                    NotificationCenter.default.post(
-                        name: NSNotification.Name("FixturesLoadingCompleted"),
-                        object: nil,
-                        userInfo: ["date": date, "source": "api"]
-                    )
-                }
-            } catch let error as FootballAPIError {
-                // 작업이 취소되었는지 확인
-                if Task.isCancelled {
-                    print("⚠️ 작업이 취소되었습니다: \(dateString)")
-                    // 작업이 취소되어도 로딩 상태 제거
-                    _ = await MainActor.run {
-                        loadingDates.remove(date)
-                    }
-                    return
-                }
-                
-                // 중복 요청 에러 처리
-                if case .requestInProgress = error {
-                    await MainActor.run {
-                        print("⚠️ 중복 요청 에러 감지: \(dateString)")
-                        
-                        // 캐시된 데이터가 있으면 사용
-                        if let cachedData = cachedData, !cachedData.isEmpty {
-                            fixtures[date] = cachedData
-                            print("✅ 중복 요청 에러, 캐시된 데이터 사용: \(dateString) (\(cachedData.count)개)")
-                        }
-                        
-                        // 로딩 중인 날짜 목록에서 제거
-                        loadingDates.remove(date)
-                        
-                        // 알림 발송 (UI 업데이트를 위해)
-                        NotificationCenter.default.post(
-                            name: NSNotification.Name("FixturesLoadingCompleted"),
-                            object: nil,
-                            userInfo: ["date": date, "error": true]
-                        )
-                    }
-                    return
-                }
-                
-                // 에러 처리
-                await MainActor.run {
-                    // 빈 응답 에러 처리
-                    if case .emptyResponse(_) = error {
-                        // 빈 응답 메시지 설정
-                        emptyDates[date] = "해당일에 예정된 경기가 없습니다."
-                        
-                        // 빈 배열 설정 (더미 데이터 대신)
-                        fixtures[date] = []
-                        
-                        print("ℹ️ 해당 날짜에 경기 일정이 없습니다: \(dateString)")
-                        
-                        errorMessage = nil // 일반 에러 메시지 초기화
-                    } else {
-                        // 일반 에러 메시지 설정
-                        errorMessage = "경기 일정을 불러오는 중 오류가 발생했습니다: \(error.localizedDescription)"
-                        print("❌ 경기 일정 로드 실패: \(dateString) - \(error.localizedDescription)")
-                        
-                        // 빈 배열 설정 (더미 데이터 대신)
-                        fixtures[date] = []
-                    }
-                    
-                    // 로딩 중인 날짜 목록에서 제거
-                    loadingDates.remove(date)
-                    
-                    // 알림 발송 (UI 업데이트를 위해)
-                    NotificationCenter.default.post(
-                        name: NSNotification.Name("FixturesLoadingCompleted"),
-                        object: nil,
-                        userInfo: ["date": date, "empty": fixtures[date]?.isEmpty ?? true]
-                    )
-                }
-            } catch let error {
-                // 작업이 취소되었는지 확인
-                if Task.isCancelled {
-                    print("⚠️ 작업이 취소되었습니다: \(dateString)")
-                    // 작업이 취소되어도 로딩 상태 제거
-                    _ = await MainActor.run {
-                        loadingDates.remove(date)
-                    }
-                    return
-                }
-                
-                // 기타 에러 처리
-                await MainActor.run {
-                    // 에러 메시지 설정
-                    errorMessage = "경기 일정을 불러오는 중 오류가 발생했습니다: \(error.localizedDescription)"
-                    print("❌ 경기 일정 로드 실패: \(dateString) - \(error.localizedDescription)")
-                    
-                    // 빈 배열 설정 (더미 데이터 대신)
-                    fixtures[date] = []
-                    
-                    // 로딩 중인 날짜 목록에서 제거
-                    loadingDates.remove(date)
-                    
-                    // 알림 발송 (UI 업데이트를 위해)
-                    NotificationCenter.default.post(
-                        name: NSNotification.Name("FixturesLoadingCompleted"),
-                        object: nil,
-                        userInfo: ["date": date, "error": true]
-                    )
-                }
+        if !followedLeagues.isEmpty {
+            return followedLeagues
+        }
+        
+        // 기본 선호 리그 (5대 리그 + K리그)
+        return [39, 140, 135, 78, 61, 292, 293]
+    }
+    
+    // MARK: - 빈 응답 캐시 정리
+    private func cleanupEmptyResponseCache() {
+        let now = Date()
+        let expirationTime = emptyResponseCacheHours * 3600 // 시간을 초로 변환
+        
+        // 만료된 항목 제거
+        for (key, cacheDate) in emptyResponseCache {
+            if now.timeIntervalSince(cacheDate) > expirationTime {
+                emptyResponseCache.removeValue(forKey: key)
             }
         }
         
-        // 타임아웃 처리 (개선된 버전)
-        Task {
-            // 5초 타임아웃으로 단축 (10초에서 5초로 변경)
-            try? await Task.sleep(nanoseconds: 5_000_000_000) // 5초
+        print("🧹 빈 응답 캐시 정리 완료: \(emptyResponseCache.count)개 항목 남음")
+    }
+    
+    // 경기 정렬 함수 (리그 우선순위 기반)
+    internal func sortFixturesByPriority(_ fixtures: [Fixture]) -> [Fixture] {
+        // 리그 우선순위 정의
+        let leaguePriority: [Int: Int] = [
+            39: 1,   // 프리미어 리그
+            140: 2,  // 라리가
+            135: 3,  // 세리에 A
+            78: 4,   // 분데스리가
+            61: 5,   // 리그 1
+            2: 6,    // 챔피언스 리그
+            3: 7,    // 유로파 리그
+            4: 8,    // 컨퍼런스 리그
+            292: 9,  // K리그1
+            293: 10, // K리그2
+            253: 11, // MLS
+            71: 12,  // 브라질 세리에 A
+            5: 13,   // 네이션스 리그
+            1: 14,   // FIFA 월드컵
+            32: 15,  // 월드컵 예선 - 유럽
+            34: 16,  // 월드컵 예선 - 남미
+            29: 17,  // 월드컵 예선 - 아시아
+            15: 18,  // FIFA 클럽 월드컵
+            45: 19,  // FA컵
+            143: 20, // 코파 델 레이
+            137: 21, // 코파 이탈리아
+            81: 22,  // DFB 포칼
+            66: 23   // 쿠프 드 프랑스
+        ]
+        
+        return fixtures.sorted { fixture1, fixture2 in
+            // 첫 번째 경기가 라이브인지 확인
+            let isFixture1Live = liveStatuses.contains(fixture1.fixture.status.short)
             
-            // 작업이 아직 완료되지 않았다면 취소
-            if loadingDates.contains(date) {
-                task.cancel()
-                
-                // UI 업데이트
-                await MainActor.run {
-                    print("⏱️ 타임아웃: \(dateString)")
-                    
-                    // 1. 먼저 CoreData에서 데이터 확인
-                    if let coreDataFixtures = CoreDataManager.shared.loadFixtures(for: dateString) {
-                        fixtures[date] = coreDataFixtures
-                        print("✅ 타임아웃 발생, CoreData 데이터 사용: \(dateString) (\(coreDataFixtures.count)개)")
-                        
-                        // 빈 응답인 경우 UI에 표시
-                        if coreDataFixtures.isEmpty {
-                            emptyDates[date] = "해당일에 예정된 경기가 없습니다."
-                        } else {
-                            emptyDates[date] = nil
-                        }
-                    }
-                    // 2. CoreData에 없으면 캐시된 데이터 확인
-                    else if let cachedData = cachedData, !cachedData.isEmpty {
-                        fixtures[date] = cachedData
-                        print("✅ 타임아웃 발생, 캐시된 데이터 사용: \(dateString) (\(cachedData.count)개)")
-                        
-                        // CoreData에도 저장 (백업)
-                        CoreDataManager.shared.saveFixtures(cachedData, for: dateString)
-                        
-                        // 빈 응답인 경우 UI에 표시
-                        if cachedData.isEmpty {
-                            emptyDates[date] = "해당일에 예정된 경기가 없습니다."
-                        } else {
-                            emptyDates[date] = nil
-                        }
-                    }
-                    // 3. 빈 응답으로 처리
-                    else {
-                        // 빈 배열 설정
-                        fixtures[date] = []
-                        emptyDates[date] = "경기 일정을 불러오는데 실패했습니다. 다시 시도해주세요."
-                        print("⚠️ 타임아웃 발생, 빈 응답으로 처리: \(dateString)")
-                    }
-                    
-                    // 로딩 중인 날짜 목록에서 제거
-                    loadingDates.remove(date)
-                    
-                    // 알림 발송 (UI 업데이트를 위해)
-                    NotificationCenter.default.post(
-                        name: NSNotification.Name("FixturesLoadingCompleted"),
-                        object: nil,
-                        userInfo: ["date": date, "timeout": true, "empty": fixtures[date]?.isEmpty ?? true]
-                    )
-                }
+            // 두 번째 경기가 라이브인지 확인
+            let isFixture2Live = liveStatuses.contains(fixture2.fixture.status.short)
+            
+            // 라이브 경기가 먼저 오도록 정렬
+            if isFixture1Live != isFixture2Live {
+                return isFixture1Live && !isFixture2Live
             }
+            
+            // 첫 번째 경기에 팔로잉하는 팀이 있는지 확인
+            let isTeam1Following = favoriteService.isFavorite(type: .team, entityId: fixture1.teams.home.id) ||
+                                   favoriteService.isFavorite(type: .team, entityId: fixture1.teams.away.id)
+            
+            // 두 번째 경기에 팔로잉하는 팀이 있는지 확인
+            let isTeam2Following = favoriteService.isFavorite(type: .team, entityId: fixture2.teams.home.id) ||
+                                   favoriteService.isFavorite(type: .team, entityId: fixture2.teams.away.id)
+            
+            // 팔로잉하는 팀이 있는 경기가 먼저 오도록 정렬
+            if isTeam1Following != isTeam2Following {
+                return isTeam1Following && !isTeam2Following
+            }
+            
+            // 리그 우선순위 가져오기 (없으면 낮은 우선순위)
+            let priority1 = leaguePriority[fixture1.league.id] ?? 999
+            let priority2 = leaguePriority[fixture2.league.id] ?? 999
+            
+            // 리그 우선순위로 정렬
+            if priority1 != priority2 {
+                return priority1 < priority2
+            }
+            
+            // 같은 리그인 경우 날짜순으로 정렬
+            return fixture1.fixture.date < fixture2.fixture.date
+        }
+    }
+    
+    /// 라이브 경기 추적 정보 업데이트
+    @MainActor
+    func updateLiveMatchTracking(fixtures: [Fixture]) {
+        let currentLiveMatches = fixtures.filter { liveStatuses.contains($0.fixture.status.short) }
+        
+        if !currentLiveMatches.isEmpty {
+            liveMatches = currentLiveMatches
+            let formatter = DateFormatter()
+            formatter.dateFormat = "HH:mm:ss"
+            lastLiveUpdateTime = formatter.string(from: Date())
+            
+            print("⚽ 라이브 경기 \(currentLiveMatches.count)개 추적 중")
         }
     }
 }

@@ -73,9 +73,15 @@ struct SquadResponse: Codable, APIErrorCheckable {
     }
 }
 
+// MARK: - TeamSquadResponse
 struct TeamSquadResponse: Codable {
     let team: Team
-    let players: [SquadPlayer]
+    let players: [FootballSquadPlayer]
+}
+
+struct TeamSquadData: Codable {
+    let team: Team
+    let players: [FootballSquadPlayer]
     
     // 디코딩 오류 처리를 위한 사용자 정의 디코더 추가
     init(from decoder: Decoder) throws {
@@ -84,7 +90,7 @@ struct TeamSquadResponse: Codable {
         
         // players 배열 디코딩 시도
         do {
-            players = try container.decode([SquadPlayer].self, forKey: .players)
+            players = try container.decode([FootballSquadPlayer].self, forKey: .players)
         } catch {
             print("⚠️ TeamSquadResponse players 디코딩 오류: \(error)")
             
@@ -94,7 +100,7 @@ struct TeamSquadResponse: Codable {
     }
 }
 
-struct SquadPlayer: Codable {
+struct FootballSquadPlayer: Codable {
     let id: Int
     let name: String
     let age: Int
@@ -118,7 +124,7 @@ struct SquadPlayer: Codable {
 
 // 기존 PlayerResponse 구조체를 유지하되 SquadPlayer를 사용하도록 변환하는 확장 추가
 extension TeamSquadResponse {
-    func toPlayerResponses() -> [PlayerResponse] {
+    func toPlayerResponses() -> [SquadPlayerResponse] {
         return players.map { player in
             let playerInfo = PlayerInfo(
                 id: player.id,
@@ -162,12 +168,12 @@ extension TeamSquadResponse {
                 penalty: nil
             )
             
-            return PlayerResponse(player: playerInfo, statistics: [stats])
+            return SquadPlayerResponse(player: playerInfo, statistics: [stats])
         }
     }
 }
 
-struct PlayerResponse: Codable {
+struct SquadPlayerResponse: Codable {
     let player: Player
     let statistics: [PlayerSeasonStats]
 }
@@ -178,11 +184,11 @@ typealias Player = PlayerInfo
 // MARK: - Squad Group
 struct SquadGroup: Identifiable {
     let position: String
-    let players: [PlayerResponse]
+    let players: [SquadPlayerResponse]
     
     var id: String { position }
     
-    static func groupPlayers(_ players: [PlayerResponse]) -> [SquadGroup] {
+    static func groupPlayers(_ players: [SquadPlayerResponse]) -> [SquadGroup] {
         let grouped = Dictionary(grouping: players) { player in
             player.statistics.first?.games?.position ?? "Unknown"
         }

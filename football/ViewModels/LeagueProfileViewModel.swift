@@ -25,16 +25,16 @@ class LeagueProfileViewModel: ObservableObject {
     // 상태 관리
     @Published var isLoading: Bool = false
     @Published var error: Error?
-    @Published var selectedSeason: Int = 2024
+    @Published var selectedSeason: Int = Date().getCurrentSeason()
     
-    private let service = FootballAPIService.shared
+    private let service = SupabaseFootballAPIService.shared
     private let leagueId: Int
     
     // 레귤러 리그 ID 목록 (토너먼트 탭을 표시하지 않을 리그)
     private let regularLeagueIds = [39, 140, 78, 135, 61] // 프리미어 리그, 라리가, 분데스리가, 세리에 A, 리그 1
     
     // 컵대회 ID 목록 (순위 탭을 표시하지 않을 리그)
-    private let cupCompetitionIds = [45, 143, 137, 66, 81] // FA컵, 코파델레이, 코파 이탈리아, 프랑스컵, 독일 포칼컵
+    private let cupCompetitionIds = [45, 143, 137, 66, 81, 15] // FA컵, 코파델레이, 코파 이탈리아, 프랑스컵, 독일 포칼컵, FIFA 클럽 월드컵
     
     // 순위가 있는 유럽 대항전 ID 목록
     private let europeanCompetitionIds = [2, 3] // 챔피언스리그, 유로파리그
@@ -70,22 +70,18 @@ class LeagueProfileViewModel: ObservableObject {
         isLoading = true
         error = nil
         
-        do {
-            // 하드코딩된 리그 목록에서 리그 정보 찾기
-            let hardcodedLeagues = LeaguesViewModel().leagues
-            
-            // 리그 ID로 리그 정보 찾기
-            if let league = hardcodedLeagues.first(where: { $0.league.id == leagueId }) {
-                leagueDetails = league
-                print("✅ 하드코딩된 리그 정보 사용: \(league.league.name)")
-            } else {
-                // 하드코딩된 리그 정보가 없으면 API 호출
-                print("⚠️ 하드코딩된 리그 정보 없음, API 호출 시도")
-                leagueDetails = try await service.getLeagueDetails(leagueId: leagueId, season: selectedSeason)
-            }
-        } catch {
-            self.error = error
-            print("Error loading league details: \(error)")
+        // 하드코딩된 리그 목록에서 리그 정보 찾기
+        let hardcodedLeagues = LeaguesViewModel().leagues
+        
+        // 리그 ID로 리그 정보 찾기
+        if let league = hardcodedLeagues.first(where: { $0.league.id == leagueId }) {
+            leagueDetails = league
+            print("✅ 하드코딩된 리그 정보 사용: \(league.league.name)")
+        } else {
+            // 하드코딩된 리그 정보가 없으면 API 호출
+            print("⚠️ 하드코딩된 리그 정보 없음, API 호출 시도")
+            // getLeagueDetails 메서드가 없으므로 하드코딩된 데이터 사용
+            leagueDetails = nil
         }
         
         isLoading = false
@@ -111,17 +107,35 @@ class LeagueProfileViewModel: ObservableObject {
 
         do {
             let actualLeagueId = leagueDetails?.league.id ?? leagueId
+            
+            // FIFA 클럽 월드컵 특별 시즌 처리
+            let seasonForRequest: Int
+            if actualLeagueId == 15 {
+                let now = Date()
+                let calendar = Calendar.current
+                let month = calendar.component(.month, from: now)
+                let year = calendar.component(.year, from: now)
+                
+                if month >= 6 && month <= 7 && year == 2025 {
+                    seasonForRequest = 2024
+                    print("⚽ FIFA 클럽 월드컵 특별 시즌 처리: 2025년 6-7월 → 2024 시즌 사용")
+                } else {
+                    seasonForRequest = selectedSeason
+                }
+            } else {
+                seasonForRequest = selectedSeason
+            }
 
             // ❶ 최근 50 경기
             async let past50 = service.getFixtures(
                 leagueId: actualLeagueId,
-                season: selectedSeason,
+                season: seasonForRequest,
                 last: 50
             )
             // ❷ 향후 50 경기
             async let next50 = service.getFixtures(
                 leagueId: actualLeagueId,
-                season: selectedSeason,
+                season: seasonForRequest,
                 next: 50
             )
 
@@ -149,11 +163,31 @@ class LeagueProfileViewModel: ObservableObject {
         do {
             // 선수 통계 가져오기 - API 엔드포인트 수정
             // 리그 ID를 명시적으로 path parameter로 전달
-            let endpoint = "/players/topscorers?league=\(leagueId)&season=\(selectedSeason)"
-            let request = service.createRequest(endpoint)
+            // Supabase Edge Function 호출
+            let urlString = "https://uutmymaxkkytibuiiaax.supabase.co/functions/v1/players-api/topscorers?league=\(leagueId)&season=\(selectedSeason)"
+            
+            guard let url = URL(string: urlString) else {
+                throw FootballAPIError.invalidRequest
+            }
+            
+            var request = URLRequest(url: url)
+            request.httpMethod = "GET"
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            
+            // Add auth token if available
+            if let token = try? await SupabaseService.shared.client.auth.session.accessToken {
+                request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+            }
             
             let (data, response) = try await URLSession.shared.data(for: request)
-            try service.handleResponse(response)
+            
+            guard let httpResponse = response as? HTTPURLResponse else {
+                throw FootballAPIError.invalidResponse
+            }
+            
+            if httpResponse.statusCode != 200 {
+                throw FootballAPIError.httpError(httpResponse.statusCode)
+            }
             
             // 디버깅을 위한 JSON 출력
             if let jsonString = String(data: data, encoding: .utf8) {
@@ -202,11 +236,31 @@ class LeagueProfileViewModel: ObservableObject {
     // 어시스트 순위 별도 로드
     private func loadAssists() async {
         do {
-            let endpoint = "/players/topassists?league=\(leagueId)&season=\(selectedSeason)"
-            let request = service.createRequest(endpoint)
+            // Supabase Edge Function 호출
+            let urlString = "https://uutmymaxkkytibuiiaax.supabase.co/functions/v1/players-api/topassists?league=\(leagueId)&season=\(selectedSeason)"
+            
+            guard let url = URL(string: urlString) else {
+                throw FootballAPIError.invalidRequest
+            }
+            
+            var request = URLRequest(url: url)
+            request.httpMethod = "GET"
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            
+            // Add auth token if available
+            if let token = try? await SupabaseService.shared.client.auth.session.accessToken {
+                request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+            }
             
             let (data, response) = try await URLSession.shared.data(for: request)
-            try service.handleResponse(response)
+            
+            guard let httpResponse = response as? HTTPURLResponse else {
+                throw FootballAPIError.invalidResponse
+            }
+            
+            if httpResponse.statusCode != 200 {
+                throw FootballAPIError.httpError(httpResponse.statusCode)
+            }
             
             let decoder = JSONDecoder()
             let playerStatsResponse = try decoder.decode(PlayerStatisticsResponse.self, from: data)
@@ -264,7 +318,8 @@ class LeagueProfileViewModel: ObservableObject {
             
             for teamId in teamIds {
                 do {
-                    let teamStat = try await service.getTeamStatistics(teamId: teamId, leagueId: leagueId, season: selectedSeason)
+                    let teamStatResponse = try await service.fetchTeamStatistics(teamId: teamId, season: selectedSeason, leagueId: leagueId)
+                    let teamStat = teamStatResponse.response
                     allTeamStats.append(teamStat)
                 } catch {
                     print("Error loading stats for team \(teamId): \(error)")
@@ -420,6 +475,24 @@ class LeagueProfileViewModel: ObservableObject {
                 // 모든 경기 가져오기
                 let actualLeagueId = leagueDetails?.league.id ?? leagueId
                 
+                // FIFA 클럽 월드컵 특별 시즌 처리
+                let seasonForTournament: Int
+                if actualLeagueId == 15 {
+                    let now = Date()
+                    let calendar = Calendar.current
+                    let month = calendar.component(.month, from: now)
+                    let year = calendar.component(.year, from: now)
+                    
+                    if month >= 6 && month <= 7 && year == 2025 {
+                        seasonForTournament = 2024
+                        print("⚽ FIFA 클럽 월드컵 특별 시즌 처리: 2025년 6-7월 → 2024 시즌 사용")
+                    } else {
+                        seasonForTournament = selectedSeason
+                    }
+                } else {
+                    seasonForTournament = selectedSeason
+                }
+                
                 // 챔피언스리그(ID: 2)인 경우 특별 처리
                 let isChampionsLeague = actualLeagueId == 2
                 if isChampionsLeague {
@@ -428,7 +501,7 @@ class LeagueProfileViewModel: ObservableObject {
                 
                 let allFixtures = try await service.getFixtures(
                     leagueId: actualLeagueId,
-                    season: selectedSeason,
+                    season: seasonForTournament,
                     from: fromDateObj,
                     to: toDateObj
                 )

@@ -1,7 +1,7 @@
 import Foundation
 
 // MARK: - Team
-public struct Team: Codable, Hashable {
+public struct Team: Codable, Hashable, Identifiable {
     public let id: Int
     public let name: String
     public let logo: String

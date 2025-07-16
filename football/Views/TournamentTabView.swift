@@ -6,8 +6,8 @@ struct TournamentTabView: View {
     let fixtures: [Fixture]
     let formatDate: (String) -> String
     
-    // 컵대회 ID 목록 (챔피언스리그, 유로파리그, 주요 컵대회)
-    private let cupCompetitionIds = [2, 3, 45, 143, 137, 66, 81]
+    // 컵대회 ID 목록 (챔피언스리그, 유로파리그, 주요 컵대회, 클럽 월드컵)
+    private let cupCompetitionIds = [2, 3, 45, 143, 137, 66, 81, 15]
     
     // 현재 리그가 컵대회인지 확인
     private var isCupCompetition: Bool {
@@ -90,7 +90,7 @@ struct RoundSection: View {
     var body: some View {
         VStack(spacing: 12) {
             // 라운드 헤더
-            SectionHeader(title: formattedRound)
+            SectionHeader(title: formattedRound, icon: "sportscourt")
             
             // 경기 목록
             ForEach(fixtures) { fixture in

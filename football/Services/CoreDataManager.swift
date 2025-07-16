@@ -103,6 +103,22 @@ class CoreDataManager {
         }
     }
     
+    // 모든 데이터 삭제 (더미 데이터 제거용)
+    func clearAllData() {
+        let fetchRequest: NSFetchRequest<FixtureEntity> = FixtureEntity.fetchRequest()
+        
+        do {
+            let results = try context.fetch(fetchRequest)
+            for entity in results {
+                context.delete(entity)
+            }
+            saveContext()
+            print("🗜️ CoreData 모든 데이터 삭제 완료: \(results.count)개 항목")
+        } catch {
+            print("❌ CoreData 전체 삭제 실패: \(error)")
+        }
+    }
+    
     // 컨텍스트 저장
     func saveContext() {
         if context.hasChanges {
@@ -111,6 +127,20 @@ class CoreDataManager {
             } catch {
                 print("❌ CoreData 저장 실패: \(error)")
             }
+        }
+    }
+    
+    // 모든 경기 데이터 삭제
+    func deleteAllFixtures() {
+        let fetchRequest: NSFetchRequest<NSFetchRequestResult> = FixtureEntity.fetchRequest()
+        let deleteRequest = NSBatchDeleteRequest(fetchRequest: fetchRequest)
+        
+        do {
+            try context.execute(deleteRequest)
+            try context.save()
+            print("✅ 모든 CoreData 경기 데이터 삭제 완료")
+        } catch {
+            print("❌ CoreData 경기 데이터 삭제 실패: \(error)")
         }
     }
 }

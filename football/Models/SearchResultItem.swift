@@ -91,7 +91,7 @@ enum SearchResultItem: Identifiable, Hashable {
 }
 
 // 검색 API 응답을 위한 통합 모델 (필요 시 사용)
-struct SearchResponse {
+struct FootballSearchResponse: Decodable {
     let teams: [TeamProfile]
     let leagues: [LeagueDetails]
     let players: [PlayerProfileData]

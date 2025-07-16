@@ -284,9 +284,11 @@ struct FixtureCell: View {
         private func formatMatchTime() -> String {
             let dateFormatter = DateFormatter()
             dateFormatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ssZ"
-            dateFormatter.timeZone = TimeZone(identifier: "Asia/Seoul")
+            dateFormatter.timeZone = TimeZone(identifier: "UTC")
             
             if let date = dateFormatter.date(from: fixture.fixture.date) {
+                // 유저의 현재 시간대로 변환
+                dateFormatter.timeZone = TimeZone.current
                 dateFormatter.dateFormat = "HH:mm"
                 return dateFormatter.string(from: date)
             }

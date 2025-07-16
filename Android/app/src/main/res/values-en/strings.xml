@@ -1,0 +1,40 @@
+<resources>
+    <string name="app_name">FutInfo</string>
+    
+    <!-- Navigation -->
+    <string name="nav_leagues">Leagues</string>
+    <string name="nav_fixtures">Fixtures</string>
+    <string name="nav_community">Community</string>
+    <string name="nav_settings">Settings</string>
+    
+    <!-- Settings -->
+    <string name="settings_title">Settings</string>
+    <string name="settings_general">General</string>
+    <string name="settings_language">Language</string>
+    <string name="settings_language_korean">Korean</string>
+    <string name="settings_language_english">English</string>
+    <string name="settings_language_select">Select Language</string>
+    <string name="settings_cancel">Cancel</string>
+    
+    <!-- Favorites -->
+    <string name="favorites">Favorites</string>
+    <string name="add_to_favorites">Add to Favorites</string>
+    <string name="remove_from_favorites">Remove from Favorites</string>
+    <string name="no_favorites">No favorites</string>
+    <string name="no_favorite_leagues">No favorite leagues</string>
+    <string name="no_favorite_teams">No favorite teams</string>
+    <string name="no_favorite_players">No favorite players</string>
+    <string name="add_favorites_hint">Add your favorite leagues, teams, and players</string>
+    <string name="all">All</string>
+    <string name="leagues">Leagues</string>
+    <string name="teams">Teams</string>
+    <string name="players">Players</string>
+    <string name="league">League</string>
+    <string name="team">Team</string>
+    <string name="player">Player</string>
+    
+    <!-- Common -->
+    <string name="loading">Loading...</string>
+    <string name="error">Error</string>
+    <string name="retry">Retry</string>
+</resources>

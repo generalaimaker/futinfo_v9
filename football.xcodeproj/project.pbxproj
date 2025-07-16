@@ -8,6 +8,12 @@
 
 /* Begin PBXBuildFile section */
 		5E26EF9C2DCB04F600E831F6 /* Kingfisher in Frameworks */ = {isa = PBXBuildFile; productRef = 5E26EF9B2DCB04F600E831F6 /* Kingfisher */; };
+		5E49A4262E1C269700BFBF2B /* Auth in Frameworks */ = {isa = PBXBuildFile; productRef = 5E49A4252E1C269700BFBF2B /* Auth */; };
+		5E49A4282E1C269700BFBF2B /* Functions in Frameworks */ = {isa = PBXBuildFile; productRef = 5E49A4272E1C269700BFBF2B /* Functions */; };
+		5E49A42A2E1C269700BFBF2B /* PostgREST in Frameworks */ = {isa = PBXBuildFile; productRef = 5E49A4292E1C269700BFBF2B /* PostgREST */; };
+		5E49A42C2E1C269700BFBF2B /* Realtime in Frameworks */ = {isa = PBXBuildFile; productRef = 5E49A42B2E1C269700BFBF2B /* Realtime */; };
+		5E49A42E2E1C269700BFBF2B /* Storage in Frameworks */ = {isa = PBXBuildFile; productRef = 5E49A42D2E1C269700BFBF2B /* Storage */; };
+		5E49A4302E1C269700BFBF2B /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = 5E49A42F2E1C269700BFBF2B /* Supabase */; };
 		5ECD50CB2DE04FCA0082FA12 /* FootballApp.xcdatamodeld in Sources */ = {isa = PBXBuildFile; fileRef = 5ECD50C92DE04FCA0082FA12 /* FootballApp.xcdatamodeld */; };
 /* End PBXBuildFile section */
 
@@ -42,6 +48,12 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				5E49A4302E1C269700BFBF2B /* Supabase in Frameworks */,
+				5E49A42E2E1C269700BFBF2B /* Storage in Frameworks */,
+				5E49A42A2E1C269700BFBF2B /* PostgREST in Frameworks */,
+				5E49A4282E1C269700BFBF2B /* Functions in Frameworks */,
+				5E49A4262E1C269700BFBF2B /* Auth in Frameworks */,
+				5E49A42C2E1C269700BFBF2B /* Realtime in Frameworks */,
 				5E26EF9C2DCB04F600E831F6 /* Kingfisher in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -87,6 +99,12 @@
 			name = football;
 			packageProductDependencies = (
 				5E26EF9B2DCB04F600E831F6 /* Kingfisher */,
+				5E49A4252E1C269700BFBF2B /* Auth */,
+				5E49A4272E1C269700BFBF2B /* Functions */,
+				5E49A4292E1C269700BFBF2B /* PostgREST */,
+				5E49A42B2E1C269700BFBF2B /* Realtime */,
+				5E49A42D2E1C269700BFBF2B /* Storage */,
+				5E49A42F2E1C269700BFBF2B /* Supabase */,
 			);
 			productName = football;
 			productReference = 5E2610AF2D53A149003489C2 /* football.app */;
@@ -118,6 +136,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				5E26EF9A2DCB04F600E831F6 /* XCRemoteSwiftPackageReference "Kingfisher" */,
+				5E49A4242E1C269700BFBF2B /* XCRemoteSwiftPackageReference "supabase-swift" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 5E2610B02D53A149003489C2 /* Products */;
@@ -298,8 +317,8 @@
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 15.2;
-				MARKETING_VERSION = 1.8;
-				PRODUCT_BUNDLE_IDENTIFIER = com.hyunwoopark.football;
+				MARKETING_VERSION = 1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.hyunwoopark.futinfo;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = auto;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
@@ -339,8 +358,8 @@
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 15.2;
-				MARKETING_VERSION = 1.8;
-				PRODUCT_BUNDLE_IDENTIFIER = com.hyunwoopark.football;
+				MARKETING_VERSION = 1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.hyunwoopark.futinfo;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = auto;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
@@ -383,6 +402,14 @@
 				minimumVersion = 8.3.2;
 			};
 		};
+		5E49A4242E1C269700BFBF2B /* XCRemoteSwiftPackageReference "supabase-swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/supabase/supabase-swift";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.5.1;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -390,6 +417,36 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 5E26EF9A2DCB04F600E831F6 /* XCRemoteSwiftPackageReference "Kingfisher" */;
 			productName = Kingfisher;
+		};
+		5E49A4252E1C269700BFBF2B /* Auth */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 5E49A4242E1C269700BFBF2B /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = Auth;
+		};
+		5E49A4272E1C269700BFBF2B /* Functions */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 5E49A4242E1C269700BFBF2B /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = Functions;
+		};
+		5E49A4292E1C269700BFBF2B /* PostgREST */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 5E49A4242E1C269700BFBF2B /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = PostgREST;
+		};
+		5E49A42B2E1C269700BFBF2B /* Realtime */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 5E49A4242E1C269700BFBF2B /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = Realtime;
+		};
+		5E49A42D2E1C269700BFBF2B /* Storage */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 5E49A4242E1C269700BFBF2B /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = Storage;
+		};
+		5E49A42F2E1C269700BFBF2B /* Supabase */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 5E49A4242E1C269700BFBF2B /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = Supabase;
 		};
 /* End XCSwiftPackageProductDependency section */
 

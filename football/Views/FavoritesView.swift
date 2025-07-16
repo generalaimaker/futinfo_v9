@@ -2,10 +2,25 @@ import SwiftUI
 
 struct FavoritesView: View {
     @ObservedObject private var favoriteService = FavoriteService.shared
+    @ObservedObject private var communityService = SupabaseCommunityService.shared
+    @State private var showingSyncAlert = false
     
     var body: some View {
         NavigationView {
             List {
+                // 동기화 상태 표시
+                if favoriteService.isSyncing {
+                    Section {
+                        HStack {
+                            ProgressView()
+                                .scaleEffect(0.8)
+                            Text("동기화 중...")
+                                .foregroundColor(.secondary)
+                                .font(.subheadline)
+                        }
+                        .padding(.vertical, 4)
+                    }
+                }
                 // 팀 즐겨찾기 섹션
                 Section(header: Text("팀")) {
                     if favoriteService.teamFavorites.isEmpty {
@@ -84,12 +99,24 @@ struct FavoritesView: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button(action: {
-                        // 즐겨찾기 새로고침
-                        favoriteService.loadFavorites()
+                        if communityService.isAuthenticated {
+                            Task {
+                                await favoriteService.syncFromServerToLocal()
+                            }
+                        } else {
+                            favoriteService.loadFavorites()
+                            showingSyncAlert = true
+                        }
                     }) {
-                        Image(systemName: "arrow.clockwise")
+                        Image(systemName: communityService.isAuthenticated ? "arrow.triangle.2.circlepath" : "arrow.clockwise")
                     }
+                    .disabled(favoriteService.isSyncing)
                 }
+            }
+            .alert("로그인 필요", isPresented: $showingSyncAlert) {
+                Button("확인", role: .cancel) { }
+            } message: {
+                Text("서버와 동기화하려면 로그인이 필요합니다.")
             }
         }
     }

@@ -1,7 +1,7 @@
 import Foundation
 
 // 즐겨찾기 모델
-struct Favorite: Identifiable, Codable, Equatable, Comparable {
+struct Favorite: Identifiable, Codable, Equatable, Comparable, Hashable {
     let id: UUID
     let type: FavoriteType
     let entityId: Int

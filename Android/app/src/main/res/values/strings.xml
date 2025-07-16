@@ -1,0 +1,40 @@
+<resources>
+    <string name="app_name">FutInfo</string>
+    
+    <!-- Navigation -->
+    <string name="nav_leagues">리그</string>
+    <string name="nav_fixtures">경기</string>
+    <string name="nav_community">커뮤니티</string>
+    <string name="nav_settings">설정</string>
+    
+    <!-- Settings -->
+    <string name="settings_title">설정</string>
+    <string name="settings_general">일반</string>
+    <string name="settings_language">언어</string>
+    <string name="settings_language_korean">한국어</string>
+    <string name="settings_language_english">English</string>
+    <string name="settings_language_select">언어 선택</string>
+    <string name="settings_cancel">취소</string>
+    
+    <!-- Favorites -->
+    <string name="favorites">즐겨찾기</string>
+    <string name="add_to_favorites">즐겨찾기에 추가</string>
+    <string name="remove_from_favorites">즐겨찾기에서 제거</string>
+    <string name="no_favorites">즐겨찾기가 없습니다</string>
+    <string name="no_favorite_leagues">즐겨찾기한 리그가 없습니다</string>
+    <string name="no_favorite_teams">즐겨찾기한 팀이 없습니다</string>
+    <string name="no_favorite_players">즐겨찾기한 선수가 없습니다</string>
+    <string name="add_favorites_hint">관심 있는 리그, 팀, 선수를 즐겨찾기에 추가해보세요</string>
+    <string name="all">전체</string>
+    <string name="leagues">리그</string>
+    <string name="teams">팀</string>
+    <string name="players">선수</string>
+    <string name="league">리그</string>
+    <string name="team">팀</string>
+    <string name="player">선수</string>
+    
+    <!-- Common -->
+    <string name="loading">로딩 중...</string>
+    <string name="error">오류</string>
+    <string name="retry">다시 시도</string>
+</resources>

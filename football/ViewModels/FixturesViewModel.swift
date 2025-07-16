@@ -11,7 +11,7 @@ class FixturesViewModel: ObservableObject {
     let seasons = [2024, 2023, 2022, 2021, 2020] // 가능한 시즌 목록
     var leagueId: Int
     
-    private let service = FootballAPIService.shared
+    private let service = SupabaseFootballAPIService.shared
     private let dateFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "ko_KR")
@@ -61,7 +61,8 @@ class FixturesViewModel: ObservableObject {
         Task {
             do {
                 print("Loading fixtures...")
-                fixtures = try await service.getFixtures(leagueId: leagueId, season: selectedSeason, from: nil, to: nil)
+                // For now, get fixtures for current date
+                fixtures = try await service.getFixturesForLeague(leagueId: leagueId, date: Date())
                 
                 if fixtures.isEmpty {
                     errorMessage = "표시할 경기가 없습니다."

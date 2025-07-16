@@ -19,7 +19,7 @@ class SearchViewModel: ObservableObject {
     private let majorLeagueIdsForPlayerSearch = [39, 140, 135, 78, 61] // 예: PL, LaLiga, SerieA, Bundesliga, Ligue1
 
     private var cancellables = Set<AnyCancellable>()
-    private let service = FootballAPIService.shared
+    private let service = SupabaseFootballAPIService.shared
     private let searchDebounceSeconds: TimeInterval = 0.5
 
     // MARK: - Initialization
