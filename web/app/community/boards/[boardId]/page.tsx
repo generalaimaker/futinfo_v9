@@ -41,8 +41,8 @@ export default function BoardDetailPage() {
         { 
           event: '*', 
           schema: 'public', 
-          table: 'community_posts',
-          filter: `boardId=eq.${boardId}`
+          table: 'posts',
+          filter: `board_id=eq.${boardId}`
         },
         handlePostChanges
       )
@@ -68,10 +68,9 @@ export default function BoardDetailPage() {
           id: 'all',
           name: '전체 게시판',
           description: '모든 축구 팬들이 자유롭게 소통하는 공간',
-          type: 'general',
+          type: 'all',
           memberCount: 0,
-          postCount: 0,
-          createdAt: new Date().toISOString()
+          postCount: 0
         })
       } else {
         const boardData = await CommunityService.getBoard(boardId)
@@ -82,8 +81,8 @@ export default function BoardDetailPage() {
       }
       
       // 게시글 목록 가져오기
-      const postsData = await CommunityService.getPosts({ boardId })
-      setPosts(postsData)
+      const postsResponse = await CommunityService.getPosts(boardId)
+      setPosts(postsResponse.data)
     } catch (err) {
       console.error('Error loading board:', err)
       setError(err instanceof Error ? err.message : '게시판을 불러오는데 실패했습니다.')
@@ -235,10 +234,10 @@ export default function BoardDetailPage() {
                           <div className="flex items-center space-x-1">
                             <div className="w-6 h-6 bg-gray-200 rounded-full flex items-center justify-center">
                               <span className="text-xs">
-                                {post.authorName?.charAt(0) || 'U'}
+                                {post.author?.nickname?.charAt(0) || 'U'}
                               </span>
                             </div>
-                            <span className="text-gray-700">{post.authorName || '익명'}</span>
+                            <span className="text-gray-700">{post.author?.nickname || '익명'}</span>
                           </div>
                           <span className="text-gray-500">
                             {formatDistanceToNow(new Date(post.createdAt), { 

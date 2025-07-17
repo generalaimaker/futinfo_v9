@@ -3,6 +3,7 @@ import { Inter } from 'next/font/google'
 import '@/styles/globals.css'
 import { cn } from '@/lib/utils'
 import { Providers } from './providers'
+import { Navbar } from '@/components/layout/navbar-simple'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -66,6 +67,7 @@ export default function RootLayout({
       )}>
         <Providers>
           <div className="relative flex min-h-screen flex-col">
+            <Navbar />
             <div className="flex-1">
               {children}
             </div>

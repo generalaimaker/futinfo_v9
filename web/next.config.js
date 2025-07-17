@@ -1,8 +1,5 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  experimental: {
-    appDir: true,
-  },
   images: {
     domains: [
       'media.api-sports.io',
@@ -16,6 +13,15 @@ const nextConfig = {
         hostname: '**',
       },
     ],
+  },
+  // ngrok을 위한 설정 추가
+  async rewrites() {
+    return [
+      {
+        source: '/:path*',
+        destination: '/:path*',
+      },
+    ]
   },
   async headers() {
     return [

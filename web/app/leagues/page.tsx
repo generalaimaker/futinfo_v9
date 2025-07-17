@@ -27,7 +27,7 @@ export default function LeaguesPage() {
     { id: SUPPORTED_LEAGUES.SERIE_A, name: 'Serie A', country: '🇮🇹' },
     { id: SUPPORTED_LEAGUES.BUNDESLIGA, name: 'Bundesliga', country: '🇩🇪' },
     { id: SUPPORTED_LEAGUES.LIGUE_1, name: 'Ligue 1', country: '🇫🇷' },
-    { id: SUPPORTED_LEAGUES.K_LEAGUE, name: 'K League 1', country: '🇰🇷' },
+    { id: SUPPORTED_LEAGUES.K_LEAGUE_1, name: 'K League 1', country: '🇰🇷' },
   ]
   
   const standings = standingsData?.response?.[0]?.league?.standings?.[0] || []

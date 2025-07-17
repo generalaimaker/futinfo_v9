@@ -1,18 +1,24 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { ChevronLeft, ChevronRight, Calendar, Clock, Trophy } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useFixturesByDate } from '@/lib/supabase/football'
-import { formatDate, getStatusDisplay, isLiveMatch, isFinishedMatch } from '@/lib/types/football'
+import { formatDate, getStatusDisplay, isLiveMatch, isFinishedMatch, FixturesResponse } from '@/lib/types/football'
 import Link from 'next/link'
 import Image from 'next/image'
 import { Skeleton } from '@/components/ui/skeleton'
 
 export default function FixturesPage() {
+  const router = useRouter()
   const [selectedDate, setSelectedDate] = useState(new Date())
   
-  const { data, isLoading, error } = useFixturesByDate(selectedDate)
+  const { data, isLoading, error } = useFixturesByDate(selectedDate) as { 
+    data: FixturesResponse | undefined; 
+    isLoading: boolean; 
+    error: Error | null 
+  }
   
   // 날짜 변경 핸들러
   const changeDate = (days: number) => {
@@ -154,7 +160,7 @@ export default function FixturesPage() {
                         alt={league.name}
                         width={24}
                         height={24}
-                        className="object-contain"
+                        className="object-contain pointer-events-none"
                       />
                     )}
                     <div>
@@ -176,11 +182,12 @@ export default function FixturesPage() {
                     })
                     
                     return (
-                      <Link
+                      <a
                         key={fixture.fixture.id}
                         href={`/fixtures/${fixture.fixture.id}`}
-                        className="flex items-center justify-between p-4 hover:bg-gray-50 transition-colors"
+                        className="block w-full"
                       >
+                        <div className="flex items-center justify-between p-4 hover:bg-blue-50 active:bg-blue-100 transition-all cursor-pointer border-b last:border-0">
                         {/* 홈팀 */}
                         <div className="flex items-center space-x-3 flex-1">
                           <Image
@@ -188,7 +195,7 @@ export default function FixturesPage() {
                             alt={fixture.teams.home.name}
                             width={32}
                             height={32}
-                            className="object-contain"
+                            className="object-contain pointer-events-none"
                           />
                           <span className="font-medium">{fixture.teams.home.name}</span>
                         </div>
@@ -198,7 +205,7 @@ export default function FixturesPage() {
                           {isFinished || isLive ? (
                             <div>
                               <div className="text-2xl font-bold">
-                                {fixture.goals.home ?? 0} - {fixture.goals.away ?? 0}
+                                {fixture.goals?.home ?? 0} - {fixture.goals?.away ?? 0}
                               </div>
                               <div className={`text-xs mt-1 ${isLive ? 'text-red-600 font-semibold' : 'text-gray-500'}`}>
                                 {getStatusDisplay(fixture.fixture.status.short, fixture.fixture.status.elapsed)}
@@ -222,10 +229,11 @@ export default function FixturesPage() {
                             alt={fixture.teams.away.name}
                             width={32}
                             height={32}
-                            className="object-contain"
+                            className="object-contain pointer-events-none"
                           />
                         </div>
-                      </Link>
+                        </div>
+                      </a>
                     )
                   })}
                 </div>

@@ -7,13 +7,13 @@ import type {
   CreatePostData,
   CreateCommentData,
   PaginatedResponse 
-} from '@/types'
+} from '@/lib/types/community'
 
 export class CommunityService {
   // Boards
   static async getBoards(): Promise<CommunityBoard[]> {
     const { data, error } = await supabase
-      .from('community_boards')
+      .from('boards')
       .select('*')
       .order('member_count', { ascending: false })
 
@@ -24,7 +24,7 @@ export class CommunityService {
 
   static async getBoard(id: string): Promise<CommunityBoard | null> {
     const { data, error } = await supabase
-      .from('community_boards')
+      .from('boards')
       .select('*')
       .eq('id', id)
       .single()
@@ -42,11 +42,11 @@ export class CommunityService {
     category?: string
   ): Promise<PaginatedResponse<CommunityPost>> {
     let query = supabase
-      .from('community_posts')
+      .from('posts')
       .select(`
         *,
         author:profiles(*)
-      `)
+      `, { count: 'exact' })
       .eq('board_id', boardId)
       .order('is_pinned', { ascending: false })
       .order('created_at', { ascending: false })
@@ -60,7 +60,6 @@ export class CommunityService {
 
     const { data, error, count } = await query
       .range(from, to)
-      .select('*', { count: 'exact' })
 
     if (error) throw error
 
@@ -78,7 +77,7 @@ export class CommunityService {
 
   static async getPost(id: string): Promise<CommunityPost | null> {
     const { data, error } = await supabase
-      .from('community_posts')
+      .from('posts')
       .select(`
         *,
         author:profiles(*)
@@ -96,7 +95,7 @@ export class CommunityService {
     if (!user) throw new Error('User not authenticated')
 
     const { data, error } = await supabase
-      .from('community_posts')
+      .from('posts')
       .insert({
         board_id: postData.boardId,
         author_id: user.id,
@@ -119,7 +118,7 @@ export class CommunityService {
 
   static async updatePost(id: string, updates: Partial<CreatePostData>): Promise<CommunityPost> {
     const { data, error } = await supabase
-      .from('community_posts')
+      .from('posts')
       .update({
         ...updates,
         updated_at: new Date().toISOString()
@@ -138,7 +137,7 @@ export class CommunityService {
 
   static async deletePost(id: string): Promise<void> {
     const { error } = await supabase
-      .from('community_posts')
+      .from('posts')
       .delete()
       .eq('id', id)
 
@@ -156,7 +155,7 @@ export class CommunityService {
   // Comments
   static async getComments(postId: string): Promise<CommunityComment[]> {
     const { data, error } = await supabase
-      .from('community_comments')
+      .from('comments')
       .select(`
         *,
         author:profiles(*)
@@ -174,12 +173,12 @@ export class CommunityService {
     if (!user) throw new Error('User not authenticated')
 
     const { data, error } = await supabase
-      .from('community_comments')
+      .from('comments')
       .insert({
         post_id: commentData.postId,
         author_id: user.id,
         content: commentData.content,
-        parent_comment_id: commentData.parentCommentId,
+        parent_id: commentData.parentCommentId,
       })
       .select(`
         *,
@@ -235,7 +234,7 @@ export class CommunityService {
         { 
           event: '*', 
           schema: 'public', 
-          table: 'community_posts',
+          table: 'posts',
           filter: `board_id=eq.${boardId}`
         },
         callback
@@ -250,7 +249,7 @@ export class CommunityService {
         { 
           event: '*', 
           schema: 'public', 
-          table: 'community_comments',
+          table: 'comments',
           filter: `post_id=eq.${postId}`
         },
         callback
@@ -303,7 +302,7 @@ export class CommunityService {
       createdAt: new Date(data.created_at),
       updatedAt: new Date(data.updated_at),
       likeCount: data.like_count,
-      parentCommentId: data.parent_comment_id,
+      parentCommentId: data.parent_id,
     }
   }
 

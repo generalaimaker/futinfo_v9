@@ -131,6 +131,7 @@ class CommunityViewModel: ObservableObject {
     
     init() {
         setupBindings()
+        setupRealtimeBindings()
         loadBoards()
         
         // 리그 팀 확인은 필요할 때만 수행 (주석 처리)
@@ -153,6 +154,22 @@ class CommunityViewModel: ObservableObject {
                 self?.updateMyTeamBoard(user: user)
             }
             .store(in: &cancellables)
+    }
+    
+    private func setupRealtimeBindings() {
+        // Listen for authentication state changes to manage realtime subscriptions
+        NotificationCenter.default.publisher(for: Notification.Name("AuthStateChanged"))
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.handleAuthStateChanged()
+            }
+            .store(in: &cancellables)
+    }
+    
+    private func handleAuthStateChanged() {
+        // Optionally restart realtime subscriptions when auth state changes
+        // This ensures that user-specific realtime features work correctly
+        print("🔄 Authentication state changed - may need to restart realtime subscriptions")
     }
     
     private func processBoards(_ boards: [CommunityBoard]) {
@@ -287,9 +304,80 @@ class PostListViewModel: ObservableObject {
     private var currentPage = 1
     private let pageSize = 20
     private let communityService = SupabaseCommunityService.shared
+    private var cancellables = Set<AnyCancellable>()
     
     init(boardId: String) {
         self.boardId = boardId
+        setupRealtimeBindings()
+    }
+    
+    private func setupRealtimeBindings() {
+        // Listen for new posts
+        NotificationCenter.default.publisher(for: Notification.Name("NewPostReceived"))
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] notification in
+                guard let self = self,
+                      let userInfo = notification.userInfo,
+                      let post = userInfo["post"] as? CommunityPost,
+                      let boardId = userInfo["boardId"] as? String,
+                      boardId == self.boardId else { return }
+                
+                // Add new post to the beginning of the list
+                self.posts.insert(post, at: 0)
+                print("✅ New post added to UI: \(post.title)")
+            }
+            .store(in: &cancellables)
+        
+        // Listen for post updates
+        NotificationCenter.default.publisher(for: Notification.Name("PostUpdated"))
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] notification in
+                guard let self = self,
+                      let userInfo = notification.userInfo,
+                      let postId = userInfo["postId"] as? String,
+                      let boardId = userInfo["boardId"] as? String,
+                      let updates = userInfo["updates"] as? [String: Any],
+                      boardId == self.boardId else { return }
+                
+                // Find and update the post
+                if let index = self.posts.firstIndex(where: { $0.id == postId }) {
+                    var updatedPost = self.posts[index]
+                    
+                    if let likeCount = updates["likeCount"] as? Int {
+                        updatedPost.likeCount = likeCount
+                    }
+                    if let commentCount = updates["commentCount"] as? Int {
+                        updatedPost.commentCount = commentCount
+                    }
+                    if let viewCount = updates["viewCount"] as? Int {
+                        updatedPost.viewCount = viewCount
+                    }
+                    
+                    self.posts[index] = updatedPost
+                    print("✅ Post updated in UI: \(postId)")
+                }
+            }
+            .store(in: &cancellables)
+        
+        // Listen for new comments
+        NotificationCenter.default.publisher(for: Notification.Name("NewCommentReceived"))
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] notification in
+                guard let self = self,
+                      let userInfo = notification.userInfo,
+                      let postId = userInfo["postId"] as? String,
+                      let boardId = userInfo["boardId"] as? String,
+                      boardId == self.boardId else { return }
+                
+                // Find and increment comment count
+                if let index = self.posts.firstIndex(where: { $0.id == postId }) {
+                    var updatedPost = self.posts[index]
+                    updatedPost.commentCount += 1
+                    self.posts[index] = updatedPost
+                    print("✅ Comment count updated in UI for post: \(postId)")
+                }
+            }
+            .store(in: &cancellables)
     }
     
     func loadPosts() {
@@ -337,6 +425,22 @@ class PostListViewModel: ObservableObject {
             }
         }
     }
+    
+    func startRealtimeSubscription() {
+        print("🔄 Starting realtime subscription for board: \(boardId)")
+        communityService.subscribeToBoard(boardId: boardId)
+    }
+    
+    func stopRealtimeSubscription() {
+        print("⏹️ Stopping realtime subscription for board: \(boardId)")
+        communityService.unsubscribeFromBoard()
+    }
+    
+    deinit {
+        print("🗑️ PostListViewModel deinit - cleaning up subscriptions")
+        stopRealtimeSubscription()
+        cancellables.removeAll()
+    }
 }
 
 // 게시글 상세 뷰모델
@@ -351,9 +455,65 @@ class PostDetailViewModel: ObservableObject {
     
     let postId: String
     private let communityService = SupabaseCommunityService.shared
+    private var cancellables = Set<AnyCancellable>()
     
     init(postId: String) {
         self.postId = postId
+        setupRealtimeBindings()
+    }
+    
+    private func setupRealtimeBindings() {
+        // Listen for new comments on this post
+        NotificationCenter.default.publisher(for: Notification.Name("NewCommentReceived"))
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] notification in
+                guard let self = self,
+                      let userInfo = notification.userInfo,
+                      let postId = userInfo["postId"] as? String,
+                      postId == self.postId else { return }
+                
+                // Reload comments when a new comment is received
+                Task {
+                    await self.loadComments()
+                }
+                
+                // Update post comment count
+                if var post = self.post {
+                    post.commentCount += 1
+                    self.post = post
+                }
+                
+                print("✅ New comment notification received for post: \(postId)")
+            }
+            .store(in: &cancellables)
+        
+        // Listen for post updates (like count changes)
+        NotificationCenter.default.publisher(for: Notification.Name("PostUpdated"))
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] notification in
+                guard let self = self,
+                      let userInfo = notification.userInfo,
+                      let postId = userInfo["postId"] as? String,
+                      let updates = userInfo["updates"] as? [String: Any],
+                      postId == self.postId else { return }
+                
+                // Update post counts
+                if var post = self.post {
+                    if let likeCount = updates["likeCount"] as? Int {
+                        post.likeCount = likeCount
+                    }
+                    if let commentCount = updates["commentCount"] as? Int {
+                        post.commentCount = commentCount
+                    }
+                    if let viewCount = updates["viewCount"] as? Int {
+                        post.viewCount = viewCount
+                    }
+                    
+                    self.post = post
+                    print("✅ Post detail updated via realtime: \(postId)")
+                }
+            }
+            .store(in: &cancellables)
     }
     
     func loadPost() {
@@ -443,6 +603,11 @@ class PostDetailViewModel: ObservableObject {
                 }
             }
         }
+    }
+    
+    deinit {
+        print("🗑️ PostDetailViewModel deinit - cleaning up subscriptions")
+        cancellables.removeAll()
     }
 }
 

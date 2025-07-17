@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { CommunityService } from '@/lib/supabase/community'
-import { CommunityBoard } from '@/types'
+import { CommunityBoard } from '@/lib/types/community'
 import { Users, MessageSquare, Loader2 } from 'lucide-react'
 import { formatNumber } from '@/lib/utils'
 

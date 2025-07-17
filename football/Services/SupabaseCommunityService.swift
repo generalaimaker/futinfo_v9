@@ -3,6 +3,81 @@ import Combine
 import Supabase
 import Realtime
 
+// MARK: - Realtime Connection Status
+
+enum RealtimeConnectionStatus {
+    case disconnected
+    case connecting
+    case connected
+    case reconnecting
+    case error(String)
+    
+    var displayText: String {
+        switch self {
+        case .disconnected:
+            return "연결 안됨"
+        case .connecting:
+            return "연결 중..."
+        case .connected:
+            return "실시간 연결됨"
+        case .reconnecting:
+            return "재연결 중..."
+        case .error(let message):
+            return "오류: \(message)"
+        }
+    }
+    
+    var isConnected: Bool {
+        switch self {
+        case .connected:
+            return true
+        default:
+            return false
+        }
+    }
+}
+
+// MARK: - Realtime Health Info
+
+struct RealtimeHealthInfo {
+    let hasActiveChannel: Bool
+    let hasCurrentBoard: Bool
+    let isConnected: Bool
+    let connectionStatus: RealtimeConnectionStatus
+    let currentBoardId: String?
+    let retryCount: Int
+    
+    var isHealthy: Bool {
+        return hasActiveChannel && hasCurrentBoard && isConnected
+    }
+    
+    var diagnosticMessage: String {
+        if isHealthy {
+            return "실시간 연결이 정상적으로 작동 중입니다."
+        }
+        
+        var issues: [String] = []
+        
+        if !hasActiveChannel {
+            issues.append("활성 채널 없음")
+        }
+        
+        if !hasCurrentBoard {
+            issues.append("현재 게시판 없음")
+        }
+        
+        if !isConnected {
+            issues.append("연결 끊김")
+        }
+        
+        if retryCount > 0 {
+            issues.append("재시도 횟수: \(retryCount)")
+        }
+        
+        return "문제: \(issues.joined(separator: ", "))"
+    }
+}
+
 @MainActor
 class SupabaseCommunityService: ObservableObject {
     static let shared = SupabaseCommunityService()
@@ -13,6 +88,7 @@ class SupabaseCommunityService: ObservableObject {
     // @Published var posts: [CommunityPost] = []  // Removed - each PostListViewModel manages its own posts
     @Published var isAuthenticated = false
     @Published var needsProfileSetup = false
+    @Published var realtimeConnectionStatus: RealtimeConnectionStatus = .disconnected
     
     private let supabaseService = SupabaseService.shared
     private var cancellables = Set<AnyCancellable>()
@@ -705,19 +781,31 @@ class SupabaseCommunityService: ObservableObject {
     
     // MARK: - Realtime Subscriptions
     
+    private var subscriptionRetryCount = 0
+    private let maxRetryAttempts = 3
+    private var reconnectionTimer: Timer?
+    
     func subscribeToBoard(boardId: String) {
-        // Temporarily disable realtime to avoid the warning
-        // TODO: Re-enable when Supabase SDK fixes the issue
-        print("⚠️ Realtime temporarily disabled due to SDK issue")
+        Task {
+            await subscribeToBoard(boardId: boardId, retryCount: 0)
+        }
+    }
+    
+    @MainActor
+    private func subscribeToBoard(boardId: String, retryCount: Int) async {
+        // Clean up previous subscription and wait for it to complete
+        await unsubscribeFromBoardAsync()
+        
         currentBoardId = boardId
         
-        /* Original implementation - disabled temporarily
-        Task {
-            // Clean up previous subscription and wait for it to complete
-            await unsubscribeFromBoardAsync()
-            
-            currentBoardId = boardId
-            
+        // Update connection status
+        if retryCount > 0 {
+            realtimeConnectionStatus = .reconnecting
+        } else {
+            realtimeConnectionStatus = .connecting
+        }
+        
+        do {
             // Create a new channel with unique name to avoid conflicts
             let channelName = "board-\(boardId)-\(UUID().uuidString.prefix(8))"
             let channel = supabaseService.client.realtimeV2.channel(channelName)
@@ -744,55 +832,41 @@ class SupabaseCommunityService: ObservableObject {
                             
                             let decoder = JSONDecoder()
                             decoder.keyDecodingStrategy = .convertFromSnakeCase
+                            decoder.dateDecodingStrategy = self.createDateDecodingStrategy()
                             
-                            // Custom date decoding strategy for Supabase timestamps
-                            let dateFormatter = DateFormatter()
-                            dateFormatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSSSSSZ"
-                            dateFormatter.locale = Locale(identifier: "en_US_POSIX")
-                            dateFormatter.timeZone = TimeZone(secondsFromGMT: 0)
+                            let postWithProfile = try decoder.decode(PostWithProfile.self, from: response.data)
                             
-                            decoder.dateDecodingStrategy = .custom { decoder in
-                                let container = try decoder.singleValueContainer()
-                                let dateString = try container.decode(String.self)
-                                
-                                // Try multiple date formats
-                                let formats = [
-                                    "yyyy-MM-dd'T'HH:mm:ss.SSSSSSZ",     // With microseconds and timezone
-                                    "yyyy-MM-dd'T'HH:mm:ss.SSSSSS",      // With microseconds, no timezone
-                                    "yyyy-MM-dd'T'HH:mm:ssZ",            // No microseconds, with timezone
-                                    "yyyy-MM-dd'T'HH:mm:ss",             // Basic ISO8601
-                                    "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'",      // With milliseconds and Z
-                                    "yyyy-MM-dd'T'HH:mm:ss'Z'"           // With Z suffix
-                                ]
-                                
-                                for format in formats {
-                                    dateFormatter.dateFormat = format
-                                    if let date = dateFormatter.date(from: dateString) {
-                                        return date
-                                    }
-                                }
-                                
-                                // If all formats fail, try ISO8601DateFormatter as fallback
-                                let isoFormatter = ISO8601DateFormatter()
-                                isoFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-                                if let date = isoFormatter.date(from: dateString) {
-                                    return date
-                                }
-                                
-                                // Last resort: basic ISO8601
-                                isoFormatter.formatOptions = [.withInternetDateTime]
-                                if let date = isoFormatter.date(from: dateString) {
-                                    return date
-                                }
-                                
-                                throw DecodingError.dataCorruptedError(in: container, debugDescription: "Cannot decode date string \(dateString)")
-                            }
-                            let newPost = try decoder.decode(CommunityPost.self, from: response.data)
+                            // Convert to CommunityPost
+                            let newPost = CommunityPost(
+                                id: postWithProfile.id.uuidString,
+                                boardId: postWithProfile.boardId,
+                                authorId: postWithProfile.authorId.uuidString,
+                                author: postWithProfile.author.map { self.convertToUserProfile($0) },
+                                title: postWithProfile.title,
+                                content: postWithProfile.content,
+                                category: postWithProfile.category,
+                                tags: postWithProfile.tags,
+                                imageUrls: postWithProfile.imageUrls,
+                                createdAt: postWithProfile.createdAt,
+                                updatedAt: postWithProfile.updatedAt,
+                                viewCount: postWithProfile.viewCount,
+                                likeCount: postWithProfile.likeCount,
+                                commentCount: postWithProfile.commentCount,
+                                isPinned: postWithProfile.isPinned,
+                                isNotice: postWithProfile.isNotice
+                            )
                             
-                            // Add to the beginning of posts array
-                            self.posts.insert(newPost, at: 0)
+                            // Notify about new post via NotificationCenter
+                            NotificationCenter.default.post(
+                                name: Notification.Name("NewPostReceived"),
+                                object: nil,
+                                userInfo: ["post": newPost, "boardId": boardId]
+                            )
+                            
+                            print("✅ New post received via realtime: \(newPost.title)")
+                            
                         } catch {
-                            print("Error loading new post: \(error)")
+                            print("❌ Error loading new post: \(error)")
                         }
                     }
                 }
@@ -807,19 +881,48 @@ class SupabaseCommunityService: ObservableObject {
                 Task { @MainActor in
                     guard let self = self else { return }
                     
-                    if let postId = action.record["id"]?.stringValue,
-                       let index = self.posts.firstIndex(where: { $0.id == postId }) {
+                    if let postId = action.record["id"]?.stringValue {
+                        let updateInfo: [String: Any] = [
+                            "postId": postId,
+                            "boardId": boardId,
+                            "updates": [
+                                "likeCount": action.record["like_count"]?.intValue,
+                                "commentCount": action.record["comment_count"]?.intValue,
+                                "viewCount": action.record["view_count"]?.intValue
+                            ].compactMapValues { $0 }
+                        ]
                         
-                        // Update counts
-                        if let likeCount = action.record["like_count"]?.intValue {
-                            self.posts[index].likeCount = likeCount
-                        }
-                        if let commentCount = action.record["comment_count"]?.intValue {
-                            self.posts[index].commentCount = commentCount
-                        }
-                        if let viewCount = action.record["view_count"]?.intValue {
-                            self.posts[index].viewCount = viewCount
-                        }
+                        // Notify about post update via NotificationCenter
+                        NotificationCenter.default.post(
+                            name: Notification.Name("PostUpdated"),
+                            object: nil,
+                            userInfo: updateInfo
+                        )
+                        
+                        print("✅ Post updated via realtime: \(postId)")
+                    }
+                }
+            }
+            
+            // Configure comment changes
+            let commentInsertToken = channel.onPostgresChange(
+                InsertAction.self,
+                schema: "public",
+                table: "comments",
+                filter: "post_id=in.(select id from posts where board_id=eq.\(boardId))"
+            ) { [weak self] action in
+                Task { @MainActor in
+                    guard let self = self else { return }
+                    
+                    if let postId = action.record["post_id"]?.stringValue {
+                        // Notify about new comment
+                        NotificationCenter.default.post(
+                            name: Notification.Name("NewCommentReceived"),
+                            object: nil,
+                            userInfo: ["postId": postId, "boardId": boardId]
+                        )
+                        
+                        print("✅ New comment received via realtime for post: \(postId)")
                     }
                 }
             }
@@ -827,17 +930,115 @@ class SupabaseCommunityService: ObservableObject {
             // Store tokens to prevent them from being deallocated
             _ = insertToken
             _ = updateToken
+            _ = commentInsertToken
             
             // Store the channel reference
             self.realtimeChannel = channel
             
             // Subscribe to the channel after all configurations
-            do {
-                await channel.subscribe()
-                print("✅ Realtime channel subscribed successfully for board: \(boardId)")
+            await channel.subscribe()
+            
+            // Reset retry count on successful subscription
+            self.subscriptionRetryCount = 0
+            
+            // Update connection status to connected
+            realtimeConnectionStatus = .connected
+            
+            print("✅ Realtime channel subscribed successfully for board: \(boardId)")
+            
+        } catch {
+            print("❌ Error subscribing to realtime: \(error)")
+            
+            // Update connection status to error
+            realtimeConnectionStatus = .error(error.localizedDescription)
+            
+            // Implement retry logic
+            if retryCount < maxRetryAttempts {
+                let delay = pow(2.0, Double(retryCount)) // Exponential backoff
+                print("🔄 Retrying realtime subscription in \(delay)s (attempt \(retryCount + 1)/\(maxRetryAttempts))")
+                
+                try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+                await subscribeToBoard(boardId: boardId, retryCount: retryCount + 1)
+            } else {
+                print("❌ Max retry attempts reached for realtime subscription")
+                
+                // Schedule a reconnection timer for later retry
+                scheduleReconnectionTimer(boardId: boardId)
             }
         }
-        */
+    }
+    
+    private func scheduleReconnectionTimer(boardId: String) {
+        reconnectionTimer?.invalidate()
+        reconnectionTimer = Timer.scheduledTimer(withTimeInterval: 30.0, repeats: false) { [weak self] _ in
+            Task { @MainActor in
+                guard let self = self else { return }
+                print("⏰ Attempting to reconnect realtime subscription")
+                await self.subscribeToBoard(boardId: boardId, retryCount: 0)
+            }
+        }
+    }
+    
+    private func createDateDecodingStrategy() -> JSONDecoder.DateDecodingStrategy {
+        return .custom { decoder in
+            let container = try decoder.singleValueContainer()
+            let dateString = try container.decode(String.self)
+            
+            // Try multiple date formats
+            let formats = [
+                "yyyy-MM-dd'T'HH:mm:ss.SSSSSSZ",     // With microseconds and timezone
+                "yyyy-MM-dd'T'HH:mm:ss.SSSSSS",      // With microseconds, no timezone
+                "yyyy-MM-dd'T'HH:mm:ssZ",            // No microseconds, with timezone
+                "yyyy-MM-dd'T'HH:mm:ss",             // Basic ISO8601
+                "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'",      // With milliseconds and Z
+                "yyyy-MM-dd'T'HH:mm:ss'Z'"           // With Z suffix
+            ]
+            
+            let dateFormatter = DateFormatter()
+            dateFormatter.locale = Locale(identifier: "en_US_POSIX")
+            dateFormatter.timeZone = TimeZone(secondsFromGMT: 0)
+            
+            for format in formats {
+                dateFormatter.dateFormat = format
+                if let date = dateFormatter.date(from: dateString) {
+                    return date
+                }
+            }
+            
+            // If all formats fail, try ISO8601DateFormatter as fallback
+            let isoFormatter = ISO8601DateFormatter()
+            isoFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            if let date = isoFormatter.date(from: dateString) {
+                return date
+            }
+            
+            // Last resort: basic ISO8601
+            isoFormatter.formatOptions = [.withInternetDateTime]
+            if let date = isoFormatter.date(from: dateString) {
+                return date
+            }
+            
+            throw DecodingError.dataCorruptedError(in: container, debugDescription: "Cannot decode date string \(dateString)")
+        }
+    }
+    
+    private func convertToUserProfile(_ profile: ProfileWithoutCodingKeys) -> UserProfile {
+        return UserProfile(
+            id: profile.id,
+            userId: profile.userId,
+            nickname: profile.nickname,
+            avatarUrl: profile.avatarUrl,
+            favoriteTeamId: profile.favoriteTeamId,
+            favoriteTeamName: profile.favoriteTeamName,
+            fanTeam: nil,
+            language: profile.language,
+            createdAt: profile.createdAt,
+            updatedAt: profile.updatedAt,
+            joinedAt: profile.createdAt,
+            postCount: nil,
+            commentCount: nil,
+            level: nil
+        )
     }
     
     func unsubscribeFromBoard() {
@@ -846,13 +1047,56 @@ class SupabaseCommunityService: ObservableObject {
         }
     }
     
+    @MainActor
     private func unsubscribeFromBoardAsync() async {
+        // Cancel any pending reconnection timer
+        reconnectionTimer?.invalidate()
+        reconnectionTimer = nil
+        
         if let channel = realtimeChannel {
-            await channel.unsubscribe()
-            await supabaseService.client.realtimeV2.removeChannel(channel)
+            do {
+                print("🔄 Unsubscribing from realtime channel: \(channel.topic)")
+                await channel.unsubscribe()
+                await supabaseService.client.realtimeV2.removeChannel(channel)
+                print("✅ Successfully unsubscribed from realtime channel")
+            } catch {
+                print("⚠️ Error during unsubscription: \(error)")
+            }
         }
+        
         realtimeChannel = nil
         currentBoardId = nil
+        subscriptionRetryCount = 0
+        
+        // Update connection status to disconnected
+        realtimeConnectionStatus = .disconnected
+    }
+    
+    // MARK: - Application Lifecycle Management
+    
+    func handleApplicationDidEnterBackground() {
+        print("📱 Application entered background - pausing realtime subscriptions")
+        Task {
+            await unsubscribeFromBoardAsync()
+        }
+    }
+    
+    func handleApplicationWillEnterForeground() {
+        print("📱 Application entering foreground - resuming realtime subscriptions")
+        if let boardId = currentBoardId {
+            Task {
+                // Wait a bit for the app to fully become active
+                try? await Task.sleep(nanoseconds: 1_000_000_000)
+                await subscribeToBoard(boardId: boardId, retryCount: 0)
+            }
+        }
+    }
+    
+    func handleApplicationWillTerminate() {
+        print("📱 Application will terminate - cleaning up realtime subscriptions")
+        Task {
+            await unsubscribeFromBoardAsync()
+        }
     }
     
     // MARK: - Post Detail
@@ -1001,9 +1245,48 @@ class SupabaseCommunityService: ObservableObject {
         }
     }
     
+    // MARK: - Health Check and Diagnostics
+    
+    func checkRealtimeHealth() -> RealtimeHealthInfo {
+        let hasActiveChannel = realtimeChannel != nil
+        let hasCurrentBoard = currentBoardId != nil
+        let isConnected = realtimeConnectionStatus.isConnected
+        
+        return RealtimeHealthInfo(
+            hasActiveChannel: hasActiveChannel,
+            hasCurrentBoard: hasCurrentBoard,
+            isConnected: isConnected,
+            connectionStatus: realtimeConnectionStatus,
+            currentBoardId: currentBoardId,
+            retryCount: subscriptionRetryCount
+        )
+    }
+    
+    func forceReconnect() {
+        guard let boardId = currentBoardId else {
+            print("⚠️ No current board to reconnect to")
+            return
+        }
+        
+        Task {
+            print("🔄 Force reconnecting to board: \(boardId)")
+            await subscribeToBoard(boardId: boardId, retryCount: 0)
+        }
+    }
+    
     deinit {
-        // Cleanup is handled when the instance is deallocated
-        // The channels will be cleaned up automatically
+        print("🗑️ SupabaseCommunityService deinit - cleaning up resources")
+        
+        // Cancel any pending reconnection timer
+        reconnectionTimer?.invalidate()
+        reconnectionTimer = nil
+        
+        // Cancel all Combine subscriptions
+        cancellables.removeAll()
+        
+        // Note: Cannot call async methods in deinit
+        // The unsubscribeFromBoardAsync should be called before deallocation
+        // This is handled by the application lifecycle methods
     }
 }
 

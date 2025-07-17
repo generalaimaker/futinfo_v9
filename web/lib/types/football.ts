@@ -274,29 +274,7 @@ export interface TransferTeam {
   logo: string
 }
 
-// Helper Constants
-export const SUPPORTED_LEAGUES = {
-  PREMIER_LEAGUE: 39,
-  LA_LIGA: 140,
-  SERIE_A: 135,
-  BUNDESLIGA: 78,
-  CHAMPIONS_LEAGUE: 2,
-  EUROPA_LEAGUE: 3,
-  K_LEAGUE: 292,
-  MLS: 253,
-  J_LEAGUE: 98,
-  EREDIVISIE: 88,
-  PRIMEIRA_LIGA: 94,
-  LIGUE_1: 61,
-  RUSSIAN_PREMIER_LEAGUE: 235,
-  BRAZILIAN_SERIE_A: 71,
-  ARGENTINE_PRIMERA: 128,
-  LIGA_MX: 262,
-  SUPER_LIG: 203,
-  CHINESE_SUPER_LEAGUE: 169,
-  INDIAN_SUPER_LEAGUE: 323,
-  A_LEAGUE: 188
-} as const
+// Helper Constants (이제 아래에 새로운 정의가 있음)
 
 export const getLeagueName = (id: number): string => {
   const leagueNames: Record<number, string> = {
@@ -304,22 +282,23 @@ export const getLeagueName = (id: number): string => {
     [SUPPORTED_LEAGUES.LA_LIGA]: 'La Liga',
     [SUPPORTED_LEAGUES.SERIE_A]: 'Serie A',
     [SUPPORTED_LEAGUES.BUNDESLIGA]: 'Bundesliga',
+    [SUPPORTED_LEAGUES.LIGUE_1]: 'Ligue 1',
+    [SUPPORTED_LEAGUES.K_LEAGUE_1]: 'K League 1',
+    [SUPPORTED_LEAGUES.K_LEAGUE_2]: 'K League 2',
+    [SUPPORTED_LEAGUES.J1_LEAGUE]: 'J1 League',
+    [SUPPORTED_LEAGUES.SAUDI_PRO_LEAGUE]: 'Saudi Pro League',
+    [SUPPORTED_LEAGUES.AFC_CHAMPIONS_LEAGUE]: 'AFC Champions League',
+    [SUPPORTED_LEAGUES.MLS]: 'MLS',
+    [SUPPORTED_LEAGUES.BRAZIL_SERIE_A]: 'Brasileirão Série A',
     [SUPPORTED_LEAGUES.CHAMPIONS_LEAGUE]: 'Champions League',
     [SUPPORTED_LEAGUES.EUROPA_LEAGUE]: 'Europa League',
-    [SUPPORTED_LEAGUES.K_LEAGUE]: 'K League 1',
-    [SUPPORTED_LEAGUES.MLS]: 'MLS',
-    [SUPPORTED_LEAGUES.J_LEAGUE]: 'J1 League',
-    [SUPPORTED_LEAGUES.EREDIVISIE]: 'Eredivisie',
-    [SUPPORTED_LEAGUES.PRIMEIRA_LIGA]: 'Primeira Liga',
-    [SUPPORTED_LEAGUES.LIGUE_1]: 'Ligue 1',
-    [SUPPORTED_LEAGUES.RUSSIAN_PREMIER_LEAGUE]: 'Russian Premier League',
-    [SUPPORTED_LEAGUES.BRAZILIAN_SERIE_A]: 'Brasileirão Série A',
-    [SUPPORTED_LEAGUES.ARGENTINE_PRIMERA]: 'Primera División',
-    [SUPPORTED_LEAGUES.LIGA_MX]: 'Liga MX',
-    [SUPPORTED_LEAGUES.SUPER_LIG]: 'Süper Lig',
-    [SUPPORTED_LEAGUES.CHINESE_SUPER_LEAGUE]: 'Chinese Super League',
-    [SUPPORTED_LEAGUES.INDIAN_SUPER_LEAGUE]: 'Indian Super League',
-    [SUPPORTED_LEAGUES.A_LEAGUE]: 'A-League'
+    [SUPPORTED_LEAGUES.CONFERENCE_LEAGUE]: 'Conference League',
+    [SUPPORTED_LEAGUES.NATIONS_LEAGUE]: 'Nations League',
+    [SUPPORTED_LEAGUES.WORLD_CUP]: 'World Cup',
+    [SUPPORTED_LEAGUES.WORLD_CUP_QUAL_EUROPE]: 'World Cup Qualification - Europe',
+    [SUPPORTED_LEAGUES.WORLD_CUP_QUAL_SOUTH_AMERICA]: 'World Cup Qualification - South America',
+    [SUPPORTED_LEAGUES.WORLD_CUP_QUAL_ASIA]: 'World Cup Qualification - Asia',
+    [SUPPORTED_LEAGUES.CLUB_WORLD_CUP]: 'Club World Cup'
   }
   return leagueNames[id] || '알 수 없는 리그'
 }
@@ -329,10 +308,9 @@ export const getCurrentSeason = (leagueId: number): number => {
   const year = now.getFullYear()
   const month = now.getMonth() + 1
   
-  // K리그, MLS 등은 단일 연도 시즌
-  if ([SUPPORTED_LEAGUES.K_LEAGUE, SUPPORTED_LEAGUES.MLS, SUPPORTED_LEAGUES.J_LEAGUE, 
-       SUPPORTED_LEAGUES.CHINESE_SUPER_LEAGUE, SUPPORTED_LEAGUES.INDIAN_SUPER_LEAGUE, 
-       SUPPORTED_LEAGUES.A_LEAGUE].includes(leagueId)) {
+  // K리그, MLS, J리그 등은 단일 연도 시즌
+  if ([SUPPORTED_LEAGUES.K_LEAGUE_1, SUPPORTED_LEAGUES.K_LEAGUE_2, SUPPORTED_LEAGUES.MLS, 
+       SUPPORTED_LEAGUES.J1_LEAGUE, SUPPORTED_LEAGUES.BRAZIL_SERIE_A].includes(leagueId)) {
     return month <= 2 ? year - 1 : year
   }
   
@@ -380,3 +358,77 @@ export const getStatusDisplay = (status: string, elapsed: number | null): string
     default: return status
   }
 }
+
+// iOS와 동일한 주요 리그 설정
+export const SUPPORTED_LEAGUES = {
+  // 유럽 5대 리그
+  PREMIER_LEAGUE: 39,
+  LA_LIGA: 140,
+  SERIE_A: 135,
+  BUNDESLIGA: 78,
+  LIGUE_1: 61,
+  
+  // 아시아
+  K_LEAGUE_1: 292,
+  K_LEAGUE_2: 293,
+  J1_LEAGUE: 98,
+  SAUDI_PRO_LEAGUE: 307,
+  AFC_CHAMPIONS_LEAGUE: 848,
+  
+  // 아메리카
+  MLS: 253,
+  BRAZIL_SERIE_A: 71,
+  
+  // UEFA 대회
+  CHAMPIONS_LEAGUE: 2,
+  EUROPA_LEAGUE: 3,
+  CONFERENCE_LEAGUE: 4,
+  NATIONS_LEAGUE: 5,
+  
+  // 월드컵
+  WORLD_CUP: 1,
+  WORLD_CUP_QUAL_EUROPE: 32,
+  WORLD_CUP_QUAL_SOUTH_AMERICA: 34,
+  WORLD_CUP_QUAL_ASIA: 29,
+  
+  // 기타
+  CLUB_WORLD_CUP: 15,
+}
+
+// 기본 팔로우 리그 (iOS와 동일)
+export const DEFAULT_LEAGUES = [
+  SUPPORTED_LEAGUES.PREMIER_LEAGUE,
+  SUPPORTED_LEAGUES.LA_LIGA,
+  SUPPORTED_LEAGUES.SERIE_A,
+  SUPPORTED_LEAGUES.BUNDESLIGA,
+  SUPPORTED_LEAGUES.LIGUE_1,
+  SUPPORTED_LEAGUES.K_LEAGUE_1,
+]
+
+// 모든 주요 리그 (날짜별 경기 조회용)
+export const MAIN_LEAGUES = [
+  // 유럽 5대 리그
+  SUPPORTED_LEAGUES.PREMIER_LEAGUE,
+  SUPPORTED_LEAGUES.LA_LIGA,
+  SUPPORTED_LEAGUES.SERIE_A,
+  SUPPORTED_LEAGUES.BUNDESLIGA,
+  SUPPORTED_LEAGUES.LIGUE_1,
+  
+  // 아시아 주요 리그
+  SUPPORTED_LEAGUES.K_LEAGUE_1,
+  SUPPORTED_LEAGUES.J1_LEAGUE,
+  SUPPORTED_LEAGUES.SAUDI_PRO_LEAGUE,
+  
+  // 아메리카
+  SUPPORTED_LEAGUES.MLS,
+  SUPPORTED_LEAGUES.BRAZIL_SERIE_A,
+  
+  // UEFA 대회
+  SUPPORTED_LEAGUES.CHAMPIONS_LEAGUE,
+  SUPPORTED_LEAGUES.EUROPA_LEAGUE,
+  
+  // 월드컵 예선 (현재 진행중인 경우)
+  SUPPORTED_LEAGUES.WORLD_CUP_QUAL_EUROPE,
+  SUPPORTED_LEAGUES.WORLD_CUP_QUAL_SOUTH_AMERICA,
+  SUPPORTED_LEAGUES.WORLD_CUP_QUAL_ASIA,
+]

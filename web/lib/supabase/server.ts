@@ -1,3 +1,5 @@
+// Commented out for now - @supabase/ssr package is not installed
+/*
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import type { Database } from '@/types'
@@ -34,4 +36,10 @@ export function createClient() {
       },
     }
   )
+}
+*/
+
+// Temporary export - remove when @supabase/ssr is installed
+export function createClient() {
+  throw new Error('@supabase/ssr package is not installed')
 }

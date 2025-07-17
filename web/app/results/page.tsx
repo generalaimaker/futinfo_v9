@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { Trophy, ChevronLeft, ChevronRight, Calendar, CheckCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useFixturesByDate } from '@/lib/supabase/football'
-import { formatDate, getStatusDisplay, isFinishedMatch } from '@/lib/types/football'
+import { formatDate, getStatusDisplay, isFinishedMatch, FixturesResponse } from '@/lib/types/football'
 import Link from 'next/link'
 import Image from 'next/image'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -15,7 +15,11 @@ export default function ResultsPage() {
   yesterday.setDate(yesterday.getDate() - 1)
   const [selectedDate, setSelectedDate] = useState(yesterday)
   
-  const { data, isLoading, error } = useFixturesByDate(selectedDate)
+  const { data, isLoading, error } = useFixturesByDate(selectedDate) as { 
+    data: FixturesResponse | undefined; 
+    isLoading: boolean; 
+    error: Error | null 
+  }
   
   // 날짜 변경 핸들러
   const changeDate = (days: number) => {
@@ -187,9 +191,9 @@ export default function ResultsPage() {
                 {/* 경기 결과 목록 */}
                 <div className="divide-y">
                   {fixtures.map((fixture) => {
-                    const homeWin = (fixture.goals.home ?? 0) > (fixture.goals.away ?? 0)
-                    const awayWin = (fixture.goals.away ?? 0) > (fixture.goals.home ?? 0)
-                    const draw = (fixture.goals.home ?? 0) === (fixture.goals.away ?? 0)
+                    const homeWin = (fixture.goals?.home ?? 0) > (fixture.goals?.away ?? 0)
+                    const awayWin = (fixture.goals?.away ?? 0) > (fixture.goals?.home ?? 0)
+                    const draw = (fixture.goals?.home ?? 0) === (fixture.goals?.away ?? 0)
                     
                     return (
                       <Link
@@ -215,11 +219,11 @@ export default function ResultsPage() {
                         <div className="px-4 text-center min-w-[120px]">
                           <div className="text-2xl font-bold">
                             <span className={homeWin ? 'text-blue-600' : draw ? '' : 'text-gray-500'}>
-                              {fixture.goals.home ?? 0}
+                              {fixture.goals?.home ?? 0}
                             </span>
                             <span className="mx-2">-</span>
                             <span className={awayWin ? 'text-blue-600' : draw ? '' : 'text-gray-500'}>
-                              {fixture.goals.away ?? 0}
+                              {fixture.goals?.away ?? 0}
                             </span>
                           </div>
                           <div className="text-xs text-gray-500 mt-1">

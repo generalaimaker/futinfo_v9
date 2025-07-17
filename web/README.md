@@ -1,14 +1,33 @@
-# FutInfo Web - 축구 커뮤니티 웹 플랫폼
+# FutInfo Web - 축구 정보 & 커뮤니티 웹 플랫폼
 
-FutInfo의 웹 버전으로, iOS/Android 앱과 완벽하게 동기화되는 축구 커뮤니티 플랫폼입니다.
+FutInfo의 웹 버전으로, iOS/Android 앱과 완벽하게 동기화되는 축구 정보 및 커뮤니티 플랫폼입니다.
 
 ## 🌟 주요 기능
 
-- **실시간 동기화**: iOS/Android 앱과 실시간으로 동기화되는 커뮤니티
-- **팀별 게시판**: 좋아하는 축구팀별 전용 커뮤니티 공간
-- **반응형 디자인**: 모든 디바이스에서 최적화된 사용자 경험
-- **실시간 알림**: Supabase Realtime을 통한 즉시 업데이트
-- **SEO 최적화**: Next.js App Router를 통한 뛰어난 검색엔진 최적화
+### 축구 정보
+- **📅 경기 일정**: 실시간 경기 일정 및 결과 (20개 주요 리그)
+- **🏆 리그 순위**: 각 리그별 실시간 순위표
+- **👥 팀 프로필**: 팀 정보, 스쿼드, 통계, 경기장 정보
+- **⚽ 선수 프로필**: 선수 통계, 경력, 시즌별 기록
+- **🔍 검색 기능**: 팀과 선수 통합 검색
+
+### 커뮤니티
+- **💬 팀별 게시판**: 좋아하는 축구팀별 전용 커뮤니티 공간
+- **🔄 실시간 동기화**: iOS/Android 앱과 실시간으로 동기화
+- **🔔 실시간 알림**: Supabase Realtime을 통한 즉시 업데이트
+
+### 지원 리그 (MLS, K리그 포함)
+- 🏴󐁧󐁢󐁥󐁮󐁧󐁿 Premier League
+- 🇪🇸 La Liga
+- 🇮🇹 Serie A
+- 🇩🇪 Bundesliga
+- 🇫🇷 Ligue 1
+- 🇰🇷 K League 1
+- 🇺🇸 MLS
+- 🇯🇵 J1 League
+- 🏆 Champions League
+- 🏆 Europa League
+- 외 10개 주요 리그
 
 ## 🛠️ 기술 스택
 
@@ -24,40 +43,49 @@ FutInfo의 웹 버전으로, iOS/Android 앱과 완벽하게 동기화되는 축
 
 ```bash
 npm install
-# or
-yarn install
-# or
-pnpm install
 ```
 
 ### 2. 환경 변수 설정
 
-`.env.example`을 복사하여 `.env.local` 파일을 생성하고 설정:
-
-```bash
-cp .env.example .env.local
-```
+`.env.local` 파일이 이미 설정되어 있습니다:
 
 ```env
-# Supabase Configuration
-NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
-
-# Site Configuration
-NEXT_PUBLIC_SITE_URL=http://localhost:3000
+NEXT_PUBLIC_SUPABASE_URL=https://uutmymaxkkytibuiiaax.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 ```
 
-### 3. 개발 서버 실행
+### 3. API 설정 (중요!)
+
+축구 데이터를 표시하려면 Edge Functions 배포가 필요합니다:
+
+#### Supabase CLI 설치
+```bash
+brew install supabase/tap/supabase
+```
+
+#### 프로젝트 연결 및 Edge Function 배포
+```bash
+supabase login
+supabase link --project-ref uutmymaxkkytibuiiaax
+supabase functions deploy unified-football-api
+```
+
+#### API 키 설정 (Supabase Dashboard)
+1. [Supabase Dashboard](https://app.supabase.com) 접속
+2. Edge Functions > Settings
+3. 환경 변수 추가:
+   - `FOOTBALL_API_KEY`: [RapidAPI](https://rapidapi.com/api-sports/api/api-football)에서 발급
+   - `FOOTBALL_API_HOST`: `api-football-v1.p.rapidapi.com`
+
+### 4. 개발 서버 실행
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
 ```
 
 [http://localhost:3000](http://localhost:3000)에서 확인할 수 있습니다.
+
+> ⚠️ **참고**: API 키가 설정되지 않으면 개발 환경에서는 자동으로 mock 데이터가 표시됩니다.
 
 ## 📁 프로젝트 구조
 

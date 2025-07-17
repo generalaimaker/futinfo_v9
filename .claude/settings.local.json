@@ -63,7 +63,21 @@
       "Bash(git commit:*)",
       "Bash(git push:*)",
       "Bash(sudo chown:*)",
-      "Bash(# 중요한 최신 문서들을 docs 폴더로 이동\nmv CROSS_PLATFORM_ARCHITECTURE.md docs/ARCHITECTURE.md\nmv SUPABASE_SETUP_GUIDE.md docs/SUPABASE_SETUP.md\nmv WEB_PLATFORM_COMPLETE.md docs/WEB_PLATFORM.md\nmv WEB_COMMUNITY_ARCHITECTURE.md docs/\n\n# 나머지 과거 작업 문서들을 archive로 이동\nmv *.md docs/archive/ 2>/dev/null || true)"
+      "Bash(# 중요한 최신 문서들을 docs 폴더로 이동\nmv CROSS_PLATFORM_ARCHITECTURE.md docs/ARCHITECTURE.md\nmv SUPABASE_SETUP_GUIDE.md docs/SUPABASE_SETUP.md\nmv WEB_PLATFORM_COMPLETE.md docs/WEB_PLATFORM.md\nmv WEB_COMMUNITY_ARCHITECTURE.md docs/\n\n# 나머지 과거 작업 문서들을 archive로 이동\nmv *.md docs/archive/ 2>/dev/null || true)",
+      "Bash(npm run dev:*)",
+      "Bash(npm cache clean:*)",
+      "Bash(pkill:*)",
+      "Bash(npm run build:*)",
+      "Bash(brew install:*)",
+      "mcp__filesystem__directory_tree",
+      "Bash(ngrok config:*)",
+      "Bash(open http://localhost:3000)",
+      "Bash(kill:*)",
+      "Bash(ngrok http:*)",
+      "mcp__filesystem__create_directory",
+      "mcp__filesystem__write_file",
+      "Bash(node_modules/.bin/next dev:*)",
+      "Bash(yarn install)"
     ],
     "deny": []
   }
