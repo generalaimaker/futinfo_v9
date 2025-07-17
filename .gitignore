@@ -158,3 +158,21 @@ claude_desktop_config.json
 
 # Build artifacts
 *.map
+
+# Project specific
+/tmp/
+*.bak
+*.backup
+nohup.out
+
+# Log files
+/logs/
+*.log.*
+
+# Test files
+/test-*.html
+/test-*.json
+
+# Temporary ngrok files
+/ngrok.log
+/nextjs.log
