@@ -33,6 +33,7 @@ import com.hyunwoopark.futinfo.domain.model.PostCategory
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CommunityScreen(
+    onNavigateToBoardList: () -> Unit,
     viewModel: CommunityViewModel = hiltViewModel()
 ) {
     val state by viewModel.state
@@ -53,7 +54,8 @@ fun CommunityScreen(
                     Text(
                         text = "커뮤니티",
                         style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.clickable { onNavigateToBoardList() }
                     )
                 },
                 actions = {
@@ -269,7 +271,7 @@ private fun PostItem(post: Post) {
                             modifier = Modifier.size(16.dp)
                         )
                         Text(
-                            text = post.likes.toString(),
+                            text = post.likeCount.toString(),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -287,7 +289,7 @@ private fun PostItem(post: Post) {
                             modifier = Modifier.size(16.dp)
                         )
                         Text(
-                            text = post.comments.toString(),
+                            text = post.commentCount.toString(),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -379,5 +381,9 @@ private fun getCategoryColor(category: PostCategory): Color {
         PostCategory.DISCUSSION -> Color(0xFF3B82F6)
         PostCategory.QUESTION -> Color(0xFF10B981)
         PostCategory.NEWS -> Color(0xFFEF4444)
+        PostCategory.MATCH -> Color(0xFF2196F3)
+        PostCategory.TRANSFER -> Color(0xFFFF9800)
+        PostCategory.TALK -> Color(0xFF9C27B0)
+        PostCategory.MEDIA -> Color(0xFFE91E63)
     }
 }

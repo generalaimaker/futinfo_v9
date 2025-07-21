@@ -31,6 +31,8 @@ import com.hyunwoopark.futinfo.presentation.navigation.NavGraph
 import com.hyunwoopark.futinfo.presentation.navigation.Screen
 import com.hyunwoopark.futinfo.presentation.navigation.bottomNavItems
 import dagger.hilt.android.AndroidEntryPoint
+import io.github.jan.supabase.SupabaseClient
+import io.github.jan.supabase.gotrue.auth
 import java.util.Locale
 import javax.inject.Inject
 
@@ -44,6 +46,9 @@ class MainActivity : ComponentActivity() {
     
     @Inject
     lateinit var getLanguageUseCase: GetLanguageUseCase
+    
+    @Inject
+    lateinit var supabaseClient: SupabaseClient
     
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -61,7 +66,7 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    FutInfoApp()
+                    FutInfoApp(supabaseClient = supabaseClient)
                 }
             }
         }
@@ -85,15 +90,22 @@ class MainActivity : ComponentActivity() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun FutInfoApp() {
+fun FutInfoApp(supabaseClient: SupabaseClient) {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
+    
+    // 인증 상태 확인
+    val isAuthenticated = supabaseClient.auth.currentUserOrNull() != null
     
     // 하단 네비게이션 바를 표시할 화면들
     val bottomNavRoutes = bottomNavItems.map { it.route }
     val showBottomBar = currentRoute in bottomNavRoutes
     val showTopBar = currentRoute in bottomNavRoutes && currentRoute != Screen.Search.route && currentRoute != Screen.FixturesOverview.route
+    
+    // 인증 화면에서는 상단/하단 바 숨기기
+    val authRoutes = listOf(Screen.Login.route, Screen.Signup.route, Screen.ProfileSetup.route)
+    val hideSystemBars = currentRoute in authRoutes
     
     // 현재 화면의 타이틀 가져오기
     val currentTitle = when (currentRoute) {
@@ -107,7 +119,7 @@ fun FutInfoApp() {
     
     Scaffold(
         topBar = {
-            if (showTopBar) {
+            if (showTopBar && !hideSystemBars) {
                 TopAppBar(
                     title = { Text(text = currentTitle) },
                     actions = {
@@ -127,7 +139,7 @@ fun FutInfoApp() {
             }
         },
         bottomBar = {
-            if (showBottomBar) {
+            if (showBottomBar && !hideSystemBars) {
                 BottomNavigationBar(
                     navController = navController,
                     items = bottomNavItems
@@ -137,8 +149,9 @@ fun FutInfoApp() {
     ) { paddingValues ->
         NavGraph(
             navController = navController,
-            startDestination = Screen.FixturesOverview.route,  // iOS 앱과 동일하게 "일정" 탭을 기본으로 설정
-            paddingValues = paddingValues
+            startDestination = if (isAuthenticated) Screen.FixturesOverview.route else Screen.Login.route,
+            paddingValues = paddingValues,
+            supabaseClient = supabaseClient
         )
     }
 }
@@ -150,10 +163,3 @@ fun FutInfoTheme(content: @Composable () -> Unit) {
     )
 }
 
-@Preview(showBackground = true)
-@Composable
-fun FutInfoAppPreview() {
-    FutInfoTheme {
-        FutInfoApp()
-    }
-}

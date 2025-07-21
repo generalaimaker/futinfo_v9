@@ -12,7 +12,7 @@ import { Search, ChevronLeft, Users, User, Loader2 } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import footballAPIService from '@/lib/supabase/football'
 import { Skeleton } from '@/components/ui/skeleton'
-// Custom debounce implementation
+import { convertKoreanToEnglish, isKoreanQuery } from '@/lib/utils/korean-search-mapping'
 
 export default function SearchPage() {
   const [searchQuery, setSearchQuery] = useState('')
@@ -38,18 +38,63 @@ export default function SearchPage() {
     }
   }, [searchQuery, debouncedSearch])
 
+  // 한국어 검색어 처리
+  const searchQueries = debouncedQuery.length >= 2 
+    ? [debouncedQuery, ...(isKoreanQuery(debouncedQuery) ? convertKoreanToEnglish(debouncedQuery) : [])]
+    : []
+
   // 팀 검색
   const { data: teamsData, isLoading: teamsLoading } = useQuery({
-    queryKey: ['searchTeams', debouncedQuery],
-    queryFn: () => footballAPIService.searchTeams(debouncedQuery),
-    enabled: debouncedQuery.length >= 2
+    queryKey: ['searchTeams', searchQueries],
+    queryFn: async () => {
+      const results: any[] = []
+      const seenIds = new Set<number>()
+      
+      for (const query of searchQueries) {
+        try {
+          const data = await footballAPIService.searchTeams(query)
+          // 중복 제거
+          data.forEach((team: any) => {
+            if (!seenIds.has(team.team.id)) {
+              seenIds.add(team.team.id)
+              results.push(team)
+            }
+          })
+        } catch (error) {
+          console.error('Team search error:', error)
+        }
+      }
+      
+      return results
+    },
+    enabled: searchQueries.length > 0
   })
 
   // 선수 검색
   const { data: playersData, isLoading: playersLoading } = useQuery({
-    queryKey: ['searchPlayers', debouncedQuery],
-    queryFn: () => footballAPIService.searchPlayers(debouncedQuery),
-    enabled: debouncedQuery.length >= 2
+    queryKey: ['searchPlayers', searchQueries],
+    queryFn: async () => {
+      const results: any[] = []
+      const seenIds = new Set<number>()
+      
+      for (const query of searchQueries) {
+        try {
+          const data = await footballAPIService.searchPlayers(query)
+          // 중복 제거
+          data.forEach((player: any) => {
+            if (!seenIds.has(player.player.id)) {
+              seenIds.add(player.player.id)
+              results.push(player)
+            }
+          })
+        } catch (error) {
+          console.error('Player search error:', error)
+        }
+      }
+      
+      return results
+    },
+    enabled: searchQueries.length > 0
   })
 
   const isSearching = debouncedQuery.length >= 2 && (teamsLoading || playersLoading)
@@ -82,7 +127,7 @@ export default function SearchPage() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
             <Input
               type="text"
-              placeholder="팀 또는 선수 이름으로 검색..."
+              placeholder="팀 또는 선수 이름으로 검색... (한글/영문)"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-10 text-lg"
@@ -93,8 +138,13 @@ export default function SearchPage() {
             )}
           </div>
           <p className="text-sm text-gray-500 mt-2">
-            최소 2글자 이상 입력하세요
+            최소 2글자 이상 입력하세요 • 한국어 검색 지원 (예: 맨유, 손흥민)
           </p>
+          {debouncedQuery && isKoreanQuery(debouncedQuery) && (
+            <p className="text-sm text-blue-600 mt-1">
+              한국어 검색 활성화 - 영문으로도 검색 중...
+            </p>
+          )}
         </div>
 
         {/* 검색 결과 */}

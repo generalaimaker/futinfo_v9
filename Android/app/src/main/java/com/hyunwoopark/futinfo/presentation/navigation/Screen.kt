@@ -4,11 +4,31 @@ package com.hyunwoopark.futinfo.presentation.navigation
  * 앱의 모든 화면 경로를 정의하는 sealed class
  */
 sealed class Screen(val route: String) {
+    // 인증 관련
+    object Login : Screen("login")
+    object Signup : Screen("signup")
+    object ProfileSetup : Screen("profile/setup")
+    
+    // 메인 탭
     object Community : Screen("community")
     object Leagues : Screen("leagues")
     object FixturesOverview : Screen("fixtures_overview")
     object News : Screen("news")
     object Settings : Screen("settings")
+    
+    // 커뮤니티 관련
+    object BoardList : Screen("community/boards")
+    object BoardDetail : Screen("community/board/{boardId}") {
+        fun createRoute(boardId: String) = "community/board/$boardId"
+    }
+    object PostDetail : Screen("community/post/{postId}") {
+        fun createRoute(postId: String) = "community/post/$postId"
+    }
+    object CreatePost : Screen("community/board/{boardId}/write") {
+        fun createRoute(boardId: String) = "community/board/$boardId/write"
+    }
+    
+    // 기존 화면들
     object Fixtures : Screen("fixtures")
     object TeamProfile : Screen("team_profile")
     object FixtureDetail : Screen("fixture_detail")

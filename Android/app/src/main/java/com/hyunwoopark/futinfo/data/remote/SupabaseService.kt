@@ -1,20 +1,24 @@
 package com.hyunwoopark.futinfo.data.remote
 
 import io.github.jan.supabase.SupabaseClient
-import io.github.jan.supabase.auth.Auth
-import io.github.jan.supabase.auth.auth
-import io.github.jan.supabase.auth.providers.builtin.Email
+import io.github.jan.supabase.gotrue.Auth
+import io.github.jan.supabase.gotrue.auth
+import io.github.jan.supabase.gotrue.providers.builtin.Email
 import io.github.jan.supabase.createSupabaseClient
 import io.github.jan.supabase.functions.Functions
 import io.github.jan.supabase.functions.functions
 import io.github.jan.supabase.postgrest.Postgrest
 import io.github.jan.supabase.postgrest.from
 import io.github.jan.supabase.postgrest.query.Columns
+import io.github.jan.supabase.postgrest.query.Order
+import io.ktor.client.statement.bodyAsText
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.datetime.Instant
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
@@ -125,7 +129,7 @@ class SupabaseService @Inject constructor() {
                         boardId?.let { eq("board_id", it) }
                         category?.takeIf { it != "all" }?.let { eq("category", it) }
                     }
-                    order("created_at", ascending = false)
+                    order("created_at", order = Order.DESCENDING)
                     limit(limit.toLong())
                     range(offset.toLong(), (offset + limit - 1).toLong())
                 }
@@ -153,12 +157,12 @@ class SupabaseService @Inject constructor() {
                 put("title", title)
                 put("content", content)
                 put("category", category)
-                put("tags", Json.encodeToJsonElement(List.serializer(String.serializer()), tags))
-                put("imageUrls", Json.encodeToJsonElement(List.serializer(String.serializer()), imageUrls))
+                put("tags", Json.encodeToJsonElement(ListSerializer(String.serializer()), tags))
+                put("imageUrls", Json.encodeToJsonElement(ListSerializer(String.serializer()), imageUrls))
             }
         )
         
-        return Json.decodeFromString(CreatePostResponse.serializer(), response.data).data
+        return Json.decodeFromString<CreatePostResponse>(response.bodyAsText()).data
     }
     
     suspend fun toggleLike(targetType: String, targetId: String): Boolean {
@@ -173,7 +177,7 @@ class SupabaseService @Inject constructor() {
             }
         )
         
-        return Json.decodeFromString(LikeResponse.serializer(), response.data).liked
+        return Json.decodeFromString<LikeResponse>(response.bodyAsText()).liked
     }
     
     // Follow Management

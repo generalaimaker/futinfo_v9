@@ -1,6 +1,8 @@
 package com.hyunwoopark.futinfo.di
 
+import com.hyunwoopark.futinfo.data.repository.AuthRepositoryImpl
 import com.hyunwoopark.futinfo.data.repository.FootballRepositoryImpl
+import com.hyunwoopark.futinfo.domain.repository.AuthRepository
 import com.hyunwoopark.futinfo.domain.repository.FootballRepository
 import dagger.Binds
 import dagger.Module
@@ -27,4 +29,16 @@ abstract class RepositoryModule {
     abstract fun bindFootballRepository(
         footballRepositoryImpl: FootballRepositoryImpl
     ): FootballRepository
+    
+    /**
+     * AuthRepositoryImpl을 AuthRepository 인터페이스에 바인딩합니다.
+     * 
+     * @param authRepositoryImpl AuthRepository의 구현체
+     * @return AuthRepository 인터페이스
+     */
+    @Binds
+    @Singleton
+    abstract fun bindAuthRepository(
+        authRepositoryImpl: AuthRepositoryImpl
+    ): AuthRepository
 }

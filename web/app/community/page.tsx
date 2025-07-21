@@ -15,6 +15,9 @@ import { CommunityService } from '@/lib/supabase/community'
 import { CommunityBoard } from '@/lib/types/community'
 import { useSupabase } from '@/lib/supabase/provider'
 import { BoardList } from '@/components/community/board-list'
+import { RecentPosts } from '@/components/community/recent-posts'
+import { useTeamProfile, useTeamNextFixtures, useTeamLastFixtures } from '@/lib/supabase/football'
+import { getCurrentSeason } from '@/lib/types/football'
 
 const popularTeams = [
   { id: 33, name: 'Man United', logo: 'https://media.api-sports.io/football/teams/33.png', memberCount: '2.3K' },
@@ -27,7 +30,110 @@ const popularTeams = [
 export default function CommunityPage() {
   const router = useRouter()
   const { user } = useSupabase()
-  const [isLoading, setIsLoading] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
+  const [userProfile, setUserProfile] = useState<any>(null)
+  
+  // 팀 슬로건 가져오기 함수
+  const getTeamSlogan = (teamId: number) => {
+    const teamSlogans: { [key: number]: string } = {
+      // Premier League
+      33: 'Glory Glory Man United',
+      40: "You'll Never Walk Alone",
+      50: 'Pride in Battle',
+      42: 'Victoria Concordia Crescit',
+      47: 'To Dare Is To Do',
+      49: 'Pride of London',
+      35: 'Foxes Never Quit',
+      48: "I'm Forever Blowing Bubbles",
+      39: 'Howay The Lads',
+      45: 'Nil Satis Nisi Optimum',
+      66: 'Prepared',
+      
+      // La Liga
+      529: 'Més que un club',
+      541: '¡Hala Madrid!',
+      530: 'Nunca dejes de creer',
+      532: 'Amunt Valencia',
+      531: 'Con cantera y afición, no hace falta importación',
+      533: 'Nunca se rinde',
+      
+      // Bundesliga
+      157: 'Mia san mia',
+      165: 'Echte Liebe',
+      169: 'Die Roten Bullen',
+      172: 'Furchtlos und treu',
+      168: 'Werkself',
+      
+      // Serie A
+      489: 'Sempre Milan',
+      492: 'Brothers of the World',
+      496: 'Fino alla fine',
+      497: 'Roma non si discute, si ama',
+      487: 'Noi non siamo da meno a nessuno',
+      499: 'Un giorno all\'improvviso',
+      
+      // Ligue 1
+      85: 'Ici c\'est Paris',
+      91: 'Daghe Munegu',
+      
+      // Other European Leagues
+      212: 'Wij zijn Ajax',
+      215: 'Há só um Porto',
+      228: 'E pluribus unum',
+      548: "You'll Never Walk Alone",
+      247: 'Ready',
+    }
+    return teamSlogans[teamId] || `우리는 팀 ${teamId}!`
+  }
+  
+  // 사용자 팀 정보 가져오기
+  const { data: teamProfile } = useTeamProfile(
+    userProfile?.favoriteTeamId || 0, 
+    { enabled: !!userProfile?.favoriteTeamId }
+  )
+  const { data: nextFixtures } = useTeamNextFixtures(
+    userProfile?.favoriteTeamId || 0,
+    { enabled: !!userProfile?.favoriteTeamId }
+  )
+  const { data: lastFixtures } = useTeamLastFixtures(
+    userProfile?.favoriteTeamId || 0,
+    { enabled: !!userProfile?.favoriteTeamId }
+  )
+
+  useEffect(() => {
+    if (user) {
+      checkUserProfile()
+    } else {
+      setIsLoading(false)
+    }
+  }, [user])
+
+  const checkUserProfile = async () => {
+    try {
+      const profile = await CommunityService.getCurrentUserProfile()
+      if (!profile || !profile.nickname) {
+        // 프로필이 없거나 닉네임이 설정되지 않은 경우
+        router.push('/profile/setup')
+      } else {
+        setUserProfile(profile)
+      }
+    } catch (error) {
+      console.error('Error checking profile:', error)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto mb-4"></div>
+          <p className="text-gray-500">로딩 중...</p>
+        </div>
+      </div>
+    )
+  }
 
   if (!user) {
     return (
@@ -153,6 +259,157 @@ export default function CommunityPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="container mx-auto px-4 py-8">
+        {/* 팬 팀 히어로 섹션 */}
+        {userProfile?.favoriteTeamId && (
+          <div className="mb-8 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-2xl shadow-2xl overflow-hidden">
+            <div className="p-8">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center space-x-6">
+                  <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center shadow-xl">
+                    {teamProfile?.team?.logo ? (
+                      <img 
+                        src={teamProfile.team.logo}
+                        alt={teamProfile.team.name}
+                        className="w-16 h-16 object-contain"
+                      />
+                    ) : (
+                      <img 
+                        src={`https://media.api-sports.io/football/teams/${userProfile.favoriteTeamId}.png`}
+                        alt={userProfile.favoriteTeamName}
+                        className="w-16 h-16 object-contain"
+                      />
+                    )}
+                  </div>
+                  <div>
+                    <div className="flex items-center space-x-3 mb-2">
+                      <h1 className="text-3xl font-bold">
+                        {teamProfile?.team?.name || userProfile.favoriteTeamName} 락커룸
+                      </h1>
+                      <Badge className="bg-red-500 text-white border-none">
+                        <Heart className="w-4 h-4 mr-1 fill-current" />
+                        MY TEAM
+                      </Badge>
+                    </div>
+                    <p className="text-blue-100 mb-2">
+                      {teamProfile?.team?.country && teamProfile?.team?.founded ? (
+                        `${teamProfile.team.country} • 창단 ${teamProfile.team.founded}년`
+                      ) : (
+                        '당신이 응원하는 팀'
+                      )}
+                    </p>
+                    <div className="mb-3">
+                      <p className="text-yellow-300 font-bold text-base italic">
+                        "{teamProfile?.team?.slogan || getTeamSlogan(userProfile.favoriteTeamId)}"
+                      </p>
+                    </div>
+                    <p className="text-sm text-blue-100">
+                      {teamProfile?.team?.name || userProfile.favoriteTeamName} 팬들의 전용 락커룸에 오신 것을 환영합니다!
+                    </p>
+                  </div>
+                </div>
+                <Link href={`/community/boards/team_${userProfile.favoriteTeamId}`}>
+                  <Button size="lg" className="bg-white text-blue-600 hover:bg-blue-50 shadow-lg">
+                    팬 게시판 입장
+                    <ArrowRight className="ml-2 h-5 w-5" />
+                  </Button>
+                </Link>
+              </div>
+              
+              {/* 팀 최근 경기 및 다음 경기 미리보기 */}
+              <div className="grid md:grid-cols-2 gap-6">
+                {/* 최근 경기 */}
+                {lastFixtures && lastFixtures.response && lastFixtures.response.length > 0 && (
+                  <div className="bg-white/10 rounded-xl p-4">
+                    <h3 className="font-semibold mb-3 flex items-center space-x-2">
+                      <Trophy className="h-5 w-5" />
+                      <span>최근 경기</span>
+                    </h3>
+                    <div className="space-y-2">
+                      {lastFixtures.response.slice(0, 2).map((fixture: any) => (
+                        <Link 
+                          key={fixture.fixture.id} 
+                          href={`/fixtures/${fixture.fixture.id}`}
+                          className="block"
+                        >
+                          <div className="flex items-center justify-between bg-white/10 rounded-lg p-2 hover:bg-white/20 transition-colors cursor-pointer">
+                            <div className="flex items-center space-x-2">
+                              <Image
+                                src={fixture.teams.home.logo}
+                                alt={fixture.teams.home.name}
+                                width={20}
+                                height={20}
+                              />
+                              <span className="text-sm">{fixture.teams.home.name}</span>
+                            </div>
+                            <div className="text-sm font-bold">
+                              {fixture.goals.home} - {fixture.goals.away}
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <span className="text-sm">{fixture.teams.away.name}</span>
+                              <Image
+                                src={fixture.teams.away.logo}
+                                alt={fixture.teams.away.name}
+                                width={20}
+                                height={20}
+                              />
+                            </div>
+                          </div>
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                {/* 다음 경기 */}
+                {nextFixtures && nextFixtures.response && nextFixtures.response.length > 0 && (
+                  <div className="bg-white/10 rounded-xl p-4">
+                    <h3 className="font-semibold mb-3 flex items-center space-x-2">
+                      <Zap className="h-5 w-5" />
+                      <span>다음 경기</span>
+                    </h3>
+                    <div className="space-y-2">
+                      {nextFixtures.response.slice(0, 2).map((fixture: any) => (
+                        <Link 
+                          key={fixture.fixture.id} 
+                          href={`/fixtures/${fixture.fixture.id}`}
+                          className="block"
+                        >
+                          <div className="flex items-center justify-between bg-white/10 rounded-lg p-2 hover:bg-white/20 transition-colors cursor-pointer">
+                            <div className="flex items-center space-x-2">
+                              <Image
+                                src={fixture.teams.home.logo}
+                                alt={fixture.teams.home.name}
+                                width={20}
+                                height={20}
+                              />
+                              <span className="text-sm">{fixture.teams.home.name}</span>
+                            </div>
+                            <div className="text-sm">
+                              {new Date(fixture.fixture.date).toLocaleDateString('ko-KR', { 
+                                month: 'short', 
+                                day: 'numeric' 
+                              })}
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <span className="text-sm">{fixture.teams.away.name}</span>
+                              <Image
+                                src={fixture.teams.away.logo}
+                                alt={fixture.teams.away.name}
+                                width={20}
+                                height={20}
+                              />
+                            </div>
+                          </div>
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* 헤더 */}
         <div className="mb-8">
           <div className="flex items-center justify-between mb-4">
@@ -219,6 +476,9 @@ export default function CommunityPage() {
           </div>
         </div>
 
+        {/* 최신 게시글 */}
+        <RecentPosts />
+        
         {/* 게시판 목록 */}
         <BoardList />
       </div>

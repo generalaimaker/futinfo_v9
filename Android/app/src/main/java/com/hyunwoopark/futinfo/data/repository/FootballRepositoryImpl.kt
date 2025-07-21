@@ -37,6 +37,8 @@ import com.hyunwoopark.futinfo.domain.model.NewsCategory
 import com.hyunwoopark.futinfo.domain.model.NewsImportance
 import com.hyunwoopark.futinfo.domain.model.NewsCredibility
 import com.hyunwoopark.futinfo.domain.model.NewsInterestLevel
+import com.hyunwoopark.futinfo.domain.model.Board
+import com.hyunwoopark.futinfo.domain.model.UserProfile
 import com.hyunwoopark.futinfo.domain.model.PlayerProfile
 import com.hyunwoopark.futinfo.domain.model.PlayerInfo
 import com.hyunwoopark.futinfo.domain.model.PlayerBirth
@@ -60,6 +62,14 @@ import com.hyunwoopark.futinfo.domain.model.TransferStatus
 import com.hyunwoopark.futinfo.domain.model.Post
 import com.hyunwoopark.futinfo.domain.model.PostCategory
 import com.hyunwoopark.futinfo.data.remote.dto.PostDto
+import com.hyunwoopark.futinfo.data.remote.dto.BoardDto
+import com.hyunwoopark.futinfo.data.remote.dto.toBoard
+import com.hyunwoopark.futinfo.data.remote.dto.toPost
+import com.hyunwoopark.futinfo.data.remote.dto.CommentDto
+import com.hyunwoopark.futinfo.data.remote.dto.toComment
+import com.hyunwoopark.futinfo.data.remote.dto.UserProfileDto
+import com.hyunwoopark.futinfo.data.remote.dto.toUserProfile
+import com.hyunwoopark.futinfo.data.remote.dto.LikeDto
 import com.hyunwoopark.futinfo.domain.model.Bracket
 import com.hyunwoopark.futinfo.domain.model.BracketRound
 import com.hyunwoopark.futinfo.domain.model.BracketFixture
@@ -70,12 +80,15 @@ import com.hyunwoopark.futinfo.domain.repository.FootballRepository
 import com.hyunwoopark.futinfo.util.Resource
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import io.github.jan.supabase.SupabaseClient
+import io.github.jan.supabase.gotrue.auth
 import io.github.jan.supabase.postgrest.postgrest
 import io.github.jan.supabase.postgrest.query.Columns
 import io.github.jan.supabase.postgrest.query.Order
-import com.hyunwoopark.futinfo.data.repository.getPosts
+import io.github.jan.supabase.postgrest.from
+import io.github.jan.supabase.postgrest.rpc
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -1747,29 +1760,454 @@ class FootballRepositoryImpl @Inject constructor(
         category: String?,
         limit: Int
     ): List<Post> {
-        return supabaseClient.getPosts(category, limit)
+        return getPostsByBoard("all", category, limit, 0)
     }
     
-    /**
-     * 토너먼트 대진표를 가져옵니다.
-        val createdAt = dto.createdAt?.toDate() ?: java.util.Date()
-        val updatedAt = dto.updatedAt?.toDate()
-        
-        return Post(
-            id = dto.id,
-            title = dto.title,
-            content = dto.content,
-            author = dto.author,
-            authorId = dto.authorId,
-            createdAt = createdAt,
-            updatedAt = updatedAt,
-            likes = dto.likes,
-            comments = dto.comments,
-            category = PostCategory.values().find { it.value == dto.category } ?: PostCategory.GENERAL,
-            tags = dto.tags,
-            timeAgo = calculateTimeAgo(createdAt)
-        )
+    override suspend fun getBoards(): List<Board> {
+        return try {
+            val response = supabaseClient.from("boards")
+                .select()
+                .decodeList<com.hyunwoopark.futinfo.data.remote.dto.BoardDto>()
+            
+            response.map { boardDto ->
+                boardDto.toBoard()
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("FootballRepository", "Failed to get boards: ${e.message}")
+            emptyList()
+        }
     }
+    
+    override suspend fun getBoard(boardId: String): Board? {
+        return try {
+            val response = supabaseClient.from("boards")
+                .select() {
+                    filter {
+                        eq("id", boardId)
+                    }
+                }
+                .decodeSingleOrNull<com.hyunwoopark.futinfo.data.remote.dto.BoardDto>()
+            
+            response?.toBoard()
+        } catch (e: Exception) {
+            android.util.Log.e("FootballRepository", "Failed to get board: ${e.message}")
+            null
+        }
+    }
+    
+    override suspend fun getPostsByBoard(
+        boardId: String,
+        category: String?,
+        limit: Int,
+        offset: Int
+    ): List<Post> {
+        return try {
+            val response = if (boardId == "all") {
+                // 전체 게시판의 경우 모든 게시글 가져오기
+                supabaseClient.from("posts")
+                    .select(columns = Columns.raw("*, author:profiles!posts_author_id_fkey(*)")) {
+                        filter {
+                            eq("is_deleted", false)
+                            category?.let { eq("category", it) }
+                        }
+                        order("is_pinned", order = Order.DESCENDING)
+                        order("created_at", order = Order.DESCENDING)
+                        limit(limit.toLong())
+                        range(offset.toLong(), (offset + limit - 1).toLong())
+                    }
+                    .decodeList<com.hyunwoopark.futinfo.data.remote.dto.PostDto>()
+            } else {
+                // 특정 게시판의 게시글만 가져오기
+                supabaseClient.from("posts")
+                    .select(columns = Columns.raw("*, author:profiles!posts_author_id_fkey(*)")) {
+                        filter {
+                            eq("board_id", boardId)
+                            eq("is_deleted", false)
+                            category?.let { eq("category", it) }
+                        }
+                        order("is_pinned", order = Order.DESCENDING)
+                        order("created_at", order = Order.DESCENDING)
+                        limit(limit.toLong())
+                        range(offset.toLong(), (offset + limit - 1).toLong())
+                    }
+                    .decodeList<com.hyunwoopark.futinfo.data.remote.dto.PostDto>()
+            }
+            
+            // 현재 사용자가 로그인한 경우, 좋아요 상태 확인
+            val currentUserId = supabaseClient.auth.currentUserOrNull()?.id
+            val postsWithLikeStatus = if (currentUserId != null) {
+                val postIds = response.map { it.id }
+                if (postIds.isNotEmpty()) {
+                    val likes = supabaseClient.from("likes")
+                        .select() {
+                            filter {
+                                eq("user_id", currentUserId)
+                                isIn("post_id", postIds)
+                            }
+                        }
+                        .decodeList<LikeDto>()
+                    
+                    val likedPostIds = likes.map { it.postId }.toSet()
+                    response.map { post ->
+                        post.toPost(
+                            isLiked = likedPostIds.contains(post.id),
+                            timeAgo = getRelativeTimeString(java.time.Instant.parse(post.createdAt ?: "1970-01-01T00:00:00Z"))
+                        )
+                    }
+                } else {
+                    response.map { it.toPost(timeAgo = getRelativeTimeString(java.time.Instant.parse(it.createdAt ?: "1970-01-01T00:00:00Z"))) }
+                }
+            } else {
+                response.map { it.toPost(timeAgo = getRelativeTimeString(java.time.Instant.parse(it.createdAt ?: "1970-01-01T00:00:00Z"))) }
+            }
+            
+            postsWithLikeStatus
+        } catch (e: Exception) {
+            android.util.Log.e("FootballRepository", "Failed to get posts by board: ${e.message}")
+            emptyList()
+        }
+    }
+    
+    override suspend fun getPost(postId: String): Post? {
+        return try {
+            val response = supabaseClient.from("posts")
+                .select(columns = Columns.raw("*, author:profiles!posts_author_id_fkey(*)")) {
+                    filter {
+                        eq("id", postId)
+                        eq("is_deleted", false)
+                    }
+                }
+                .decodeSingleOrNull<com.hyunwoopark.futinfo.data.remote.dto.PostDto>()
+            
+            if (response != null) {
+                // 현재 사용자가 로그인한 경우, 좋아요 상태 확인
+                val currentUserId = supabaseClient.auth.currentUserOrNull()?.id
+                val isLiked = if (currentUserId != null) {
+                    val like = supabaseClient.from("likes")
+                        .select() {
+                            filter {
+                                eq("user_id", currentUserId)
+                                eq("post_id", postId)
+                            }
+                        }
+                        .decodeSingleOrNull<LikeDto>()
+                    like != null
+                } else {
+                    false
+                }
+                
+                response.toPost(
+                    isLiked = isLiked,
+                    timeAgo = getRelativeTimeString(java.time.Instant.parse(response.createdAt ?: "1970-01-01T00:00:00Z"))
+                )
+            } else {
+                null
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("FootballRepository", "Failed to get post: ${e.message}")
+            null
+        }
+    }
+    
+    override suspend fun createPost(
+        boardId: String,
+        title: String,
+        content: String,
+        category: String,
+        tags: List<String>,
+        imageUrls: List<String>
+    ): String {
+        return try {
+            val postId = UUID.randomUUID().toString()
+            val currentUserId = supabaseClient.auth.currentUserOrNull()?.id
+                ?: throw Exception("User not authenticated")
+            
+            val profile = getCurrentUserProfile()
+                ?: throw Exception("User profile not found")
+            
+            val postData = mapOf(
+                "id" to postId,
+                "board_id" to boardId,
+                "title" to title,
+                "content" to content,
+                "author_id" to profile.id,
+                "category" to category,
+                "tags" to tags,
+                "image_urls" to imageUrls
+            )
+            
+            supabaseClient.from("posts")
+                .insert(postData)
+            
+            postId
+        } catch (e: Exception) {
+            android.util.Log.e("FootballRepository", "Failed to create post: ${e.message}")
+            throw e
+        }
+    }
+    
+    override suspend fun updatePost(
+        postId: String,
+        title: String,
+        content: String,
+        category: String,
+        tags: List<String>,
+        imageUrls: List<String>
+    ): Boolean {
+        return try {
+            val updateData = mapOf(
+                "title" to title,
+                "content" to content,
+                "category" to category,
+                "tags" to tags,
+                "image_urls" to imageUrls,
+                "updated_at" to LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+            )
+            
+            supabaseClient.from("posts")
+                .update(updateData) {
+                    filter {
+                        eq("id", postId)
+                    }
+                }
+            
+            true
+        } catch (e: Exception) {
+            android.util.Log.e("FootballRepository", "Failed to update post: ${e.message}")
+            false
+        }
+    }
+    
+    override suspend fun deletePost(postId: String): Boolean {
+        return try {
+            supabaseClient.from("posts")
+                .update(mapOf("is_deleted" to true)) {
+                    filter {
+                        eq("id", postId)
+                    }
+                }
+            
+            true
+        } catch (e: Exception) {
+            android.util.Log.e("FootballRepository", "Failed to delete post: ${e.message}")
+            false
+        }
+    }
+    
+    override suspend fun incrementPostView(postId: String): Boolean {
+        return try {
+            supabaseClient.postgrest.rpc("increment_post_view", mapOf("post_id" to postId))
+            true
+        } catch (e: Exception) {
+            android.util.Log.e("FootballRepository", "Failed to increment post view: ${e.message}")
+            false
+        }
+    }
+    
+    override suspend fun getComments(postId: String): List<com.hyunwoopark.futinfo.domain.model.Comment> {
+        return try {
+            val response = supabaseClient.from("comments")
+                .select() {
+                    filter {
+                        eq("post_id", postId)
+                        eq("is_deleted", false)
+                    }
+                    order("created_at", Order.ASCENDING)
+                }
+                .decodeList<com.hyunwoopark.futinfo.data.remote.dto.CommentDto>()
+            
+            // 댓글을 계층구조로 구성
+            val commentMap = response.associateBy { it.id }
+            val rootComments = mutableListOf<com.hyunwoopark.futinfo.domain.model.Comment>()
+            
+            response.forEach { dto ->
+                val comment = dto.toComment()
+                if (dto.parentId == null) {
+                    rootComments.add(comment)
+                } else {
+                    // 부모 댓글 찾기
+                    val parentComment = commentMap[dto.parentId]
+                    if (parentComment != null) {
+                        // 대댓글 추가 로직 구현 필요
+                    }
+                }
+            }
+            
+            rootComments
+        } catch (e: Exception) {
+            android.util.Log.e("FootballRepository", "Failed to get comments: ${e.message}")
+            emptyList()
+        }
+    }
+    
+    override suspend fun createComment(
+        postId: String,
+        content: String,
+        parentId: String?
+    ): String {
+        return try {
+            val commentId = UUID.randomUUID().toString()
+            val profile = getCurrentUserProfile()
+                ?: throw Exception("User profile not found")
+            
+            val commentData = mapOf(
+                "id" to commentId,
+                "post_id" to postId,
+                "author_id" to profile.id,
+                "content" to content,
+                "parent_id" to parentId
+            )
+            
+            supabaseClient.from("comments")
+                .insert(commentData)
+            
+            commentId
+        } catch (e: Exception) {
+            android.util.Log.e("FootballRepository", "Failed to create comment: ${e.message}")
+            throw e
+        }
+    }
+    
+    override suspend fun deleteComment(commentId: String): Boolean {
+        return try {
+            supabaseClient.from("comments")
+                .update(mapOf("is_deleted" to true)) {
+                    filter {
+                        eq("id", commentId)
+                    }
+                }
+            
+            true
+        } catch (e: Exception) {
+            android.util.Log.e("FootballRepository", "Failed to delete comment: ${e.message}")
+            false
+        }
+    }
+    
+    override suspend fun togglePostLike(postId: String, isLiked: Boolean): Boolean {
+        return try {
+            val userId = supabaseClient.auth.currentUserOrNull()?.id
+                ?: throw Exception("User not authenticated")
+            
+            if (isLiked) {
+                // 좋아요 추가
+                supabaseClient.from("likes")
+                    .insert(mapOf(
+                        "user_id" to userId,
+                        "post_id" to postId
+                    ))
+            } else {
+                // 좋아요 제거
+                supabaseClient.from("likes")
+                    .delete {
+                        filter {
+                            eq("user_id", userId)
+                            eq("post_id", postId)
+                        }
+                    }
+            }
+            
+            true
+        } catch (e: Exception) {
+            android.util.Log.e("FootballRepository", "Failed to toggle post like: ${e.message}")
+            false
+        }
+    }
+    
+    override suspend fun toggleCommentLike(commentId: String, isLiked: Boolean): Boolean {
+        return try {
+            val userId = supabaseClient.auth.currentUserOrNull()?.id
+                ?: throw Exception("User not authenticated")
+            
+            if (isLiked) {
+                // 좋아요 추가
+                supabaseClient.from("likes")
+                    .insert(mapOf(
+                        "user_id" to userId,
+                        "comment_id" to commentId
+                    ))
+            } else {
+                // 좋아요 제거
+                supabaseClient.from("likes")
+                    .delete {
+                        filter {
+                            eq("user_id", userId)
+                            eq("comment_id", commentId)
+                        }
+                    }
+            }
+            
+            true
+        } catch (e: Exception) {
+            android.util.Log.e("FootballRepository", "Failed to toggle comment like: ${e.message}")
+            false
+        }
+    }
+    
+    override suspend fun getCurrentUserProfile(): com.hyunwoopark.futinfo.domain.model.UserProfile? {
+        return try {
+            val userId = supabaseClient.auth.currentUserOrNull()?.id
+                ?: return null
+            
+            val response = supabaseClient.from("profiles")
+                .select() {
+                    filter {
+                        eq("user_id", userId)
+                    }
+                }
+                .decodeSingleOrNull<com.hyunwoopark.futinfo.data.remote.dto.UserProfileDto>()
+            
+            response?.toUserProfile()
+        } catch (e: Exception) {
+            android.util.Log.e("FootballRepository", "Failed to get user profile: ${e.message}")
+            null
+        }
+    }
+    
+    override suspend fun updateUserProfile(
+        nickname: String,
+        favoriteTeamId: Int?,
+        favoriteTeamName: String?,
+        avatarUrl: String?
+    ): Boolean {
+        return try {
+            val userId = supabaseClient.auth.currentUserOrNull()?.id
+                ?: throw Exception("User not authenticated")
+            
+            val updateData = mutableMapOf<String, Any>("nickname" to nickname)
+            favoriteTeamId?.let { updateData["favorite_team_id"] = it }
+            favoriteTeamName?.let { updateData["favorite_team_name"] = it }
+            avatarUrl?.let { updateData["avatar_url"] = it }
+            
+            supabaseClient.from("profiles")
+                .update(updateData) {
+                    filter {
+                        eq("user_id", userId)
+                    }
+                }
+            
+            true
+        } catch (e: Exception) {
+            android.util.Log.e("FootballRepository", "Failed to update user profile: ${e.message}")
+            false
+        }
+    }
+    
+    private fun getRelativeTimeString(instant: java.time.Instant): String {
+        val now = java.time.Instant.now()
+        val duration = java.time.Duration.between(instant, now)
+        
+        return when {
+            duration.toMinutes() < 1 -> "방금 전"
+            duration.toMinutes() < 60 -> "${duration.toMinutes()}분 전"
+            duration.toHours() < 24 -> "${duration.toHours()}시간 전"
+            duration.toDays() < 7 -> "${duration.toDays()}일 전"
+            duration.toDays() < 30 -> "${duration.toDays() / 7}주 전"
+            duration.toDays() < 365 -> "${duration.toDays() / 30}개월 전"
+            else -> "${duration.toDays() / 365}년 전"
+        }
+    }
+    
     
     /**
      * 상대적 시간을 계산합니다.
@@ -1795,75 +2233,140 @@ class FootballRepositoryImpl @Inject constructor(
      * 샘플 게시글 데이터를 생성합니다 (Firestore 실패 시 사용).
      */
     private fun generateSamplePosts(): List<Post> {
-        val currentTime = java.util.Date()
+        val currentTime = java.time.Instant.now()
         
         return listOf(
             Post(
                 id = "1",
+                boardId = "board1",
                 title = "맨시티 vs 리버풀 경기 어떻게 보셨나요?",
                 content = "오늘 경기 정말 명경기였네요! 특히 홀란드의 골이 인상적이었습니다.",
-                author = "축구팬123",
                 authorId = "user1",
-                createdAt = java.util.Date(currentTime.time - 3600000), // 1시간 전
-                updatedAt = null,
-                likes = 15,
-                comments = 8,
+                author = UserProfile(
+                    id = "user1",
+                    userId = "user1",
+                    nickname = "축구팬123",
+                    avatarUrl = null,
+                    favoriteTeamId = null,
+                    favoriteTeamName = null,
+                    language = "ko",
+                    postCount = 10,
+                    commentCount = 5,
+                    createdAt = currentTime,
+                    updatedAt = currentTime
+                ),
+                createdAt = currentTime.minusSeconds(3600), // 1시간 전
+                updatedAt = currentTime.minusSeconds(3600),
+                likeCount = 15,
+                commentCount = 8,
                 category = PostCategory.DISCUSSION,
                 tags = listOf("맨시티", "리버풀", "프리미어리그"),
                 timeAgo = "1시간 전"
             ),
             Post(
                 id = "2",
+                boardId = "board1",
                 title = "레알 마드리드 새 영입 소식",
                 content = "레알 마드리드가 새로운 미드필더 영입을 추진한다는 소식이 있네요.",
-                author = "마드리디스타",
                 authorId = "user2",
-                createdAt = java.util.Date(currentTime.time - 7200000), // 2시간 전
-                updatedAt = null,
-                likes = 23,
-                comments = 12,
+                author = UserProfile(
+                    id = "user2",
+                    userId = "user2",
+                    nickname = "마드리디스타",
+                    avatarUrl = null,
+                    favoriteTeamId = null,
+                    favoriteTeamName = null,
+                    language = "ko",
+                    postCount = 10,
+                    commentCount = 5,
+                    createdAt = currentTime,
+                    updatedAt = currentTime
+                ),
+                createdAt = currentTime.minusSeconds(7200), // 2시간 전
+                updatedAt = currentTime.minusSeconds(7200),
+                likeCount = 23,
+                commentCount = 12,
                 category = PostCategory.NEWS,
                 tags = listOf("레알마드리드", "이적", "라리가"),
                 timeAgo = "2시간 전"
             ),
             Post(
                 id = "3",
+                boardId = "board1",
                 title = "손흥민 부상 소식이 걱정되네요",
                 content = "토트넘 경기에서 손흥민이 부상을 당했다는데, 심각하지 않았으면 좋겠습니다.",
-                author = "토트넘팬",
                 authorId = "user3",
-                createdAt = java.util.Date(currentTime.time - 10800000), // 3시간 전
-                updatedAt = null,
-                likes = 45,
-                comments = 20,
+                author = UserProfile(
+                    id = "user3",
+                    userId = "user3",
+                    nickname = "토트넘팬",
+                    avatarUrl = null,
+                    favoriteTeamId = null,
+                    favoriteTeamName = null,
+                    language = "ko",
+                    postCount = 10,
+                    commentCount = 5,
+                    createdAt = currentTime,
+                    updatedAt = currentTime
+                ),
+                createdAt = currentTime.minusSeconds(10800), // 3시간 전
+                updatedAt = currentTime.minusSeconds(10800),
+                likeCount = 45,
+                commentCount = 20,
                 category = PostCategory.GENERAL,
                 tags = listOf("손흥민", "토트넘", "부상"),
                 timeAgo = "3시간 전"
             ),
             Post(
                 id = "4",
+                boardId = "board1",
                 title = "챔피언스리그 16강 대진 예상해보세요!",
                 content = "이번 챔피언스리그 16강 대진이 어떻게 될지 궁금하네요. 여러분의 예상은?",
-                author = "UCL매니아",
                 authorId = "user4",
-                createdAt = java.util.Date(currentTime.time - 14400000), // 4시간 전
-                updatedAt = null,
-                likes = 8,
-                comments = 15,
+                author = UserProfile(
+                    id = "user4",
+                    userId = "user4",
+                    nickname = "UCL매니아",
+                    avatarUrl = null,
+                    favoriteTeamId = null,
+                    favoriteTeamName = null,
+                    language = "ko",
+                    postCount = 10,
+                    commentCount = 5,
+                    createdAt = currentTime,
+                    updatedAt = currentTime
+                ),
+                createdAt = currentTime.minusSeconds(14400), // 4시간 전
+                updatedAt = currentTime.minusSeconds(14400),
+                likeCount = 8,
+                commentCount = 15,
                 category = PostCategory.QUESTION,
                 tags = listOf("챔피언스리그", "16강", "예상"),
                 timeAgo = "4시간 전"
             ),
             Post(
                 id = "5",
+                boardId = "board1",
                 title = "바르셀로나 vs 아틀레티코 마드리드 경기 분석",
                 content = "어제 경기에서 바르셀로나의 전술이 인상적이었습니다. 특히 미드필드 압박이...",
-                author = "전술분석가",
                 authorId = "user5",
-                createdAt = java.util.Date(currentTime.time - 18000000), // 5시간 전
-                updatedAt = null,
-                likes = 32,
-                comments = 18,
+                author = UserProfile(
+                    id = "user5",
+                    userId = "user5",
+                    nickname = "전술분석가",
+                    avatarUrl = null,
+                    favoriteTeamId = null,
+                    favoriteTeamName = null,
+                    language = "ko",
+                    postCount = 10,
+                    commentCount = 5,
+                    createdAt = currentTime,
+                    updatedAt = currentTime
+                ),
+                createdAt = currentTime.minusSeconds(18000), // 5시간 전
+                updatedAt = currentTime.minusSeconds(18000),
+                likeCount = 32,
+                commentCount = 18,
                 category = PostCategory.DISCUSSION,
                 tags = listOf("바르셀로나", "아틀레티코", "전술분석"),
                 timeAgo = "5시간 전"

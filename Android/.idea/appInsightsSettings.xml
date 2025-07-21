@@ -23,10 +23,10 @@
             <InsightsFilterSettings>
               <option name="connection">
                 <ConnectionSetting>
-                  <option name="appId" value="com.hyunwoopark.futinfo.debug" />
-                  <option name="mobileSdkAppId" value="1:123456789:android:abcdef123456790" />
-                  <option name="projectId" value="futinfo-temp" />
-                  <option name="projectNumber" value="123456789" />
+                  <option name="appId" value="PLACEHOLDER" />
+                  <option name="mobileSdkAppId" value="" />
+                  <option name="projectId" value="" />
+                  <option name="projectNumber" value="" />
                 </ConnectionSetting>
               </option>
               <option name="signal" value="SIGNAL_UNSPECIFIED" />

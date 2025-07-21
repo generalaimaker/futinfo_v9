@@ -15,6 +15,10 @@ const nextConfig = {
     ],
   },
   // ngrok을 위한 설정 추가
+  assetPrefix: process.env.NODE_ENV === 'production' ? '' : '',
+  compress: true,
+  poweredByHeader: false,
+  generateEtags: false,
   async rewrites() {
     return [
       {
@@ -30,11 +34,25 @@ const nextConfig = {
         headers: [
           {
             key: 'X-Frame-Options',
-            value: 'DENY',
+            value: 'SAMEORIGIN',
           },
           {
             key: 'X-Content-Type-Options',
             value: 'nosniff',
+          },
+          {
+            key: 'X-XSS-Protection',
+            value: '1; mode=block',
+          },
+        ],
+      },
+      // CSS 파일에 대한 헤더
+      {
+        source: '/_next/static/css/(.*)',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=31536000, immutable',
           },
         ],
       },

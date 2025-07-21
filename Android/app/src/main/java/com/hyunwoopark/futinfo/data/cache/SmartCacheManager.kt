@@ -260,24 +260,24 @@ class SmartCacheManager @Inject constructor(
      * 경기 상태 판별 메서드들
      */
     private fun isLiveMatch(fixture: Fixture): Boolean {
-        return fixture.status.contains("1H") || fixture.status.contains("2H") || 
-               fixture.status.contains("HT") || fixture.status.contains("ET") || 
-               fixture.status.contains("BT") || fixture.status.contains("P") ||
-               fixture.status.contains("LIVE")
+        return fixture.statusShort.contains("1H") || fixture.statusShort.contains("2H") || 
+               fixture.statusShort.contains("HT") || fixture.statusShort.contains("ET") || 
+               fixture.statusShort.contains("BT") || fixture.statusShort.contains("P") ||
+               fixture.statusShort.contains("LIVE")
     }
     
     private fun isFinishedMatch(fixture: Fixture): Boolean {
-        return fixture.status.contains("FT") || fixture.status.contains("AET") || 
-               fixture.status.contains("PEN")
+        return fixture.statusShort.contains("FT") || fixture.statusShort.contains("AET") || 
+               fixture.statusShort.contains("PEN")
     }
     
     private fun isScheduledMatch(fixture: Fixture): Boolean {
-        return fixture.status.contains("NS") || fixture.status.contains("TBD")
+        return fixture.statusShort.contains("NS") || fixture.statusShort.contains("TBD")
     }
     
     private fun isPostponedMatch(fixture: Fixture): Boolean {
-        return fixture.status.contains("PST") || fixture.status.contains("CANC") ||
-               fixture.status.contains("ABD") || fixture.status.contains("SUSP")
+        return fixture.statusShort.contains("PST") || fixture.statusShort.contains("CANC") ||
+               fixture.statusShort.contains("ABD") || fixture.statusShort.contains("SUSP")
     }
     
     /**

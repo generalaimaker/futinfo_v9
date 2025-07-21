@@ -1,6 +1,7 @@
 package com.hyunwoopark.futinfo.domain.service
 
 import com.hyunwoopark.futinfo.domain.model.Fixture
+import com.hyunwoopark.futinfo.domain.model.toDomainModel
 import com.hyunwoopark.futinfo.domain.repository.FootballRepository
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
@@ -67,19 +68,29 @@ class LiveMatchService @Inject constructor(
     private suspend fun updateLiveFixtures() {
         try {
             val today = LocalDate.now()
-            val fixtures = footballRepository.getFixtures(today.toString())
-                .catch { /* 에러 무시 */ }
-                .firstOrNull()
-                ?.data ?: emptyList()
-            
-            // 현재 진행 중인 경기만 필터링
-            val liveFixtures = fixtures.filter { fixture ->
-                val status = fixture.status
-                status.contains("1H") || status.contains("2H") || 
-                status.contains("HT") || status.contains("ET") || 
-                status.contains("BT") || status.contains("P") ||
-                status.contains("LIVE")
+            val mainLeagues = listOf(39, 140, 135, 78, 61) // Premier League, La Liga, Serie A, Bundesliga, Ligue 1
+            val fixtures = try {
+                footballRepository.getFixtures(
+                    date = today.toString(),
+                    leagueIds = mainLeagues
+                ).response
+            } catch (e: Exception) {
+                emptyList()
             }
+            
+            // 현재 진행 중인 경기만 필터링하고 도메인 모델로 변환
+            val liveFixtures = fixtures
+                .filter { fixture ->
+                    val status = fixture.fixture.status.short
+                    status == "1H" || status == "2H" || 
+                    status == "HT" || status == "ET" || 
+                    status == "BT" || status == "P" ||
+                    status == "LIVE"
+                }
+                .map { fixtureDto ->
+                    // FixtureDto를 Fixture 도메인 모델로 변환
+                    fixtureDto.toDomainModel()
+                }
             
             _liveFixtures.value = liveFixtures
         } catch (e: Exception) {

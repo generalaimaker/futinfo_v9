@@ -3,7 +3,10 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter, usePathname } from 'next/navigation'
-import { Calendar, Users, User, LogIn, LogOut, Settings, Heart } from 'lucide-react'
+import { 
+  Calendar, Users, User, LogIn, LogOut, Settings, Heart, 
+  MessageSquare, MessageCircle, Trophy, Edit, ChevronRight 
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -14,7 +17,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { useSupabase } from '@/lib/supabase/provider'
-import { getUserProfile } from '@/lib/supabase/community'
+import { CommunityService } from '@/lib/supabase/community'
 
 export function Navbar() {
   const router = useRouter()
@@ -34,7 +37,7 @@ export function Navbar() {
   const loadUserProfile = async () => {
     if (!user) return
     try {
-      const profile = await getUserProfile(user.id)
+      const profile = await CommunityService.getCurrentUserProfile()
       setUserProfile(profile)
     } catch (error) {
       console.error('Error loading user profile:', error)
@@ -92,14 +95,14 @@ export function Navbar() {
             </Link>
 
             {user && userProfile?.favoriteTeamId && (
-              <Link href={`/community/boards/team-${userProfile.favoriteTeamId}`}>
+              <Link href={`/community/boards/team_${userProfile.favoriteTeamId}`}>
                 <Button 
-                  variant="ghost"
+                  variant={pathname.includes(`team_${userProfile.favoriteTeamId}`) ? 'default' : 'ghost'}
                   size="sm"
-                  className="flex items-center space-x-2"
+                  className="flex items-center space-x-2 bg-gradient-to-r from-red-500 to-pink-600 hover:from-red-600 hover:to-pink-700 text-white"
                 >
-                  <Heart className="h-4 w-4 text-red-500" />
-                  <span>MY 팀</span>
+                  <Heart className="h-4 w-4 fill-current" />
+                  <span>MY {userProfile.favoriteTeamName || '팀'}</span>
                 </Button>
               </Link>
             )}
@@ -125,24 +128,95 @@ export function Navbar() {
                     <span className="hidden md:inline">{userProfile?.nickname || '사용자'}</span>
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuContent align="end" className="w-64 z-50" sideOffset={5}>
                   <DropdownMenuLabel>
                     <div className="flex flex-col">
-                      <span>{userProfile?.nickname || '사용자'}</span>
+                      <span className="font-medium">{userProfile?.nickname || '사용자'}</span>
                       <span className="text-xs text-gray-500 font-normal">{user.email}</span>
+                      {userProfile?.favoriteTeamName && (
+                        <div className="flex items-center space-x-1 mt-1">
+                          <Heart className="h-3 w-3 text-red-500" />
+                          <span className="text-xs text-gray-600">{userProfile.favoriteTeamName} 팬</span>
+                        </div>
+                      )}
                     </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => router.push('/profile')}>
+                  
+                  {/* 프로필 관련 */}
+                  <DropdownMenuItem 
+                    className="cursor-pointer hover:bg-gray-100" 
+                    onSelect={() => router.push('/profile')}
+                  >
                     <User className="h-4 w-4 mr-2" />
-                    프로필
+                    내 프로필
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => router.push('/settings')}>
+                  <DropdownMenuItem 
+                    className="cursor-pointer hover:bg-gray-100" 
+                    onSelect={() => router.push('/profile/edit')}
+                  >
+                    <Edit className="h-4 w-4 mr-2" />
+                    프로필 편집
+                  </DropdownMenuItem>
+                  
+                  <DropdownMenuSeparator />
+                  
+                  {/* 내 활동 */}
+                  <DropdownMenuItem 
+                    className="cursor-pointer hover:bg-gray-100" 
+                    onSelect={() => router.push('/profile/posts')}
+                  >
+                    <MessageSquare className="h-4 w-4 mr-2" />
+                    내 게시글
+                  </DropdownMenuItem>
+                  <DropdownMenuItem 
+                    className="cursor-pointer hover:bg-gray-100" 
+                    onSelect={() => router.push('/profile/comments')}
+                  >
+                    <MessageCircle className="h-4 w-4 mr-2" />
+                    내 댓글
+                  </DropdownMenuItem>
+                  <DropdownMenuItem 
+                    className="cursor-pointer hover:bg-gray-100" 
+                    onSelect={() => router.push('/favorites')}
+                  >
+                    <Heart className="h-4 w-4 mr-2" />
+                    관심 목록
+                  </DropdownMenuItem>
+                  
+                  <DropdownMenuSeparator />
+                  
+                  {/* 팀 관련 */}
+                  {userProfile?.favoriteTeamId && (
+                    <>
+                      <DropdownMenuItem 
+                        className="cursor-pointer hover:bg-gray-100" 
+                        onSelect={() => router.push(`/community/boards/team_${userProfile.favoriteTeamId}`)}
+                      >
+                        <Trophy className="h-4 w-4 mr-2" />
+                        {userProfile.favoriteTeamName} 게시판
+                        <ChevronRight className="h-4 w-4 ml-auto" />
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                    </>
+                  )}
+                  
+                  {/* 설정 */}
+                  <DropdownMenuItem 
+                    className="cursor-pointer hover:bg-gray-100" 
+                    onSelect={() => router.push('/settings')}
+                  >
                     <Settings className="h-4 w-4 mr-2" />
                     설정
                   </DropdownMenuItem>
+                  
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={handleSignOut} disabled={loading}>
+                  
+                  <DropdownMenuItem 
+                    className="cursor-pointer hover:bg-gray-100" 
+                    onSelect={handleSignOut} 
+                    disabled={loading}
+                  >
                     <LogOut className="h-4 w-4 mr-2" />
                     로그아웃
                   </DropdownMenuItem>

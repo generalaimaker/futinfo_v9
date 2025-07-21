@@ -8,6 +8,7 @@ import { CommunityService } from '@/lib/supabase/community'
 import { CommunityBoard } from '@/lib/types/community'
 import { Users, MessageSquare, Loader2 } from 'lucide-react'
 import { formatNumber } from '@/lib/utils'
+import { ChevronRight } from 'lucide-react'
 
 export function BoardList() {
   const [boards, setBoards] = useState<CommunityBoard[]>([])
@@ -72,58 +73,81 @@ export function BoardList() {
         </CardHeader>
       </Card>
 
-      {/* Team Boards */}
-      <div>
-        <h2 className="text-xl font-semibold mb-4 text-gray-900">팀별 게시판</h2>
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {boards
-            .filter(board => board.type === 'team')
-            .map((board) => (
-              <Card key={board.id} className="hover:shadow-md transition-shadow">
-                <CardHeader className="pb-3">
-                  <div className="flex items-center space-x-3">
-                    {board.iconUrl ? (
-                      <img 
-                        src={board.iconUrl} 
-                        alt={board.name}
-                        className="w-10 h-10 rounded-lg object-cover"
-                      />
-                    ) : (
-                      <div className="w-10 h-10 bg-gray-200 rounded-lg flex items-center justify-center">
-                        <span className="text-xs font-medium text-gray-600">
-                          {board.name.slice(0, 2)}
-                        </span>
-                      </div>
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <CardTitle className="text-base truncate">{board.name}</CardTitle>
-                      {board.description && (
-                        <p className="text-xs text-gray-600 truncate">{board.description}</p>
-                      )}
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="pt-0">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center space-x-4 text-sm text-gray-600">
-                      <div className="flex items-center space-x-1">
-                        <Users className="h-3 w-3" />
-                        <span>{formatNumber(board.memberCount)}</span>
-                      </div>
-                      <div className="flex items-center space-x-1">
-                        <MessageSquare className="h-3 w-3" />
-                        <span>{formatNumber(board.postCount)}</span>
-                      </div>
-                    </div>
-                  </div>
-                  <Link href={`/community/boards/${board.id}`}>
-                    <Button size="sm" className="w-full">
-                      입장하기
-                    </Button>
-                  </Link>
-                </CardContent>
-              </Card>
-            ))}
+      {/* Team Boards by League */}
+      <div className="space-y-8">
+        {/* Premier League */}
+        <div>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-semibold text-gray-900">프리미어리그</h2>
+            <img src="https://media.api-sports.io/football/leagues/39.png" alt="Premier League" className="h-8" />
+          </div>
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {boards
+              .filter(board => board.type === 'team' && board.leagueId === 39)
+              .map((board) => (
+                <BoardCard key={board.id} board={board} />
+              ))}
+          </div>
+        </div>
+
+        {/* La Liga */}
+        <div>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-semibold text-gray-900">라리가</h2>
+            <img src="https://media.api-sports.io/football/leagues/140.png" alt="La Liga" className="h-8" />
+          </div>
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {boards
+              .filter(board => board.type === 'team' && board.leagueId === 140)
+              .map((board) => (
+                <BoardCard key={board.id} board={board} />
+              ))}
+          </div>
+        </div>
+
+        {/* Bundesliga */}
+        <div>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-semibold text-gray-900">분데스리가</h2>
+            <img src="https://media.api-sports.io/football/leagues/78.png" alt="Bundesliga" className="h-8" />
+          </div>
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {boards
+              .filter(board => board.type === 'team' && board.leagueId === 78)
+              .map((board) => (
+                <BoardCard key={board.id} board={board} />
+              ))}
+          </div>
+        </div>
+
+        {/* Serie A */}
+        <div>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-semibold text-gray-900">세리에 A</h2>
+            <img src="https://media.api-sports.io/football/leagues/135.png" alt="Serie A" className="h-8" />
+          </div>
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {boards
+              .filter(board => board.type === 'team' && board.leagueId === 135)
+              .map((board) => (
+                <BoardCard key={board.id} board={board} />
+              ))}
+          </div>
+        </div>
+
+        {/* Ligue 1 */}
+        <div>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-semibold text-gray-900">리그 1</h2>
+            <img src="https://media.api-sports.io/football/leagues/61.png" alt="Ligue 1" className="h-8" />
+          </div>
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {boards
+              .filter(board => board.type === 'team' && board.leagueId === 61)
+              .map((board) => (
+                <BoardCard key={board.id} board={board} />
+              ))}
+          </div>
         </div>
       </div>
 
@@ -158,6 +182,59 @@ export function BoardList() {
         </div>
       )}
     </div>
+  )
+}
+
+// Board Card Component
+function BoardCard({ board }: { board: CommunityBoard }) {
+  return (
+    <Card className="hover:shadow-md transition-shadow">
+      <CardHeader className="pb-3">
+        <div className="flex items-center space-x-3">
+          {board.iconUrl ? (
+            <img 
+              src={board.iconUrl} 
+              alt={board.name}
+              className="w-10 h-10 rounded-lg object-cover"
+            />
+          ) : (
+            <div className="w-10 h-10 bg-gray-200 rounded-lg flex items-center justify-center">
+              <span className="text-xs font-medium text-gray-600">
+                {board.name.slice(0, 2)}
+              </span>
+            </div>
+          )}
+          <div className="flex-1 min-w-0">
+            <CardTitle className="text-base truncate">
+              {board.name.replace(' 게시판', '')}
+            </CardTitle>
+            {board.teamId && (
+              <p className="text-xs text-gray-600">팬 커뮤니티</p>
+            )}
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="pt-0">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center space-x-4 text-sm text-gray-600">
+            <div className="flex items-center space-x-1">
+              <Users className="h-3 w-3" />
+              <span>{formatNumber(board.memberCount)}</span>
+            </div>
+            <div className="flex items-center space-x-1">
+              <MessageSquare className="h-3 w-3" />
+              <span>{formatNumber(board.postCount)}</span>
+            </div>
+          </div>
+        </div>
+        <Link href={`/community/boards/${board.id}`}>
+          <Button size="sm" className="w-full">
+            입장하기
+            <ChevronRight className="h-4 w-4 ml-1" />
+          </Button>
+        </Link>
+      </CardContent>
+    </Card>
   )
 }
 

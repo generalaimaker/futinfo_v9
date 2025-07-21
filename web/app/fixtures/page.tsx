@@ -190,14 +190,26 @@ export default function FixturesPage() {
                         <div className="flex items-center justify-between p-4 hover:bg-blue-50 active:bg-blue-100 transition-all cursor-pointer border-b last:border-0">
                         {/* 홈팀 */}
                         <div className="flex items-center space-x-3 flex-1">
-                          <Image
-                            src={fixture.teams.home.logo}
-                            alt={fixture.teams.home.name}
-                            width={32}
-                            height={32}
-                            className="object-contain pointer-events-none"
-                          />
-                          <span className="font-medium">{fixture.teams.home.name}</span>
+                          <Link 
+                            href={`/teams/${fixture.teams.home.id}`}
+                            onClick={(e) => e.stopPropagation()}
+                            className="transition-transform hover:scale-110"
+                          >
+                            <Image
+                              src={fixture.teams.home.logo}
+                              alt={fixture.teams.home.name}
+                              width={32}
+                              height={32}
+                              className="object-contain"
+                            />
+                          </Link>
+                          <Link 
+                            href={`/teams/${fixture.teams.home.id}`}
+                            onClick={(e) => e.stopPropagation()}
+                            className="font-medium hover:text-blue-600 transition-colors"
+                          >
+                            {fixture.teams.home.name}
+                          </Link>
                         </div>
                         
                         {/* 스코어/시간 */}
@@ -223,14 +235,26 @@ export default function FixturesPage() {
                         
                         {/* 원정팀 */}
                         <div className="flex items-center space-x-3 flex-1 justify-end">
-                          <span className="font-medium">{fixture.teams.away.name}</span>
-                          <Image
-                            src={fixture.teams.away.logo}
-                            alt={fixture.teams.away.name}
-                            width={32}
-                            height={32}
-                            className="object-contain pointer-events-none"
-                          />
+                          <Link 
+                            href={`/teams/${fixture.teams.away.id}`}
+                            onClick={(e) => e.stopPropagation()}
+                            className="font-medium hover:text-blue-600 transition-colors"
+                          >
+                            {fixture.teams.away.name}
+                          </Link>
+                          <Link 
+                            href={`/teams/${fixture.teams.away.id}`}
+                            onClick={(e) => e.stopPropagation()}
+                            className="transition-transform hover:scale-110"
+                          >
+                            <Image
+                              src={fixture.teams.away.logo}
+                              alt={fixture.teams.away.name}
+                              width={32}
+                              height={32}
+                              className="object-contain"
+                            />
+                          </Link>
                         </div>
                         </div>
                       </a>

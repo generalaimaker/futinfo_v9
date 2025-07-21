@@ -130,7 +130,7 @@ class SearchViewModel @Inject constructor(
                                     is Resource.Success -> {
                                         resource.data?.response?.let { teams ->
                                             _state.value = _state.value.copy(
-                                                teamResults = (_state.value.teamResults + teams).distinctBy { it.team.id }
+                                                teamResults = (_state.value.teamResults + teams).distinctBy { it.team?.id }
                                             )
                                         }
                                     }
@@ -202,25 +202,25 @@ class SearchViewModel @Inject constructor(
         val lowerQuery = query.lowercase()
         
         // 팀 정렬
-        val sortedTeams = teams.sortedWith(compareBy(
+        val sortedTeams = teams.filter { it.team != null }.sortedWith(compareBy(
             // 1. 정확한 이름 일치
-            { it.team.name.lowercase() != lowerQuery },
+            { it.team!!.name?.lowercase() != lowerQuery },
             // 2. 인기 팀 여부
-            { !SearchMappings.popularTeamIds.contains(it.team.id) },
+            { !SearchMappings.popularTeamIds.contains(it.team!!.id) },
             // 3. 시작 문자열 일치
-            { !it.team.name.lowercase().startsWith(lowerQuery) },
+            { !(it.team!!.name?.lowercase()?.startsWith(lowerQuery) ?: false) },
             // 4. 이름순
-            { it.team.name }
+            { it.team!!.name ?: "" }
         )).map { SearchResultItem.Team(it) }
         
         // 선수 정렬
-        val sortedPlayers = players.sortedWith(compareBy(
+        val sortedPlayers = players.filter { it.player != null }.sortedWith(compareBy(
             // 1. 정확한 이름 일치
-            { it.player.name.lowercase() != lowerQuery },
+            { it.player!!.name?.lowercase() != lowerQuery },
             // 2. 시작 문자열 일치
-            { !it.player.name.lowercase().startsWith(lowerQuery) },
+            { !(it.player!!.name?.lowercase()?.startsWith(lowerQuery) ?: false) },
             // 3. 이름순
-            { it.player.name }
+            { it.player!!.name ?: "" }
         )).map { SearchResultItem.Player(it) }
         
         // 팀을 먼저, 그 다음 선수를 표시

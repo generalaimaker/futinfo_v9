@@ -841,6 +841,32 @@ export const useLeagueFixtures = (
   })
 }
 
+export const useTeamNextFixtures = (
+  teamId: number,
+  options?: UseQueryOptions<FixturesResponse>
+) => {
+  return useQuery({
+    queryKey: ['teamNextFixtures', teamId],
+    queryFn: () => footballAPIService.getTeamNextFixtures(teamId),
+    staleTime: 60 * 60 * 1000, // 1시간
+    enabled: !!teamId,
+    ...options
+  })
+}
+
+export const useTeamLastFixtures = (
+  teamId: number,
+  options?: UseQueryOptions<FixturesResponse>
+) => {
+  return useQuery({
+    queryKey: ['teamLastFixtures', teamId],
+    queryFn: () => footballAPIService.getTeamLastFixtures(teamId),
+    staleTime: 60 * 60 * 1000, // 1시간
+    enabled: !!teamId,
+    ...options
+  })
+}
+
 export const useFixtureDetail = (
   fixtureId: number,
   options?: UseQueryOptions<any>

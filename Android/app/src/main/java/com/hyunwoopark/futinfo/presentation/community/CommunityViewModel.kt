@@ -8,9 +8,16 @@ import com.hyunwoopark.futinfo.domain.model.PostCategory
 import com.hyunwoopark.futinfo.domain.use_case.GetPostsUseCase
 import com.hyunwoopark.futinfo.util.Resource
 import dagger.hilt.android.lifecycle.HiltViewModel
+import io.github.jan.supabase.SupabaseClient
+import io.github.jan.supabase.realtime.RealtimeChannel
+import io.github.jan.supabase.realtime.channel
+import io.github.jan.supabase.realtime.postgresChangeFlow
+import io.github.jan.supabase.realtime.PostgresAction
+import io.github.jan.supabase.realtime.realtime
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 /**
@@ -18,16 +25,19 @@ import javax.inject.Inject
  */
 @HiltViewModel
 class CommunityViewModel @Inject constructor(
-    private val getPostsUseCase: GetPostsUseCase
+    private val getPostsUseCase: GetPostsUseCase,
+    private val supabaseClient: SupabaseClient
 ) : ViewModel() {
 
     private val _state = mutableStateOf(CommunityState())
     val state: State<CommunityState> = _state
 
     private var getPostsJob: Job? = null
+    private var realtimeChannel: RealtimeChannel? = null
 
     init {
         getPosts()
+        setupRealtimeSubscription()
     }
 
     /**
@@ -88,5 +98,46 @@ class CommunityViewModel @Inject constructor(
      */
     fun clearError() {
         _state.value = _state.value.copy(error = null)
+    }
+    
+    /**
+     * 실시간 업데이트 구독을 설정합니다.
+     */
+    private fun setupRealtimeSubscription() {
+        viewModelScope.launch {
+            try {
+                realtimeChannel = supabaseClient.channel("community_posts")
+                
+                // posts 테이블의 변경사항 구독 (전체 게시판)
+                realtimeChannel?.postgresChangeFlow<PostgresAction>("public") {
+                    table = "posts"
+                }?.collect { change ->
+                    when (change) {
+                        is PostgresAction.Insert,
+                        is PostgresAction.Update,
+                        is PostgresAction.Delete -> {
+                            // 게시글에 변경사항이 있으면 다시 로드
+                            getPosts(_state.value.selectedCategory)
+                        }
+                        else -> {}
+                    }
+                }
+                
+                realtimeChannel?.subscribe()
+            } catch (e: Exception) {
+                android.util.Log.e("CommunityViewModel", "Failed to setup realtime subscription: ${e.message}")
+            }
+        }
+    }
+    
+    override fun onCleared() {
+        super.onCleared()
+        // 채널 정리
+        realtimeChannel?.let { channel ->
+            viewModelScope.launch {
+                supabaseClient.realtime.removeChannel(channel)
+            }
+        }
+        getPostsJob?.cancel()
     }
 }

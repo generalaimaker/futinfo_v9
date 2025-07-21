@@ -7,6 +7,7 @@ export interface CommunityBoard {
   type: BoardType
   name: string
   teamId?: number
+  leagueId?: number
   description?: string
   iconUrl?: string
   postCount: number

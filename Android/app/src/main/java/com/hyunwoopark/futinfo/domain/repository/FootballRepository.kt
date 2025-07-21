@@ -21,6 +21,9 @@ import com.hyunwoopark.futinfo.domain.model.PlayerProfile
 import com.hyunwoopark.futinfo.domain.model.Transfer
 import com.hyunwoopark.futinfo.domain.model.Post
 import com.hyunwoopark.futinfo.domain.model.Bracket
+import com.hyunwoopark.futinfo.domain.model.Board
+import com.hyunwoopark.futinfo.domain.model.Comment
+import com.hyunwoopark.futinfo.domain.model.UserProfile
 import com.hyunwoopark.futinfo.util.Resource
 import kotlinx.coroutines.flow.Flow
 
@@ -355,6 +358,39 @@ interface FootballRepository {
      */
     suspend fun getLatestTransfers(): List<Transfer>
     
+    // ===== 커뮤니티 관련 메소드 =====
+    
+    /**
+     * 모든 커뮤니티 보드 목록을 가져옵니다.
+     *
+     * @return 보드 목록
+     */
+    suspend fun getBoards(): List<Board>
+    
+    /**
+     * 특정 보드 정보를 가져옵니다.
+     *
+     * @param boardId 보드 ID
+     * @return 보드 정보
+     */
+    suspend fun getBoard(boardId: String): Board?
+    
+    /**
+     * 특정 보드의 게시글 목록을 가져옵니다.
+     *
+     * @param boardId 보드 ID
+     * @param category 카테고리별 필터링 (선택사항)
+     * @param limit 가져올 게시글 수 (기본값: 20)
+     * @param offset 오프셋 (페이지네이션용)
+     * @return 게시글 목록
+     */
+    suspend fun getPostsByBoard(
+        boardId: String,
+        category: String? = null,
+        limit: Int = 20,
+        offset: Int = 0
+    ): List<Post>
+    
     /**
      * 커뮤니티 게시글 목록을 가져옵니다.
      *
@@ -366,6 +402,141 @@ interface FootballRepository {
         category: String? = null,
         limit: Int = 20
     ): List<Post>
+    
+    /**
+     * 특정 게시글 상세 정보를 가져옵니다.
+     *
+     * @param postId 게시글 ID
+     * @return 게시글 상세 정보
+     */
+    suspend fun getPost(postId: String): Post?
+    
+    /**
+     * 게시글을 생성합니다.
+     *
+     * @param boardId 보드 ID
+     * @param title 제목
+     * @param content 내용
+     * @param category 카테고리
+     * @param tags 태그 목록
+     * @param imageUrls 이미지 URL 목록
+     * @return 생성된 게시글 ID
+     */
+    suspend fun createPost(
+        boardId: String,
+        title: String,
+        content: String,
+        category: String,
+        tags: List<String> = emptyList(),
+        imageUrls: List<String> = emptyList()
+    ): String
+    
+    /**
+     * 게시글을 수정합니다.
+     *
+     * @param postId 게시글 ID
+     * @param title 제목
+     * @param content 내용
+     * @param category 카테고리
+     * @param tags 태그 목록
+     * @param imageUrls 이미지 URL 목록
+     * @return 성공 여부
+     */
+    suspend fun updatePost(
+        postId: String,
+        title: String,
+        content: String,
+        category: String,
+        tags: List<String> = emptyList(),
+        imageUrls: List<String> = emptyList()
+    ): Boolean
+    
+    /**
+     * 게시글을 삭제합니다.
+     *
+     * @param postId 게시글 ID
+     * @return 성공 여부
+     */
+    suspend fun deletePost(postId: String): Boolean
+    
+    /**
+     * 게시글 조회수를 증가시킵니다.
+     *
+     * @param postId 게시글 ID
+     * @return 성공 여부
+     */
+    suspend fun incrementPostView(postId: String): Boolean
+    
+    /**
+     * 게시글의 댓글 목록을 가져옵니다.
+     *
+     * @param postId 게시글 ID
+     * @return 댓글 목록
+     */
+    suspend fun getComments(postId: String): List<Comment>
+    
+    /**
+     * 댓글을 생성합니다.
+     *
+     * @param postId 게시글 ID
+     * @param content 댓글 내용
+     * @param parentId 부모 댓글 ID (대댓글인 경우)
+     * @return 생성된 댓글 ID
+     */
+    suspend fun createComment(
+        postId: String,
+        content: String,
+        parentId: String? = null
+    ): String
+    
+    /**
+     * 댓글을 삭제합니다.
+     *
+     * @param commentId 댓글 ID
+     * @return 성공 여부
+     */
+    suspend fun deleteComment(commentId: String): Boolean
+    
+    /**
+     * 게시글에 좋아요를 추가/제거합니다.
+     *
+     * @param postId 게시글 ID
+     * @param isLiked 좋아요 여부
+     * @return 성공 여부
+     */
+    suspend fun togglePostLike(postId: String, isLiked: Boolean): Boolean
+    
+    /**
+     * 댓글에 좋아요를 추가/제거합니다.
+     *
+     * @param commentId 댓글 ID
+     * @param isLiked 좋아요 여부
+     * @return 성공 여부
+     */
+    suspend fun toggleCommentLike(commentId: String, isLiked: Boolean): Boolean
+    
+    /**
+     * 현재 사용자의 프로필 정보를 가져옵니다.
+     *
+     * @return 사용자 프로필
+     */
+    suspend fun getCurrentUserProfile(): UserProfile?
+    
+    /**
+     * 사용자 프로필을 생성/업데이트합니다.
+     *
+     * @param nickname 닉네임
+     * @param favoriteTeamId 선호 팀 ID
+     * @param favoriteTeamName 선호 팀 이름
+     * @param avatarUrl 아바타 URL
+     * @return 성공 여부
+     */
+    suspend fun updateUserProfile(
+        nickname: String,
+        favoriteTeamId: Int? = null,
+        favoriteTeamName: String? = null,
+        avatarUrl: String? = null
+    ): Boolean
     
     /**
      * 토너먼트 대진표를 가져옵니다.

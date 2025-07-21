@@ -2,13 +2,18 @@ package com.hyunwoopark.futinfo.presentation.navigation
 
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.hyunwoopark.futinfo.presentation.all_leagues.AllLeaguesScreen
+import com.hyunwoopark.futinfo.presentation.auth.LoginScreen
+import com.hyunwoopark.futinfo.presentation.auth.SignupScreen
 import com.hyunwoopark.futinfo.presentation.community.CommunityScreen
+import com.hyunwoopark.futinfo.presentation.community.board.BoardListScreen
+import com.hyunwoopark.futinfo.presentation.community.board.TeamBoardScreen
 import com.hyunwoopark.futinfo.presentation.fixture_detail.FixtureDetailScreen
 import com.hyunwoopark.futinfo.presentation.fixture_detail.FixtureDetailScreenV2
 import com.hyunwoopark.futinfo.presentation.fixtures.FixturesScreen
@@ -19,10 +24,14 @@ import com.hyunwoopark.futinfo.presentation.league_detail.LeagueDetailScreenV2
 import com.hyunwoopark.futinfo.presentation.leagues.LeaguesScreen
 import com.hyunwoopark.futinfo.presentation.news.NewsScreen
 import com.hyunwoopark.futinfo.presentation.player_profile.PlayerProfileScreenIOS
+import com.hyunwoopark.futinfo.presentation.profile.ProfileSetupScreen
 import com.hyunwoopark.futinfo.presentation.search.SearchScreen
 import com.hyunwoopark.futinfo.presentation.settings.SettingsScreen
 import com.hyunwoopark.futinfo.presentation.team_profile.TeamProfileScreenIOS
 import com.hyunwoopark.futinfo.presentation.transfers.TransfersScreen
+import io.github.jan.supabase.SupabaseClient
+import io.github.jan.supabase.gotrue.auth
+import javax.inject.Inject
 
 /**
  * 앱의 네비게이션 그래프를 정의하는 컴포저블
@@ -34,16 +43,51 @@ import com.hyunwoopark.futinfo.presentation.transfers.TransfersScreen
 @Composable
 fun NavGraph(
     navController: NavHostController,
-    startDestination: String = Screen.Leagues.route,
-    paddingValues: PaddingValues
+    startDestination: String,
+    paddingValues: PaddingValues,
+    supabaseClient: SupabaseClient
 ) {
     NavHost(
         navController = navController,
         startDestination = startDestination
     ) {
+        // 인증 화면들
+        composable(route = Screen.Login.route) {
+            LoginScreen(navController = navController)
+        }
+        
+        composable(route = Screen.Signup.route) {
+            SignupScreen(navController = navController)
+        }
+        
+        composable(route = Screen.ProfileSetup.route) {
+            ProfileSetupScreen(navController = navController)
+        }
+        
         // 커뮤니티 화면
         composable(route = Screen.Community.route) {
-            CommunityScreen()
+            CommunityScreen(
+                onNavigateToBoardList = {
+                    navController.navigate(Screen.BoardList.route)
+                }
+            )
+        }
+        
+        // 게시판 목록
+        composable(route = Screen.BoardList.route) {
+            BoardListScreen(navController = navController)
+        }
+        
+        // 게시판 상세 (팀별 게시판)
+        composable(
+            route = Screen.BoardDetail.route,
+            arguments = listOf(navArgument("boardId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val boardId = backStackEntry.arguments?.getString("boardId") ?: return@composable
+            TeamBoardScreen(
+                boardId = boardId,
+                navController = navController
+            )
         }
         
         // 리그 목록 화면 (주요 리그만 표시)

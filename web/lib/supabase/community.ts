@@ -94,11 +94,20 @@ export class CommunityService {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) throw new Error('User not authenticated')
 
+    // Get the user's profile to use the correct profile ID
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('user_id', user.id)
+      .single()
+
+    if (!profile) throw new Error('User profile not found')
+
     const { data, error } = await supabase
       .from('posts')
       .insert({
         board_id: postData.boardId,
-        author_id: user.id,
+        author_id: profile.id,
         title: postData.title,
         content: postData.content,
         category: postData.category,
@@ -111,7 +120,10 @@ export class CommunityService {
       `)
       .single()
 
-    if (error) throw error
+    if (error) {
+      console.error('Error creating post:', error)
+      throw new Error(`Failed to create post: ${error.message}`)
+    }
     
     return this.transformPost(data)
   }
@@ -172,11 +184,20 @@ export class CommunityService {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) throw new Error('User not authenticated')
 
+    // Get the user's profile to use the correct profile ID
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('user_id', user.id)
+      .single()
+
+    if (!profile) throw new Error('User profile not found')
+
     const { data, error } = await supabase
       .from('comments')
       .insert({
         post_id: commentData.postId,
-        author_id: user.id,
+        author_id: profile.id,
         content: commentData.content,
         parent_id: commentData.parentCommentId,
       })
@@ -186,7 +207,10 @@ export class CommunityService {
       `)
       .single()
 
-    if (error) throw error
+    if (error) {
+      console.error('Error creating comment:', error)
+      throw new Error(`Failed to create comment: ${error.message}`)
+    }
     
     return this.transformComment(data)
   }
@@ -264,6 +288,7 @@ export class CommunityService {
       type: data.type,
       name: data.name,
       teamId: data.team_id,
+      leagueId: data.league_id,
       description: data.description,
       iconUrl: data.icon_url,
       postCount: data.post_count,
@@ -276,7 +301,7 @@ export class CommunityService {
       id: data.id,
       boardId: data.board_id,
       authorId: data.author_id,
-      author: data.author ? this.transformProfile(data.author) : undefined,
+      author: data.author ? CommunityService.transformProfile(data.author) : undefined,
       title: data.title,
       content: data.content,
       category: data.category,
@@ -297,7 +322,7 @@ export class CommunityService {
       id: data.id,
       postId: data.post_id,
       authorId: data.author_id,
-      author: this.transformProfile(data.author),
+      author: CommunityService.transformProfile(data.author),
       content: data.content,
       createdAt: new Date(data.created_at),
       updatedAt: new Date(data.updated_at),

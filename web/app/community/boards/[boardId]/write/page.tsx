@@ -45,17 +45,30 @@ export default function WritePage() {
     setError(null)
 
     try {
-      await CommunityService.createPost({
+      console.log('Creating post with data:', {
         boardId,
         title: title.trim(),
         content: content.trim(),
-        authorId: user.id,
-        tags: tags.length > 0 ? tags : undefined
+        tags: tags.length > 0 ? tags : undefined,
+        category: 'general',
+        imageUrls: []
       })
+
+      const newPost = await CommunityService.createPost({
+        boardId,
+        title: title.trim(),
+        content: content.trim(),
+        tags: tags.length > 0 ? tags : undefined,
+        category: 'general',
+        imageUrls: []
+      })
+
+      console.log('Post created successfully:', newPost)
 
       // 게시판으로 리다이렉트
       router.push(`/community/boards/${boardId}`)
     } catch (err) {
+      console.error('Error creating post:', err)
       setError(err instanceof Error ? err.message : '게시글 작성에 실패했습니다.')
     } finally {
       setIsLoading(false)

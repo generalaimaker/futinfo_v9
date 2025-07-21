@@ -201,9 +201,10 @@ class NewsService @Inject constructor(
                     }
                     
                     XmlPullParser.END_TAG -> {
-                        if (parser.name == "item" && currentItem != null) {
-                            if (currentItem.title.isNotEmpty() && currentItem.link.isNotEmpty()) {
-                                newsItems.add(currentItem)
+                        if (parser.name == "item") {
+                            val item = currentItem
+                            if (item != null && item.title.isNotEmpty() && item.link.isNotEmpty()) {
+                                newsItems.add(item)
                             }
                             currentItem = null
                         }

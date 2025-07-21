@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { useSupabase } from '@/lib/supabase/provider'
-import { updateProfile, ProfileUpdate } from '@/lib/supabase/server'
+import { CommunityService } from '@/lib/supabase/community'
 
 // 인기 팀 목록
 const popularLeagues = [
@@ -81,13 +81,11 @@ export default function ProfileSetupPage() {
     setError(null)
 
     try {
-      const updates: ProfileUpdate = {
+      await CommunityService.updateProfile({
         nickname: nickname.trim(),
         favoriteTeamId: selectedTeam?.id,
         favoriteTeamName: selectedTeam?.name
-      }
-
-      await updateProfile(user.id, updates)
+      })
       
       // 팀 게시판 자동 팔로우
       if (selectedTeam) {

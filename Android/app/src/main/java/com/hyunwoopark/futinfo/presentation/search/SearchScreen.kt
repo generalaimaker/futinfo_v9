@@ -297,7 +297,7 @@ private fun TeamSearchResultItem(
         modifier = Modifier.fillMaxWidth(),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         shape = RoundedCornerShape(12.dp),
-        onClick = { onTeamClick(team.team.id) }
+        onClick = { team.team?.id?.let { onTeamClick(it) } }
     ) {
         Row(
             modifier = Modifier
@@ -325,8 +325,8 @@ private fun TeamSearchResultItem(
             
             // 팀 로고
             AsyncImage(
-                model = team.team.logo,
-                contentDescription = "${team.team.name} 로고",
+                model = team.team?.logo,
+                contentDescription = "${team.team?.name} 로고",
                 modifier = Modifier
                     .size(48.dp)
                     .clip(CircleShape),
@@ -340,14 +340,14 @@ private fun TeamSearchResultItem(
                 modifier = Modifier.weight(1f)
             ) {
                 Text(
-                    text = team.team.name,
+                    text = team.team?.name ?: "",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
                 
-                if (team.team.country != null) {
+                if (team.team?.country != null) {
                     Text(
                         text = team.team.country,
                         style = MaterialTheme.typography.bodyMedium,
@@ -357,7 +357,7 @@ private fun TeamSearchResultItem(
                     )
                 }
                 
-                if (team.team.founded != null) {
+                if (team.team?.founded != null) {
                     Text(
                         text = "설립: ${team.team.founded}년",
                         style = MaterialTheme.typography.bodySmall,

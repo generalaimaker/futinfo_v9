@@ -3,10 +3,10 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter, usePathname } from 'next/navigation'
-import { Calendar, Users, User, LogIn, LogOut, Settings, Heart } from 'lucide-react'
+import { Calendar, Users, User, LogIn, LogOut, Settings, Heart, Trophy, Newspaper } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useSupabase } from '@/lib/supabase/provider'
-import { getUserProfile } from '@/lib/supabase/community'
+import { CommunityService } from '@/lib/supabase/community'
 
 export function Navbar() {
   const router = useRouter()
@@ -27,7 +27,7 @@ export function Navbar() {
   const loadUserProfile = async () => {
     if (!user) return
     try {
-      const profile = await getUserProfile(user.id)
+      const profile = await CommunityService.getCurrentUserProfile()
       setUserProfile(profile)
     } catch (error) {
       console.error('Error loading user profile:', error)
@@ -62,6 +62,28 @@ export function Navbar() {
 
           {/* Navigation Links */}
           <div className="hidden md:flex items-center space-x-1">
+            <Link href="/community">
+              <Button 
+                variant={isActive('/community') || isActive('/community/boards') ? 'default' : 'ghost'}
+                size="sm"
+                className="flex items-center space-x-2"
+              >
+                <Users className="h-4 w-4" />
+                <span>락커룸</span>
+              </Button>
+            </Link>
+            
+            <Link href="/leagues">
+              <Button 
+                variant={isActive('/leagues') ? 'default' : 'ghost'}
+                size="sm"
+                className="flex items-center space-x-2"
+              >
+                <Trophy className="h-4 w-4" />
+                <span>리그</span>
+              </Button>
+            </Link>
+            
             <Link href="/">
               <Button 
                 variant={isActive('/') ? 'default' : 'ghost'}
@@ -69,23 +91,23 @@ export function Navbar() {
                 className="flex items-center space-x-2"
               >
                 <Calendar className="h-4 w-4" />
-                <span>경기 일정</span>
+                <span>일정</span>
               </Button>
             </Link>
             
-            <Link href="/community">
+            <Link href="/news">
               <Button 
-                variant={isActive('/community') ? 'default' : 'ghost'}
+                variant={isActive('/news') ? 'default' : 'ghost'}
                 size="sm"
                 className="flex items-center space-x-2"
               >
-                <Users className="h-4 w-4" />
-                <span>커뮤니티</span>
+                <Newspaper className="h-4 w-4" />
+                <span>뉴스</span>
               </Button>
             </Link>
 
             {user && userProfile?.favoriteTeamId && (
-              <Link href={`/community/boards/team-${userProfile.favoriteTeamId}`}>
+              <Link href={`/community/boards/team_${userProfile.favoriteTeamId}`}>
                 <Button 
                   variant="ghost"
                   size="sm"
