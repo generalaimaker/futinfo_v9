@@ -181,6 +181,19 @@ struct footballApp: App {
             addedLeagues.append("K리그2")
         }
         
+        // 클럽 친선경기 추가 (ID: 667)
+        if !leagueFollowService.isFollowing(leagueId: 667) {
+            let clubFriendlies = LeagueFollow(
+                id: 667,
+                name: "Club Friendlies",
+                logo: "https://media.api-sports.io/football/leagues/667.png",
+                country: nil,
+                isDefault: false
+            )
+            leagueFollowService.followLeague(clubFriendlies)
+            addedLeagues.append("클럽 친선경기")
+        }
+        
         if !addedLeagues.isEmpty {
             print("⚽ 다음 리그가 자동으로 추가되었습니다: \(addedLeagues.joined(separator: ", "))")
             

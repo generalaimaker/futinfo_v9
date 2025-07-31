@@ -10,6 +10,34 @@ extension Array {
     }
 }
 
+// MARK: - 유럽 주요 팀 ID (친선경기 우선순위용)
+private let majorEuropeanTeams = [
+    // 잉글랜드
+    33,  // Manchester United
+    40,  // Liverpool
+    50,  // Manchester City
+    47,  // Tottenham
+    42,  // Arsenal
+    49,  // Chelsea
+    
+    // 스페인
+    529, // Barcelona
+    541, // Real Madrid
+    530, // Atletico Madrid
+    
+    // 이탈리아
+    489, // AC Milan
+    505, // Inter Milan
+    496, // Juventus
+    
+    // 독일
+    157, // Bayern Munich
+    165, // Borussia Dortmund
+    
+    // 프랑스
+    85   // PSG
+]
+
 // MARK: - 경기 일정 로딩 뷰
 struct FixturesLoadingView: View {
     @State private var loadingText = "경기 일정을 불러오는 중"
@@ -994,13 +1022,24 @@ struct FixturePageView: View {
             return priority1 < priority2
         }
         
-        // 리그별 경기 그룹화
+        // 유럽 주요 팀 친선경기 필터링
+        let majorEuropeanFriendlies: [Fixture] = {
+            guard let fixturesForDate = viewModel.fixtures[date] else { return [] }
+            
+            return fixturesForDate.filter { fixture in
+                return fixture.league.id == 667 && 
+                    (majorEuropeanTeams.contains(fixture.teams.home.id) || 
+                     majorEuropeanTeams.contains(fixture.teams.away.id))
+            }
+        }()
+        
+        // 리그별 경기 그룹화 (유럽 주요 팀 친선경기 제외)
         let fixturesByLeague: [Int: [Fixture]] = {
             guard let fixturesForDate = viewModel.fixtures[date] else { return [:] }
             
-            // 즐겨찾기 팀 경기는 제외
+            // 즐겨찾기 팀 경기와 유럽 주요 팀 친선경기는 제외
             let nonFavoriteFixtures = fixturesForDate.filter { fixture in
-                !favoriteFixtures.contains(fixture)
+                !favoriteFixtures.contains(fixture) && !majorEuropeanFriendlies.contains(where: { $0.fixture.id == fixture.fixture.id })
             }
             
             // 리그별로 그룹화
@@ -1018,6 +1057,7 @@ struct FixturePageView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
                 
+                // 즐겨찾기 섹션
                 if !favoriteFixtures.isEmpty {
                     VStack(alignment: .leading, spacing: 8) {
                         HStack {
@@ -1031,6 +1071,27 @@ struct FixturePageView: View {
                         ForEach(favoriteFixtures) { fixture in
                             FixtureCardView(fixture: fixture, viewModel: viewModel)
                                 .padding(.vertical, 2) // 4 -> 2로 줄임
+                        }
+                    }
+                    
+                    Divider()
+                        .padding(.vertical, 8)
+                }
+                
+                // 유럽 주요 팀 친선경기 섹션
+                if !majorEuropeanFriendlies.isEmpty {
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Image(systemName: "sportscourt")
+                                .foregroundColor(.blue)
+                            Text("유럽 주요 팀 친선경기")
+                                .font(.headline)
+                        }
+                        .padding(.top, favoriteFixtures.isEmpty ? 16 : 0)
+                        
+                        ForEach(majorEuropeanFriendlies) { fixture in
+                            FixtureCardView(fixture: fixture, viewModel: viewModel)
+                                .padding(.vertical, 2)
                         }
                     }
                     
@@ -1094,6 +1155,7 @@ struct FixturePageView: View {
                                 case 292: return "K리그1"
                                 case 293: return "K리그2"
                                 case 253: return "MLS"
+                                case 667: return "클럽 친선경기"
                                 case 98: return "J1 리그"
                                 case 169: return "중국 슈퍼리그"
                                 // case 5: return "네이션스 리그" - 이미 위에서 정의됨

@@ -134,6 +134,10 @@ class LeagueFollowService: ObservableObject {
             activeLeagues.removeAll { $0 == 15 }
         }
         
+        // 클럽 친선경기는 주로 여름(6-8월)과 겨울(1-2월)에 진행
+        // 667은 항상 활성 상태로 유지 (친선경기는 연중 다양한 시기에 진행될 수 있음)
+        // 따라서 667에 대한 필터링은 하지 않음
+        
         // 컵 대회들은 대부분 8월-5월 (여름 휴식기 제외)
         // FA컵, 코파 델 레이, 코파 이탈리아, DFB 포칼, 쿠프 드 프랑스
         if month >= 6 && month <= 7 {

@@ -40,6 +40,16 @@ struct DebugFixturesView: View {
                             clearCaches()
                         }
                         .foregroundColor(.red)
+                        
+                        Button("Run Comprehensive API Test") {
+                            runComprehensiveTest()
+                        }
+                        .buttonStyle(.borderedProminent)
+                        
+                        Button("Test Club Friendlies (667)") {
+                            testClubFriendlies()
+                        }
+                        .buttonStyle(.bordered)
                     }
                     .padding()
                     
@@ -156,6 +166,131 @@ struct DebugFixturesView: View {
         viewModel.fixtures.removeAll()
         
         testResults.append("🗑️ All caches cleared")
+    }
+    
+    func runComprehensiveTest() {
+        isLoading = true
+        testResults.removeAll()
+        
+        Task {
+            testResults.append("=== Comprehensive API Test ===")
+            testResults.append("Date: \(Date())")
+            
+            let service = SupabaseFootballAPIService.shared
+            let dateFormatter = DateFormatter()
+            dateFormatter.dateFormat = "yyyy-MM-dd"
+            dateFormatter.timeZone = TimeZone(identifier: "Asia/Seoul")
+            
+            let today = dateFormatter.string(from: Date())
+            testResults.append("Today string: \(today)")
+            
+            // Test 1: Direct fetchFixtures call
+            testResults.append("\n1. Testing fetchFixtures directly...")
+            do {
+                let response = try await service.fetchFixtures(date: today)
+                testResults.append("✅ fetchFixtures success: \(response.results) results")
+                if response.results > 0 {
+                    testResults.append("   First fixture: \(response.response[0].teams.home.name) vs \(response.response[0].teams.away.name)")
+                }
+            } catch {
+                testResults.append("❌ fetchFixtures error: \(error)")
+            }
+            
+            // Test 2: getFixturesWithServerCache
+            testResults.append("\n2. Testing getFixturesWithServerCache...")
+            do {
+                let fixtures = try await service.getFixturesWithServerCache(
+                    date: today,
+                    leagueId: 667,  // Club friendlies
+                    seasonYear: 2025,
+                    forceRefresh: true
+                )
+                testResults.append("✅ getFixturesWithServerCache success: \(fixtures.count) fixtures")
+                if fixtures.count > 0 {
+                    testResults.append("   First fixture: \(fixtures[0].teams.home.name) vs \(fixtures[0].teams.away.name)")
+                }
+            } catch {
+                testResults.append("❌ getFixturesWithServerCache error: \(error)")
+            }
+            
+            // Test 3: SupabaseEdgeFunctionsService
+            testResults.append("\n3. Testing SupabaseEdgeFunctionsService...")
+            do {
+                let edgeService = SupabaseEdgeFunctionsService.shared
+                let fixtures = try await edgeService.fetchFixtures(
+                    date: today,
+                    leagueId: 667,
+                    seasonYear: 2025,
+                    forceRefresh: true
+                )
+                testResults.append("✅ SupabaseEdgeFunctionsService success: \(fixtures.count) fixtures")
+                if fixtures.count > 0 {
+                    testResults.append("   First fixture: \(fixtures[0].teams.home.name) vs \(fixtures[0].teams.away.name)")
+                }
+            } catch {
+                testResults.append("❌ SupabaseEdgeFunctionsService error: \(error)")
+            }
+            
+            // Test 4: LiveMatchService
+            testResults.append("\n4. Testing LiveMatchService...")
+            do {
+                let liveService = LiveMatchService.shared
+                let liveMatches = try await liveService.getLiveMatches()
+                testResults.append("✅ LiveMatchService success: \(liveMatches.count) live matches")
+                if liveMatches.count > 0 {
+                    testResults.append("   First live match: \(liveMatches[0].teams.home.name) vs \(liveMatches[0].teams.away.name)")
+                }
+            } catch {
+                testResults.append("❌ LiveMatchService error: \(error)")
+            }
+            
+            testResults.append("\n=== Test Complete ===")
+            isLoading = false
+        }
+    }
+    
+    func testClubFriendlies() {
+        isLoading = true
+        testResults.removeAll()
+        
+        Task {
+            testResults.append("=== Testing Club Friendlies (667) ===")
+            
+            let service = SupabaseFootballAPIService.shared
+            let dateFormatter = DateFormatter()
+            dateFormatter.dateFormat = "yyyy-MM-dd"
+            dateFormatter.timeZone = TimeZone(identifier: "Asia/Seoul")
+            
+            let today = dateFormatter.string(from: Date())
+            
+            // Test with different methods
+            do {
+                // Method 1: Direct API call with league 667
+                let fixtures = try await service.getFixturesWithServerCache(
+                    date: today,
+                    leagueId: 667,
+                    seasonYear: 2025,
+                    forceRefresh: true
+                )
+                testResults.append("✅ Found \(fixtures.count) club friendlies for today")
+                
+                // Show major European teams
+                let majorTeams = [33, 40, 50, 47, 42, 49, 529, 541, 530, 489, 505, 496, 157, 165, 85]
+                let majorTeamFriendlies = fixtures.filter { fixture in
+                    majorTeams.contains(fixture.teams.home.id) || majorTeams.contains(fixture.teams.away.id)
+                }
+                
+                testResults.append("✅ Major European team friendlies: \(majorTeamFriendlies.count)")
+                for fixture in majorTeamFriendlies.prefix(5) {
+                    testResults.append("   \(fixture.teams.home.name) vs \(fixture.teams.away.name)")
+                }
+                
+            } catch {
+                testResults.append("❌ Error: \(error)")
+            }
+            
+            isLoading = false
+        }
     }
 }
 

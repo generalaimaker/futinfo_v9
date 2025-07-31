@@ -18,7 +18,7 @@ extension SupabaseFootballAPIService {
             let month = Calendar.current.component(.month, from: targetDate)
             if month == 7 {
                 // 7월에 활동하는 리그만 필터링
-                let activeInJuly = [253, 71, 307, 15, 292, 293] // MLS, 브라질, 사우디, 클럽월드컵, K리그
+                let activeInJuly = [253, 71, 307, 15, 292, 293, 667] // MLS, 브라질, 사우디, 클럽월드컵, K리그, 클럽친선경기
                 let filteredLeagues = leagueIds.filter { activeInJuly.contains($0) }
                 
                 if filteredLeagues.count < leagueIds.count {

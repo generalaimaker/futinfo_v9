@@ -56,11 +56,41 @@ serve(async (req) => {
       case 'fixtures':
         apiPath = '/fixtures'
         break
+      case 'fixtures/events':
+        apiPath = '/fixtures/events'
+        break
+      case 'fixtures/statistics':
+        apiPath = '/fixtures/statistics'
+        break
+      case 'fixtures/h2h':
+        apiPath = '/fixtures/h2h'
+        break
       case 'leagues':
         apiPath = '/leagues'
         break
       case 'standings':
         apiPath = '/standings'
+        break
+      case 'teams':
+        apiPath = '/teams'
+        break
+      case 'teams/statistics':
+        apiPath = '/teams/statistics'
+        break
+      case 'players':
+        apiPath = '/players'
+        break
+      case 'players/squads':
+        apiPath = '/players/squads'
+        break
+      case 'transfers':
+        apiPath = '/transfers'
+        break
+      case 'injuries':
+        apiPath = '/injuries'
+        break
+      case 'predictions':
+        apiPath = '/predictions'
         break
       default:
         return new Response(

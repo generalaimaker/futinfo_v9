@@ -27,14 +27,22 @@ class SupabaseFootballAPIService: ObservableObject {
             }
         }
         
-        // Build URL with query parameters
-        var urlString = "\(supabaseURL)/functions/v1/fixtures-api/fixtures?date=\(date)"
+        // Build URL for POST request
+        let urlString = "\(supabaseURL)/functions/v1/unified-football-api"
+        
+        // Build request body
+        var params: [String: Any] = ["date": date]
         if let leagueId = leagueId {
-            urlString += "&league=\(leagueId)"
+            params["league"] = leagueId
         }
         if let season = season {
-            urlString += "&season=\(season)"
+            params["season"] = season
         }
+        
+        let requestBody: [String: Any] = [
+            "endpoint": "fixtures",
+            "params": params
+        ]
         
         print("🌐 Supabase API 호출: \(urlString)")
         print("📅 요청 파라미터 - Date: \(date), League: \(leagueId ?? -1), Season: \(season ?? -1)")
@@ -47,8 +55,12 @@ class SupabaseFootballAPIService: ObservableObject {
         }
         
         var request = URLRequest(url: url)
-        request.httpMethod = "GET"
+        request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        
+        // Add request body
+        let jsonData = try JSONSerialization.data(withJSONObject: requestBody)
+        request.httpBody = jsonData
         
         // Add Supabase anon key for Edge Functions
         let anonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV1dG15bWF4a2t5dGlidWlpYWF4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE4OTYzMzUsImV4cCI6MjA2NzQ3MjMzNX0.-sR7UF1Lj1cZ3fy6ScWaLViV_d5aU2PoT7UCpf3XlBM"
@@ -159,15 +171,27 @@ class SupabaseFootballAPIService: ObservableObject {
     // MARK: - Standings
     
     func fetchStandings(leagueId: Int, season: Int) async throws -> StandingsResponse {
-        let urlString = "\(supabaseURL)/functions/v1/football-api/standings?league=\(leagueId)&season=\(season)"
+        let urlString = "\(supabaseURL)/functions/v1/unified-football-api"
+        
+        let requestBody: [String: Any] = [
+            "endpoint": "standings",
+            "params": [
+                "league": leagueId,
+                "season": season
+            ]
+        ]
         
         guard let url = URL(string: urlString) else {
             throw FootballAPIError.invalidRequest
         }
         
         var request = URLRequest(url: url)
-        request.httpMethod = "GET"
+        request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        
+        // Add request body
+        let jsonData = try JSONSerialization.data(withJSONObject: requestBody)
+        request.httpBody = jsonData
         
         // Add Supabase anon key for Edge Functions
         let anonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV1dG15bWF4a2t5dGlidWlpYWF4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE4OTYzMzUsImV4cCI6MjA2NzQ3MjMzNX0.-sR7UF1Lj1cZ3fy6ScWaLViV_d5aU2PoT7UCpf3XlBM"
@@ -1011,7 +1035,7 @@ extension SupabaseFootballAPIService {
         
         // 리그별 시즌 규칙
         switch leagueId {
-        case 39: // Premier League
+        case 39, 667: // Premier League, Club Friendlies
             return currentMonth >= 8 ? currentYear : currentYear - 1
         case 140: // La Liga  
             return currentMonth >= 8 ? currentYear : currentYear - 1
@@ -1049,7 +1073,7 @@ extension SupabaseFootballAPIService {
         
         // 리그별 시즌 규칙
         switch leagueId {
-        case 39, 140, 135, 78, 61, 2, 3, 4, 5: // 유럽 리그 (챔스, 유로파, 컨퍼런스, 네이션스 포함)
+        case 39, 140, 135, 78, 61, 2, 3, 4, 5, 667: // 유럽 리그 (챔스, 유로파, 컨퍼런스, 네이션스 포함) + 클럽 친선경기
             // 8월~7월 시즌 (예: 2024년 8월~2025년 7월 = 2024 시즌)
             return month >= 8 ? year : year - 1
             

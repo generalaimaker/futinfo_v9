@@ -51,31 +51,40 @@ class SupabaseEdgeFunctionsService {
         responseType: T.Type,
         forceRefresh: Bool = false
     ) async throws -> T {
-        // URL 구성
-        guard var urlComponents = URLComponents(string: "\(baseURL)/\(endpoint)") else {
+        // URL 구성 - 모든 요청은 unified-football-api로
+        guard let url = URL(string: "\(baseURL)/unified-football-api") else {
             throw FootballAPIError.invalidURL
         }
         
-        // 쿼리 파라미터 추가
-        var queryParameters = parameters
+        // 요청 본문 구성
+        var requestBody: [String: Any] = [
+            "endpoint": endpoint,
+            "params": parameters
+        ]
+        
         if forceRefresh {
-            queryParameters["forceRefresh"] = "true"
-        }
-        
-        urlComponents.queryItems = queryParameters.map { key, value in
-            URLQueryItem(name: key, value: "\(value)")
-        }
-        
-        guard let url = urlComponents.url else {
-            throw FootballAPIError.invalidURL
+            if var params = requestBody["params"] as? [String: Any] {
+                params["forceRefresh"] = "true"
+                requestBody["params"] = params
+            }
         }
         
         // 요청 생성
         var request = URLRequest(url: url)
-        request.httpMethod = "GET"
+        request.httpMethod = "POST"
         request.timeoutInterval = 30
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        
+        // Supabase 인증 헤더 추가
+        let anonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV1dG15bWF4a2t5dGlidWlpYWF4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE4OTYzMzUsImV4cCI6MjA2NzQ3MjMzNX0.-sR7UF1Lj1cZ3fy6ScWaLViV_d5aU2PoT7UCpf3XlBM"
+        request.setValue("Bearer \(anonKey)", forHTTPHeaderField: "Authorization")
+        request.setValue(anonKey, forHTTPHeaderField: "apikey")
+        
+        // JSON 본문 설정
+        request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
         
         print("🔄 Supabase Edge Functions 요청: \(url.absoluteString)")
+        print("📦 요청 본문: \(requestBody)")
         
         // 요청 실행
         let (data, response) = try await URLSession.shared.data(for: request)
@@ -121,14 +130,14 @@ class SupabaseEdgeFunctionsService {
         ]
         
         if let leagueId = leagueId {
-            parameters["league"] = leagueId
+            parameters["league"] = String(leagueId)
         }
         if let seasonYear = seasonYear {
-            parameters["season"] = seasonYear
+            parameters["season"] = String(seasonYear)
         }
         
         let response = try await makeRequest(
-            endpoint: "fixtures-api/fixtures",
+            endpoint: "fixtures",
             parameters: parameters,
             responseType: APIResponse<Fixture>.self,
             forceRefresh: forceRefresh
@@ -142,7 +151,7 @@ class SupabaseEdgeFunctionsService {
         let parameters = ["fixture": fixtureId]
         
         let response = try await makeRequest(
-            endpoint: "fixtures-api/statistics",
+            endpoint: "fixtures/statistics",
             parameters: parameters,
             responseType: APIResponse<TeamStatistics>.self
         )
@@ -155,7 +164,7 @@ class SupabaseEdgeFunctionsService {
         let parameters = ["fixture": fixtureId]
         
         let response = try await makeRequest(
-            endpoint: "fixtures-api/events",
+            endpoint: "fixtures/events",
             parameters: parameters,
             responseType: APIResponse<FixtureEvent>.self
         )
@@ -171,7 +180,7 @@ class SupabaseEdgeFunctionsService {
         ]
         
         let response = try await makeRequest(
-            endpoint: "fixtures-api/standings",
+            endpoint: "standings",
             parameters: parameters,
             responseType: APIResponse<StandingResponse>.self
         )
@@ -184,7 +193,7 @@ class SupabaseEdgeFunctionsService {
         let _ = "h2h=\(team1)-\(team2)"
         
         let response = try await makeRequest(
-            endpoint: "fixtures-api/h2h",
+            endpoint: "fixtures/h2h",
             parameters: ["h2h": "\(team1)-\(team2)"],
             responseType: APIResponse<Fixture>.self
         )
@@ -207,7 +216,7 @@ class SupabaseEdgeFunctionsService {
         }
         
         let response = try await makeRequest(
-            endpoint: "fixtures-api/injuries",
+            endpoint: "injuries",
             parameters: parameters,
             responseType: APIResponse<InjuryData>.self
         )
@@ -218,7 +227,7 @@ class SupabaseEdgeFunctionsService {
     // 캐시 통계 가져오기 (관리자용)
     func getCacheStats() async throws -> CacheStats {
         return try await makeRequest(
-            endpoint: "fixtures-api/cache-stats",
+            endpoint: "cache-stats",
             parameters: [:],
             responseType: CacheStats.self
         )
@@ -245,7 +254,7 @@ class SupabaseEdgeFunctionsService {
         }
         
         let response = try await makeRequest(
-            endpoint: "fixtures-api/fixtures",
+            endpoint: "fixtures",
             parameters: parameters,
             responseType: APIResponse<Fixture>.self
         )
