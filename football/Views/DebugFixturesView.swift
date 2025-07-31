@@ -50,6 +50,12 @@ struct DebugFixturesView: View {
                             testClubFriendlies()
                         }
                         .buttonStyle(.bordered)
+                        
+                        Button("Force Reload Today's Fixtures") {
+                            forceReloadToday()
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .foregroundColor(.white)
                     }
                     .padding()
                     
@@ -164,6 +170,9 @@ struct DebugFixturesView: View {
         // ViewModel 캐시 클리어
         viewModel.cachedFixtures.removeAll()
         viewModel.fixtures.removeAll()
+        
+        // 빈 응답 캐시 클리어
+        UserDefaults.standard.removeObject(forKey: "emptyResponseCache")
         
         testResults.append("🗑️ All caches cleared")
     }
@@ -287,6 +296,46 @@ struct DebugFixturesView: View {
                 
             } catch {
                 testResults.append("❌ Error: \(error)")
+            }
+            
+            isLoading = false
+        }
+    }
+    
+    func forceReloadToday() {
+        isLoading = true
+        testResults.removeAll()
+        
+        Task {
+            testResults.append("=== Force Reload Today's Fixtures ===")
+            
+            // 빈 응답 캐시 클리어
+            UserDefaults.standard.removeObject(forKey: "emptyResponseCache")
+            testResults.append("✅ 빈 응답 캐시 제거됨")
+            
+            // 오늘 날짜로 강제 로드
+            await viewModel.loadFixturesForDate(viewModel.selectedDate, forceRefresh: true)
+            
+            // 결과 확인
+            if let fixtures = viewModel.fixtures[viewModel.selectedDate] {
+                testResults.append("✅ 총 \(fixtures.count)개 경기 로드됨")
+                
+                // 클럽 친선경기 확인
+                let friendlies = fixtures.filter { $0.league.id == 667 }
+                testResults.append("✅ 클럽 친선경기: \(friendlies.count)개")
+                
+                // 유럽 주요 팀 친선경기 확인
+                let majorTeams = [33, 40, 50, 47, 42, 49, 529, 541, 530, 489, 505, 496, 157, 165, 85]
+                let majorTeamFriendlies = friendlies.filter { fixture in
+                    majorTeams.contains(fixture.teams.home.id) || majorTeams.contains(fixture.teams.away.id)
+                }
+                testResults.append("✅ 유럽 주요 팀 친선경기: \(majorTeamFriendlies.count)개")
+                
+                for fixture in majorTeamFriendlies.prefix(5) {
+                    testResults.append("   \(fixture.teams.home.name) vs \(fixture.teams.away.name)")
+                }
+            } else {
+                testResults.append("❌ 경기를 로드하지 못했습니다")
             }
             
             isLoading = false
