@@ -42,8 +42,8 @@ extension SupabaseFootballAPIService {
             }
         }
         
-        // 배치 크기 설정 (동시 3개씩 처리)
-        let batchSize = 3
+        // 배치 크기 설정 (동시 2개씩 처리 - 안정성 향상)
+        let batchSize = 2
         let batches = leagueIds.chunked(into: batchSize)
         
         for (index, batch) in batches.enumerated() {
@@ -81,8 +81,9 @@ extension SupabaseFootballAPIService {
                 }
             }
             
-            // 다음 배치 전 짧은 대기 (Rate Limit 방지)
+            // 다음 배치 전 대기 (Rate Limit 방지 및 안정성 향상)
             if index < batches.count - 1 {
+                print("⏳ Rate Limit 대기: 0.5초")
                 try await Task.sleep(nanoseconds: 500_000_000) // 0.5초
             }
         }

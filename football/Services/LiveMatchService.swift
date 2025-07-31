@@ -11,7 +11,7 @@ class LiveMatchService {
     
     // 폴링 타이머
     private var pollingTimer: Timer?
-    private let pollingInterval: TimeInterval = 10.0 // 10초 간격으로 폴링 (실시간성 강화)
+    private let pollingInterval: TimeInterval = 30.0 // 30초 간격으로 폴링 (안정성 강화)
     
     // 라이브 경기 상태 목록
     private let liveStatuses = ["1H", "2H", "HT", "ET", "P", "BT", "LIVE"]

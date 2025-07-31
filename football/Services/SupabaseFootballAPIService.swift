@@ -216,96 +216,24 @@ class SupabaseFootballAPIService: ObservableObject {
     // MARK: - Fixture Details
     
     func fetchFixtureStatistics(fixtureId: Int) async throws -> FixtureStatisticsResponse {
-        let urlString = "\(supabaseURL)/functions/v1/fixtures-api/fixture-details?fixture=\(fixtureId)&type=statistics"
-        
-        guard let url = URL(string: urlString) else {
-            throw FootballAPIError.invalidRequest
-        }
-        
-        var request = URLRequest(url: url)
-        request.httpMethod = "GET"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        
-        // Add Supabase anon key for Edge Functions
-        let anonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV1dG15bWF4a2t5dGlidWlpYWF4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE4OTYzMzUsImV4cCI6MjA2NzQ3MjMzNX0.-sR7UF1Lj1cZ3fy6ScWaLViV_d5aU2PoT7UCpf3XlBM"
-        request.setValue("Bearer \(anonKey)", forHTTPHeaderField: "Authorization")
-        request.setValue(anonKey, forHTTPHeaderField: "apikey")
-        request.timeoutInterval = defaultTimeout
-        
-        let (data, response) = try await URLSession.shared.data(for: request)
-        
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw FootballAPIError.invalidResponse
-        }
-        
-        if httpResponse.statusCode != 200 {
-            throw FootballAPIError.httpError(httpResponse.statusCode)
-        }
-        
-        let decoder = JSONDecoder()
-        return try decoder.decode(FixtureStatisticsResponse.self, from: data)
+        return try await performRequest(
+            endpoint: "fixtures/statistics",
+            parameters: ["fixture": fixtureId]
+        )
     }
     
     func fetchFixtureEvents(fixtureId: Int) async throws -> FixtureEventsResponse {
-        let urlString = "\(supabaseURL)/functions/v1/fixtures-api/fixture-details?fixture=\(fixtureId)&type=events"
-        
-        guard let url = URL(string: urlString) else {
-            throw FootballAPIError.invalidRequest
-        }
-        
-        var request = URLRequest(url: url)
-        request.httpMethod = "GET"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        
-        // Add Supabase anon key for Edge Functions
-        let anonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV1dG15bWF4a2t5dGlidWlpYWF4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE4OTYzMzUsImV4cCI6MjA2NzQ3MjMzNX0.-sR7UF1Lj1cZ3fy6ScWaLViV_d5aU2PoT7UCpf3XlBM"
-        request.setValue("Bearer \(anonKey)", forHTTPHeaderField: "Authorization")
-        request.setValue(anonKey, forHTTPHeaderField: "apikey")
-        request.timeoutInterval = defaultTimeout
-        
-        let (data, response) = try await URLSession.shared.data(for: request)
-        
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw FootballAPIError.invalidResponse
-        }
-        
-        if httpResponse.statusCode != 200 {
-            throw FootballAPIError.httpError(httpResponse.statusCode)
-        }
-        
-        let decoder = JSONDecoder()
-        return try decoder.decode(FixtureEventsResponse.self, from: data)
+        return try await performRequest(
+            endpoint: "fixtures/events",
+            parameters: ["fixture": fixtureId]
+        )
     }
     
     func fetchFixtureLineups(fixtureId: Int) async throws -> FixtureLineupsResponse {
-        let urlString = "\(supabaseURL)/functions/v1/fixtures-api/fixture-details?fixture=\(fixtureId)&type=lineups"
-        
-        guard let url = URL(string: urlString) else {
-            throw FootballAPIError.invalidRequest
-        }
-        
-        var request = URLRequest(url: url)
-        request.httpMethod = "GET"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        
-        // Add Supabase anon key for Edge Functions
-        let anonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV1dG15bWF4a2t5dGlidWlpYWF4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE4OTYzMzUsImV4cCI6MjA2NzQ3MjMzNX0.-sR7UF1Lj1cZ3fy6ScWaLViV_d5aU2PoT7UCpf3XlBM"
-        request.setValue("Bearer \(anonKey)", forHTTPHeaderField: "Authorization")
-        request.setValue(anonKey, forHTTPHeaderField: "apikey")
-        request.timeoutInterval = defaultTimeout
-        
-        let (data, response) = try await URLSession.shared.data(for: request)
-        
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw FootballAPIError.invalidResponse
-        }
-        
-        if httpResponse.statusCode != 200 {
-            throw FootballAPIError.httpError(httpResponse.statusCode)
-        }
-        
-        let decoder = JSONDecoder()
-        return try decoder.decode(FixtureLineupsResponse.self, from: data)
+        return try await performRequest(
+            endpoint: "fixtures/lineups",
+            parameters: ["fixture": fixtureId]
+        )
     }
     
     // MARK: - Helper Methods
@@ -705,32 +633,26 @@ extension SupabaseFootballAPIService {
         cachePolicy: CachePolicy = .standard,
         forceRefresh: Bool = false
     ) async throws -> T {
-        // Convert parameters dictionary to string dictionary
-        var stringParams: [String: String] = [:]
-        for (key, value) in parameters {
-            if let stringValue = value as? String {
-                stringParams[key] = stringValue
-            } else {
-                stringParams[key] = "\(value)"
-            }
-        }
+        // Build request body for unified-football-api
+        let requestBody: [String: Any] = [
+            "endpoint": endpoint,
+            "params": parameters
+        ]
         
         // Build URL
-        var urlString = "\(supabaseURL)/functions/v1/fixtures-api\(endpoint)"
-        if !stringParams.isEmpty {
-            let queryItems = stringParams.map { key, value in
-                "\(key)=\(value.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? value)"
-            }.joined(separator: "&")
-            urlString += "?\(queryItems)"
-        }
+        let urlString = "\(supabaseURL)/functions/v1/unified-football-api"
         
         guard let url = URL(string: urlString) else {
             throw FootballAPIError.invalidRequest
         }
         
         var request = URLRequest(url: url)
-        request.httpMethod = "GET"
+        request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        
+        // Add request body
+        let jsonData = try JSONSerialization.data(withJSONObject: requestBody)
+        request.httpBody = jsonData
         
         // Add Supabase anon key for Edge Functions
         let anonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV1dG15bWF4a2t5dGlidWlpYWF4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE4OTYzMzUsImV4cCI6MjA2NzQ3MjMzNX0.-sR7UF1Lj1cZ3fy6ScWaLViV_d5aU2PoT7UCpf3XlBM"

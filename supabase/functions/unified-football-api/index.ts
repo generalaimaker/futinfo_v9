@@ -65,6 +65,9 @@ serve(async (req) => {
       case 'fixtures/h2h':
         apiPath = '/fixtures/h2h'
         break
+      case 'fixtures/lineups':
+        apiPath = '/fixtures/lineups'
+        break
       case 'leagues':
         apiPath = '/leagues'
         break
