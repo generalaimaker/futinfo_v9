@@ -1,21 +1,15 @@
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 
-// Default configuration (fallback values)
-const DEFAULT_CONFIG = {
-  supabaseUrl: 'https://uutmymaxkkytibuiiaax.supabase.co',
-  supabaseAnonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV1dG15bWF4a2t5dGlidWlpYWF4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE4OTYzMzUsImV4cCI6MjA2NzQ3MjMzNX0.-sR7UF1Lj1cZ3fy6ScWaLViV_d5aU2PoT7UCpf3XlBM'
-}
+// Supabase configuration
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://uutmymaxkkytibuiiaax.supabase.co'
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV1dG15bWF4a2t5dGlidWlpYWF4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE4OTYzMzUsImV4cCI6MjA2NzQ3MjMzNX0.-sR7UF1Lj1cZ3fy6ScWaLViV_d5aU2PoT7UCpf3XlBM'
 
-// Try to get from environment variables first
-let supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || DEFAULT_CONFIG.supabaseUrl
-let supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || DEFAULT_CONFIG.supabaseAnonKey
-
-// Log configuration status
-if (typeof window !== 'undefined') {
-  console.log('[Supabase Client] Environment check:', {
-    hasEnvUrl: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
-    hasEnvKey: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-    usingDefaults: !process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+// Log configuration status in development
+if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
+  console.log('[Supabase Client] Configuration:', {
+    url: supabaseUrl,
+    hasKey: !!supabaseAnonKey,
+    keyLength: supabaseAnonKey?.length
   })
 }
 
@@ -24,12 +18,20 @@ export const supabase = createSupabaseClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
-    detectSessionInUrl: true
+    detectSessionInUrl: true,
+    storage: typeof window !== 'undefined' ? window.localStorage : undefined,
+    storageKey: 'supabase.auth.token',
+    flowType: 'pkce'
   },
   realtime: {
     params: {
       eventsPerSecond: 10,
     },
+  },
+  global: {
+    headers: {
+      'x-application-name': 'futinfo-web'
+    }
   }
 })
 

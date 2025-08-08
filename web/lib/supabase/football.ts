@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase/client'
+import { createClient } from '@/lib/supabase/browser'
 import { 
   FixturesResponse, 
   LeaguesResponse, 
@@ -18,7 +18,7 @@ import { apiCache, CacheConfig, CacheTTL } from '../utils/api-cache-manager'
 import { withRateLimit } from '../utils/rate-limit-manager'
 
 class FootballAPIService {
-  private supabase = supabase
+  private supabase = typeof window !== 'undefined' ? createClient() : null
   private cache = new Map<string, { data: any; timestamp: number }>()
   private CACHE_DURATION = 5 * 60 * 1000 // 5분 캐시
   private lastRequestTime = 0
