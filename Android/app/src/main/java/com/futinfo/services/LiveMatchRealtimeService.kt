@@ -1,7 +1,7 @@
 package com.futinfo.services
 
 import android.util.Log
-import com.futinfo.data.models.*
+import com.hyunwoopark.futinfo.domain.model.*
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.postgrest.*
 import io.github.jan.supabase.realtime.*
@@ -302,57 +302,32 @@ class LiveMatchRealtimeService @Inject constructor(
     // Fixture로 변환하는 헬퍼 메서드
     fun liveMatchToFixture(liveMatch: LiveMatch): Fixture {
         return Fixture(
-            fixture = FixtureInfo(
-                id = liveMatch.fixture_id,
-                referee = liveMatch.referee,
-                timezone = "UTC",
-                date = liveMatch.match_date,
-                timestamp = 0, // 계산 필요
-                periods = Periods(first = null, second = null),
-                venue = Venue(
-                    id = null,
-                    name = liveMatch.venue_name,
-                    city = liveMatch.venue_city
-                ),
-                status = Status(
-                    long = liveMatch.status,
-                    short = liveMatch.status_short,
-                    elapsed = liveMatch.elapsed
-                )
-            ),
-            league = League(
-                id = liveMatch.league_id,
-                name = liveMatch.league_name,
-                country = "",
-                logo = "",
-                flag = null,
-                season = 2025,
-                round = liveMatch.round
-            ),
-            teams = Teams(
-                home = Team(
-                    id = liveMatch.home_team_id,
-                    name = liveMatch.home_team_name,
-                    logo = liveMatch.home_team_logo ?: "",
-                    winner = null
-                ),
-                away = Team(
-                    id = liveMatch.away_team_id,
-                    name = liveMatch.away_team_name,
-                    logo = liveMatch.away_team_logo ?: "",
-                    winner = null
-                )
-            ),
-            goals = Goals(
-                home = liveMatch.home_score,
-                away = liveMatch.away_score
-            ),
-            score = Score(
-                halftime = Goals(home = null, away = null),
-                fulltime = Goals(home = null, away = null),
-                extratime = Goals(home = null, away = null),
-                penalty = Goals(home = null, away = null)
-            )
+            id = liveMatch.fixture_id,
+            date = liveMatch.match_date,
+            statusLong = liveMatch.status,
+            statusShort = liveMatch.status_short,
+            elapsed = liveMatch.elapsed,
+            venueName = liveMatch.venue_name,
+            venueCity = liveMatch.venue_city,
+            timezone = "UTC",
+            referee = liveMatch.referee,
+            leagueId = liveMatch.league_id,
+            leagueName = liveMatch.league_name,
+            leagueLogoUrl = "", // 로고 URL은 별도로 가져와야 함
+            leagueCountry = "",
+            leagueFlag = null,
+            season = 2025,
+            round = liveMatch.round,
+            homeTeamId = liveMatch.home_team_id,
+            homeTeamName = liveMatch.home_team_name,
+            homeTeamLogo = liveMatch.home_team_logo ?: "",
+            homeTeamWinner = null,
+            awayTeamId = liveMatch.away_team_id,
+            awayTeamName = liveMatch.away_team_name,
+            awayTeamLogo = liveMatch.away_team_logo ?: "",
+            awayTeamWinner = null,
+            homeGoals = liveMatch.home_score,
+            awayGoals = liveMatch.away_score
         )
     }
 }

@@ -97,7 +97,6 @@ class LiveMatchRealtimeService @Inject constructor(
             // live_match_events 테이블 변경 감지
             channel?.postgresChangeFlow<PostgresAction>(schema = "public") {
                 table = "live_match_events"
-                filter = PostgresChangeFilter()
             }?.collect { change ->
                 when (change) {
                     is PostgresAction.Insert -> handleEventInsert(change)
