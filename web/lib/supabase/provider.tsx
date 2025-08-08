@@ -30,22 +30,47 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
     // 초기 세션 체크
     const initSession = async () => {
       try {
-        // 세션 가져오기
-        const { data: { session: currentSession }, error } = await supabase.auth.getSession()
+        console.log('[SupabaseProvider] Checking for existing session...')
         
-        if (error) {
-          console.error('[SupabaseProvider] Error getting session:', error)
+        // 먼저 User를 가져와서 세션 새로고침
+        const { data: { user: currentUser }, error: userError } = await supabase.auth.getUser()
+        
+        if (userError) {
+          console.error('[SupabaseProvider] Error getting user:', userError)
+          // 에러가 있으면 세션이 없는 것
+          setSession(null)
+          setUser(null)
+          setIsLoading(false)
+          return
         }
         
-        if (currentSession) {
-          console.log('[SupabaseProvider] Initial session found:', currentSession.user.id)
-          setSession(currentSession)
-          setUser(currentSession.user)
+        if (currentUser) {
+          console.log('[SupabaseProvider] User found via getUser:', currentUser.id)
+          // getUser가 성공하면 세션도 가져오기
+          const { data: { session: currentSession } } = await supabase.auth.getSession()
+          
+          if (currentSession) {
+            console.log('[SupabaseProvider] Session found:', currentSession.user.id)
+            setSession(currentSession)
+            setUser(currentSession.user)
+          } else {
+            // User는 있지만 세션이 없는 경우 - 세션 새로고침 시도
+            console.log('[SupabaseProvider] User exists but no session, refreshing...')
+            const { data: { session: refreshedSession } } = await supabase.auth.refreshSession()
+            if (refreshedSession) {
+              setSession(refreshedSession)
+              setUser(refreshedSession.user)
+            }
+          }
         } else {
-          console.log('[SupabaseProvider] No initial session found')
+          console.log('[SupabaseProvider] No user found')
+          setSession(null)
+          setUser(null)
         }
       } catch (error) {
         console.error('[SupabaseProvider] Error in initSession:', error)
+        setSession(null)
+        setUser(null)
       } finally {
         setIsLoading(false)
       }
@@ -59,32 +84,40 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
     } = supabase.auth.onAuthStateChange(async (event, currentSession) => {
       console.log('[SupabaseProvider] Auth state changed:', event, currentSession?.user?.id)
       
-      setSession(currentSession)
-      setUser(currentSession?.user ?? null)
-      setIsLoading(false)
-      
-      // 로그인 성공 시 홈으로 리다이렉트
-      if (event === 'SIGNED_IN' && currentSession) {
-        console.log('[SupabaseProvider] User signed in, redirecting...')
+      // 세션이 변경되면 강제로 상태 업데이트
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
+        setSession(currentSession)
+        setUser(currentSession?.user ?? null)
+        setIsLoading(false)
         
-        // 프로필 체크
-        const { data: profile } = await supabase
-          .from('user_profiles')
-          .select('*')
-          .eq('id', currentSession.user.id)
-          .single()
-        
-        if (!profile || !profile.nickname) {
-          router.push('/profile/setup')
-        } else {
-          router.push('/')
+        // 로그인 성공 시 프로필 체크
+        if (event === 'SIGNED_IN' && currentSession) {
+          console.log('[SupabaseProvider] User signed in, checking profile...')
+          
+          // 프로필 체크
+          const { data: profile } = await supabase
+            .from('user_profiles')
+            .select('*')
+            .eq('id', currentSession.user.id)
+            .single()
+          
+          if (!profile || !profile.nickname) {
+            router.push('/profile/setup')
+          } else {
+            // 홈으로 리다이렉트하지 않고 현재 페이지 유지
+            router.refresh() // 페이지 새로고침으로 UI 업데이트
+          }
         }
-      }
-      
-      // 로그아웃 시 홈으로 리다이렉트
-      if (event === 'SIGNED_OUT') {
+      } else if (event === 'SIGNED_OUT') {
         console.log('[SupabaseProvider] User signed out')
-        router.push('/')
+        setSession(null)
+        setUser(null)
+        setIsLoading(false)
+        router.refresh()
+      } else {
+        setSession(currentSession)
+        setUser(currentSession?.user ?? null)
+        setIsLoading(false)
       }
     })
 
