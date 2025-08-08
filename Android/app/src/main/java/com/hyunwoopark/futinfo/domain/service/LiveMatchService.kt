@@ -161,52 +161,35 @@ class LiveMatchService @Inject constructor(
     /**
      * LiveMatch를 Fixture 도메인 모델로 변환
      */
-    private fun convertLiveMatchToFixture(liveMatch: LiveMatch): Fixture? {
+    private fun convertLiveMatchToFixture(liveMatch: com.hyunwoopark.futinfo.data.remote.realtime.LiveMatch): Fixture? {
         return try {
             Fixture(
                 id = liveMatch.fixture_id,
-                referee = liveMatch.referee,
-                timezone = "UTC",
                 date = liveMatch.match_date,
-                timestamp = 0, // 계산 필요
-                periods = Fixture.Periods(null, null),
-                venue = Fixture.Venue(
-                    id = null,
-                    name = liveMatch.venue_name,
-                    city = liveMatch.venue_city
-                ),
-                status = Fixture.Status(
-                    long = liveMatch.status,
-                    short = liveMatch.status_short,
-                    elapsed = liveMatch.elapsed
-                ),
-                league = League(
-                    id = liveMatch.league_id,
-                    name = liveMatch.league_name,
-                    country = "",
-                    logo = "",
-                    flag = null,
-                    season = 0,
-                    round = liveMatch.round
-                ),
-                teams = Teams(
-                    home = Team(
-                        id = liveMatch.home_team_id,
-                        name = liveMatch.home_team_name,
-                        logo = liveMatch.home_team_logo ?: "",
-                        winner = null
-                    ),
-                    away = Team(
-                        id = liveMatch.away_team_id,
-                        name = liveMatch.away_team_name,
-                        logo = liveMatch.away_team_logo ?: "",
-                        winner = null
-                    )
-                ),
-                goals = Goals(
-                    home = liveMatch.home_score,
-                    away = liveMatch.away_score
-                ),
+                statusLong = liveMatch.status,
+                statusShort = liveMatch.status_short,
+                elapsed = liveMatch.elapsed,
+                venueName = liveMatch.venue_name,
+                venueCity = liveMatch.venue_city,
+                timezone = "UTC",
+                referee = liveMatch.referee,
+                leagueId = liveMatch.league_id,
+                leagueName = liveMatch.league_name,
+                leagueLogoUrl = "", // 별도로 가져와야 함
+                leagueCountry = "",
+                leagueFlag = null,
+                season = 2025,
+                round = liveMatch.round,
+                homeTeamId = liveMatch.home_team_id,
+                homeTeamName = liveMatch.home_team_name,
+                homeTeamLogo = liveMatch.home_team_logo ?: "",
+                homeTeamWinner = null,
+                awayTeamId = liveMatch.away_team_id,
+                awayTeamName = liveMatch.away_team_name,
+                awayTeamLogo = liveMatch.away_team_logo ?: "",
+                awayTeamWinner = null,
+                homeGoals = liveMatch.home_score,
+                awayGoals = liveMatch.away_score,
                 score = Score(
                     halftime = Score.HalfTime(null, null),
                     fulltime = Score.FullTime(null, null),
