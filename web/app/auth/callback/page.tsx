@@ -1,11 +1,11 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Loader2, AlertCircle } from 'lucide-react'
 import { supabase } from '@/lib/supabase/client'
 
-export default function AuthCallbackPage() {
+function AuthCallbackContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [error, setError] = useState<string | null>(null)
@@ -18,73 +18,51 @@ export default function AuthCallbackPage() {
         const error = searchParams.get('error')
         const errorDescription = searchParams.get('error_description')
 
-        console.log('OAuth callback:', { code, error, errorDescription })
-
         if (error) {
-          setError(errorDescription || 'OAuth 인증에 실패했습니다.')
+          console.error('Auth error:', error, errorDescription)
+          setError(errorDescription || '인증에 실패했습니다.')
           setTimeout(() => {
-            router.push('/auth/login?error=' + encodeURIComponent(error))
+            router.push('/auth/login')
           }, 3000)
           return
         }
 
-        if (code) {
-          // OAuth 코드로 세션 교환
-          const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
-          
-          if (exchangeError) {
-            console.error('Code exchange error:', exchangeError)
-            setError('인증 코드 처리에 실패했습니다.')
-            setTimeout(() => {
-              router.push('/auth/login?error=exchange_failed')
-            }, 3000)
-            return
-          }
-
-          if (data.session) {
-            // 프로필 확인
-            const { data: profile, error: profileError } = await supabase
-              .from('profiles')
-              .select('*')
-              .eq('id', data.session.user.id)
-              .single()
-
-            if (profileError && profileError.code !== 'PGRST116') { // PGRST116은 레코드 없음 에러
-              console.error('Profile check error:', profileError)
-            }
-
-            if (!profile?.nickname) {
-              // 프로필 설정이 필요한 경우
-              router.push('/profile/setup')
-            } else {
-              // 커뮤니티로 이동
-              router.push('/community')
-            }
-          }
-        } else {
-          // code가 없는 경우 세션 확인
-          const { data: { session }, error: sessionError } = await supabase.auth.getSession()
-          
-          if (sessionError) {
-            console.error('Session check error:', sessionError)
-            setError('세션 확인에 실패했습니다.')
-            setTimeout(() => {
-              router.push('/auth/login?error=session_failed')
-            }, 3000)
-            return
-          }
-
-          if (session) {
-            router.push('/community')
-          } else {
+        if (!code) {
+          setError('인증 코드가 없습니다.')
+          setTimeout(() => {
             router.push('/auth/login')
-          }
+          }, 3000)
+          return
         }
-      } catch (error) {
-        console.error('Callback processing error:', error)
-        setError('인증 처리 중 오류가 발생했습니다.')
+
+        // 세션 확인
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+        
+        if (sessionError) {
+          console.error('Session error:', sessionError)
+          setError('세션을 가져오는데 실패했습니다.')
+          setTimeout(() => {
+            router.push('/auth/login')
+          }, 3000)
+          return
+        }
+
+        if (session) {
+          // 로그인 성공
+          console.log('Login successful:', session.user.email)
+          router.push('/')
+        } else {
+          // 세션이 없으면 다시 로그인 페이지로
+          setError('세션을 생성하는데 실패했습니다.')
+          setTimeout(() => {
+            router.push('/auth/login')
+          }, 3000)
+        }
+      } catch (err) {
+        console.error('Callback error:', err)
+        setError('예상치 못한 오류가 발생했습니다.')
         setTimeout(() => {
-          router.push('/auth/login?error=processing_failed')
+          router.push('/auth/login')
         }, 3000)
       }
     }
@@ -92,34 +70,48 @@ export default function AuthCallbackPage() {
     handleCallback()
   }, [router, searchParams])
 
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="max-w-md w-full space-y-4 p-8">
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+            <div className="flex items-center space-x-3">
+              <AlertCircle className="h-5 w-5 text-red-600" />
+              <div>
+                <h3 className="text-sm font-medium text-red-800">인증 오류</h3>
+                <p className="text-sm text-red-600 mt-1">{error}</p>
+              </div>
+            </div>
+          </div>
+          <p className="text-center text-sm text-gray-500">
+            잠시 후 로그인 페이지로 이동합니다...
+          </p>
+        </div>
+      </div>
+    )
+  }
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center">
+    <div className="min-h-screen flex items-center justify-center bg-gray-50">
       <div className="text-center">
-        {error ? (
-          <>
-            <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-            <h2 className="text-xl font-semibold text-gray-900 mb-2">
-              인증 오류
-            </h2>
-            <p className="text-gray-600 mb-4">
-              {error}
-            </p>
-            <p className="text-sm text-gray-500">
-              잠시 후 로그인 페이지로 이동합니다...
-            </p>
-          </>
-        ) : (
-          <>
-            <Loader2 className="h-12 w-12 animate-spin text-blue-600 mx-auto mb-4" />
-            <h2 className="text-xl font-semibold text-gray-900 mb-2">
-              로그인 처리 중...
-            </h2>
-            <p className="text-gray-600">
-              잠시만 기다려주세요
-            </p>
-          </>
-        )}
+        <Loader2 className="h-8 w-8 animate-spin text-blue-600 mx-auto" />
+        <p className="mt-4 text-gray-600">로그인 처리중...</p>
       </div>
     </div>
+  )
+}
+
+export default function AuthCallbackPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin text-blue-600 mx-auto" />
+          <p className="mt-4 text-gray-600">로딩중...</p>
+        </div>
+      </div>
+    }>
+      <AuthCallbackContent />
+    </Suspense>
   )
 }

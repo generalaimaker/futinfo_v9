@@ -125,7 +125,6 @@ export function useMatchEventNotifications({
     toast({
       title: `${icon} ${title}`,
       description: `${event.time_elapsed}' - ${description}`,
-      duration: 5000,
     })
 
     // 알림음 재생

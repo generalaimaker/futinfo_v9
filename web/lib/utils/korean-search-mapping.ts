@@ -70,7 +70,6 @@ export const koreanToEnglishTeamMapping: Record<string, string> = {
   "도르트": "borussia dortmund",
   "돌문": "borussia dortmund",
   "레버쿠젠": "bayer leverkusen",
-  "레버쿠젠": "leverkusen",
   "라이프치히": "rb leipzig",
   "라이프찌히": "rb leipzig",
   "프랑크푸르트": "eintracht frankfurt",

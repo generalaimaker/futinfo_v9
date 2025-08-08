@@ -152,7 +152,7 @@ class TeamCommunityService {
     // 조회수 증가
     await supabase
       .from('team_posts')
-      .update({ views: post.views + 1 })
+      .update({ views: (post as any).views + 1 })
       .eq('id', postId)
 
     // 사용자가 좋아요를 눌렀는지 확인
@@ -163,9 +163,9 @@ class TeamCommunityService {
         .select('id')
         .eq('post_id', postId)
         .eq('user_id', user.id)
-        .single()
+        .single();
 
-      post.is_liked = !!like
+      (post as any).is_liked = !!like
     }
 
     return post

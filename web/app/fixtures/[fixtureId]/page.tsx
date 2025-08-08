@@ -26,9 +26,7 @@ export default function FixtureDetailPage() {
   const numericFixtureId = parseInt(fixtureId)
   const isValidId = !isNaN(numericFixtureId) && numericFixtureId > 0
   
-  const { data, isLoading, error, refetch } = useFixtureDetail(numericFixtureId, {
-    enabled: isValidId
-  })
+  const { data, isLoading, error, refetch } = useFixtureDetail(numericFixtureId)
   
   const [activeTab, setActiveTab] = useState('summary')
   

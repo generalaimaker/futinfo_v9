@@ -163,7 +163,7 @@ export default function LeaguePage() {
               <div>
                 <h1 className="text-3xl font-bold mb-2">{league.name}</h1>
                 <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                  <span>{league.country}</span>
+                  <span>{(league as any).country || ''}</span>
                   <span>•</span>
                   <div className="flex items-center gap-2">
                     <span>시즌</span>
@@ -473,12 +473,12 @@ export default function LeaguePage() {
                 <h3 className="text-lg font-semibold">{displayRound}</h3>
                 <Badge variant="outline" className="gap-1">
                   <Calendar className="w-3 h-3" />
-                  {fixturesByRound[displayRound]?.length || 0} 경기
+                  {displayRound && fixturesByRound[displayRound]?.length || 0} 경기
                 </Badge>
               </div>
               
               <div className="grid gap-4">
-                {fixturesByRound[displayRound]?.map((fixture: any) => {
+                {displayRound && fixturesByRound[displayRound]?.map((fixture: any) => {
                   const isFinished = fixture.fixture.status.short === 'FT'
                   const isLive = ['1H', '2H', 'HT'].includes(fixture.fixture.status.short)
                   const notStarted = fixture.fixture.status.short === 'NS'

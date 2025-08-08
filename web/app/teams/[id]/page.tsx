@@ -64,8 +64,8 @@ export default function TeamPage() {
   const leagueId = getLeagueIdByTeam(teamId)
   const { data: statsData, isLoading: statsLoading } = useTeamStatistics(teamId, selectedSeason, leagueId)
   const { data: squadData, isLoading: squadLoading } = useTeamSquad(teamId)
-  const { data: nextFixtures, isLoading: nextLoading } = useTeamNextFixtures(teamId, 5)
-  const { data: lastFixtures, isLoading: lastLoading } = useTeamLastFixtures(teamId, 5)
+  const { data: nextFixtures, isLoading: nextLoading } = useTeamNextFixtures(teamId)
+  const { data: lastFixtures, isLoading: lastLoading } = useTeamLastFixtures(teamId)
   const { data: standingsData } = useStandings({ league: leagueId, season: selectedSeason })
   const { preferences, addFavoriteTeam, removeFavoriteTeam } = useUserPreferences()
   const { data: transfersData, isLoading: transfersLoading, error: transfersError } = useTeamTransfers(teamId)
@@ -130,9 +130,9 @@ export default function TeamPage() {
   if (squadData?.response && squadData.response[0]?.players && Array.isArray(squadData.response[0].players)) {
     // response[0].players가 있는 경우 (가장 일반적인 경우)
     squad = squadData.response[0].players
-  } else if (squadData?.response && squadData.response.players && Array.isArray(squadData.response.players)) {
+  } else if (squadData?.response && (squadData.response as any).players && Array.isArray((squadData.response as any).players)) {
     // response.players가 배열인 경우
-    squad = squadData.response.players
+    squad = (squadData.response as any).players
   } else if (squadData?.response && Array.isArray(squadData.response)) {
     // response가 배열인 경우
     squad = squadData.response

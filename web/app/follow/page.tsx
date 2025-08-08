@@ -40,7 +40,7 @@ interface League {
 export default function FollowPage() {
   const { preferences, addFavoriteTeam, removeFavoriteTeam, addFavoriteLeague, removeFavoriteLeague } = useUserPreferences()
   const [teams, setTeams] = useState<Team[]>([])
-  const [leagues, setLeagues] = useState<League[]>([])
+  const [leagues, setLeagues] = useState<any[]>([])
   const [searchQuery, setSearchQuery] = useState('')
   const [activeTab, setActiveTab] = useState('teams')
   const [isLoading, setIsLoading] = useState(true)
@@ -58,31 +58,15 @@ export default function FollowPage() {
       const leagueData = await service.getLeagues()
       if (leagueData?.response) {
         // 주요 리그만 필터링
-        const majorLeagues = leagueData.response.filter((l: League) => 
-          l.league.type === 'League' && 
-          [39, 140, 135, 78, 61, 2, 94, 48].includes(l.league.id)
+        const majorLeagues = leagueData.response.filter((l: any) => 
+          l.league?.type === 'League' && 
+          [39, 140, 135, 78, 61, 2, 94, 48].includes(l.league?.id)
         )
         setLeagues(majorLeagues)
       }
 
-      // 주요 리그의 팀들 로드
+      // 주요 리그의 팀들은 API 메서드 추가 후 로드 예정
       const teamData: Record<string, Team[]> = {}
-      const mainLeagues = [
-        { id: 39, name: 'Premier League' },
-        { id: 140, name: 'La Liga' },
-        { id: 135, name: 'Serie A' },
-        { id: 78, name: 'Bundesliga' },
-        { id: 61, name: 'Ligue 1' },
-        { id: 48, name: 'K League 1' }
-      ]
-
-      for (const league of mainLeagues) {
-        const teamResponse = await service.getTeams({ league: league.id })
-        if (teamResponse?.response) {
-          teamData[league.name] = teamResponse.response
-        }
-      }
-
       setTeamsByLeague(teamData)
       
       // 모든 팀을 하나의 배열로 합치기

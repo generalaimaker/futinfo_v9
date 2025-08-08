@@ -28,7 +28,7 @@ export function useFixturesRealtime({
         filter: `fixture_id=in.(${fixtureIds.join(',')})`
       }, (payload) => {
         console.log('Fixture update in list:', payload)
-        const fixtureId = payload.new?.fixture_id || payload.old?.fixture_id
+        const fixtureId = (payload.new as any)?.fixture_id || (payload.old as any)?.fixture_id
         if (fixtureId) {
           onUpdate(fixtureId)
         }

@@ -99,16 +99,15 @@ export default function BoardDetailPage() {
   const teamBasicInfo = teamId ? getTeamBasicInfo(teamId) : null
   
   // 팀 정보 가져오기
-  const { data: teamProfile } = useTeamProfile(teamId || 0, { enabled: !!teamId })
-  const { data: nextFixtures } = useTeamNextFixtures(teamId || 0, { enabled: !!teamId })
-  const { data: lastFixtures } = useTeamLastFixtures(teamId || 0, { enabled: !!teamId })
+  const { data: teamProfile } = useTeamProfile(teamId || 0)
+  const { data: nextFixtures } = useTeamNextFixtures(teamId || 0)
+  const { data: lastFixtures } = useTeamLastFixtures(teamId || 0)
   
   // 팀 통계는 팀 프로필 로드 후 가져오기
   const { data: teamStats } = useTeamStatistics(
     teamId || 0, 
-    getCurrentSeason(), 
-    39, // 임시로 프리미어리그 ID 사용 (나중에 동적으로 변경)
-    { enabled: !!teamId && !!teamProfile }
+    getCurrentSeason(39), // 프리미어리그 ID로 시즌 가져오기
+    39 // 임시로 프리미어리그 ID 사용 (나중에 동적으로 변경)
   )
 
   useEffect(() => {

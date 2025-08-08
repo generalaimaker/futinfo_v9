@@ -56,7 +56,7 @@ export default function MyPostsPage() {
         .order('created_at', { ascending: false })
 
       if (data) {
-        setPosts(data.map(CommunityService.transformPost))
+        setPosts(data)
       }
     } catch (err) {
       console.error('Error loading posts:', err)

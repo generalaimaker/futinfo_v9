@@ -97,8 +97,7 @@ export function usePopularPosts() {
   useEffect(() => {
     const loadPosts = async () => {
       try {
-        const service = new CommunityService()
-        const data = await service.getPopularPosts({ limit: 5 })
+        const data = await CommunityService.getPopularPosts({ limit: 5 })
         setPosts(data || [])
       } catch (err) {
         setError('인기글을 불러올 수 없습니다')
@@ -137,7 +136,7 @@ export function useHomeStats() {
         const liveData = await service.getLiveFixtures()
         
         // 커뮤니티 통계
-        const stats24h = await communityService.getStats24Hours()
+        const stats24h = await CommunityService.getStats24Hours()
         
         setStats({
           todayMatches: todayData?.response?.length || 0,

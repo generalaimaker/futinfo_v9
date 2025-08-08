@@ -81,7 +81,7 @@ export default function NewsPage() {
     return 'text-gray-500'
   }
 
-  const articles = data?.articles || []
+  const articles = (data as any)?.articles || []
 
   return (
     <div className="min-h-screen lg:ml-64 bg-gray-50">
@@ -122,7 +122,7 @@ export default function NewsPage() {
                     onClick={() => setShowFilterSheet(!showFilterSheet)}
                   >
                     <SlidersHorizontal className="w-4 h-4" />
-                    {(filters.onlyTier1 || filters.minTrustScore > 0) && (
+                    {(filters.onlyTier1 || (filters.minTrustScore ?? 0) > 0) && (
                       <div className="w-2 h-2 bg-red-500 rounded-full absolute -top-1 -right-1" />
                     )}
                   </Button>
@@ -182,7 +182,7 @@ export default function NewsPage() {
           </div>
         ) : (
           <div className="space-y-4">
-            {articles.map((article) => (
+            {articles.map((article: any) => (
               <article 
                 key={article.id}
                 className="bg-white rounded-lg shadow-sm border p-6 hover:shadow-md transition-shadow cursor-pointer"

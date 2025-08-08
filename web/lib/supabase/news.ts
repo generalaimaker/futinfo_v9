@@ -70,7 +70,7 @@ export function useNews(filters: NewsFilters = {}) {
     queryKey: ['news', filters],
     queryFn: () => fetchNews(filters),
     staleTime: 5 * 60 * 1000, // 5분
-    cacheTime: 10 * 60 * 1000, // 10분
+    gcTime: 10 * 60 * 1000, // 10분
     refetchInterval: 5 * 60 * 1000, // 5분마다 자동 새로고침
   })
 }

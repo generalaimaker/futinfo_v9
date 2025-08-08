@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button'
 
 export function NewsSectionSimple() {
   const { data, isLoading, error } = useNews({ category: 'general' })
-  const articles = data?.articles || []
+  const articles = (data as any)?.articles || []
 
   return (
     <div className="bg-white rounded-lg shadow-sm p-6">

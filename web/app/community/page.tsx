@@ -88,16 +88,13 @@ export default function CommunityPage() {
   
   // 사용자 팀 정보 가져오기
   const { data: teamProfile } = useTeamProfile(
-    userProfile?.favoriteTeamId || 0, 
-    { enabled: !!userProfile?.favoriteTeamId }
+    userProfile?.favoriteTeamId || 0
   )
   const { data: nextFixtures } = useTeamNextFixtures(
-    userProfile?.favoriteTeamId || 0,
-    { enabled: !!userProfile?.favoriteTeamId }
+    userProfile?.favoriteTeamId || 0
   )
   const { data: lastFixtures } = useTeamLastFixtures(
-    userProfile?.favoriteTeamId || 0,
-    { enabled: !!userProfile?.favoriteTeamId }
+    userProfile?.favoriteTeamId || 0
   )
 
   useEffect(() => {
@@ -299,7 +296,7 @@ export default function CommunityPage() {
                     </p>
                     <div className="mb-3">
                       <p className="text-yellow-300 font-bold text-base italic">
-                        "{teamProfile?.team?.slogan || getTeamSlogan(userProfile.favoriteTeamId)}"
+                        "{getTeamSlogan(userProfile.favoriteTeamId)}"
                       </p>
                     </div>
                     <p className="text-sm text-blue-100">

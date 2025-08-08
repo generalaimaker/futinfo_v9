@@ -176,7 +176,7 @@ export default function LivePage() {
           <Card className="dark-card p-8 text-center">
             <AlertCircle className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
             <h2 className="text-xl font-semibold mb-2">오류가 발생했습니다</h2>
-            <p className="text-muted-foreground">{error}</p>
+            <p className="text-muted-foreground">{String(error)}</p>
           </Card>
         ) : filteredFixtures.length === 0 ? (
           <Card className="dark-card p-8 text-center">
