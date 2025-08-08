@@ -155,9 +155,10 @@ class LiveMatchRealtimeService @Inject constructor(
         try {
             val events = supabaseClient.postgrest
                 .from("live_match_events")
-                .select()
-                .filter {
-                    eq("fixture_id", fixtureId)
+                .select {
+                    filter {
+                        eq("fixture_id", fixtureId)
+                    }
                 }
                 .decodeList<LiveMatchEvent>()
             
