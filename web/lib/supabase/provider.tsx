@@ -112,6 +112,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
     const redirectTo = `${window.location.origin}/auth/callback`
     
     console.log('[OAuth] Starting Google sign in with redirect:', redirectTo)
+    console.log('[OAuth] Current origin:', window.location.origin)
     
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
@@ -120,7 +121,8 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
         queryParams: {
           access_type: 'offline',
           prompt: 'consent',
-        }
+        },
+        skipBrowserRedirect: false
       }
     })
     
@@ -130,6 +132,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
     }
     
     console.log('[OAuth] Google sign in initiated:', data)
+    console.log('[OAuth] OAuth URL:', data?.url)
   }
 
   const signInWithApple = async () => {

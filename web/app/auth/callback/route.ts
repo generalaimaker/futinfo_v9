@@ -10,70 +10,75 @@ export async function GET(request: NextRequest) {
   const origin = requestUrl.origin
   const next = requestUrl.searchParams.get('next') ?? '/'
 
+  console.log('[Auth Callback] Processing:', {
+    hasCode: !!code,
+    hasError: !!error,
+    origin,
+    next
+  })
+
   // OAuth 에러 처리
   if (error) {
-    console.error('[OAuth Callback] Error:', error, errorDescription)
+    console.error('[Auth Callback] OAuth Error:', error, errorDescription)
     return NextResponse.redirect(
       `${origin}/auth/login?error=${encodeURIComponent(errorDescription || error)}`
     )
   }
 
-  if (code) {
-    try {
-      const supabase = createClient()
-      console.log('[OAuth Callback] Exchanging code for session')
-      
-      const { error: sessionError } = await supabase.auth.exchangeCodeForSession(code)
-      
-      if (sessionError) {
-        console.error('[OAuth Callback] Session exchange error:', sessionError)
-        return NextResponse.redirect(
-          `${origin}/auth/login?error=${encodeURIComponent(sessionError.message)}`
-        )
-      }
-      
-      // 세션 교환 성공
-      console.log('[OAuth Callback] Session exchange successful')
-      
-      // Check if user has profile
-      const { data: { user }, error: userError } = await supabase.auth.getUser()
-      
-      if (userError) {
-        console.error('[OAuth Callback] Get user error:', userError)
-      }
-      
-      if (user) {
-        console.log('[OAuth Callback] User authenticated:', user.id)
-        
-        const { data: profile, error: profileError } = await supabase
-          .from('user_profiles')
-          .select('*')
-          .eq('id', user.id)
-          .single()
-        
-        if (profileError && profileError.code !== 'PGRST116') {
-          console.error('[OAuth Callback] Profile fetch error:', profileError)
-        }
-        
-        // Redirect to profile setup if no profile
-        if (!profile || !profile.nickname) {
-          console.log('[OAuth Callback] Redirecting to profile setup')
-          return NextResponse.redirect(`${origin}/profile/setup`)
-        }
-        
-        console.log('[OAuth Callback] Profile exists, redirecting to:', next)
-      }
-      
-      return NextResponse.redirect(`${origin}${next}`)
-    } catch (err) {
-      console.error('[OAuth Callback] Unexpected error:', err)
-      return NextResponse.redirect(
-        `${origin}/auth/login?error=${encodeURIComponent('인증 처리 중 오류가 발생했습니다')}`
-      )
-    }
+  if (!code) {
+    console.log('[Auth Callback] No code provided')
+    return NextResponse.redirect(
+      `${origin}/auth/login?error=${encodeURIComponent('인증 코드가 없습니다')}`
+    )
   }
 
-  // No code provided
-  console.log('[OAuth Callback] No code provided, redirecting to login')
-  return NextResponse.redirect(`${origin}/auth/login?error=${encodeURIComponent('인증 코드가 없습니다')}`)
+  try {
+    const supabase = createClient()
+    console.log('[Auth Callback] Exchanging code for session...')
+    
+    const { data, error: sessionError } = await supabase.auth.exchangeCodeForSession(code)
+    
+    if (sessionError) {
+      console.error('[Auth Callback] Session exchange error:', sessionError)
+      return NextResponse.redirect(
+        `${origin}/auth/login?error=${encodeURIComponent(sessionError.message)}`
+      )
+    }
+    
+    console.log('[Auth Callback] Session exchange successful')
+    console.log('[Auth Callback] Session data:', {
+      hasSession: !!data?.session,
+      hasUser: !!data?.user,
+      userId: data?.user?.id,
+      userEmail: data?.user?.email
+    })
+    
+    // 프로필 체크
+    if (data?.user) {
+      const { data: profile, error: profileError } = await supabase
+        .from('user_profiles')
+        .select('*')
+        .eq('id', data.user.id)
+        .single()
+      
+      if (profileError && profileError.code !== 'PGRST116') {
+        console.error('[Auth Callback] Profile fetch error:', profileError)
+      }
+      
+      // 프로필이 없으면 프로필 설정 페이지로
+      if (!profile || !profile.nickname) {
+        console.log('[Auth Callback] No profile, redirecting to setup')
+        return NextResponse.redirect(`${origin}/profile/setup`)
+      }
+    }
+    
+    console.log('[Auth Callback] Redirecting to:', next)
+    return NextResponse.redirect(`${origin}${next}`)
+    
+  } catch (err) {
+    console.error('[Auth Callback] Unexpected error:', err)
+    return NextResponse.redirect(
+      `${origin}/auth/login?error=${encodeURIComponent('인증 처리 중 오류가 발생했습니다')}`
+    )
+  }
 }
