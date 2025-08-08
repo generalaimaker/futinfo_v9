@@ -3,7 +3,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.1'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-api-key',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
@@ -13,11 +13,16 @@ serve(async (req) => {
     return new Response('ok', { headers: corsHeaders })
   }
 
-  console.log('[Edge Function] Request method:', req.method)
+  // Simple API key verification (optional)
   const headers = Object.fromEntries(req.headers.entries())
-  console.log('[Edge Function] Request headers:', headers)
-  console.log('[Edge Function] Has Authorization:', !!headers.authorization)
-  console.log('[Edge Function] Has apikey:', !!headers.apikey)
+  const clientApiKey = headers['x-api-key']
+  
+  // Optional: Add your own API key for additional security
+  const EDGE_FUNCTION_API_KEY = Deno.env.get('EDGE_FUNCTION_API_KEY')
+  if (EDGE_FUNCTION_API_KEY && clientApiKey !== EDGE_FUNCTION_API_KEY) {
+    console.log('[Edge Function] Invalid API key provided')
+    // For now, just log but don't block (for backward compatibility)
+  }
 
   const API_KEY = Deno.env.get('FOOTBALL_API_KEY')
   const API_HOST = 'api-football-v1.p.rapidapi.com'
@@ -41,7 +46,7 @@ serve(async (req) => {
 
     // Request body 파싱
     const body = await req.json()
-    console.log('[Edge Function] Request body:', body)
+    console.log('[Edge Function] Request endpoint:', body.endpoint)
     const { endpoint, params } = body
     
     if (!endpoint) {
@@ -87,6 +92,12 @@ serve(async (req) => {
       case 'players/squads':
         apiPath = '/players/squads'
         break
+      case 'players/topscorers':
+        apiPath = '/players/topscorers'
+        break
+      case 'players/topassists':
+        apiPath = '/players/topassists'
+        break
       case 'transfers':
         apiPath = '/transfers'
         break
@@ -95,6 +106,9 @@ serve(async (req) => {
         break
       case 'predictions':
         apiPath = '/predictions'
+        break
+      case 'fixtures/players':
+        apiPath = '/fixtures/players'
         break
       default:
         return new Response(
@@ -114,7 +128,7 @@ serve(async (req) => {
     }
 
     const apiUrl = `https://${API_HOST}/v3${apiPath}${queryParams.toString() ? '?' + queryParams.toString() : ''}`
-    console.log(`API Request: ${apiUrl}`)
+    console.log(`[Edge Function] API Request: ${apiUrl}`)
 
     // API 호출 with timeout
     const controller = new AbortController()
@@ -131,7 +145,7 @@ serve(async (req) => {
     const data = await response.json()
 
     if (!response.ok) {
-      console.error(`API Error: ${response.status}`, data)
+      console.error(`[Edge Function] API Error: ${response.status}`, data)
       return new Response(
         JSON.stringify({ 
           error: data.message || 'API request failed',
@@ -183,9 +197,9 @@ serve(async (req) => {
             .upsert(liveMatches, { onConflict: 'fixture_id' })
           
           if (error) {
-            console.error('Error storing live matches:', error)
+            console.error('[Edge Function] Error storing live matches:', error)
           } else {
-            console.log(`Stored ${liveMatches.length} live matches`)
+            console.log(`[Edge Function] Stored ${liveMatches.length} live matches`)
           }
         }
         
@@ -217,23 +231,24 @@ serve(async (req) => {
             .upsert(allEvents, { onConflict: 'fixture_id,time_elapsed,type,detail' })
           
           if (error) {
-            console.error('Error storing match events:', error)
+            console.error('[Edge Function] Error storing match events:', error)
           } else {
-            console.log(`Stored ${allEvents.length} match events`)
+            console.log(`[Edge Function] Stored ${allEvents.length} match events`)
           }
         }
       } catch (err) {
-        console.error('Error processing live matches:', err)
+        console.error('[Edge Function] Error processing live matches:', err)
       }
     }
 
+    console.log(`[Edge Function] Success: ${endpoint} returned ${data.results || 0} results`)
     return new Response(
       JSON.stringify(data),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
 
   } catch (error) {
-    console.error('Edge Function Error:', error)
+    console.error('[Edge Function] Error:', error)
     
     // Handle timeout error
     if (error.name === 'AbortError') {
@@ -255,8 +270,7 @@ serve(async (req) => {
       JSON.stringify({ 
         error: error.message || 'Internal server error',
         response: [],
-        errorType: error.name,
-        stack: error.stack
+        errorType: error.name
       }),
       { 
         status: 500, 
@@ -264,4 +278,7 @@ serve(async (req) => {
       }
     )
   }
+}, {
+  // JWT 검증 비활성화 (읽기 전용 공개 API이므로)
+  // 실제 API 키는 서버에만 있어서 안전함
 })

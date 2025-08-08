@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Auth Test</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+    <h1>Supabase Auth Test</h1>
+    
+    <div id="status">Loading...</div>
+    
+    <h2>Email/Password Login</h2>
+    <input type="email" id="email" placeholder="Email" value="test@example.com">
+    <input type="password" id="password" placeholder="Password" value="test123456">
+    <button onclick="signIn()">Sign In</button>
+    <button onclick="signUp()">Sign Up</button>
+    
+    <h2>OAuth Login</h2>
+    <button onclick="signInWithGoogle()">Sign in with Google</button>
+    
+    <h2>Session Info</h2>
+    <pre id="session"></pre>
+    
+    <script>
+        const { createClient } = supabase
+        const supabaseClient = createClient(
+            'https://uutmymaxkkytibuiiaax.supabase.co',
+            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV1dG15bWF4a2t5dGlidWlpYWF4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE4OTYzMzUsImV4cCI6MjA2NzQ3MjMzNX0.-sR7UF1Lj1cZ3fy6ScWaLViV_d5aU2PoT7UCpf3XlBM'
+        )
+        
+        // Check session
+        async function checkSession() {
+            const { data: { session }, error } = await supabaseClient.auth.getSession()
+            document.getElementById('session').textContent = JSON.stringify(session, null, 2)
+            document.getElementById('status').textContent = session ? 'Logged in' : 'Not logged in'
+        }
+        
+        // Sign up
+        async function signUp() {
+            const email = document.getElementById('email').value
+            const password = document.getElementById('password').value
+            
+            const { data, error } = await supabaseClient.auth.signUp({
+                email,
+                password
+            })
+            
+            if (error) {
+                alert('Sign up error: ' + error.message)
+            } else {
+                alert('Sign up successful! Check your email for verification.')
+                checkSession()
+            }
+        }
+        
+        // Sign in
+        async function signIn() {
+            const email = document.getElementById('email').value
+            const password = document.getElementById('password').value
+            
+            const { data, error } = await supabaseClient.auth.signInWithPassword({
+                email,
+                password
+            })
+            
+            if (error) {
+                alert('Sign in error: ' + error.message)
+            } else {
+                alert('Sign in successful!')
+                checkSession()
+            }
+        }
+        
+        // Google OAuth
+        async function signInWithGoogle() {
+            const { data, error } = await supabaseClient.auth.signInWithOAuth({
+                provider: 'google',
+                options: {
+                    redirectTo: window.location.origin + '/auth/callback'
+                }
+            })
+            
+            if (error) {
+                alert('Google sign in error: ' + error.message)
+            }
+        }
+        
+        // Initial check
+        checkSession()
+        
+        // Listen for auth changes
+        supabaseClient.auth.onAuthStateChange((event, session) => {
+            console.log('Auth event:', event)
+            checkSession()
+        })
+    </script>
+</body>
+</html>

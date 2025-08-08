@@ -71,10 +71,12 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
   }
 
   const signInWithGoogle = async () => {
-    // 개발 환경에서는 window.location.origin 사용, 프로덕션에서는 환경변수 사용
-    const redirectTo = process.env.NODE_ENV === 'development' 
-      ? `${window.location.origin}/auth/callback`
-      : `${process.env.NEXT_PUBLIC_SITE_URL || window.location.origin}/auth/callback`
+    // 프로덕션에서는 buildup-football.com 사용
+    const redirectTo = typeof window !== 'undefined' 
+      ? window.location.hostname === 'localhost' 
+        ? `${window.location.origin}/auth/callback`
+        : 'https://buildup-football.com/auth/callback'
+      : 'https://buildup-football.com/auth/callback'
     
     console.log('Google OAuth redirect URL:', redirectTo)
     
@@ -96,10 +98,12 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
   }
 
   const signInWithApple = async () => {
-    // 개발 환경에서는 window.location.origin 사용, 프로덕션에서는 환경변수 사용
-    const redirectTo = process.env.NODE_ENV === 'development' 
-      ? `${window.location.origin}/auth/callback`
-      : `${process.env.NEXT_PUBLIC_SITE_URL || window.location.origin}/auth/callback`
+    // 프로덕션에서는 buildup-football.com 사용
+    const redirectTo = typeof window !== 'undefined' 
+      ? window.location.hostname === 'localhost' 
+        ? `${window.location.origin}/auth/callback`
+        : 'https://buildup-football.com/auth/callback'
+      : 'https://buildup-football.com/auth/callback'
     
     console.log('Apple OAuth redirect URL:', redirectTo)
     
