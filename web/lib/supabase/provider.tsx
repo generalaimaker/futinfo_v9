@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useContext, useEffect, useState, useMemo } from 'react'
+import { createContext, useContext, useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/browser'
 import { User, SupabaseClient } from '@supabase/supabase-js'
 import { useRouter } from 'next/navigation'
@@ -22,7 +22,8 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const router = useRouter()
-  const supabase = useMemo(() => createClient(), [])
+  // 싱글톤 패턴 사용으로 useMemo 불필요
+  const supabase = createClient()
 
   useEffect(() => {
     // 현재 세션 확인
