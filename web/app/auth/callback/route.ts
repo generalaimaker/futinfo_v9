@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { NextResponse } from 'next/server'
 import { NextRequest } from 'next/server'
 
@@ -33,7 +33,47 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const supabase = createClient()
+    // Response 객체 생성 - 쿠키를 설정할 수 있도록
+    let response = NextResponse.redirect(`${origin}${next}`)
+    
+    // Supabase 클라이언트 생성 with proper cookie handling
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://uutmymaxkkytibuiiaax.supabase.co',
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV1dG15bWF4a2t5dGlidWlpYWF4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE4OTYzMzUsImV4cCI6MjA2NzQ3MjMzNX0.-sR7UF1Lj1cZ3fy6ScWaLViV_d5aU2PoT7UCpf3XlBM',
+      {
+        cookies: {
+          get(name: string) {
+            return request.cookies.get(name)?.value
+          },
+          set(name: string, value: string, options: CookieOptions) {
+            // 요청과 응답 모두에 쿠키 설정
+            request.cookies.set({
+              name,
+              value,
+              ...options,
+            })
+            response.cookies.set({
+              name,
+              value,
+              ...options,
+            })
+          },
+          remove(name: string, options: CookieOptions) {
+            request.cookies.set({
+              name,
+              value: '',
+              ...options,
+            })
+            response.cookies.set({
+              name,
+              value: '',
+              ...options,
+            })
+          },
+        },
+      }
+    )
+    
     console.log('[Auth Callback] Exchanging code for session...')
     
     const { data, error: sessionError } = await supabase.auth.exchangeCodeForSession(code)
@@ -68,12 +108,20 @@ export async function GET(request: NextRequest) {
       // 프로필이 없으면 프로필 설정 페이지로
       if (!profile || !profile.nickname) {
         console.log('[Auth Callback] No profile, redirecting to setup')
-        return NextResponse.redirect(`${origin}/profile/setup`)
+        response = NextResponse.redirect(`${origin}/profile/setup`)
+        // 쿠키 다시 설정 (리다이렉션 대상이 변경되었으므로)
+        const cookiesToSet = request.cookies.getAll()
+        cookiesToSet.forEach(cookie => {
+          if (cookie.name.includes('sb-') || cookie.name.includes('supabase')) {
+            response.cookies.set(cookie)
+          }
+        })
+        return response
       }
     }
     
     console.log('[Auth Callback] Redirecting to:', next)
-    return NextResponse.redirect(`${origin}${next}`)
+    return response
     
   } catch (err) {
     console.error('[Auth Callback] Unexpected error:', err)
