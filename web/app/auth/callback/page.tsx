@@ -50,7 +50,21 @@ function AuthCallbackContent() {
         if (session) {
           // 로그인 성공
           console.log('Login successful:', session.user.email)
-          router.push('/')
+          
+          // 프로필 설정 확인
+          const { data: profile } = await supabase
+            .from('user_profiles')
+            .select('*')
+            .eq('id', session.user.id)
+            .single()
+          
+          if (!profile || !profile.nickname) {
+            // 프로필 설정이 안 되어 있으면 설정 페이지로
+            router.push('/profile/setup')
+          } else {
+            // 프로필이 있으면 홈으로
+            router.push('/')
+          }
         } else {
           // 세션이 없으면 다시 로그인 페이지로
           setError('세션을 생성하는데 실패했습니다.')

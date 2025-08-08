@@ -2,17 +2,19 @@
 
 import Link from 'next/link'
 import Image from 'next/image'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { 
   Trophy, Calendar, Newspaper, Users, 
   Home, Search, Menu, X, ChevronDown,
   Shield, Star, TrendingUp, Globe,
-  Moon, Sun
+  Moon, Sun, User, Settings, LogOut, LogIn
 } from 'lucide-react'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { useTheme } from '@/lib/theme-context'
+import { useSupabase } from '@/lib/supabase/provider'
+import { CommunityService } from '@/lib/supabase/community'
 
 interface NavItem {
   name: string
@@ -41,9 +43,41 @@ const popularLeagues = [
 
 export function NavbarModern() {
   const pathname = usePathname()
+  const router = useRouter()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [leaguesExpanded, setLeaguesExpanded] = useState(true)
+  const [showUserMenu, setShowUserMenu] = useState(false)
+  const [userProfile, setUserProfile] = useState<any>(null)
   const { theme, toggleTheme } = useTheme()
+  const { user, signOut, isLoading } = useSupabase()
+
+  useEffect(() => {
+    if (user) {
+      loadUserProfile()
+    } else {
+      setUserProfile(null)
+    }
+  }, [user])
+
+  const loadUserProfile = async () => {
+    if (!user) return
+    try {
+      const profile = await CommunityService.getCurrentUserProfile()
+      setUserProfile(profile)
+    } catch (error) {
+      console.error('Error loading user profile:', error)
+    }
+  }
+
+  const handleSignOut = async () => {
+    try {
+      await signOut()
+      setShowUserMenu(false)
+      router.push('/')
+    } catch (error) {
+      console.error('Error signing out:', error)
+    }
+  }
 
   return (
     <>
@@ -112,13 +146,74 @@ export function NavbarModern() {
                 <Moon className="w-5 h-5" />
               )}
             </button>
-            <div className="text-right hidden sm:block">
-              <div className="text-xs text-muted-foreground">잔액</div>
-              <div className="text-sm font-semibold">₩0</div>
-            </div>
-            <Button size="sm" className="dark-button-primary">
-              로그인
-            </Button>
+            
+            {/* User Menu or Login Button */}
+            {user ? (
+              <div className="relative">
+                <button
+                  onClick={() => setShowUserMenu(!showUserMenu)}
+                  className="flex items-center gap-2 p-2 rounded-lg hover:bg-secondary transition-colors"
+                >
+                  <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
+                    {userProfile?.avatarUrl ? (
+                      <img 
+                        src={userProfile.avatarUrl} 
+                        alt={userProfile.nickname}
+                        className="w-full h-full rounded-full object-cover"
+                      />
+                    ) : (
+                      <User className="h-4 w-4 text-gray-600" />
+                    )}
+                  </div>
+                  <span className="hidden md:inline text-sm font-medium">
+                    {userProfile?.nickname || user.email?.split('@')[0] || '사용자'}
+                  </span>
+                </button>
+                
+                {/* Dropdown Menu */}
+                {showUserMenu && (
+                  <div className="absolute right-0 mt-2 w-56 bg-background rounded-lg shadow-lg border py-1 z-50">
+                    <div className="px-4 py-2 border-b">
+                      <p className="font-medium">{userProfile?.nickname || '사용자'}</p>
+                      <p className="text-xs text-muted-foreground">{user.email}</p>
+                    </div>
+                    <Link href="/profile">
+                      <button 
+                        onClick={() => setShowUserMenu(false)}
+                        className="w-full px-4 py-2 text-left hover:bg-secondary flex items-center gap-2"
+                      >
+                        <User className="h-4 w-4" />
+                        <span>프로필</span>
+                      </button>
+                    </Link>
+                    <Link href="/settings">
+                      <button 
+                        onClick={() => setShowUserMenu(false)}
+                        className="w-full px-4 py-2 text-left hover:bg-secondary flex items-center gap-2"
+                      >
+                        <Settings className="h-4 w-4" />
+                        <span>설정</span>
+                      </button>
+                    </Link>
+                    <div className="border-t my-1"></div>
+                    <button 
+                      onClick={handleSignOut}
+                      className="w-full px-4 py-2 text-left hover:bg-secondary flex items-center gap-2 text-red-600"
+                    >
+                      <LogOut className="h-4 w-4" />
+                      <span>로그아웃</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <Link href="/auth/login">
+                <Button size="sm" className="flex items-center gap-2">
+                  <LogIn className="h-4 w-4" />
+                  <span>로그인</span>
+                </Button>
+              </Link>
+            )}
           </div>
         </div>
       </header>
@@ -291,7 +386,14 @@ export function NavbarModern() {
           </div>
         </aside>
       </div>
-
+      
+      {/* Click outside to close user menu */}
+      {showUserMenu && (
+        <div 
+          className="fixed inset-0 z-40" 
+          onClick={() => setShowUserMenu(false)}
+        />
+      )}
     </>
   )
 }
