@@ -49,15 +49,16 @@ export function NavbarModern() {
   const [showUserMenu, setShowUserMenu] = useState(false)
   const [userProfile, setUserProfile] = useState<any>(null)
   const { theme, toggleTheme } = useTheme()
-  const { user, signOut, isLoading } = useSupabase()
+  const { user, session, signOut, isLoading } = useSupabase()
 
   useEffect(() => {
+    console.log('[NavbarModern] User state changed:', user?.id, 'Session:', !!session)
     if (user) {
       loadUserProfile()
     } else {
       setUserProfile(null)
     }
-  }, [user])
+  }, [user, session])
 
   const loadUserProfile = async () => {
     if (!user) return
@@ -148,7 +149,11 @@ export function NavbarModern() {
             </button>
             
             {/* User Menu or Login Button */}
-            {user ? (
+            {isLoading ? (
+              <div className="p-2">
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-gray-900"></div>
+              </div>
+            ) : user ? (
               <div className="relative">
                 <button
                   onClick={() => setShowUserMenu(!showUserMenu)}

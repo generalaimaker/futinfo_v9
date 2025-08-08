@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/browser'
+import { getSupabaseClient } from '@/lib/supabase/client-singleton'
 import { 
   FixturesResponse, 
   LeaguesResponse, 
@@ -18,11 +18,11 @@ import { apiCache, CacheConfig, CacheTTL } from '../utils/api-cache-manager'
 import { withRateLimit } from '../utils/rate-limit-manager'
 
 class FootballAPIService {
-  private supabase = null as ReturnType<typeof createClient> | null
+  private supabase = null as ReturnType<typeof getSupabaseClient> | null
   
   constructor() {
     if (typeof window !== 'undefined') {
-      this.supabase = createClient()
+      this.supabase = getSupabaseClient()
     }
   }
   private cache = new Map<string, { data: any; timestamp: number }>()

@@ -1,13 +1,14 @@
 'use client'
 
 import { createContext, useContext, useEffect, useState } from 'react'
-import { createClient } from '@/lib/supabase/browser'
-import { User, SupabaseClient } from '@supabase/supabase-js'
+import { getSupabaseClient } from './client-singleton'
+import { User, SupabaseClient, Session } from '@supabase/supabase-js'
 import { useRouter } from 'next/navigation'
 
 type SupabaseContext = {
   supabase: SupabaseClient
   user: User | null
+  session: Session | null
   isLoading: boolean
   signIn: (email: string, password: string) => Promise<void>
   signUp: (email: string, password: string) => Promise<void>
@@ -20,34 +21,69 @@ const Context = createContext<SupabaseContext | undefined>(undefined)
 
 export function SupabaseProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
+  const [session, setSession] = useState<Session | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const router = useRouter()
-  // 싱글톤 패턴 사용으로 useMemo 불필요
-  const supabase = createClient()
+  const supabase = getSupabaseClient()
 
   useEffect(() => {
-    // 현재 세션 확인
-    const getSession = async () => {
+    // 초기 세션 체크
+    const initSession = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession()
-        setUser(session?.user ?? null)
+        // 세션 가져오기
+        const { data: { session: currentSession }, error } = await supabase.auth.getSession()
+        
+        if (error) {
+          console.error('[SupabaseProvider] Error getting session:', error)
+        }
+        
+        if (currentSession) {
+          console.log('[SupabaseProvider] Initial session found:', currentSession.user.id)
+          setSession(currentSession)
+          setUser(currentSession.user)
+        } else {
+          console.log('[SupabaseProvider] No initial session found')
+        }
       } catch (error) {
-        console.error('Error getting session:', error)
+        console.error('[SupabaseProvider] Error in initSession:', error)
       } finally {
         setIsLoading(false)
       }
     }
 
-    getSession()
+    initSession()
 
-    // Auth 변경 리스너
+    // Auth 상태 변경 구독
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
-      setUser(session?.user ?? null)
+    } = supabase.auth.onAuthStateChange(async (event, currentSession) => {
+      console.log('[SupabaseProvider] Auth state changed:', event, currentSession?.user?.id)
+      
+      setSession(currentSession)
+      setUser(currentSession?.user ?? null)
+      setIsLoading(false)
+      
+      // 로그인 성공 시 홈으로 리다이렉트
+      if (event === 'SIGNED_IN' && currentSession) {
+        console.log('[SupabaseProvider] User signed in, redirecting...')
+        
+        // 프로필 체크
+        const { data: profile } = await supabase
+          .from('user_profiles')
+          .select('*')
+          .eq('id', currentSession.user.id)
+          .single()
+        
+        if (!profile || !profile.nickname) {
+          router.push('/profile/setup')
+        } else {
+          router.push('/')
+        }
+      }
       
       // 로그아웃 시 홈으로 리다이렉트
       if (event === 'SIGNED_OUT') {
+        console.log('[SupabaseProvider] User signed out')
         router.push('/')
       }
     })
@@ -55,7 +91,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
     return () => {
       subscription.unsubscribe()
     }
-  }, [router])
+  }, [router, supabase])
 
   const signIn = async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password })
@@ -73,14 +109,9 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
   }
 
   const signInWithGoogle = async () => {
-    // 프로덕션에서는 buildup-football.com 사용
-    const redirectTo = typeof window !== 'undefined' 
-      ? window.location.hostname === 'localhost' 
-        ? `${window.location.origin}/auth/callback`
-        : 'https://buildup-football.com/auth/callback'
-      : 'https://buildup-football.com/auth/callback'
+    const redirectTo = `${window.location.origin}/auth/callback`
     
-    console.log('[OAuth] Google redirect URL:', redirectTo)
+    console.log('[OAuth] Starting Google sign in with redirect:', redirectTo)
     
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
@@ -89,9 +120,8 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
         queryParams: {
           access_type: 'offline',
           prompt: 'consent',
-        },
-        skipBrowserRedirect: false
-      },
+        }
+      }
     })
     
     if (error) {
@@ -99,35 +129,43 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
       throw error
     }
     
-    // OAuth URL 확인
-    console.log('[OAuth] Google OAuth initiated:', data)
+    console.log('[OAuth] Google sign in initiated:', data)
   }
 
   const signInWithApple = async () => {
-    // 프로덕션에서는 buildup-football.com 사용
-    const redirectTo = typeof window !== 'undefined' 
-      ? window.location.hostname === 'localhost' 
-        ? `${window.location.origin}/auth/callback`
-        : 'https://buildup-football.com/auth/callback'
-      : 'https://buildup-football.com/auth/callback'
+    const redirectTo = `${window.location.origin}/auth/callback`
     
-    console.log('Apple OAuth redirect URL:', redirectTo)
+    console.log('[OAuth] Starting Apple sign in with redirect:', redirectTo)
     
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'apple',
       options: {
-        redirectTo,
-      },
+        redirectTo
+      }
     })
     
-    if (error) throw error
+    if (error) {
+      console.error('[OAuth] Apple sign in error:', error)
+      throw error
+    }
     
-    // OAuth URL 확인
-    console.log('OAuth initiated:', data)
+    console.log('[OAuth] Apple sign in initiated:', data)
   }
 
   return (
-    <Context.Provider value={{ supabase, user, isLoading, signIn, signUp, signOut, signInWithGoogle, signInWithApple }}>
+    <Context.Provider 
+      value={{ 
+        supabase, 
+        user, 
+        session,
+        isLoading, 
+        signIn, 
+        signUp, 
+        signOut, 
+        signInWithGoogle, 
+        signInWithApple 
+      }}
+    >
       {children}
     </Context.Provider>
   )
