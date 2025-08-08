@@ -78,7 +78,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
         : 'https://buildup-football.com/auth/callback'
       : 'https://buildup-football.com/auth/callback'
     
-    console.log('Google OAuth redirect URL:', redirectTo)
+    console.log('[OAuth] Google redirect URL:', redirectTo)
     
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
@@ -88,13 +88,17 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
           access_type: 'offline',
           prompt: 'consent',
         },
+        skipBrowserRedirect: false
       },
     })
     
-    if (error) throw error
+    if (error) {
+      console.error('[OAuth] Google sign in error:', error)
+      throw error
+    }
     
     // OAuth URL 확인
-    console.log('OAuth initiated:', data)
+    console.log('[OAuth] Google OAuth initiated:', data)
   }
 
   const signInWithApple = async () => {

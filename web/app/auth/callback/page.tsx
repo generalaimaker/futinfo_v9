@@ -13,13 +13,21 @@ function AuthCallbackContent() {
   useEffect(() => {
     const handleCallback = async () => {
       try {
+        console.log('[Auth Callback] Starting callback handling...')
+        
         // URL 파라미터 확인
         const code = searchParams.get('code')
         const error = searchParams.get('error')
         const errorDescription = searchParams.get('error_description')
 
+        console.log('[Auth Callback] URL params:', { 
+          hasCode: !!code, 
+          error, 
+          errorDescription 
+        })
+
         if (error) {
-          console.error('Auth error:', error, errorDescription)
+          console.error('[Auth Callback] OAuth error:', error, errorDescription)
           setError(errorDescription || '인증에 실패했습니다.')
           setTimeout(() => {
             router.push('/auth/login')
@@ -27,19 +35,33 @@ function AuthCallbackContent() {
           return
         }
 
-        if (!code) {
-          setError('인증 코드가 없습니다.')
-          setTimeout(() => {
-            router.push('/auth/login')
-          }, 3000)
-          return
+        // OAuth 콜백 처리 - code가 있으면 exchange
+        if (code) {
+          console.log('[Auth Callback] Exchanging code for session...')
+          const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
+          
+          if (exchangeError) {
+            console.error('[Auth Callback] Exchange error:', exchangeError)
+            setError('인증 코드 교환에 실패했습니다.')
+            setTimeout(() => {
+              router.push('/auth/login')
+            }, 3000)
+            return
+          }
+          
+          console.log('[Auth Callback] Code exchange successful')
         }
 
         // 세션 확인
         const { data: { session }, error: sessionError } = await supabase.auth.getSession()
         
+        console.log('[Auth Callback] Session check:', { 
+          hasSession: !!session, 
+          sessionError 
+        })
+        
         if (sessionError) {
-          console.error('Session error:', sessionError)
+          console.error('[Auth Callback] Session error:', sessionError)
           setError('세션을 가져오는데 실패했습니다.')
           setTimeout(() => {
             router.push('/auth/login')
@@ -49,24 +71,33 @@ function AuthCallbackContent() {
 
         if (session) {
           // 로그인 성공
-          console.log('Login successful:', session.user.email)
+          console.log('[Auth Callback] Login successful:', session.user.email)
           
           // 프로필 설정 확인
-          const { data: profile } = await supabase
+          const { data: profile, error: profileError } = await supabase
             .from('user_profiles')
             .select('*')
             .eq('id', session.user.id)
             .single()
           
+          console.log('[Auth Callback] Profile check:', { 
+            hasProfile: !!profile, 
+            hasNickname: profile?.nickname,
+            profileError 
+          })
+          
           if (!profile || !profile.nickname) {
             // 프로필 설정이 안 되어 있으면 설정 페이지로
+            console.log('[Auth Callback] Redirecting to profile setup...')
             router.push('/profile/setup')
           } else {
             // 프로필이 있으면 홈으로
+            console.log('[Auth Callback] Redirecting to home...')
             router.push('/')
           }
         } else {
           // 세션이 없으면 다시 로그인 페이지로
+          console.error('[Auth Callback] No session found')
           setError('세션을 생성하는데 실패했습니다.')
           setTimeout(() => {
             router.push('/auth/login')

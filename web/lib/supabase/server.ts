@@ -1,15 +1,12 @@
-// Commented out for now - @supabase/ssr package is not installed
-/*
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { cookies } from 'next/headers'
-import type { Database } from '@/types'
 
 export function createClient() {
   const cookieStore = cookies()
 
-  return createServerClient<Database>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+  return createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://uutmymaxkkytibuiiaax.supabase.co',
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV1dG15bWF4a2t5dGlidWlpYWF4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE4OTYzMzUsImV4cCI6MjA2NzQ3MjMzNX0.-sR7UF1Lj1cZ3fy6ScWaLViV_d5aU2PoT7UCpf3XlBM',
     {
       cookies: {
         get(name: string) {
@@ -36,10 +33,4 @@ export function createClient() {
       },
     }
   )
-}
-*/
-
-// Temporary export - remove when @supabase/ssr is installed
-export function createClient() {
-  throw new Error('@supabase/ssr package is not installed')
 }
