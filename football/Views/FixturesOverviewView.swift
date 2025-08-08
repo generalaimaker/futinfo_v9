@@ -672,12 +672,55 @@ struct FixturesMainContentView: View {
     }
 }
 
+// MARK: - 라이브 경기 인디케이터
+struct LiveMatchIndicator: View {
+    let status: String
+    let elapsed: Int?
+    
+    var body: some View {
+        HStack(spacing: 4) {
+            Circle()
+                .fill(Color.red)
+                .frame(width: 6, height: 6)
+                .opacity(animatingOpacity)
+                .animation(.easeInOut(duration: 1.0).repeatForever(autoreverses: true), value: animatingOpacity)
+            
+            Text(statusText)
+                .font(.system(size: 11, weight: .bold))
+                .foregroundColor(.red)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(Color.red.opacity(0.15))
+        .cornerRadius(12)
+    }
+    
+    @State private var animatingOpacity: Double = 0.4
+    
+    var statusText: String {
+        switch status {
+        case "1H": return "\(elapsed ?? 0)'"
+        case "HT": return "HT"
+        case "2H": return "\(elapsed ?? 45)'"
+        case "ET": return "ET \(elapsed ?? 90)'"
+        case "P": return "PEN"
+        case "BT": return "중단"
+        default: return "LIVE"
+        }
+    }
+    
+    private func startAnimation() {
+        animatingOpacity = 1.0
+    }
+}
+
 struct FixturesOverviewView: View {
     @StateObject private var viewModel = FixturesOverviewViewModel()
     @State private var selectedDateIndex = 5 // "오늘" 기본 선택 (10일 중 중앙)
     @State private var navigateToTeamProfile: Bool = false
     @State private var selectedTeamId: Int = 0
     @State private var selectedTeamLeagueId: Int = 0
+    @State private var liveMatchRefreshTimer: Timer?
     
     // 선수 프로필 네비게이션 상태
     @State private var navigateToPlayerProfile: Bool = false
@@ -877,6 +920,9 @@ struct FixturesOverviewView: View {
                 object: nil
             )
             
+            // 라이브 매치 상태 타이머 시작
+            startLiveMatchRefreshTimer()
+            
             // 현재 선택된 날짜 데이터 강제 새로고침
             Task {
                 if let selectedDate = viewModel.dateTabs[safe: selectedDateIndex]?.date {
@@ -955,6 +1001,9 @@ struct FixturesOverviewView: View {
             NotificationCenter.default.removeObserver(self, name: NSNotification.Name("DateRangeExtended"), object: nil)
             NotificationCenter.default.removeObserver(self, name: NSNotification.Name("ClearAllCache"), object: nil)
             NotificationCenter.default.removeObserver(self, name: NSNotification.Name("PartialFixturesLoadFailure"), object: nil)
+            
+            // 라이브 매치 타이머 중지
+            stopLiveMatchRefreshTimer()
         }
         .navigationDestination(isPresented: $navigateToTeamProfile) {
             TeamProfileView(teamId: selectedTeamId, leagueId: selectedTeamLeagueId)
@@ -962,6 +1011,41 @@ struct FixturesOverviewView: View {
         .navigationDestination(isPresented: $navigateToPlayerProfile) {
             PlayerProfileView(playerId: selectedPlayerId)
         }
+    }
+    
+    // MARK: - 라이브 매치 타이머 메서드
+    
+    private func startLiveMatchRefreshTimer() {
+        // 기존 타이머 중지
+        stopLiveMatchRefreshTimer()
+        
+        // 30초마다 라이브 경기가 있는 날짜의 데이터 새로고침
+        liveMatchRefreshTimer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { _ in
+            Task { @MainActor in
+                // 오늘 날짜에 라이브 경기가 있는지 확인
+                if let todayIndex = viewModel.dateTabs.firstIndex(where: { Calendar.current.isDateInToday($0.date) }),
+                   let todayTab = viewModel.dateTabs[safe: todayIndex],
+                   let fixtures = viewModel.fixtures[todayTab.date],
+                   fixtures.contains(where: { self.isLiveMatch($0.fixture.status.short) }) {
+                    
+                    print("🔄 라이브 경기 감지 - 오늘 날짜 데이터 새로고침")
+                    await viewModel.loadFixturesForDate(todayTab.date, forceRefresh: true)
+                }
+            }
+        }
+    }
+    
+    private func stopLiveMatchRefreshTimer() {
+        liveMatchRefreshTimer?.invalidate()
+        liveMatchRefreshTimer = nil
+    }
+    
+    private func isLiveMatch(_ status: String) -> Bool {
+        return ["1H", "2H", "HT", "ET", "P", "BT", "LIVE"].contains(status)
+    }
+    
+    private func isFinishedMatch(_ status: String) -> Bool {
+        return ["FT", "AET", "PEN"].contains(status)
     }
 }
 
@@ -1022,24 +1106,13 @@ struct FixturePageView: View {
             return priority1 < priority2
         }
         
-        // 유럽 주요 팀 친선경기 필터링
-        let majorEuropeanFriendlies: [Fixture] = {
-            guard let fixturesForDate = viewModel.fixtures[date] else { return [] }
-            
-            return fixturesForDate.filter { fixture in
-                return fixture.league.id == 667 && 
-                    (majorEuropeanTeams.contains(fixture.teams.home.id) || 
-                     majorEuropeanTeams.contains(fixture.teams.away.id))
-            }
-        }()
-        
-        // 리그별 경기 그룹화 (유럽 주요 팀 친선경기 제외)
+        // 리그별 경기 그룹화
         let fixturesByLeague: [Int: [Fixture]] = {
             guard let fixturesForDate = viewModel.fixtures[date] else { return [:] }
             
-            // 즐겨찾기 팀 경기와 유럽 주요 팀 친선경기는 제외
+            // 즐겨찾기 팀 경기는 제외
             let nonFavoriteFixtures = fixturesForDate.filter { fixture in
-                !favoriteFixtures.contains(fixture) && !majorEuropeanFriendlies.contains(where: { $0.fixture.id == fixture.fixture.id })
+                !favoriteFixtures.contains(fixture)
             }
             
             // 리그별로 그룹화
@@ -1051,6 +1124,23 @@ struct FixturePageView: View {
                 }
                 result[leagueId]?.append(fixture)
             }
+            
+            // 클럽 친선경기(667)는 유럽 주요 팀을 먼저 정렬
+            if let friendlies = result[667] {
+                result[667] = friendlies.sorted(by: { fixture1, fixture2 in
+                    let fixture1HasMajorTeam = majorEuropeanTeams.contains(fixture1.teams.home.id) || 
+                                              majorEuropeanTeams.contains(fixture1.teams.away.id)
+                    let fixture2HasMajorTeam = majorEuropeanTeams.contains(fixture2.teams.home.id) || 
+                                              majorEuropeanTeams.contains(fixture2.teams.away.id)
+                    
+                    if fixture1HasMajorTeam != fixture2HasMajorTeam {
+                        return fixture1HasMajorTeam
+                    }
+                    // 같은 우선순위면 시간순
+                    return fixture1.fixture.date < fixture2.fixture.date
+                })
+            }
+            
             return result
         }()
         
@@ -1077,28 +1167,6 @@ struct FixturePageView: View {
                     Divider()
                         .padding(.vertical, 8)
                 }
-                
-                // 유럽 주요 팀 친선경기 섹션
-                if !majorEuropeanFriendlies.isEmpty {
-                    VStack(alignment: .leading, spacing: 8) {
-                        HStack {
-                            Image(systemName: "sportscourt")
-                                .foregroundColor(.blue)
-                            Text("유럽 주요 팀 친선경기")
-                                .font(.headline)
-                        }
-                        .padding(.top, favoriteFixtures.isEmpty ? 16 : 0)
-                        
-                        ForEach(majorEuropeanFriendlies) { fixture in
-                            FixtureCardView(fixture: fixture, viewModel: viewModel)
-                                .padding(.vertical, 2)
-                        }
-                    }
-                    
-                    Divider()
-                        .padding(.vertical, 8)
-                }
-                
                 
                 // 우선순위 순서대로 리그 표시 (0으로 나누기 방지)
                 ForEach(prioritizedLeagues.filter { leagueId in
@@ -1491,14 +1559,24 @@ struct FixtureCardView: View {
                         FixtureTeamView(team: fixture.teams.home, isHome: true)
                         
                         // 스코어 또는 경기 시간 - 중앙에 배치
-                        FixtureCell.ScoreView(
-                            homeScore: fixture.goals?.home,
-                            awayScore: fixture.goals?.away,
-                            isLive: ["1H", "2H", "HT", "ET", "BT", "P"].contains(fixture.fixture.status.short),
-                            elapsed: fixture.fixture.status.elapsed,
-                            status: fixture.fixture.status.short,
-                            fixture: fixture
-                        )
+                        VStack(spacing: 2) {
+                            FixtureCell.ScoreView(
+                                homeScore: fixture.goals?.home,
+                                awayScore: fixture.goals?.away,
+                                isLive: ["1H", "2H", "HT", "ET", "BT", "P"].contains(fixture.fixture.status.short),
+                                elapsed: fixture.fixture.status.elapsed,
+                                status: fixture.fixture.status.short,
+                                fixture: fixture
+                            )
+                            
+                            // 라이브 경기 경과 시간 표시
+                            if ["1H", "2H", "ET"].contains(fixture.fixture.status.short),
+                               let elapsed = fixture.fixture.status.elapsed {
+                                Text("\(elapsed)'")
+                                    .font(.system(size: 10, weight: .medium))
+                                    .foregroundColor(.red)
+                            }
+                        }
                         .frame(width: 70) // 너비 증가 (50 -> 70)
                         
                         // 원정팀
@@ -1513,8 +1591,14 @@ struct FixtureCardView: View {
                 .cornerRadius(10)
                 .frame(maxWidth: .infinity, alignment: .center) // 가운데 정렬로 변경
                 
-                // 상태 뱃지 (우상단 귀퉁이에 배치) - 경기 예정이 아닌 경우에만 표시
-                if !["NS", "TBD"].contains(fixture.fixture.status.short) {
+                // 라이브 인디케이터 (우상단에 배치)
+                if ["1H", "2H", "HT", "ET", "P", "BT", "LIVE"].contains(fixture.fixture.status.short) {
+                    LiveMatchIndicator(status: fixture.fixture.status.short,
+                                     elapsed: fixture.fixture.status.elapsed)
+                        .padding(8)
+                }
+                // 종료된 경기 상태 뱃지
+                else if !["NS", "TBD"].contains(fixture.fixture.status.short) {
                     FixtureCell.MiniStatusBadgeView(status: fixture.fixture.status.short)
                         .padding(6)
                 }

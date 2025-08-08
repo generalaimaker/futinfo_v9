@@ -36,6 +36,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.util.*
+import com.hyunwoopark.futinfo.util.Constants
 
 /**
  * iOS 스타일로 완전히 개선된 경기 일정 화면
@@ -277,9 +278,17 @@ private fun IOSStyleFixturesList(
     // 즐겨찾기 팀 필터링 (TODO: 실제 즐겨찾기 서비스 연동 필요)
     val favoriteFixtures = emptyList<FixtureDto>() // 임시
     
-    // 리그별 그룹화
+    // 유럽 주요 팀 친선경기 필터링
+    val majorEuropeanFriendlies = fixtures.filter { fixture ->
+        fixture.league.id == Constants.CLUB_FRIENDLIES_LEAGUE_ID &&
+        (Constants.MAJOR_EUROPEAN_TEAMS.contains(fixture.teams.home.id) ||
+         Constants.MAJOR_EUROPEAN_TEAMS.contains(fixture.teams.away.id))
+    }
+    
+    // 리그별 그룹화 (유럽 주요 팀 친선경기 제외)
     val fixturesByLeague = fixtures
         .filterNot { favoriteFixtures.contains(it) }
+        .filterNot { majorEuropeanFriendlies.contains(it) }
         .groupBy { it.league.id }
     
     // 리그 우선순위
@@ -302,6 +311,32 @@ private fun IOSStyleFixturesList(
                     onFixtureClick = onFixtureClick,
                     onTeamClick = onTeamClick
                 )
+            }
+        }
+        
+        // 유럽 주요 팀 친선경기 섹션
+        if (majorEuropeanFriendlies.isNotEmpty()) {
+            item {
+                Column(
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    // 특별 배너
+                    IOSStyleLeagueBanner(
+                        leagueId = Constants.CLUB_FRIENDLIES_LEAGUE_ID,
+                        leagueName = "유럽 주요 팀 친선경기",
+                        leagueLogo = majorEuropeanFriendlies.firstOrNull()?.league?.logo ?: ""
+                    )
+                    
+                    // 경기 카드들
+                    majorEuropeanFriendlies.forEach { fixture ->
+                        IOSStyleFixtureCard(
+                            fixture = fixture,
+                            onClick = { onFixtureClick(fixture.fixture.id) },
+                            onTeamClick = onTeamClick
+                        )
+                    }
+                }
             }
         }
         

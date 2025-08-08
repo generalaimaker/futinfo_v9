@@ -2,6 +2,7 @@ import Foundation
 import SwiftUI
 import Combine
 
+@MainActor
 class SupabaseFootballAPIService: ObservableObject {
     static let shared = SupabaseFootballAPIService()
     
@@ -18,14 +19,7 @@ class SupabaseFootballAPIService: ObservableObject {
     
     func fetchFixtures(date: String, leagueId: Int? = nil, season: Int? = nil) async throws -> FixturesResponse {
         // Rate Limit 확인
-        let rateLimitManager = RateLimitManager.shared
-        if !rateLimitManager.canMakeRequest() {
-            let waitTime = rateLimitManager.timeUntilNextRequest()
-            print("⏳ Rate Limit 대기: \(String(format: "%.1f", waitTime))초")
-            if waitTime > 0 {
-                try await Task.sleep(nanoseconds: UInt64(waitTime * 1_000_000_000))
-            }
-        }
+        await RateLimitManager.shared.waitForSlot()
         
         // Build URL for POST request
         let urlString = "\(supabaseURL)/functions/v1/unified-football-api"
@@ -48,7 +42,7 @@ class SupabaseFootballAPIService: ObservableObject {
         print("📅 요청 파라미터 - Date: \(date), League: \(leagueId ?? -1), Season: \(season ?? -1)")
         
         // Rate Limit 기록
-        rateLimitManager.recordRequest()
+        RateLimitManager.shared.recordRequest(endpoint: "fixtures")
         
         guard let url = URL(string: urlString) else {
             throw FootballAPIError.invalidRequest
@@ -96,7 +90,7 @@ class SupabaseFootballAPIService: ObservableObject {
                 if httpResponse.statusCode == 429 || (httpResponse.statusCode == 500 && String(data: data, encoding: .utf8)?.contains("429") == true) {
                     print("⚠️ Rate Limit 초과 감지 - 긴 대기 시간 필요")
                     // Rate limit manager 리셋하고 1분 대기
-                    RateLimitManager.shared.reset()
+                    RateLimitManager.shared.handleRateLimitError()
                     
                     if retryCount < maxRetries {
                         retryCount += 1
@@ -436,21 +430,14 @@ extension SupabaseFootballAPIService {
     // 팀별 경기 일정 가져오기
     func getTeamFixtures(teamId: Int, season: Int) async throws -> [Fixture] {
         // Rate Limit 확인
-        let rateLimitManager = RateLimitManager.shared
-        if !rateLimitManager.canMakeRequest() {
-            let waitTime = rateLimitManager.timeUntilNextRequest()
-            print("⏳ Rate Limit 대기: \(String(format: "%.1f", waitTime))초")
-            if waitTime > 0 {
-                try await Task.sleep(nanoseconds: UInt64(waitTime * 1_000_000_000))
-            }
-        }
+        await RateLimitManager.shared.waitForSlot()
         
         let urlString = "\(supabaseURL)/functions/v1/football-api/fixtures?team=\(teamId)&season=\(season)"
         
         print("🌐 팀 경기 일정 조회: \(urlString)")
         
         // Rate Limit 기록
-        rateLimitManager.recordRequest()
+        RateLimitManager.shared.recordRequest(endpoint: "fixtures")
         
         guard let url = URL(string: urlString) else {
             throw FootballAPIError.invalidRequest

@@ -13,6 +13,7 @@ import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
 import javax.inject.Inject
+import com.hyunwoopark.futinfo.util.Constants
 
 /**
  * 경기 목록 화면의 ViewModel
@@ -269,7 +270,7 @@ class FixturesViewModel @Inject constructor(
     
     /**
      * 오늘 기준으로 경기를 스마트하게 정렬합니다.
-     * 오늘 경기의 경우: 라이브 경기 → 예정 경기 → 완료 경기 순으로 정렬
+     * 오늘 경기의 경우: 유럽 주요 팀 친선경기 → 라이브 경기 → 예정 경기 → 완료 경기 순으로 정렬
      * 다른 날짜: 시간순 정렬
      */
     private fun sortFixturesForToday(fixtures: List<com.hyunwoopark.futinfo.data.remote.dto.FixtureDto>, date: String?): List<com.hyunwoopark.futinfo.data.remote.dto.FixtureDto> {
@@ -279,13 +280,20 @@ class FixturesViewModel @Inject constructor(
         return if (date == today) {
             // 오늘 경기는 상태별로 우선순위를 두어 정렬
             fixtures.sortedWith(compareBy<com.hyunwoopark.futinfo.data.remote.dto.FixtureDto> { fixture ->
-                when (fixture.fixture.status.short) {
-                    // 라이브 경기가 최우선
-                    "1H", "2H", "HT", "ET", "BT", "P" -> 0
-                    // 예정 경기가 두 번째
-                    "NS", "TBD" -> 1
-                    // 완료 경기가 마지막
-                    "FT", "AET", "PEN" -> 2
+                // 유럽 주요 팀의 친선경기인지 확인
+                val isMajorFriendly = fixture.league.id == Constants.CLUB_FRIENDLIES_LEAGUE_ID && 
+                    (Constants.MAJOR_EUROPEAN_TEAMS.contains(fixture.teams.home.id) || 
+                     Constants.MAJOR_EUROPEAN_TEAMS.contains(fixture.teams.away.id))
+                
+                when {
+                    // 유럽 주요 팀의 친선경기가 최우선
+                    isMajorFriendly -> -1
+                    // 라이브 경기
+                    fixture.fixture.status.short in listOf("1H", "2H", "HT", "ET", "BT", "P") -> 0
+                    // 예정 경기
+                    fixture.fixture.status.short in listOf("NS", "TBD") -> 1
+                    // 완료 경기
+                    fixture.fixture.status.short in listOf("FT", "AET", "PEN") -> 2
                     // 기타 상태
                     else -> 3
                 }

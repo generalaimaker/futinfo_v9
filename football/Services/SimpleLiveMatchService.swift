@@ -5,6 +5,7 @@ import UIKit
 #endif
 
 /// 간단하고 효과적인 라이브 경기 서비스 - 10초 이내 업데이트
+@MainActor
 class SimpleLiveMatchService {
     static let shared = SimpleLiveMatchService()
     private let apiService = SupabaseFootballAPIService.shared

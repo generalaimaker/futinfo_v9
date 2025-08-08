@@ -250,8 +250,11 @@ struct FixtureCell: View {
                     .padding(.vertical, 4)
                     .background(Color.blue.opacity(0.1))
                     .cornerRadius(6)
+            } else if isLive {
+                // 라이브 경기인 경우 실시간 스코어 뷰 사용
+                LiveScoreView(fixture: fixture)
             } else {
-                // 정규 시간 스코어 표시
+                // 종료된 경기 - 정적 스코어 표시
                 ZStack {
                     // 중앙에 ":" 배치
                     Text(":")

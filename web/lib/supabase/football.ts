@@ -14,11 +14,15 @@ import { TeamProfile, TeamStatistics } from '@/lib/types/team'
 import { PlayerProfile, TopScorer, TopAssist } from '@/lib/types/player'
 import { mockFixturesData } from './mockData'
 import { largeMockFixturesData } from './largeMockData'
+import { apiCache, CacheConfig, CacheTTL } from '../utils/api-cache-manager'
+import { withRateLimit } from '../utils/rate-limit-manager'
 
 class FootballAPIService {
   private supabase = supabase
   private cache = new Map<string, { data: any; timestamp: number }>()
   private CACHE_DURATION = 5 * 60 * 1000 // 5분 캐시
+  private lastRequestTime = 0
+  private REQUEST_DELAY = 200 // 200ms delay between API requests
   
   // 캐시 헬퍼
   private getCachedData<T>(key: string): T | null {
@@ -33,35 +37,62 @@ class FootballAPIService {
     this.cache.set(key, { data, timestamp: Date.now() })
   }
 
-  // Edge Function 호출 헬퍼
+  // Edge Function 호출 헬퍼 (캐싱 및 레이트 리밋 적용)
   private async callEdgeFunction<T>(functionName: string, params: any): Promise<T> {
     // football-api 호출을 unified-football-api로 리다이렉트
     if (functionName === 'football-api' && params.endpoint) {
       return this.callUnifiedAPI<T>(params.endpoint, params.params || {})
     }
     
-    const { data, error } = await this.supabase.functions.invoke(functionName, {
-      body: params,
-      headers: {
-        'Content-Type': 'application/json',
+    // 캐시 키 생성
+    const cacheKey = `${functionName}:${JSON.stringify(params)}`
+    const endpoint = params.endpoint || functionName
+    
+    // 캐시 TTL 결정
+    const ttl = CacheConfig[endpoint] || CacheTTL.MEDIUM
+    
+    // 라이브 데이터는 캐싱하지 않음
+    const skipCache = endpoint === 'fixtures' && params.params?.live === 'all'
+    
+    return apiCache.withCache(
+      async () => {
+        // 레이트 리밋 적용
+        return withRateLimit(async () => {
+          const { data, error } = await this.supabase.functions.invoke(functionName, {
+            body: params,
+            headers: {
+              'Content-Type': 'application/json',
+            }
+          })
+          
+          if (error) throw error
+          return data as T
+        }, endpoint)
+      },
+      endpoint,
+      { 
+        ttl: skipCache ? 0 : ttl,
+        key: cacheKey,
+        forceRefresh: skipCache
       }
-    })
-    
-    if (error) {
-      console.error(`Edge function error (${functionName}):`, error)
-      throw new Error(error.message)
-    }
-    
-    return data as T
+    )
   }
 
   // 통합 API 호출
   private async callUnifiedAPI<T>(endpoint: string, params: any): Promise<T> {
+    // Rate limiting - ensure minimum delay between requests
+    const now = Date.now()
+    const timeSinceLastRequest = now - this.lastRequestTime
+    if (timeSinceLastRequest < this.REQUEST_DELAY) {
+      await new Promise(resolve => setTimeout(resolve, this.REQUEST_DELAY - timeSinceLastRequest))
+    }
+    this.lastRequestTime = Date.now()
+    
     console.log(`[FootballAPI] Calling unified-football-api with endpoint: ${endpoint}`, params)
     
     try {
       // 직접 fetch 사용 (Supabase client의 body 전송 문제 해결)
-      const functionName = 'unified-football-api-fixed'
+      const functionName = 'unified-football-api'
       const url = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/${functionName}`
       const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
       
@@ -156,6 +187,12 @@ class FootballAPIService {
       
       if (data && data.response && Array.isArray(data.response)) {
         // 주요 리그만 필터링
+        // 친선경기 디버깅
+        const friendlies = data.response.filter(fixture => fixture.league.id === 667)
+        if (friendlies.length > 0) {
+          console.log(`[FootballAPI] Found ${friendlies.length} club friendlies for ${formattedDate}`)
+        }
+        
         const filteredFixtures = data.response.filter(fixture => 
           MAIN_LEAGUES.includes(fixture.league.id)
         )
@@ -166,7 +203,7 @@ class FootballAPIService {
           response: filteredFixtures
         }
         
-        console.log(`[FootballAPI] Got ${data.response.length} total fixtures, filtered to ${filteredFixtures.length} from main leagues`)
+        console.log(`[FootballAPI] Got ${data.response.length} total fixtures, filtered to ${filteredFixtures.length} from main leagues (includes ${friendlies.length} friendlies)`)
         // this.setCachedData(cacheKey, filteredResponse) // 캐시 임시 비활성화
         return filteredResponse
       }
@@ -203,11 +240,8 @@ class FootballAPIService {
     if (cached) return cached
 
     try {
-      // 리그 API는 football-api Edge Function 사용
-      const data = await this.callEdgeFunction<LeaguesResponse>('football-api', {
-        endpoint: 'leagues',
-        params: params || {}
-      })
+      // 리그 API 호출
+      const data = await this.callUnifiedAPI<LeaguesResponse>('leagues', params || {})
       
       this.setCachedData(cacheKey, data)
       return data
@@ -227,10 +261,7 @@ class FootballAPIService {
     if (cached) return cached
 
     try {
-      const data = await this.callEdgeFunction<StandingsResponse>('football-api', {
-        endpoint: 'standings',
-        params
-      })
+      const data = await this.callUnifiedAPI<StandingsResponse>('standings', params)
       
       this.setCachedData(cacheKey, data)
       return data
@@ -244,37 +275,124 @@ class FootballAPIService {
   async getTeamSquad(params: {
     team: number
   }): Promise<TeamSquadResponse> {
-    const cacheKey = `squad_${params.team}`
+    const cacheKey = `squad_${params.team}_${new Date().getFullYear()}`
     const cached = this.getCachedData<TeamSquadResponse>(cacheKey)
     if (cached) return cached
 
     try {
-      const data = await this.callEdgeFunction<TeamSquadResponse>('football-api', {
-        endpoint: 'players/squads',
-        params
+      const data = await this.callUnifiedAPI<TeamSquadResponse>('players/squads', {
+        team: params.team
       })
       
-      this.setCachedData(cacheKey, data)
-      return data
+      if (data) {
+        this.setCachedData(cacheKey, data)
+        return data
+      }
+      
+      throw new Error('Team squad not found')
     } catch (error) {
       console.error('Error fetching team squad:', error)
       throw error
     }
   }
 
-  // 이적 정보 가져오기
+  // 이적 정보 가져오기 (최근 1년간)
   async getTransfers(params: {
     team: number
   }): Promise<TransfersResponse> {
-    const cacheKey = `transfers_${params.team}`
+    const currentYear = new Date().getFullYear()
+    const cacheKey = `transfers_${params.team}_recent_1year`
     const cached = this.getCachedData<TransfersResponse>(cacheKey)
     if (cached) return cached
 
     try {
-      const data = await this.callEdgeFunction<TransfersResponse>('football-api', {
-        endpoint: 'transfers',
-        params
-      })
+      // 현재 시즌과 이전 시즌의 이적 정보만 가져오기 (더 넓은 범위)
+      const transferParams = {
+        ...params
+        // 시즌 제한 제거하여 더 많은 데이터 가져오기
+      }
+      
+      const data = await this.callUnifiedAPI<TransfersResponse>('transfers', transferParams)
+      
+      // console.log(`[FootballAPI] Raw transfers data for team ${params.team}:`, JSON.stringify(data, null, 2))
+      
+      // 데이터를 날짜순으로 정렬 (최신순)
+      if (data?.response && Array.isArray(data.response)) {
+        data.response = data.response
+          .map((transfer: any) => ({
+            ...transfer,
+            transfers: transfer.transfers
+              ?.filter((t: any) => {
+                if (!t.date) return false
+                
+                // 날짜 파싱 함수
+                const parseTransferDate = (dateStr: string): Date => {
+                  if (dateStr.includes('-')) {
+                    return new Date(dateStr)
+                  } else if (dateStr.length === 6) {
+                    // YYMMDD 형식인 경우 (180801 = 2018년 8월 1일)
+                    let year = parseInt(dateStr.substring(0, 2))
+                    const month = dateStr.substring(2, 4)
+                    const day = dateStr.substring(4, 6)
+                    
+                    // 년도 보정: 80년대 이후는 19xx, 그 이전은 20xx로 추정
+                    if (year >= 80) {
+                      year += 1900
+                    } else {
+                      year += 2000
+                    }
+                    
+                    return new Date(`${year}-${month}-${day}`)
+                  } else if (dateStr.length === 8) {
+                    // YYYYMMDD 형식인 경우
+                    const year = dateStr.substring(0, 4)
+                    const month = dateStr.substring(4, 6)
+                    const day = dateStr.substring(6, 8)
+                    return new Date(`${year}-${month}-${day}`)
+                  } else {
+                    return new Date(dateStr)
+                  }
+                }
+                
+                const transferDate = parseTransferDate(t.date)
+                const now = new Date()
+                const oneYearAgo = new Date(now.getTime() - (365 * 24 * 60 * 60 * 1000)) // 정확히 365일 전
+                const isWithinOneYear = transferDate >= oneYearAgo
+                // console.log(`[Transfer Filter] Player: ${transfer.player?.name}, Date: ${t.date}, Parsed: ${transferDate}, OneYearAgo: ${oneYearAgo}, Within 1 year: ${isWithinOneYear}`)
+                return isWithinOneYear // 정확히 최근 1년
+              })
+              ?.sort((a: any, b: any) => {
+                // 같은 날짜 파싱 함수 사용
+                const parseTransferDate = (dateStr: string): Date => {
+                  if (dateStr.includes('-')) {
+                    return new Date(dateStr)
+                  } else if (dateStr.length === 6) {
+                    // YYMMDD 형식인 경우
+                    let year = parseInt(dateStr.substring(0, 2))
+                    const month = dateStr.substring(2, 4)
+                    const day = dateStr.substring(4, 6)
+                    
+                    if (year >= 80) {
+                      year += 1900
+                    } else {
+                      year += 2000
+                    }
+                    
+                    return new Date(`${year}-${month}-${day}`)
+                  } else if (dateStr.length === 8) {
+                    const year = dateStr.substring(0, 4)
+                    const month = dateStr.substring(4, 6)
+                    const day = dateStr.substring(6, 8)
+                    return new Date(`${year}-${month}-${day}`)
+                  } else {
+                    return new Date(dateStr)
+                  }
+                }
+                return parseTransferDate(b.date).getTime() - parseTransferDate(a.date).getTime() // 최신순 정렬
+              })
+          }))
+          .filter((transfer: any) => transfer.transfers && transfer.transfers.length > 0) // 빈 이적 기록 제거
+      }
       
       this.setCachedData(cacheKey, data)
       return data
@@ -294,10 +412,7 @@ class FootballAPIService {
     }
 
     try {
-      const data = await this.callEdgeFunction<FixturesResponse>('football-api', {
-        endpoint: 'fixtures',
-        params: { live: 'all' }
-      })
+      const data = await this.callUnifiedAPI<FixturesResponse>('fixtures', { live: 'all' })
       
       this.setCachedData(cacheKey, data)
       return data
@@ -314,12 +429,9 @@ class FootballAPIService {
     if (cached) return cached
 
     try {
-      const data = await this.callEdgeFunction<FixturesResponse>('football-api', {
-        endpoint: 'fixtures',
-        params: {
-          team: teamId,
-          next: count
-        }
+      const data = await this.callUnifiedAPI<FixturesResponse>('fixtures', {
+        team: teamId,
+        next: count
       })
       
       this.setCachedData(cacheKey, data)
@@ -337,12 +449,9 @@ class FootballAPIService {
     if (cached) return cached
 
     try {
-      const data = await this.callEdgeFunction<FixturesResponse>('football-api', {
-        endpoint: 'fixtures',
-        params: {
-          team: teamId,
-          last: count
-        }
+      const data = await this.callUnifiedAPI<FixturesResponse>('fixtures', {
+        team: teamId,
+        last: count
       })
       
       this.setCachedData(cacheKey, data)
@@ -367,21 +476,37 @@ class FootballAPIService {
 
   // 팀 프로필 가져오기
   async getTeamProfile(teamId: number): Promise<TeamProfile> {
+    console.log('[FootballAPI] getTeamProfile called with teamId:', teamId)
     const cacheKey = `team_profile_${teamId}`
     const cached = this.getCachedData<TeamProfile>(cacheKey)
-    if (cached) return cached
+    if (cached) {
+      console.log('[FootballAPI] Returning cached team profile for:', teamId)
+      return cached
+    }
 
     try {
-      const data = await this.callEdgeFunction<any>('football-api', {
-        endpoint: 'teams',
-        params: { id: teamId }
+      console.log('[FootballAPI] Fetching team profile from API for:', teamId)
+      const data = await this.callUnifiedAPI<{ response: TeamProfile[] }>('teams', { 
+        id: teamId 
       })
       
-      const teamProfile = data.response[0] as TeamProfile
-      this.setCachedData(cacheKey, teamProfile)
-      return teamProfile
+      console.log('[FootballAPI] Team profile API response:', data)
+      console.log('[FootballAPI] Team profile response structure:', {
+        hasResponse: !!data?.response,
+        responseLength: data?.response?.length,
+        firstItem: data?.response?.[0]
+      })
+      
+      if (data && data.response && data.response.length > 0) {
+        const teamProfile = data.response[0] as TeamProfile
+        console.log('[FootballAPI] Extracted team profile:', teamProfile)
+        this.setCachedData(cacheKey, teamProfile)
+        return teamProfile
+      }
+      
+      throw new Error('Team not found')
     } catch (error) {
-      console.error('Error fetching team profile:', error)
+      console.error('[FootballAPI] Error fetching team profile for teamId', teamId, ':', error)
       throw error
     }
   }
@@ -393,18 +518,19 @@ class FootballAPIService {
     if (cached) return cached
 
     try {
-      const data = await this.callEdgeFunction<any>('football-api', {
-        endpoint: 'teams/statistics',
-        params: {
-          team: teamId,
-          season: season,
-          league: leagueId
-        }
+      const data = await this.callUnifiedAPI<{ response: TeamStatistics }>('teams/statistics', {
+        team: teamId,
+        season: season,
+        league: leagueId
       })
       
-      const teamStats = data.response as TeamStatistics
-      this.setCachedData(cacheKey, teamStats)
-      return teamStats
+      if (data && data.response) {
+        const teamStats = data.response as TeamStatistics
+        this.setCachedData(cacheKey, teamStats)
+        return teamStats
+      }
+      
+      throw new Error('Team statistics not found')
     } catch (error) {
       console.error('Error fetching team statistics:', error)
       throw error
@@ -418,12 +544,9 @@ class FootballAPIService {
     if (cached) return cached
 
     try {
-      const data = await this.callEdgeFunction<any>('football-api', {
-        endpoint: 'players',
-        params: {
-          id: playerId,
-          season: season
-        }
+      const data = await this.callUnifiedAPI<any>('players', {
+        id: playerId,
+        season: season
       })
       
       const playerProfile = data.response[0] as PlayerProfile
@@ -442,12 +565,9 @@ class FootballAPIService {
     if (cached) return cached
 
     try {
-      const data = await this.callEdgeFunction<any>('football-api', {
-        endpoint: 'players/topscorers',
-        params: {
-          league: leagueId,
-          season: season
-        }
+      const data = await this.callUnifiedAPI<any>('players/topscorers', {
+        league: leagueId,
+        season: season
       })
       
       const topScorers = data.response as TopScorer[]
@@ -627,6 +747,9 @@ class FootballAPIService {
 
 // 싱글톤 인스턴스
 const footballAPIService = new FootballAPIService()
+
+// Export the class for direct use
+export { FootballAPIService }
 
 // React Query 훅
 import { useQuery, UseQueryOptions } from '@tanstack/react-query'
@@ -862,6 +985,19 @@ export const useTeamLastFixtures = (
     queryKey: ['teamLastFixtures', teamId],
     queryFn: () => footballAPIService.getTeamLastFixtures(teamId),
     staleTime: 60 * 60 * 1000, // 1시간
+    enabled: !!teamId,
+    ...options
+  })
+}
+
+export const useTeamTransfers = (
+  teamId: number,
+  options?: UseQueryOptions<TransfersResponse>
+) => {
+  return useQuery({
+    queryKey: ['teamTransfers', teamId],
+    queryFn: () => footballAPIService.getTransfers({ team: teamId }),
+    staleTime: 24 * 60 * 60 * 1000, // 24시간
     enabled: !!teamId,
     ...options
   })

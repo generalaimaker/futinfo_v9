@@ -259,7 +259,7 @@ export interface TransferPlayer {
 
 export interface Transfer {
   date: string
-  type: string | null
+  type: string | null // 이적 유형 또는 가격 정보 (예: "Loan", "Transfer", "€ 5M")
   teams: TransferTeams
 }
 
@@ -298,7 +298,8 @@ export const getLeagueName = (id: number): string => {
     [SUPPORTED_LEAGUES.WORLD_CUP_QUAL_EUROPE]: 'World Cup Qualification - Europe',
     [SUPPORTED_LEAGUES.WORLD_CUP_QUAL_SOUTH_AMERICA]: 'World Cup Qualification - South America',
     [SUPPORTED_LEAGUES.WORLD_CUP_QUAL_ASIA]: 'World Cup Qualification - Asia',
-    [SUPPORTED_LEAGUES.CLUB_WORLD_CUP]: 'Club World Cup'
+    [SUPPORTED_LEAGUES.CLUB_WORLD_CUP]: 'Club World Cup',
+    [SUPPORTED_LEAGUES.CLUB_FRIENDLIES]: 'Club Friendlies'
   }
   return leagueNames[id] || '알 수 없는 리그'
 }
@@ -307,6 +308,11 @@ export const getCurrentSeason = (leagueId: number): number => {
   const now = new Date()
   const year = now.getFullYear()
   const month = now.getMonth() + 1
+  
+  // 친선경기는 현재 연도 사용
+  if (leagueId === SUPPORTED_LEAGUES.CLUB_FRIENDLIES) {
+    return year
+  }
   
   // K리그, MLS, J리그 등은 단일 연도 시즌
   if ([SUPPORTED_LEAGUES.K_LEAGUE_1, SUPPORTED_LEAGUES.K_LEAGUE_2, SUPPORTED_LEAGUES.MLS, 
@@ -393,6 +399,7 @@ export const SUPPORTED_LEAGUES = {
   
   // 기타
   CLUB_WORLD_CUP: 15,
+  CLUB_FRIENDLIES: 667,  // 클럽 친선경기
 }
 
 // 기본 팔로우 리그 (iOS와 동일)
@@ -431,4 +438,43 @@ export const MAIN_LEAGUES = [
   SUPPORTED_LEAGUES.WORLD_CUP_QUAL_EUROPE,
   SUPPORTED_LEAGUES.WORLD_CUP_QUAL_SOUTH_AMERICA,
   SUPPORTED_LEAGUES.WORLD_CUP_QUAL_ASIA,
+  
+  // 친선경기 (여름 시즌에 특히 중요)
+  SUPPORTED_LEAGUES.CLUB_FRIENDLIES,
+]
+
+// 유럽 주요 팀 ID (친선경기 우선순위용)
+export const MAJOR_EUROPEAN_TEAMS = [
+  // 잉글랜드
+  33,  // Manchester United
+  40,  // Liverpool
+  50,  // Manchester City
+  49,  // Chelsea
+  42,  // Arsenal
+  47,  // Tottenham
+  
+  // 스페인
+  541, // Real Madrid
+  529, // Barcelona
+  530, // Atletico Madrid
+  
+  // 이탈리아
+  496, // Juventus
+  505, // Inter
+  489, // AC Milan
+  492, // Napoli
+  487, // Roma
+  
+  // 독일
+  157, // Bayern Munich
+  165, // Borussia Dortmund
+  173, // RB Leipzig
+  
+  // 프랑스
+  85,  // PSG
+  
+  // 기타
+  212, // Ajax
+  228, // Benfica
+  211, // Porto
 ]

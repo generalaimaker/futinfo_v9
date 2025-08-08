@@ -107,14 +107,14 @@ class APIRequestManager {
             return
         }
         
-        // 2. 캐시 만료 여부 확인
-        let isCacheExpired = APICacheManager.shared.isCacheExpired(for: endpoint, parameters: parameters)
-        
-        // 3. 캐시 확인 (강제 새로고침이 아니고 캐시가 만료되지 않은 경우)
-        if !forceRefresh && !isCacheExpired, let cachedData = APICacheManager.shared.getCache(for: endpoint, parameters: parameters) {
-            print("✅ Using cached data for: \(endpoint)")
-            completion(.success(cachedData))
-            return
+        // 2. 캐시 확인 (동기적으로 처리)
+        Task { @MainActor in
+            let cacheManager = APICacheManager.shared
+            if !forceRefresh, let data = cacheManager.getCache(for: endpoint, parameters: parameters) {
+                print("✅ Using cached data for: \(endpoint)")
+                completion(.success(data))
+                return
+            }
         }
         
         // 4. 요청 간 지연 추가 (API 요청 제한 방지)
@@ -387,12 +387,14 @@ class APIRequestManager {
                             print("🔄 Response data transformed for: \(endpoint)")
                             
                             // 변환된 데이터 캐싱
-                            APICacheManager.shared.setCache(
-                                data: modifiedData!,
-                                for: endpoint,
-                                parameters: parameters,
-                                expiration: cachePolicy
-                            )
+                            Task { @MainActor in
+                                APICacheManager.shared.setCache(
+                                    data: modifiedData!,
+                                    for: endpoint,
+                                    parameters: parameters,
+                                    expiration: cachePolicy
+                                )
+                            }
                             
                             completion(.success(modifiedData!))
                             return
@@ -410,12 +412,14 @@ class APIRequestManager {
                 }
                 
                 // 캐시에 데이터 저장
-                APICacheManager.shared.setCache(
-                    data: data,
-                    for: endpoint,
-                    parameters: parameters,
-                    expiration: cachePolicy
-                )
+                Task { @MainActor in
+                    APICacheManager.shared.setCache(
+                        data: data,
+                        for: endpoint,
+                        parameters: parameters,
+                        expiration: cachePolicy
+                    )
+                }
                 
                 completion(.success(data))
             }

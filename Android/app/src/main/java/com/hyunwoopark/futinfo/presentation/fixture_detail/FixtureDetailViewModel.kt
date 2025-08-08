@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Job
 import javax.inject.Inject
+import com.hyunwoopark.futinfo.data.remote.realtime.LiveMatchRealtimeService
 
 /**
  * iOS 앱 구조를 기반으로 개선된 경기 상세 정보 화면의 ViewModel
@@ -27,7 +28,8 @@ import javax.inject.Inject
 class FixtureDetailViewModel @Inject constructor(
     private val getFixtureDetailUseCase: GetFixtureDetailUseCase,
     private val getStandingsUseCase: GetStandingsUseCase,
-    private val savedStateHandle: SavedStateHandle
+    private val savedStateHandle: SavedStateHandle,
+    private val realtimeService: LiveMatchRealtimeService
 ) : ViewModel() {
     
     private val _state = MutableStateFlow<FixtureDetailState>(FixtureDetailState.Loading)
@@ -48,8 +50,18 @@ class FixtureDetailViewModel @Inject constructor(
     // 탭별 Job 관리 (이전 작업 취소를 위해)
     private val tabJobs = mutableMapOf<Int, Job>()
     
+    // Realtime 구독 Job
+    private var realtimeJob: Job? = null
+    private var currentFixtureId: Int? = null
+    
     init {
         getFixtureDetail()
+        startRealtimeSubscription()
+    }
+    
+    override fun onCleared() {
+        super.onCleared()
+        stopRealtimeSubscription()
     }
     
     /**
@@ -185,8 +197,13 @@ class FixtureDetailViewModel @Inject constructor(
                     is Resource.Success -> {
                         resource.data?.let { data ->
                             _state.value = FixtureDetailState.Success(data)
+                            currentFixtureId = fixtureId
                             // 첫 번째 탭의 데이터를 자동으로 로드
                             loadTabData(0, data.fixture)
+                            // 라이브 경기인 경우 Realtime 구독 시작
+                            if (isLive(data.fixture)) {
+                                observeRealtimeUpdates(fixtureId)
+                            }
                         } ?: run {
                             _state.value = FixtureDetailState.Error("데이터를 불러올 수 없습니다")
                         }
@@ -263,6 +280,92 @@ class FixtureDetailViewModel @Inject constructor(
     /**
      * 통계 정보만 로드합니다.
      */
+    /**
+     * Realtime 구독 시작
+     */
+    private fun startRealtimeSubscription() {
+        viewModelScope.launch {
+            if (!realtimeService.isConnected.value) {
+                realtimeService.startRealtimeSubscription()
+            }
+        }
+    }
+    
+    /**
+     * Realtime 구독 중지
+     */
+    private fun stopRealtimeSubscription() {
+        realtimeJob?.cancel()
+        realtimeJob = null
+    }
+    
+    /**
+     * 특정 경기의 Realtime 업데이트 관찰
+     */
+    private fun observeRealtimeUpdates(fixtureId: Int) {
+        realtimeJob?.cancel()
+        realtimeJob = viewModelScope.launch {
+            // 라이브 경기 업데이트 구독
+            realtimeService.liveMatches.collect { liveMatches ->
+                val liveMatch = liveMatches.find { it.fixture_id == fixtureId }
+                if (liveMatch != null) {
+                    updateFromLiveMatch(liveMatch)
+                }
+            }
+        }
+        
+        // 이벤트 업데이트 구독
+        viewModelScope.launch {
+            realtimeService.matchEvents.collect { eventsMap ->
+                val events = eventsMap[fixtureId]
+                if (events != null) {
+                    updateEvents(events)
+                }
+            }
+        }
+    }
+    
+    /**
+     * LiveMatch 데이터로 상태 업데이트
+     */
+    private fun updateFromLiveMatch(liveMatch: com.hyunwoopark.futinfo.data.remote.realtime.LiveMatch) {
+        val currentState = _state.value
+        if (currentState is FixtureDetailState.Success) {
+            val updatedFixture = currentState.data.fixture.copy(
+                goals = currentState.data.fixture.goals.copy(
+                    home = liveMatch.home_score,
+                    away = liveMatch.away_score
+                ),
+                fixture = currentState.data.fixture.fixture.copy(
+                    status = currentState.data.fixture.fixture.status.copy(
+                        short = liveMatch.status_short,
+                        long = liveMatch.status,
+                        elapsed = liveMatch.elapsed
+                    )
+                )
+            )
+            
+            _state.value = currentState.copy(
+                data = currentState.data.copy(fixture = updatedFixture)
+            )
+            
+            android.util.Log.d("FutInfo_Realtime", "⚽ 경기 상태 업데이트: ${liveMatch.home_team_name} ${liveMatch.home_score} - ${liveMatch.away_score} ${liveMatch.away_team_name}")
+        }
+    }
+    
+    /**
+     * 이벤트 데이터 업데이트
+     */
+    private fun updateEvents(events: List<com.hyunwoopark.futinfo.data.remote.realtime.LiveMatchEvent>) {
+        // 현재 탭이 "정보" 탭인 경우에만 이벤트 데이터 재로드
+        if (_selectedTabIndex.value == 0) {
+            currentFixtureId?.let { fixtureId ->
+                loadEventsOnly(fixtureId)
+            }
+        }
+        android.util.Log.d("FutInfo_Realtime", "🎯 이벤트 업데이트: ${events.size}개")
+    }
+    
     private fun loadStatisticsOnly(fixtureId: Int) {
         viewModelScope.launch {
             getFixtureDetailUseCase.getStatisticsOnly(fixtureId).collect { resource ->

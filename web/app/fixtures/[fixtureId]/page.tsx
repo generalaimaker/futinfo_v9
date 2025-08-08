@@ -4,6 +4,7 @@ import { useParams } from 'next/navigation'
 import { useState, useEffect } from 'react'
 import { useFixtureDetail } from '@/lib/supabase/football'
 import { isFinishedMatch } from '@/lib/types/football'
+import { useFixtureRealtime } from '@/hooks/useFixtureRealtime'
 import MatchHeader from '@/components/fixtures/match-header'
 import MatchTabs from '@/components/fixtures/match-tabs'
 import MatchSummary from '@/components/fixtures/match-summary'
@@ -40,21 +41,31 @@ export default function FixtureDetailPage() {
     }
   }, [data])
   
-  // 라이브 경기인 경우 자동 새로고침
-  useEffect(() => {
-    if (!data?.response?.[0]) return
-    
-    const fixture = data.response[0]
-    const isLive = ['1H', '2H', 'ET', 'P', 'HT', 'BT'].includes(fixture.fixture.status.short)
-    
-    if (isLive) {
-      const interval = setInterval(() => {
-        refetch()
-      }, 30000) // 30초마다 새로고침
-      
-      return () => clearInterval(interval)
+  // 라이브 경기 상태 확인
+  const isLive = data?.response?.[0] ? 
+    ['1H', '2H', 'ET', 'P', 'HT', 'BT'].includes(data.response[0].fixture.status.short) : 
+    false
+
+  // Realtime 구독 (라이브 경기만)
+  useFixtureRealtime({
+    fixtureId: numericFixtureId,
+    isLive,
+    onUpdate: () => {
+      console.log(`Fixture ${numericFixtureId} updated via realtime`)
+      refetch()
     }
-  }, [data, refetch])
+  })
+
+  // 폴백: 라이브 경기인 경우 30초 간격 폴링
+  useEffect(() => {
+    if (!isLive) return
+    
+    const interval = setInterval(() => {
+      refetch()
+    }, 30000) // 30초마다 새로고침
+    
+    return () => clearInterval(interval)
+  }, [isLive, refetch])
   
   if (isLoading) {
     return (
@@ -118,7 +129,7 @@ export default function FixtureDetailPage() {
   ]
   
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen lg:ml-64 bg-gray-50">
       {/* 헤더 */}
       <header className="bg-white border-b shadow-sm sticky top-0 z-10">
         <div className="container mx-auto px-4 py-4">

@@ -202,6 +202,7 @@ struct Birth: Codable {
 // -> 각 모델 파일에서 직접 채택하므로 여기서는 제거
 
 
+@MainActor
 class FootballAPIService {
     let baseURL = "https://api-football-v1.p.rapidapi.com/v3"
     let host = "api-football-v1.p.rapidapi.com"

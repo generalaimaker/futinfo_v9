@@ -879,7 +879,7 @@ class SupabaseCommunityService: ObservableObject {
                 filter: "board_id=eq.\(boardId)"
             ) { [weak self] action in
                 Task { @MainActor in
-                    guard let self = self else { return }
+                    guard self != nil else { return }
                     
                     if let postId = action.record["id"]?.stringValue {
                         let updateInfo: [String: Any] = [
@@ -912,7 +912,7 @@ class SupabaseCommunityService: ObservableObject {
                 filter: "post_id=in.(select id from posts where board_id=eq.\(boardId))"
             ) { [weak self] action in
                 Task { @MainActor in
-                    guard let self = self else { return }
+                    guard self != nil else { return }
                     
                     if let postId = action.record["post_id"]?.stringValue {
                         // Notify about new comment
@@ -945,26 +945,6 @@ class SupabaseCommunityService: ObservableObject {
             realtimeConnectionStatus = .connected
             
             print("✅ Realtime channel subscribed successfully for board: \(boardId)")
-            
-        } catch {
-            print("❌ Error subscribing to realtime: \(error)")
-            
-            // Update connection status to error
-            realtimeConnectionStatus = .error(error.localizedDescription)
-            
-            // Implement retry logic
-            if retryCount < maxRetryAttempts {
-                let delay = pow(2.0, Double(retryCount)) // Exponential backoff
-                print("🔄 Retrying realtime subscription in \(delay)s (attempt \(retryCount + 1)/\(maxRetryAttempts))")
-                
-                try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
-                await subscribeToBoard(boardId: boardId, retryCount: retryCount + 1)
-            } else {
-                print("❌ Max retry attempts reached for realtime subscription")
-                
-                // Schedule a reconnection timer for later retry
-                scheduleReconnectionTimer(boardId: boardId)
-            }
         }
     }
     
@@ -1041,8 +1021,8 @@ class SupabaseCommunityService: ObservableObject {
         )
     }
     
-    func unsubscribeFromBoard() {
-        Task {
+    nonisolated func unsubscribeFromBoard() {
+        Task { @MainActor in
             await unsubscribeFromBoardAsync()
         }
     }
@@ -1054,14 +1034,12 @@ class SupabaseCommunityService: ObservableObject {
         reconnectionTimer = nil
         
         if let channel = realtimeChannel {
-            do {
-                print("🔄 Unsubscribing from realtime channel: \(channel.topic)")
-                await channel.unsubscribe()
-                await supabaseService.client.realtimeV2.removeChannel(channel)
-                print("✅ Successfully unsubscribed from realtime channel")
-            } catch {
-                print("⚠️ Error during unsubscription: \(error)")
-            }
+            // Get topic string representation
+            let topicDescription = String(describing: channel)
+            print("🔄 Unsubscribing from realtime channel: \(topicDescription)")
+            await channel.unsubscribe()
+            await supabaseService.client.realtimeV2.removeChannel(channel)
+            print("✅ Successfully unsubscribed from realtime channel")
         }
         
         realtimeChannel = nil

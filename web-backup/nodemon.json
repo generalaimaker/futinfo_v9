@@ -1,0 +1,20 @@
+{
+  "verbose": true,
+  "watch": [
+    "app/**/*",
+    "components/**/*",
+    "lib/**/*",
+    "styles/**/*",
+    "public/**/*"
+  ],
+  "ext": "js,ts,jsx,tsx,css,json",
+  "ignore": [
+    ".next/**/*",
+    "node_modules/**/*",
+    ".git/**/*",
+    "*.log"
+  ],
+  "events": {
+    "restart": "echo 'Next.js server restarted'"
+  }
+}

@@ -438,7 +438,7 @@ class PostListViewModel: ObservableObject {
     
     deinit {
         print("🗑️ PostListViewModel deinit - cleaning up subscriptions")
-        stopRealtimeSubscription()
+        communityService.unsubscribeFromBoard()
         cancellables.removeAll()
     }
 }

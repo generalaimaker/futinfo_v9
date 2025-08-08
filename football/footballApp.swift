@@ -1,6 +1,7 @@
 import SwiftUI
 import Kingfisher
 import Supabase
+import UserNotifications
 
 @main
 struct footballApp: App {
@@ -12,6 +13,9 @@ struct footballApp: App {
     
     // NewsPreloaderService 인스턴스 생성
     @StateObject private var newsPreloader = NewsPreloaderService.shared
+    
+    // 라이브 경기 알림 서비스
+    @StateObject private var notificationService = LiveMatchNotificationService.shared
     
     init() {
         // Kingfisher 캐시 설정
@@ -25,6 +29,9 @@ struct footballApp: App {
         
         // MLS, 사우디 프로 리그, K리그2 자동 추가
         addSpecificLeagues()
+        
+        // 알림 권한 요청
+        requestNotificationPermission()
         
         // 뉴스 프리로드 시작
         Task {
@@ -205,6 +212,19 @@ struct footballApp: App {
             )
         } else {
             print("⚽ MLS, 사우디 프로 리그, K리그2가 이미 팔로우되어 있습니다.")
+        }
+    }
+    
+    // 알림 권한 요청
+    private func requestNotificationPermission() {
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in
+            if granted {
+                print("✅ 알림 권한 승인됨")
+            } else if let error = error {
+                print("❌ 알림 권한 요청 실패: \(error)")
+            } else {
+                print("⚠️ 알림 권한 거부됨")
+            }
         }
     }
 }

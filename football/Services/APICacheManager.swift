@@ -1,371 +1,284 @@
 import Foundation
 
+/// API 캐시 항목
+struct CacheEntry<T: Codable>: Codable {
+    let data: T
+    let timestamp: Date
+    let ttl: TimeInterval
+    
+    var isExpired: Bool {
+        Date().timeIntervalSince(timestamp) > ttl
+    }
+}
+
+/// API 캐시 매니저
+@MainActor
 class APICacheManager {
     static let shared = APICacheManager()
     
-    private let memoryCache = NSCache<NSString, CacheEntry>()
-    private let fileManager = FileManager.default
-    private let cacheDirectory: URL
+    private var memoryCache: [String: Any] = [:]
+    private let diskCacheDirectory: URL
+    private let encoder = JSONEncoder()
+    private let decoder = JSONDecoder()
     
-    // 캐시 항목 클래스
-    class CacheEntry {
-        let data: Data
-        let timestamp: Date
-        let expirationInterval: TimeInterval
-        
-        init(data: Data, expirationInterval: TimeInterval) {
-            self.data = data
-            self.timestamp = Date()
-            self.expirationInterval = expirationInterval
-        }
-        
-        var isExpired: Bool {
-            return Date().timeIntervalSince(timestamp) > expirationInterval
-        }
-    }
-    
-    // 캐시 만료 시간 (초 단위)
+    // 캐시 만료 시간 열거형 (기존 시스템과의 호환성을 위해)
     enum CacheExpiration {
-        case veryShort  // 15분
-        case short      // 30분
-        case medium     // 1시간
-        case long       // 6시간
-        case veryLong   // 1일
-        case never      // 만료 없음
-        case custom(TimeInterval)  // 사용자 정의 시간(초)
+        case never   // 만료되지 않음
+        case short   // 30초
+        case medium  // 5분
+        case long    // 30분
+        case hour    // 1시간
+        case day     // 1일
+        case custom(TimeInterval)
         
         var timeInterval: TimeInterval {
             switch self {
-            case .veryShort: return 5 * 60  // 15분에서 5분으로 단축
-            case .short:     return 15 * 60 // 30분에서 15분으로 단축
-            case .medium:    return 30 * 60 // 60분에서 30분으로 단축
-            case .long:      return 3 * 60 * 60 // 6시간에서 3시간으로 단축
-            case .veryLong:  return 12 * 60 * 60 // 24시간에서 12시간으로 단축
-            case .never:     return TimeInterval.greatestFiniteMagnitude
-            case .custom(let seconds): return seconds
+            case .never: return Double.greatestFiniteMagnitude
+            case .short: return 30
+            case .medium: return 5 * 60
+            case .long: return 30 * 60
+            case .hour: return 60 * 60
+            case .day: return 24 * 60 * 60
+            case .custom(let interval): return interval
             }
         }
     }
+    
+    // 캐시 TTL 프리셋
+    enum CacheTTL {
+        static let short: TimeInterval = 30 // 30초 - 라이브 데이터
+        static let medium: TimeInterval = 5 * 60 // 5분 - 자주 변경되는 데이터
+        static let long: TimeInterval = 30 * 60 // 30분 - 정적 데이터
+        static let hour: TimeInterval = 60 * 60 // 1시간
+        static let day: TimeInterval = 24 * 60 * 60 // 1일
+    }
+    
+    // 엔드포인트별 기본 TTL
+    private let endpointTTL: [String: TimeInterval] = [
+        "fixtures": CacheTTL.short,
+        "fixtures/events": CacheTTL.short,
+        "fixtures/statistics": CacheTTL.short,
+        "fixtures/lineups": CacheTTL.medium,
+        "teams": CacheTTL.hour,
+        "leagues": CacheTTL.day,
+        "standings": CacheTTL.hour,
+        "players": CacheTTL.hour
+    ]
     
     private init() {
-        // 메모리 캐시 설정
-        memoryCache.countLimit = 300 // 최대 항목 수 증가 (200개에서 300개로)
-        memoryCache.totalCostLimit = 150 * 1024 * 1024 // 메모리 한도 증가 (100MB에서 150MB로)
-        
         // 디스크 캐시 디렉토리 설정
-        let cachesDirectory = fileManager.urls(for: .cachesDirectory, in: .userDomainMask)[0]
-        cacheDirectory = cachesDirectory.appendingPathComponent("FootballAPICache")
+        let cacheDir = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!
+        diskCacheDirectory = cacheDir.appendingPathComponent("APICache")
         
-        // 캐시 디렉토리 생성
-        do {
-            try fileManager.createDirectory(at: cacheDirectory, withIntermediateDirectories: true)
-        } catch {
-            print("❌ Failed to create cache directory: \(error)")
-        }
+        // 디렉토리 생성
+        try? FileManager.default.createDirectory(at: diskCacheDirectory, withIntermediateDirectories: true)
         
-        // 만료된 캐시 정리 (앱 시작 시)
-        cleanExpiredCache()
-    }
-    
-    // 캐시 키 생성
-    private func cacheKey(for endpoint: String, parameters: [String: String]? = nil) -> String {
-        var key = endpoint
-        
-        if let parameters = parameters, !parameters.isEmpty {
-            let sortedParams = parameters.sorted { $0.key < $1.key }
-            let paramString = sortedParams.map { "\($0.key)=\($0.value)" }.joined(separator: "&")
-            key += "?" + paramString
-        }
-        
-        return key
-    }
-    
-    // 디스크 캐시 파일 경로
-    private func fileURL(for key: String) -> URL {
-        let filename = key.sha256()
-        return cacheDirectory.appendingPathComponent(filename)
-    }
-    
-    // 캐시에 데이터 저장 (빈 응답 필터링 추가)
-    func setCache(data: Data, for endpoint: String, parameters: [String: String]? = nil, expiration: CacheExpiration = .medium) {
-        let key = cacheKey(for: endpoint, parameters: parameters)
-        
-        // 🚫 빈 응답 캐시 방지 로직
-        if shouldSkipCaching(data: data, endpoint: endpoint, parameters: parameters) {
-            print("🚫 빈 응답 캐시 건너뜀: \(key)")
-            return
-        }
-        
-        let cacheEntry = CacheEntry(data: data, expirationInterval: expiration.timeInterval)
-        
-        // 메모리 캐시에 저장
-        memoryCache.setObject(cacheEntry, forKey: key as NSString)
-        
-        // 디스크 캐시에 저장
-        let fileURL = self.fileURL(for: key)
-        
-        do {
-            // 캐시 메타데이터
-            let metadata: [String: Any] = [
-                "timestamp": cacheEntry.timestamp.timeIntervalSince1970,
-                "expiration": cacheEntry.expirationInterval
-            ]
-            
-            // 메타데이터와 데이터를 함께 저장
-            let metadataData = try JSONSerialization.data(withJSONObject: metadata)
-            
-            // 메타데이터 크기 (4바이트 정수) + 메타데이터 + 실제 데이터
-            var combinedData = Data()
-            let metadataSize = UInt32(metadataData.count)
-            withUnsafeBytes(of: metadataSize) { bytes in
-                combinedData.append(contentsOf: bytes)
+        // 주기적 정리
+        Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { _ in
+            Task { @MainActor in
+                self.cleanup()
             }
-            combinedData.append(metadataData)
-            combinedData.append(data)
-            
-            try combinedData.write(to: fileURL)
-            print("✅ Cached data for: \(key)")
-        } catch {
-            print("❌ Failed to write cache to disk: \(error)")
         }
     }
     
-    // 빈 응답 캐시 건너뛰기 판단
-    private func shouldSkipCaching(data: Data, endpoint: String, parameters: [String: String]?) -> Bool {
-        // JSON 응답 파싱 시도
-        do {
-            if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-               let response = json["response"] as? [Any] {
-                
-                // 빈 응답인 경우
-                if response.isEmpty {
-                    // 라이브 경기 요청인 경우 캐시하지 않음
-                    if endpoint == "fixtures" && parameters?["live"] == "all" {
-                        print("🚫 라이브 경기 빈 응답 - 캐시 건너뜀")
-                        return true
-                    }
-                    
-                    // 특정 날짜/리그 조합의 빈 응답도 캐시하지 않음
-                    if endpoint == "fixtures" &&
-                       parameters?["from"] != nil &&
-                       parameters?["to"] != nil &&
-                       parameters?["league"] != nil {
-                        print("🚫 특정 날짜/리그 빈 응답 - 캐시 건너뜀")
-                        return true
-                    }
-                }
-            }
-        } catch {
-            // JSON 파싱 실패 시 일반 캐시 진행
-        }
-        
-        return false
+    /// 캐시에서 데이터 가져오기 (기존 시스템과의 호환성을 위한 메서드)
+    func getCache<T: Codable>(_ type: T.Type, for key: String) -> T? {
+        return get(type, key: key)
     }
     
-    // 캐시에서 데이터 가져오기
+    /// 캐시에서 Data 가져오기 (기존 시스템과의 호환성)
     func getCache(for endpoint: String, parameters: [String: String]? = nil) -> Data? {
         let key = cacheKey(for: endpoint, parameters: parameters)
-        
-        // 1. 메모리 캐시 확인
-        if let cacheEntry = memoryCache.object(forKey: key as NSString) {
-            if !cacheEntry.isExpired {
-                print("✅ Memory cache hit for: \(key)")
-                return cacheEntry.data
-            } else {
-                // 만료된 캐시 제거
-                memoryCache.removeObject(forKey: key as NSString)
-                print("⏰ Memory cache expired for: \(key)")
-            }
-        }
-        
-        // 2. 디스크 캐시 확인
-        let fileURL = self.fileURL(for: key)
-        
-        if fileManager.fileExists(atPath: fileURL.path) {
-            do {
-                let data = try Data(contentsOf: fileURL)
-                
-                // 메타데이터 크기 읽기
-                var metadataSize: UInt32 = 0
-                data.withUnsafeBytes { bytes in
-                    if bytes.count >= 4 {
-                        metadataSize = bytes.load(fromByteOffset: 0, as: UInt32.self)
-                    }
-                }
-                
-                // 메타데이터 추출
-                let metadataData = data.subdata(in: 4..<(4 + Int(metadataSize)))
-                let metadata = try JSONSerialization.jsonObject(with: metadataData) as? [String: Any]
-                
-                // 실제 데이터 추출
-                let actualData = data.subdata(in: (4 + Int(metadataSize))..<data.count)
-                
-                // 만료 확인
-                if let timestamp = metadata?["timestamp"] as? TimeInterval,
-                   let expiration = metadata?["expiration"] as? TimeInterval {
-                    let cacheDate = Date(timeIntervalSince1970: timestamp)
-                    let isExpired = Date().timeIntervalSince(cacheDate) > expiration
-                    
-                    if !isExpired {
-                        // 메모리 캐시에도 저장
-                        let cacheEntry = CacheEntry(data: actualData, expirationInterval: expiration)
-                        memoryCache.setObject(cacheEntry, forKey: key as NSString)
-                        
-                        print("✅ Disk cache hit for: \(key)")
-                        return actualData
-                    } else {
-                        // 만료된 캐시 파일 삭제
-                        try? fileManager.removeItem(at: fileURL)
-                        print("⏰ Disk cache expired for: \(key)")
-                    }
-                }
-            } catch {
-                print("❌ Failed to read cache from disk: \(error)")
-            }
-        }
-        
-        print("❌ No cache found for: \(key)")
-        return nil
+        return get(Data.self, key: key)
     }
     
-    // 캐시 만료 여부 확인
+    /// 캐시 만료 확인
     func isCacheExpired(for endpoint: String, parameters: [String: String]? = nil) -> Bool {
         let key = cacheKey(for: endpoint, parameters: parameters)
         
-        // 1. 메모리 캐시 확인
-        if let cacheEntry = memoryCache.object(forKey: key as NSString) {
-            return cacheEntry.isExpired
+        // 메모리 캐시 확인
+        if let entry = memoryCache[key] {
+            return (entry as? CacheEntry<Data>)?.isExpired ?? true
         }
         
-        // 2. 디스크 캐시 확인
-        let fileURL = self.fileURL(for: key)
+        // 디스크 캐시 확인
+        let fileURL = diskCacheDirectory.appendingPathComponent("\(key.hashValue).json")
+        guard FileManager.default.fileExists(atPath: fileURL.path),
+              let data = try? Data(contentsOf: fileURL),
+              let entry = try? decoder.decode(CacheEntry<Data>.self, from: data) else {
+            return true
+        }
         
-        if fileManager.fileExists(atPath: fileURL.path) {
-            do {
-                let data = try Data(contentsOf: fileURL)
-                
-                // 메타데이터 크기 읽기
-                var metadataSize: UInt32 = 0
-                data.withUnsafeBytes { bytes in
-                    if bytes.count >= 4 {
-                        metadataSize = bytes.load(fromByteOffset: 0, as: UInt32.self)
-                    }
-                }
-                
-                // 메타데이터 추출
-                let metadataData = data.subdata(in: 4..<(4 + Int(metadataSize)))
-                let metadata = try JSONSerialization.jsonObject(with: metadataData) as? [String: Any]
-                
-                // 만료 확인
-                if let timestamp = metadata?["timestamp"] as? TimeInterval,
-                   let expiration = metadata?["expiration"] as? TimeInterval {
-                    let cacheDate = Date(timeIntervalSince1970: timestamp)
-                    return Date().timeIntervalSince(cacheDate) > expiration
-                }
-            } catch {
-                print("❌ Failed to read cache from disk: \(error)")
+        return entry.isExpired
+    }
+    
+    /// 캐시에 Data 저장 (기존 시스템과의 호환성)
+    func setCache(data: Data, for endpoint: String, parameters: [String: String]? = nil, expiration: CacheExpiration) {
+        let key = cacheKey(for: endpoint, parameters: parameters)
+        set(data, key: key, ttl: expiration.timeInterval)
+    }
+    
+    /// 캐시 키 생성
+    private func cacheKey(for endpoint: String, parameters: [String: String]? = nil) -> String {
+        var key = endpoint
+        if let parameters = parameters, !parameters.isEmpty {
+            let sortedParams = parameters.sorted { $0.key < $1.key }
+            let paramString = sortedParams.map { "\($0.key)=\($0.value)" }.joined(separator: "&")
+            key += ":\(paramString)"
+        }
+        return key
+    }
+    
+    /// 캐시에서 데이터 가져오기
+    func get<T: Codable>(_ type: T.Type, key: String) -> T? {
+        // 메모리 캐시 확인
+        if let entry = memoryCache[key] as? CacheEntry<T> {
+            if !entry.isExpired {
+                print("🎯 Memory cache hit: \(key)")
+                return entry.data
+            } else {
+                memoryCache.removeValue(forKey: key)
             }
         }
         
-        // 캐시가 없으면 만료된 것으로 간주
-        return true
+        // 디스크 캐시 확인
+        let fileURL = diskCacheDirectory.appendingPathComponent("\(key.hashValue).json")
+        
+        guard FileManager.default.fileExists(atPath: fileURL.path),
+              let data = try? Data(contentsOf: fileURL),
+              let entry = try? decoder.decode(CacheEntry<T>.self, from: data) else {
+            return nil
+        }
+        
+        if !entry.isExpired {
+            print("💾 Disk cache hit: \(key)")
+            // 메모리 캐시에 복원
+            memoryCache[key] = entry
+            return entry.data
+        } else {
+            // 만료된 캐시 삭제
+            try? FileManager.default.removeItem(at: fileURL)
+        }
+        
+        return nil
     }
     
-    // 특정 캐시 항목 삭제
+    /// 캐시에 데이터 저장
+    func set<T: Codable>(_ data: T, key: String, ttl: TimeInterval? = nil) {
+        let endpoint = key.components(separatedBy: ":").first ?? ""
+        let cacheTTL = ttl ?? endpointTTL[endpoint] ?? CacheTTL.medium
+        
+        let entry = CacheEntry(data: data, timestamp: Date(), ttl: cacheTTL)
+        
+        // 메모리 캐시에 저장
+        memoryCache[key] = entry
+        
+        // 디스크 캐시에 저장 (백그라운드)
+        Task.detached {
+            let fileURL = self.diskCacheDirectory.appendingPathComponent("\(key.hashValue).json")
+            if let encoded = try? self.encoder.encode(entry) {
+                try? encoded.write(to: fileURL)
+            }
+        }
+    }
+    
+    /// 캐시 래퍼 함수
+    func withCache<T: Codable>(
+        _ type: T.Type,
+        key: String,
+        ttl: TimeInterval? = nil,
+        forceRefresh: Bool = false,
+        fetcher: () async throws -> T
+    ) async throws -> T {
+        // 강제 새로고침이 아니면 캐시 확인
+        if !forceRefresh, let cached = get(type, key: key) {
+            return cached
+        }
+        
+        // 캐시 미스 - 데이터 가져오기
+        print("🔄 Cache miss: \(key)")
+        let data = try await fetcher()
+        
+        // 캐시에 저장
+        set(data, key: key, ttl: ttl)
+        
+        return data
+    }
+    
+    /// 특정 패턴의 캐시 삭제
+    func clearPattern(_ pattern: String) {
+        // 메모리 캐시 정리
+        let keysToRemove = memoryCache.keys.filter { $0.contains(pattern) }
+        keysToRemove.forEach { memoryCache.removeValue(forKey: $0) }
+        
+        // 디스크 캐시 정리
+        if let files = try? FileManager.default.contentsOfDirectory(at: diskCacheDirectory, includingPropertiesForKeys: nil) {
+            files.forEach { url in
+                if url.lastPathComponent.contains(pattern) {
+                    try? FileManager.default.removeItem(at: url)
+                }
+            }
+        }
+    }
+    
+    /// 전체 캐시 삭제
+    func clearAll() {
+        memoryCache.removeAll()
+        
+        if let files = try? FileManager.default.contentsOfDirectory(at: diskCacheDirectory, includingPropertiesForKeys: nil) {
+            files.forEach { url in
+                try? FileManager.default.removeItem(at: url)
+            }
+        }
+    }
+    
+    /// 전체 캐시 삭제 (기존 시스템과의 호환성)
+    func clearAllCache() {
+        clearAll()
+    }
+    
+    /// 특정 캐시 삭제 (기존 시스템과의 호환성)
     func removeCache(for endpoint: String, parameters: [String: String]? = nil) {
         let key = cacheKey(for: endpoint, parameters: parameters)
         
-        // 메모리 캐시에서 제거
-        memoryCache.removeObject(forKey: key as NSString)
+        // 메모리 캐시에서 삭제
+        memoryCache.removeValue(forKey: key)
         
-        // 디스크 캐시에서 제거
-        let fileURL = self.fileURL(for: key)
-        if fileManager.fileExists(atPath: fileURL.path) {
-            do {
-                try fileManager.removeItem(at: fileURL)
-                print("✅ Removed cache for: \(key)")
-            } catch {
-                print("❌ Failed to remove cache file: \(error)")
-            }
-        }
+        // 디스크 캐시에서 삭제
+        let fileURL = diskCacheDirectory.appendingPathComponent("\(key.hashValue).json")
+        try? FileManager.default.removeItem(at: fileURL)
     }
     
-    // 모든 캐시 삭제
-    func clearAllCache() {
-        // 메모리 캐시 비우기
-        memoryCache.removeAllObjects()
-        
-        // 디스크 캐시 비우기
-        do {
-            let cacheFiles = try fileManager.contentsOfDirectory(at: cacheDirectory, includingPropertiesForKeys: nil)
-            for file in cacheFiles {
-                try fileManager.removeItem(at: file)
+    /// 만료된 캐시 정리
+    private func cleanup() {
+        // 메모리 캐시 정리
+        let expiredKeys = memoryCache.compactMap { key, value -> String? in
+            // 타입에 관계없이 만료 확인
+            if let entry = value as? CacheEntry<Data> {
+                return entry.isExpired ? key : nil
             }
-            print("✅ Cleared all cache")
-        } catch {
-            print("❌ Failed to clear disk cache: \(error)")
+            // 다른 타입의 CacheEntry도 확인 (동적 타입 체크)
+            let mirror = Mirror(reflecting: value)
+            if mirror.subjectType == CacheEntry<Data>.self {
+                return nil // 이미 위에서 체크함
+            }
+            // 만료 여부를 확인할 수 없는 경우 보수적으로 유지
+            return nil
         }
+        
+        expiredKeys.forEach { memoryCache.removeValue(forKey: $0) }
+        
+        // 디스크 캐시 정리는 접근 시 수행
     }
     
-    // 만료된 캐시 정리
-    func cleanExpiredCache() {
-        DispatchQueue.global(qos: .background).async { [weak self] in
-            guard let self = self else { return }
-            
-            do {
-                let cacheFiles = try self.fileManager.contentsOfDirectory(at: self.cacheDirectory, includingPropertiesForKeys: nil)
-                
-                for file in cacheFiles {
-                    do {
-                        let data = try Data(contentsOf: file)
-                        
-                        // 메타데이터 크기 읽기
-                        var metadataSize: UInt32 = 0
-                        data.withUnsafeBytes { bytes in
-                            if bytes.count >= 4 {
-                                metadataSize = bytes.load(fromByteOffset: 0, as: UInt32.self)
-                            }
-                        }
-                        
-                        // 메타데이터 추출
-                        let metadataData = data.subdata(in: 4..<(4 + Int(metadataSize)))
-                        let metadata = try JSONSerialization.jsonObject(with: metadataData) as? [String: Any]
-                        
-                        // 만료 확인
-                        if let timestamp = metadata?["timestamp"] as? TimeInterval,
-                           let expiration = metadata?["expiration"] as? TimeInterval {
-                            let cacheDate = Date(timeIntervalSince1970: timestamp)
-                            let isExpired = Date().timeIntervalSince(cacheDate) > expiration
-                            
-                            if isExpired {
-                                try self.fileManager.removeItem(at: file)
-                                print("🧹 Removed expired cache file: \(file.lastPathComponent)")
-                            }
-                        }
-                    } catch {
-                        print("❌ Failed to process cache file: \(error)")
-                    }
-                }
-            } catch {
-                print("❌ Failed to list cache files: \(error)")
-            }
-        }
+    /// 캐시 상태 가져오기
+    func getStats() -> (memoryCount: Int, diskSize: Int) {
+        let diskSize = (try? FileManager.default.contentsOfDirectory(at: diskCacheDirectory, includingPropertiesForKeys: [.fileSizeKey])
+            .reduce(0) { total, url in
+                let size = (try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
+                return total + size
+            }) ?? 0
+        
+        return (memoryCache.count, diskSize)
     }
 }
-
-// String 확장으로 SHA256 해시 생성 (캐시 키 중복 방지)
-extension String {
-    func sha256() -> String {
-        if let data = self.data(using: .utf8) {
-            var digest = [UInt8](repeating: 0, count: Int(CC_SHA256_DIGEST_LENGTH))
-            data.withUnsafeBytes {
-                _ = CC_SHA256($0.baseAddress, CC_LONG(data.count), &digest)
-            }
-            return digest.map { String(format: "%02x", $0) }.joined()
-        }
-        return self
-    }
-}
-
-// CommonCrypto 프레임워크 임포트
-import CommonCrypto

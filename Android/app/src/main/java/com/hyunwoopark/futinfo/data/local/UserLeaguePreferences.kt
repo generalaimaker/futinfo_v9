@@ -203,7 +203,8 @@ class UserLeaguePreferences @Inject constructor(
             4,   // Euro Championship (유럽선수권대회)
             5,   // Nations League (네이션스리그)
             9,   // Copa America (코파 아메리카)
-            15   // Asian Cup (아시안컵) / FIFA Club World Cup (클럽월드컵)
+            15,  // Asian Cup (아시안컵) / FIFA Club World Cup (클럽월드컵)
+            667  // Club Friendlies (클럽 친선경기)
         )
     }
     

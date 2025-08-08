@@ -38,6 +38,7 @@ struct LeagueFollow: Identifiable, Codable {
         case 94: return "프리메이라 리가"
         case 71: return "브라질 세리에 A"
         case 307: return "사우디 프로 리그"
+        case 667: return "클럽 친선경기"
         default: return name
         }
     }
@@ -91,6 +92,9 @@ enum LeagueCategory: String, CaseIterable {
 // 추가 가능한 전체 리그 목록
 extension AvailableLeague {
     static let allLeagues: [AvailableLeague] = [
+        // 친선경기
+        AvailableLeague(id: 667, name: "Club Friendlies", displayName: "클럽 친선경기", logo: "https://media.api-sports.io/football/leagues/667.png", country: nil, category: .europe),
+        
         // 유럽 리그
         AvailableLeague(id: 4, name: "Euro Championship", displayName: "유로 챔피언십", logo: "https://media.api-sports.io/football/leagues/4.png", country: nil, category: .europe),
         AvailableLeague(id: 88, name: "Eredivisie", displayName: "에레디비시", logo: "https://media.api-sports.io/football/leagues/88.png", country: "Netherlands", category: .europe),

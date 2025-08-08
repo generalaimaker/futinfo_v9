@@ -156,7 +156,7 @@ class FixtureDetailViewModel: ObservableObject {
 
     // MARK: - 프라이빗 속성
     private let service = SupabaseFootballAPIService.shared
-    private let fixtureId: Int
+    let fixtureId: Int
     private let season: Int
     public var currentFixture: Fixture?
 
@@ -173,24 +173,57 @@ class FixtureDetailViewModel: ObservableObject {
     private let liveMatchRefreshInterval: TimeInterval = 30 // 진행 중인 경기는 30초마다 새로고침 (실시간 이벤트 업데이트를 위해)
     private let upcomingMatchRefreshInterval: TimeInterval = 300 // 예정된 경기는 5분마다 새로고침
     private var isAutoRefreshEnabled = true
+    
+    // 경기 상태 추적
+    private var lastKnownStatus: String?
+    
+    // 데이터 로딩 상태 추적 (중복 로딩 방지)
+    private var loadingStates: [String: Bool] = [:]
+    private var lastLoadTimestamps: [String: Date] = [:]
+    private let minimumLoadInterval: TimeInterval = 2 // 최소 2초 간격으로 단축
+    
+    // 캐시된 데이터 상태 추적
+    private var cachedData: [String: Bool] = [:]
+    
+    // 초기 로드 완료 여부
+    private var initialLoadCompleted = false
 
     // MARK: - 초기화
     init(fixture: Fixture) {
         self.fixtureId = fixture.fixture.id
         self.season = fixture.league.season
         self.currentFixture = fixture
+        self.lastKnownStatus = fixture.fixture.status.short
         
         // 앱 생명주기 이벤트 관찰 설정
         setupAppLifecycleObservers()
         
         // 자동 새로고침 시작
         startAutoRefresh()
+        
+        // 라이브 경기인 경우 Realtime 구독
+        if isLiveMatch() {
+            Task { @MainActor in
+                await startRealtimeSubscription()
+            }
+        }
+        
+        // 경기 종료 알림 관찰
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleMatchFinished),
+            name: Notification.Name("MatchFinished"),
+            object: nil
+        )
     }
     
     deinit {
         // 타이머 정리 - deinit에서는 동기적으로 처리
         refreshTimer?.invalidate()
         refreshTimer = nil
+        
+        // Realtime 구독 해제는 deinit에서 직접 호출하지 않음
+        // View가 사라질 때 별도로 처리하도록 함
         
         // 앱 생명주기 관찰자 제거
         #if os(iOS)
@@ -286,36 +319,59 @@ class FixtureDetailViewModel: ObservableObject {
     }
     
     // 자동 새로고침 중지
-    private func stopAutoRefresh() {
+    func stopAutoRefresh() {
         refreshTimer?.invalidate()
         refreshTimer = nil
     }
     
+    // 정리 메서드 - View가 사라질 때 호출
+    func cleanup() {
+        stopAutoRefresh()
+        stopRealtimeSubscription()
+    }
+    
     // 데이터 새로고침
     private func refreshData() async {
-        // 현재 경기 상태 확인
+        // 현재 경기 상태 확인 및 업데이트
         if let fixture = currentFixture {
+            // 먼저 최신 경기 정보 가져오기
+            do {
+                let updatedFixture = try await LiveMatchService.shared.getLiveMatchDetails(fixtureId: fixtureId)
+                self.currentFixture = updatedFixture
+                
+                // 상태 변경 감지
+                if lastKnownStatus != updatedFixture.fixture.status.short {
+                    print("🔄 경기 상태 변경: \(lastKnownStatus ?? "unknown") → \(updatedFixture.fixture.status.short)")
+                    lastKnownStatus = updatedFixture.fixture.status.short
+                    
+                    // 상태 변경에 따른 데이터 로드
+                    await handleStatusChange(from: lastKnownStatus ?? "", to: updatedFixture.fixture.status.short)
+                }
+            } catch {
+                print("❌ 경기 정보 업데이트 실패: \(error)")
+            }
+            
             // 경기 상태에 따라 다른 데이터 새로고침
             if isLiveMatch() { // 진행 중인 경기
                 // 이벤트, 통계, 라인업 새로고침
                 print("🔄 진행 중인 경기 데이터 새로고침 시작")
-                // 비동기 작업이 있는 메서드 호출
-                await self.loadEvents()
-                await self.loadStatistics()
-                await self.loadLineups() // 라인업 데이터도 새로고침
-                await self.loadMatchPlayerStats() // 선수 통계도 새로고침
+                await withTaskGroup(of: Void.self) { group in
+                    group.addTask { await self.loadEventsIfNeeded() }
+                    group.addTask { await self.loadStatisticsIfNeeded() }
+                    group.addTask { await self.loadLineupsIfNeeded() }
+                    group.addTask { await self.loadMatchPlayerStatsIfNeeded() }
+                }
             } else if fixture.fixture.status.short == "NS" { // 예정된 경기
                 // 부상 정보, 팀 폼 새로고침
                 print("🔄 예정된 경기 데이터 새로고침 시작")
-                await self.loadInjuries()
-                await self.loadTeamForms()
+                await withTaskGroup(of: Void.self) { group in
+                    group.addTask { await self.loadInjuriesIfNeeded() }
+                    group.addTask { await self.loadTeamFormsIfNeeded() }
+                }
             } else if ["FT", "AET", "PEN"].contains(fixture.fixture.status.short) { // 종료된 경기
-                // 종료된 경기는 새로고침 불필요
-                print("🔄 종료된 경기는 데이터 새로고침이 필요하지 않습니다.")
-            } else {
-                // 기타 상태는 모든 데이터 새로고침
-                print("🔄 기타 상태 경기 데이터 새로고침 시작")
-                await self.loadAllData()
+                // 종료된 경기는 자동 새로고침 중지
+                print("🏁 경기 종료 - 자동 새로고침 중지")
+                stopAutoRefresh()
             }
         } else {
             // 경기 정보가 없는 경우 모든 데이터 새로고침
@@ -346,6 +402,12 @@ class FixtureDetailViewModel: ObservableObject {
 
     // 모든 데이터 로드
     func loadAllData() async {
+        // 이미 초기 로드가 완료된 경우 스킵
+        if initialLoadCompleted {
+            print("✅ 초기 로드 이미 완료됨 - 스킵")
+            return
+        }
+        
         print("🔄 모든 데이터 로드 시작")
 
         // 경기 예정인 경우와 경기 결과인 경우에 따라 다른 데이터 로드
@@ -408,10 +470,21 @@ class FixtureDetailViewModel: ObservableObject {
 
             print("✅ 경기 결과 데이터 로드 완료")
         }
+        
+        // 초기 로드 완료 표시
+        initialLoadCompleted = true
     }
 
     // 이벤트 로드 (강화된 버전)
     public func loadEvents() async {
+        // 중복 로드 방지
+        let key = "events"
+        if shouldSkipLoad(for: key) {
+            print("⏭️ 이벤트 로드 스킵 (이미 로드 중이거나 최근 로드됨)")
+            return
+        }
+        
+        markDataLoading(for: key)
         isLoadingEvents = true
         print("🔄 FixtureDetailViewModel - 경기 이벤트 로드 시작 (fixtureId: \(fixtureId))")
 
@@ -451,6 +524,7 @@ class FixtureDetailViewModel: ObservableObject {
             await MainActor.run {
                 self.events = sortedEvents
                 self.isLoadingEvents = false
+                self.markDataLoaded(for: key, hasData: !sortedEvents.isEmpty)
                 print("✅ FixtureDetailViewModel - 경기 이벤트 로드 완료: \(sortedEvents.count)개")
                 
                 // 연장전 득점자 확인 및 로깅
@@ -483,6 +557,7 @@ class FixtureDetailViewModel: ObservableObject {
             await MainActor.run {
                 self.errorMessage = "경기 이벤트를 불러오는 중 오류가 발생했습니다: \(error.localizedDescription)"
                 self.isLoadingEvents = false
+                self.markDataLoaded(for: key, hasData: false)
                 print("❌ 경기 이벤트 로드 실패: \(error.localizedDescription)")
             }
         }
@@ -490,6 +565,14 @@ class FixtureDetailViewModel: ObservableObject {
 
     // 부상 선수 정보 로드
     public func loadInjuries() async {
+        // 중복 로드 방지
+        let key = "injuries"
+        if shouldSkipLoad(for: key) {
+            print("⏭️ 부상 정보 로드 스킵 (이미 로드 중이거나 최근 로드됨)")
+            return
+        }
+        
+        markDataLoading(for: key)
         isLoadingInjuries = true
 
         guard let fixture = currentFixture else {
@@ -716,6 +799,14 @@ class FixtureDetailViewModel: ObservableObject {
 
     // 통계 로드
     public func loadStatistics() async {
+        // 중복 로드 방지
+        let key = "statistics"
+        if shouldSkipLoad(for: key) {
+            print("⏭️ 통계 로드 스킵 (이미 로드 중이거나 최근 로드됨)")
+            return
+        }
+        
+        markDataLoading(for: key)
         isLoadingStats = true
 
         do {
@@ -811,6 +902,14 @@ class FixtureDetailViewModel: ObservableObject {
 
     // 라인업 로드
     public func loadLineups() async {
+        // 중복 로드 방지
+        let key = "lineups"
+        if shouldSkipLoad(for: key) {
+            print("⏭️ 라인업 로드 스킵 (이미 로드 중이거나 최근 로드됨)")
+            return
+        }
+        
+        markDataLoading(for: key)
         isLoadingLineups = true
 
         do {
@@ -989,6 +1088,14 @@ class FixtureDetailViewModel: ObservableObject {
 
     // 상대전적 로드
     public func loadHeadToHead() async {
+        // 중복 로드 방지
+        let key = "headToHead"
+        if shouldSkipLoad(for: key) {
+            print("⏭️ 상대전적 로드 스킵 (이미 로드 중이거나 최근 로드됨)")
+            return
+        }
+        
+        markDataLoading(for: key)
         isLoadingHeadToHead = true
 
         guard let fixture = currentFixture else {
@@ -1137,5 +1244,170 @@ class FixtureDetailViewModel: ObservableObject {
         if awayTeamForm == nil {
             await loadTeamForm(teamId: awayTeamId, isHome: false)
         }
+    }
+    
+    // MARK: - 중복 로딩 방지 메서드
+    
+    // 경기 종료 알림 처리
+    @objc private func handleMatchFinished(_ notification: Notification) {
+        guard let fixtureId = notification.userInfo?["fixtureId"] as? Int,
+              fixtureId == self.fixtureId else { return }
+        
+        print("🏁 경기 종료 알림 수신 - 자동 새로고침 중지")
+        stopAutoRefresh()
+        
+        // 마지막 데이터 업데이트
+        Task {
+            await refreshData()
+        }
+    }
+    
+    // 상태 변경 처리
+    func handleStatusChange(from oldStatus: String, to newStatus: String) async {
+        print("🔄 경기 상태 변경 처리: \(oldStatus) → \(newStatus)")
+        
+        // 경기 시작
+        if oldStatus == "NS" && ["1H", "LIVE"].contains(newStatus) {
+            print("⚽ 경기 시작 감지")
+            // 라인업 및 초기 데이터 로드
+            await loadLineups()
+            await loadMatchPlayerStats()
+        }
+        
+        // 하프타임
+        else if oldStatus == "1H" && newStatus == "HT" {
+            print("⏸️ 하프타임 시작")
+            // 전반전 통계 업데이트
+            await loadStatistics()
+        }
+        
+        // 후반전 시작
+        else if oldStatus == "HT" && newStatus == "2H" {
+            print("▶️ 후반전 시작")
+        }
+        
+        // 경기 종료
+        else if ["FT", "AET", "PEN"].contains(newStatus) && !["FT", "AET", "PEN"].contains(oldStatus) {
+            print("🏁 경기 종료 감지")
+            // 최종 데이터 로드
+            await loadStatistics()
+            await loadEvents()
+            await loadMatchPlayerStats()
+            stopAutoRefresh()
+        }
+    }
+    
+    // 조건부 로딩 메서드들 (중복 로딩 방지)
+    
+    private func loadEventsIfNeeded() async {
+        let key = "events"
+        if shouldLoadData(for: key) {
+            markDataLoading(for: key)
+            await loadEvents()
+            markDataLoaded(for: key)
+        }
+    }
+    
+    func loadStatisticsIfNeeded() async {
+        let key = "statistics"
+        if shouldLoadData(for: key) {
+            markDataLoading(for: key)
+            await loadStatistics()
+            markDataLoaded(for: key)
+        }
+    }
+    
+    private func loadLineupsIfNeeded() async {
+        let key = "lineups"
+        if shouldLoadData(for: key) {
+            markDataLoading(for: key)
+            await loadLineups()
+            markDataLoaded(for: key)
+        }
+    }
+    
+    private func loadMatchPlayerStatsIfNeeded() async {
+        let key = "playerStats"
+        if shouldLoadData(for: key) {
+            markDataLoading(for: key)
+            await loadMatchPlayerStats()
+            markDataLoaded(for: key)
+        }
+    }
+    
+    private func loadInjuriesIfNeeded() async {
+        let key = "injuries"
+        if shouldLoadData(for: key) {
+            markDataLoading(for: key)
+            await loadInjuries()
+            markDataLoaded(for: key)
+        }
+    }
+    
+    private func loadTeamFormsIfNeeded() async {
+        let key = "teamForms"
+        if shouldLoadData(for: key) {
+            markDataLoading(for: key)
+            await loadTeamForms()
+            markDataLoaded(for: key)
+        }
+    }
+    
+    // 데이터 로딩 여부 확인
+    private func shouldLoadData(for key: String) -> Bool {
+        // 이미 로딩 중인 경우
+        if loadingStates[key] == true {
+            print("⏳ \(key) 이미 로딩 중 - 스킵")
+            return false
+        }
+        
+        // 최근에 로드한 경우
+        if let lastLoad = lastLoadTimestamps[key],
+           Date().timeIntervalSince(lastLoad) < minimumLoadInterval {
+            print("⏱️ \(key) 최근 로드됨 - 스킵")
+            return false
+        }
+        
+        return true
+    }
+    
+    // 데이터 로딩 시작 표시
+    private func markDataLoading(for key: String) {
+        loadingStates[key] = true
+    }
+    
+    // 데이터 로딩 완료 표시
+    private func markDataLoaded(for key: String, hasData: Bool = true) {
+        loadingStates[key] = false
+        lastLoadTimestamps[key] = Date()
+        if hasData {
+            cachedData[key] = true
+        }
+    }
+    
+    // 중복 로드 방지를 위한 헬퍼 메서드
+    private func shouldSkipLoad(for key: String) -> Bool {
+        // 이미 로딩 중인지 확인
+        if loadingStates[key] == true {
+            print("⚠️ \(key) 이미 로딩 중")
+            return true
+        }
+        
+        // 캐시된 데이터가 있고, 초기 로드가 완료된 경우 스킵
+        if cachedData[key] == true && initialLoadCompleted {
+            print("✅ \(key) 캐시된 데이터 사용")
+            return true
+        }
+        
+        // 마지막 로드 시간 확인
+        if let lastLoad = lastLoadTimestamps[key] {
+            let timeSinceLastLoad = Date().timeIntervalSince(lastLoad)
+            if timeSinceLastLoad < minimumLoadInterval {
+                print("⏱️ \(key) 최근 로드됨 (\(Int(timeSinceLastLoad))초 전)")
+                return true
+            }
+        }
+        
+        return false
     }
 }

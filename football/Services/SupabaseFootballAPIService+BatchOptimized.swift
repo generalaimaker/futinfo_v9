@@ -56,7 +56,12 @@ extension SupabaseFootballAPIService {
                         do {
                             // 리그별로 올바른 시즌 계산
                             let targetDate = dateFormatter.date(from: date) ?? Date()
-                            let leagueSeason = season ?? self.getSeasonForLeagueAndDate(leagueId, date: targetDate)
+                            let leagueSeason: Int
+                            if let season = season {
+                                leagueSeason = season
+                            } else {
+                                leagueSeason = await self.getSeasonForLeagueAndDate(leagueId, date: targetDate)
+                            }
                             
                             let response = try await self.fetchFixtures(date: date, leagueId: leagueId, season: leagueSeason)
                             return (leagueId, .success(response.response))

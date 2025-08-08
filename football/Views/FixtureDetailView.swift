@@ -37,24 +37,6 @@ struct FixtureDetailView: View {
                 MatchHeaderView(fixture: fixture, viewModel: viewModel)
                     .cornerRadius(16)
                     .shadow(color: Color.black.opacity(0.05), radius: 10, y: 5)
-                    .onAppear {
-                        // 합산 결과 계산 시도
-                        if [2, 3].contains(fixture.league.id) { // 챔피언스리그(2)나 유로파리그(3)
-                            Task {
-                                if let aggregateScore = await viewModel.calculateAggregateScore() {
-                                    print("🏆 FixtureDetailView - 합산 스코어 계산 결과: \(aggregateScore)")
-                                }
-                            }
-                        }
-                        
-                        // 경기 이벤트 데이터 자동 로드 (강제 새로고침)
-                        Task {
-                            print("🔄 MatchHeaderView - 경기 이벤트 데이터 강제 로드 시작")
-                            // 이벤트 데이터 강제 로드
-                            await viewModel.loadEvents()
-                            print("✅ MatchHeaderView - 경기 이벤트 데이터 로드 완료")
-                        }
-                    }
                 
                 // 탭 컨트롤
                 VStack(spacing: 0) {
@@ -169,15 +151,6 @@ struct FixtureDetailView: View {
                     case 0: // 경기요약 탭
                         if viewModel.isLoadingEvents || viewModel.isLoadingStats {
                             ProgressView()
-                                .onAppear {
-                                    // 맨 오브 더 매치 데이터 로드 시도
-                                    if viewModel.matchPlayerStats.isEmpty {
-                                        Task {
-                                            print("🔄 FixtureDetailView - 맨 오브 더 매치 데이터 로드 시작")
-                                            await viewModel.loadMatchPlayerStats()
-                                        }
-                                    }
-                                }
                         } else {
                             MatchSummaryView(
                                 fixture: fixture,
@@ -185,15 +158,6 @@ struct FixtureDetailView: View {
                                 statistics: viewModel.statistics,
                                 viewModel: viewModel
                             )
-                            .onAppear {
-                                // 맨 오브 더 매치 데이터 로드 시도
-                                if viewModel.manOfTheMatch == nil {
-                                    Task {
-                                        print("🔄 FixtureDetailView - 맨 오브 더 매치 데이터 로드 시작")
-                                        await viewModel.loadMatchPlayerStats()
-                                    }
-                                }
-                            }
                         }
                     case 1: // 통계 탭
                         if viewModel.isLoadingStats {
@@ -220,11 +184,6 @@ struct FixtureDetailView: View {
                         }
                     case 3: // 순위 탭
                         StandingsDetailView(fixture: fixture, viewModel: viewModel)
-                            .onAppear {
-                                Task {
-                                    await viewModel.loadStandings()
-                                }
-                            }
                     case 4: // 상대전적 탭
                         if viewModel.isLoadingHeadToHead {
                             ProgressView()
@@ -282,31 +241,8 @@ struct FixtureDetailView: View {
                     showPlayerProfile = true
                 }
             }
-            // 기본 데이터 로드
+            // 기본 데이터 로드 (한 번만)
             Task {
-                // 경기 이벤트 데이터 먼저 명시적으로 로드 (최우선)
-                if !isUpcoming {
-                    print("🔄 FixtureDetailView - 경기 이벤트 데이터 최우선 로드 시작")
-                    
-                    // 이벤트 데이터 강제 로드 (최대 2번 시도로 줄임)
-                    for i in 1...2 {
-                        print("🔄 FixtureDetailView - 이벤트 데이터 로드 시도 #\(i)")
-                        await viewModel.loadEvents()
-                        
-                        // 이벤트가 로드되었는지 확인
-                        if !viewModel.events.isEmpty {
-                            print("✅ FixtureDetailView - 이벤트 데이터 로드 성공 (시도 #\(i))")
-                            break
-                        }
-                        
-                        // 첫 번째 시도 후 잠시 대기
-                        if i == 1 {
-                            try? await Task.sleep(nanoseconds: 500_000_000) // 0.5초
-                        }
-                    }
-                }
-                
-                // 그 다음 모든 데이터 로드
                 await viewModel.loadAllData()
                 
                 // 모든 데이터 로드 후 UI 업데이트 강제 (한 번만 수행)

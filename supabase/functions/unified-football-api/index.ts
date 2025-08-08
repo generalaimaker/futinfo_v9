@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.1'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -142,6 +143,88 @@ serve(async (req) => {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
         }
       )
+    }
+
+    // If this is a live fixtures request, store the data in Supabase
+    if (endpoint === 'fixtures' && params?.live === 'all' && data.response) {
+      try {
+        const supabaseUrl = Deno.env.get('SUPABASE_URL')!
+        const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+        const supabase = createClient(supabaseUrl, supabaseServiceKey)
+        
+        // Process each live match
+        const liveMatches = data.response.map((fixture: any) => ({
+          fixture_id: fixture.fixture.id,
+          league_id: fixture.league.id,
+          league_name: fixture.league.name,
+          home_team_id: fixture.teams.home.id,
+          home_team_name: fixture.teams.home.name,
+          home_team_logo: fixture.teams.home.logo,
+          away_team_id: fixture.teams.away.id,
+          away_team_name: fixture.teams.away.name,
+          away_team_logo: fixture.teams.away.logo,
+          status: fixture.fixture.status.long,
+          status_short: fixture.fixture.status.short,
+          elapsed: fixture.fixture.status.elapsed,
+          home_score: fixture.goals.home ?? 0,
+          away_score: fixture.goals.away ?? 0,
+          match_date: fixture.fixture.date,
+          venue_name: fixture.fixture.venue.name,
+          venue_city: fixture.fixture.venue.city,
+          referee: fixture.fixture.referee,
+          round: fixture.league.round,
+          last_updated: new Date().toISOString()
+        }))
+        
+        // Upsert live matches
+        if (liveMatches.length > 0) {
+          const { error } = await supabase
+            .from('live_matches')
+            .upsert(liveMatches, { onConflict: 'fixture_id' })
+          
+          if (error) {
+            console.error('Error storing live matches:', error)
+          } else {
+            console.log(`Stored ${liveMatches.length} live matches`)
+          }
+        }
+        
+        // Also process events if any
+        const allEvents = []
+        for (const fixture of data.response) {
+          if (fixture.events && fixture.events.length > 0) {
+            const events = fixture.events.map((event: any) => ({
+              fixture_id: fixture.fixture.id,
+              time_elapsed: event.time.elapsed,
+              time_extra: event.time.extra,
+              team_id: event.team.id,
+              team_name: event.team.name,
+              player_id: event.player?.id,
+              player_name: event.player?.name,
+              assist_id: event.assist?.id,
+              assist_name: event.assist?.name,
+              type: event.type,
+              detail: event.detail,
+              comments: event.comments
+            }))
+            allEvents.push(...events)
+          }
+        }
+        
+        if (allEvents.length > 0) {
+          const { error } = await supabase
+            .from('live_match_events')
+            .upsert(allEvents, { onConflict: 'fixture_id,time_elapsed,type,detail' })
+          
+          if (error) {
+            console.error('Error storing match events:', error)
+          } else {
+            console.log(`Stored ${allEvents.length} match events`)
+          }
+        }
+      } catch (err) {
+        console.error('Error processing live matches:', err)
+      }
     }
 
     return new Response(

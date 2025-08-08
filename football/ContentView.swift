@@ -240,6 +240,14 @@ struct SettingsView: View {
                     Toggle("다크 모드", isOn: .constant(false))
                     Toggle("푸시 알림", isOn: .constant(true))
                     
+                    NavigationLink(destination: LiveMatchNotificationSettingsView()) {
+                        HStack {
+                            Image(systemName: "bell.badge")
+                                .foregroundColor(.orange)
+                            Text("라이브 경기 알림")
+                        }
+                    }
+                    
                     NavigationLink(destination: LanguageSettingsView()) {
                         HStack {
                             Image(systemName: "globe")

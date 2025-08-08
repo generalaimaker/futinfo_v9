@@ -86,6 +86,42 @@ class FixturesOverviewViewModel: ObservableObject {
     // 라이브 경기 상태 목록
     private let liveStatuses = ["1H", "2H", "HT", "ET", "P", "BT", "LIVE"]
     
+    // 유럽 주요 팀 ID (친선경기 우선순위)
+    private let majorEuropeanTeams = [
+        // 잉글랜드
+        33,  // Manchester United
+        40,  // Liverpool
+        50,  // Manchester City
+        49,  // Chelsea
+        42,  // Arsenal
+        47,  // Tottenham
+        
+        // 스페인
+        541, // Real Madrid
+        529, // Barcelona
+        530, // Atletico Madrid
+        
+        // 이탈리아
+        496, // Juventus
+        505, // Inter
+        489, // AC Milan
+        492, // Napoli
+        487, // Roma
+        
+        // 독일
+        157, // Bayern Munich
+        165, // Borussia Dortmund
+        173, // RB Leipzig
+        
+        // 프랑스
+        85,  // PSG
+        
+        // 기타
+        212, // Ajax
+        228, // Benfica
+        211, // Porto
+    ]
+    
     // 날짜 탭 데이터 - 동적으로 생성
     var dateTabs: [(date: Date, label: String)] {
         return visibleDateRange.map { date in
@@ -2207,24 +2243,25 @@ class FixturesOverviewViewModel: ObservableObject {
     internal func sortFixturesByPriority(_ fixtures: [Fixture]) -> [Fixture] {
         // 리그 우선순위 정의
         let leaguePriority: [Int: Int] = [
-            39: 1,   // 프리미어 리그
-            140: 2,  // 라리가
-            135: 3,  // 세리에 A
-            78: 4,   // 분데스리가
-            61: 5,   // 리그 1
-            2: 6,    // 챔피언스 리그
-            3: 7,    // 유로파 리그
-            4: 8,    // 컨퍼런스 리그
-            292: 9,  // K리그1
-            293: 10, // K리그2
-            253: 11, // MLS
-            71: 12,  // 브라질 세리에 A
-            5: 13,   // 네이션스 리그
-            1: 14,   // FIFA 월드컵
-            32: 15,  // 월드컵 예선 - 유럽
-            34: 16,  // 월드컵 예선 - 남미
-            29: 17,  // 월드컵 예선 - 아시아
-            15: 18,  // FIFA 클럽 월드컵
+            39: 2,   // 프리미어 리그
+            140: 3,  // 라리가
+            135: 4,  // 세리에 A
+            78: 5,   // 분데스리가
+            61: 6,   // 리그 1
+            2: 7,    // 챔피언스 리그
+            3: 8,    // 유로파 리그
+            4: 9,    // 컨퍼런스 리그
+            292: 10,  // K리그1
+            293: 11, // K리그2
+            253: 12, // MLS
+            71: 13,  // 브라질 세리에 A
+            667: 14, // 클럽 친선경기 (일반)
+            5: 15,   // 네이션스 리그
+            1: 16,   // FIFA 월드컵
+            32: 17,  // 월드컵 예선 - 유럽
+            34: 18,  // 월드컵 예선 - 남미
+            29: 19,  // 월드컵 예선 - 아시아
+            15: 20,  // FIFA 클럽 월드컵
             45: 19,  // FA컵
             143: 20, // 코파 델 레이
             137: 21, // 코파 이탈리아
@@ -2233,6 +2270,20 @@ class FixturesOverviewViewModel: ObservableObject {
         ]
         
         return fixtures.sorted { fixture1, fixture2 in
+            // 유럽 주요 팀의 친선경기인지 확인
+            let isFixture1MajorFriendly = fixture1.league.id == 667 &&
+                (majorEuropeanTeams.contains(fixture1.teams.home.id) ||
+                 majorEuropeanTeams.contains(fixture1.teams.away.id))
+            
+            let isFixture2MajorFriendly = fixture2.league.id == 667 &&
+                (majorEuropeanTeams.contains(fixture2.teams.home.id) ||
+                 majorEuropeanTeams.contains(fixture2.teams.away.id))
+            
+            // 유럽 주요 팀 친선경기가 최우선
+            if isFixture1MajorFriendly != isFixture2MajorFriendly {
+                return isFixture1MajorFriendly && !isFixture2MajorFriendly
+            }
+            
             // 첫 번째 경기가 라이브인지 확인
             let isFixture1Live = liveStatuses.contains(fixture1.fixture.status.short)
             

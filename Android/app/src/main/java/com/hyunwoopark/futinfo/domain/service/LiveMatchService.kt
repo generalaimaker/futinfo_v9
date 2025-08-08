@@ -1,6 +1,8 @@
 package com.hyunwoopark.futinfo.domain.service
 
+import com.hyunwoopark.futinfo.data.remote.realtime.LiveMatchRealtimeService
 import com.hyunwoopark.futinfo.domain.model.Fixture
+import com.hyunwoopark.futinfo.domain.model.FixtureEvent
 import com.hyunwoopark.futinfo.domain.model.toDomainModel
 import com.hyunwoopark.futinfo.domain.repository.FootballRepository
 import kotlinx.coroutines.*
@@ -12,10 +14,12 @@ import java.time.LocalDate
 /**
  * 라이브 경기 업데이트 서비스
  * iOS의 LiveMatchService와 동일한 기능
+ * Realtime 기능 통합
  */
 @Singleton
 class LiveMatchService @Inject constructor(
-    private val footballRepository: FootballRepository
+    private val footballRepository: FootballRepository,
+    private val realtimeService: LiveMatchRealtimeService
 ) {
     
     private val _liveFixtures = MutableStateFlow<List<Fixture>>(emptyList())
@@ -40,10 +44,39 @@ class LiveMatchService @Inject constructor(
         
         _isLiveUpdateActive.value = true
         
+        // Realtime 구독 시작
+        scope.launch {
+            try {
+                realtimeService.startRealtimeSubscription()
+                
+                // Realtime 업데이트 구독
+                realtimeService.liveMatches.collect { realtimeMatches ->
+                    if (realtimeMatches.isNotEmpty()) {
+                        // Realtime 데이터를 도메인 모델로 변환
+                        val domainFixtures = realtimeMatches.mapNotNull { liveMatch ->
+                            convertLiveMatchToFixture(liveMatch)
+                        }
+                        _liveFixtures.value = domainFixtures
+                    }
+                }
+            } catch (e: Exception) {
+                // Realtime 실패 시 폴링으로 전환
+                startPollingFallback()
+            }
+        }
+        
+        // 폴링도 함께 시작 (백업)
+        startPollingFallback()
+    }
+    
+    private fun startPollingFallback() {
         liveUpdateJob = scope.launch {
             while (isActive && _isLiveUpdateActive.value) {
                 try {
-                    updateLiveFixtures()
+                    // Realtime이 연결되지 않은 경우에만 폴링
+                    if (!realtimeService.isConnected.value) {
+                        updateLiveFixtures()
+                    }
                     delay(LIVE_UPDATE_INTERVAL)
                 } catch (e: Exception) {
                     // 에러 무시하고 계속 시도
@@ -60,6 +93,11 @@ class LiveMatchService @Inject constructor(
         _isLiveUpdateActive.value = false
         liveUpdateJob?.cancel()
         liveUpdateJob = null
+        
+        // Realtime 구독 중지
+        scope.launch {
+            realtimeService.stopRealtimeSubscription()
+        }
     }
     
     /**
@@ -118,5 +156,66 @@ class LiveMatchService @Inject constructor(
     fun dispose() {
         stopLiveUpdates()
         scope.cancel()
+    }
+    
+    /**
+     * LiveMatch를 Fixture 도메인 모델로 변환
+     */
+    private fun convertLiveMatchToFixture(liveMatch: LiveMatch): Fixture? {
+        return try {
+            Fixture(
+                id = liveMatch.fixture_id,
+                referee = liveMatch.referee,
+                timezone = "UTC",
+                date = liveMatch.match_date,
+                timestamp = 0, // 계산 필요
+                periods = Fixture.Periods(null, null),
+                venue = Fixture.Venue(
+                    id = null,
+                    name = liveMatch.venue_name,
+                    city = liveMatch.venue_city
+                ),
+                status = Fixture.Status(
+                    long = liveMatch.status,
+                    short = liveMatch.status_short,
+                    elapsed = liveMatch.elapsed
+                ),
+                league = League(
+                    id = liveMatch.league_id,
+                    name = liveMatch.league_name,
+                    country = "",
+                    logo = "",
+                    flag = null,
+                    season = 0,
+                    round = liveMatch.round
+                ),
+                teams = Teams(
+                    home = Team(
+                        id = liveMatch.home_team_id,
+                        name = liveMatch.home_team_name,
+                        logo = liveMatch.home_team_logo ?: "",
+                        winner = null
+                    ),
+                    away = Team(
+                        id = liveMatch.away_team_id,
+                        name = liveMatch.away_team_name,
+                        logo = liveMatch.away_team_logo ?: "",
+                        winner = null
+                    )
+                ),
+                goals = Goals(
+                    home = liveMatch.home_score,
+                    away = liveMatch.away_score
+                ),
+                score = Score(
+                    halftime = Score.HalfTime(null, null),
+                    fulltime = Score.FullTime(null, null),
+                    extratime = Score.ExtraTime(null, null),
+                    penalty = Score.Penalty(null, null)
+                )
+            )
+        } catch (e: Exception) {
+            null
+        }
     }
 }

@@ -1,23 +1,26 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { ChevronLeft, ChevronRight, Calendar, Clock, Trophy } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useFixturesByDate } from '@/lib/supabase/football'
 import { formatDate, getStatusDisplay, isLiveMatch, isFinishedMatch, FixturesResponse } from '@/lib/types/football'
+import { useFixturesRealtime } from '@/hooks/useFixturesRealtime'
 import Link from 'next/link'
 import Image from 'next/image'
 import { Skeleton } from '@/components/ui/skeleton'
+import LiveMatchesSection from '@/components/LiveMatchesSection'
 
 export default function FixturesPage() {
   const router = useRouter()
   const [selectedDate, setSelectedDate] = useState(new Date())
   
-  const { data, isLoading, error } = useFixturesByDate(selectedDate) as { 
+  const { data, isLoading, error, refetch } = useFixturesByDate(selectedDate) as { 
     data: FixturesResponse | undefined; 
     isLoading: boolean; 
-    error: Error | null 
+    error: Error | null;
+    refetch: () => void
   }
   
   // 날짜 변경 핸들러
@@ -42,28 +45,73 @@ export default function FixturesPage() {
     return date.toLocaleDateString('ko-KR', options)
   }
   
-  // 리그별로 경기 그룹화
+  // 리그별로 경기 그룹화 (유럽 주요 팀 친선경기 우선)
   const groupFixturesByLeague = () => {
     if (!data?.response) return {}
     
-    return data.response.reduce((acc, fixture) => {
+    const MAJOR_TEAMS = [33, 40, 50, 49, 42, 47, 541, 529, 530, 496, 505, 489, 157, 165, 85]
+    
+    // 유럽 주요 팀 친선경기와 그 외 분리
+    const majorFriendlies: typeof data.response = []
+    const otherFixtures: typeof data.response = []
+    
+    data.response.forEach(fixture => {
+      if (fixture.league.id === 667 && 
+          (MAJOR_TEAMS.includes(fixture.teams.home.id) || 
+           MAJOR_TEAMS.includes(fixture.teams.away.id))) {
+        majorFriendlies.push(fixture)
+      } else {
+        otherFixtures.push(fixture)
+      }
+    })
+    
+    const result: Record<number, { league: typeof data.response[0]['league'], fixtures: typeof data.response }> = {}
+    
+    // 유럽 주요 팀 친선경기를 별도 그룹으로
+    if (majorFriendlies.length > 0) {
+      result[-1] = {
+        league: { ...majorFriendlies[0].league, name: '유럽 주요 팀 친선경기' },
+        fixtures: majorFriendlies
+      }
+    }
+    
+    // 나머지 경기들 그룹화
+    otherFixtures.forEach(fixture => {
       const leagueId = fixture.league.id
-      if (!acc[leagueId]) {
-        acc[leagueId] = {
+      if (!result[leagueId]) {
+        result[leagueId] = {
           league: fixture.league,
           fixtures: []
         }
       }
-      acc[leagueId].fixtures.push(fixture)
-      return acc
-    }, {} as Record<number, { league: typeof data.response[0]['league'], fixtures: typeof data.response }>)
+      result[leagueId].fixtures.push(fixture)
+    })
+    
+    return result
   }
   
   const groupedFixtures = groupFixturesByLeague()
   const hasFixtures = data?.response && data.response.length > 0
 
+  // 라이브 경기 ID 목록 추출
+  const liveFixtureIds = data?.response
+    ?.filter(fixture => isLiveMatch(fixture.fixture.status.short))
+    .map(fixture => fixture.fixture.id) || []
+
+  // 실시간 업데이트 콜백
+  const handleFixtureUpdate = useCallback((fixtureId: number) => {
+    console.log(`Fixture ${fixtureId} updated, refetching list...`)
+    refetch()
+  }, [refetch])
+
+  // Realtime 구독 (라이브 경기만)
+  useFixturesRealtime({
+    fixtureIds: liveFixtureIds,
+    onUpdate: handleFixtureUpdate
+  })
+
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen lg:ml-64 bg-gray-50">
       {/* 헤더 */}
       <header className="bg-white border-b shadow-sm sticky top-0 z-10">
         <div className="container mx-auto px-4 py-4">
@@ -115,6 +163,9 @@ export default function FixturesPage() {
 
       {/* 컨텐츠 */}
       <main className="container mx-auto px-4 py-6">
+        {/* 라이브 경기 섹션 */}
+        <LiveMatchesSection />
+        
         {isLoading ? (
           // 로딩 스켈레톤
           <div className="space-y-6">
@@ -149,7 +200,23 @@ export default function FixturesPage() {
         ) : (
           // 경기 목록
           <div className="space-y-6">
-            {Object.values(groupedFixtures).map(({ league, fixtures }) => (
+            {Object.entries(groupedFixtures)
+              .sort(([aId], [bId]) => {
+                // 유럽 주요 팀 친선경기를 최상단에
+                if (aId === '-1') return -1
+                if (bId === '-1') return 1
+                
+                // 그 다음 주요 리그 우선순위
+                const priorityLeagues = [39, 140, 135, 78, 61, 2] // EPL, La Liga, Serie A, etc
+                const aIndex = priorityLeagues.indexOf(parseInt(aId))
+                const bIndex = priorityLeagues.indexOf(parseInt(bId))
+                
+                if (aIndex === -1 && bIndex === -1) return 0
+                if (aIndex === -1) return 1
+                if (bIndex === -1) return -1
+                return aIndex - bIndex
+              })
+              .map(([leagueId, { league, fixtures }]) => (
               <div key={league.id} className="bg-white rounded-lg shadow-sm overflow-hidden">
                 {/* 리그 헤더 */}
                 <div className="bg-gray-50 px-4 py-3 border-b">
