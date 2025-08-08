@@ -93,8 +93,9 @@ class FootballAPIService {
     try {
       // 직접 fetch 사용 (Supabase client의 body 전송 문제 해결)
       const functionName = 'unified-football-api'
-      const url = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/${functionName}`
-      const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://uutmymaxkkytibuiiaax.supabase.co'
+      const url = `${supabaseUrl}/functions/v1/${functionName}`
+      const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV1dG15bWF4a2t5dGlidWlpYWF4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE4OTYzMzUsImV4cCI6MjA2NzQ3MjMzNX0.-sR7UF1Lj1cZ3fy6ScWaLViV_d5aU2PoT7UCpf3XlBM'
       
       const controller = new AbortController()
       const timeoutId = setTimeout(() => controller.abort(), 30000) // 30초 타임아웃
