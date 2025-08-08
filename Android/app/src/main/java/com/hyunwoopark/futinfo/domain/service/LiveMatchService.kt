@@ -2,7 +2,7 @@ package com.hyunwoopark.futinfo.domain.service
 
 import com.hyunwoopark.futinfo.data.remote.realtime.LiveMatchRealtimeService
 import com.hyunwoopark.futinfo.domain.model.Fixture
-import com.hyunwoopark.futinfo.domain.model.FixtureEvent
+// FixtureEvent import 제거 - 도메인 모델에 정의되지 않음
 import com.hyunwoopark.futinfo.domain.model.toDomainModel
 import com.hyunwoopark.futinfo.domain.repository.FootballRepository
 import kotlinx.coroutines.*
@@ -189,13 +189,7 @@ class LiveMatchService @Inject constructor(
                 awayTeamLogo = liveMatch.away_team_logo ?: "",
                 awayTeamWinner = null,
                 homeGoals = liveMatch.home_score,
-                awayGoals = liveMatch.away_score,
-                score = Score(
-                    halftime = Score.HalfTime(null, null),
-                    fulltime = Score.FullTime(null, null),
-                    extratime = Score.ExtraTime(null, null),
-                    penalty = Score.Penalty(null, null)
-                )
+                awayGoals = liveMatch.away_score
             )
         } catch (e: Exception) {
             null
