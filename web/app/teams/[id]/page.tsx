@@ -265,7 +265,9 @@ export default function TeamPage() {
                     <div className="flex items-center gap-2 text-sm">
                       <MapPin className="w-4 h-4 text-muted-foreground" />
                       <span>{venue.name}</span>
-                      <span className="text-muted-foreground">({venue.capacity?.toLocaleString()} 수용)</span>
+                      {venue.capacity && (
+                        <span className="text-muted-foreground">({venue.capacity.toLocaleString()} 수용)</span>
+                      )}
                     </div>
                   )}
                   {stats?.form && (
@@ -411,7 +413,7 @@ export default function TeamPage() {
                       <h3 className="text-lg font-semibold">다음 경기</h3>
                       <Badge variant="secondary" className="gap-1">
                         <Clock className="w-3 h-3" />
-                        {new Date(nextFixtures.response[0].fixture.date).toLocaleDateString('ko-KR')}
+                        {nextFixtures.response[0].fixture.date ? new Date(nextFixtures.response[0].fixture.date).toLocaleDateString('ko-KR') : '날짜 미정'}
                       </Badge>
                     </div>
                     <Link href={`/fixtures/${nextFixtures.response[0].fixture.id}`}>
@@ -611,7 +613,7 @@ export default function TeamPage() {
                             <Users className="w-4 h-4" />
                             수용인원
                           </span>
-                          <span className="font-medium">{venue.capacity?.toLocaleString()}</span>
+                          <span className="font-medium">{venue.capacity ? venue.capacity.toLocaleString() : '-'}</span>
                         </div>
                       </>
                     )}
@@ -1470,7 +1472,7 @@ export default function TeamPage() {
                                 {post.category === 'discussion' && '토론'}
                               </Badge>
                               <span className="text-xs text-muted-foreground">
-                                {new Date(post.created_at).toLocaleDateString('ko-KR')}
+                                {post.created_at ? new Date(post.created_at).toLocaleDateString('ko-KR') : '날짜 없음'}
                               </span>
                             </div>
                             <h4 className="font-semibold mb-2">{post.title}</h4>
@@ -1514,7 +1516,7 @@ export default function TeamPage() {
                     <h3 className="text-lg font-semibold mb-4">경기 예측</h3>
                     <div className="text-center mb-4">
                       <p className="text-sm text-muted-foreground mb-2">
-                        {new Date(nextFixtures.response[0].fixture.date).toLocaleDateString('ko-KR')}
+                        {nextFixtures.response[0].fixture.date ? new Date(nextFixtures.response[0].fixture.date).toLocaleDateString('ko-KR') : '날짜 미정'}
                       </p>
                       <div className="flex items-center justify-center gap-2">
                         <span className="font-medium">
