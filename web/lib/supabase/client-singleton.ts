@@ -38,21 +38,7 @@ export function getSupabaseClient() {
 
   client = createBrowserClient(
     supabaseUrl,
-    supabaseAnonKey,
-    {
-      auth: {
-        persistSession: true,
-        storageKey: 'sb-futinfo-auth-token',
-        detectSessionInUrl: true,
-        autoRefreshToken: true,
-        flowType: 'pkce'
-      },
-      global: {
-        headers: {
-          'x-application-name': 'futinfo-web'
-        }
-      }
-    }
+    supabaseAnonKey
   )
 
   // Store in window for true singleton

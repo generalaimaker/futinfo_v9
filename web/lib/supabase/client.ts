@@ -1,42 +1,27 @@
-import { createClient as createSupabaseClient } from '@supabase/supabase-js'
+'use client'
 
-// Supabase configuration
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://uutmymaxkkytibuiiaax.supabase.co'
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV1dG15bWF4a2t5dGlidWlpYWF4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE4OTYzMzUsImV4cCI6MjA2NzQ3MjMzNX0.-sR7UF1Lj1cZ3fy6ScWaLViV_d5aU2PoT7UCpf3XlBM'
+// Re-export from singleton to prevent multiple client instances
+import { getSupabaseClient } from './client-singleton'
 
-// Log configuration status in development
-if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
-  console.log('[Supabase Client] Configuration:', {
-    url: supabaseUrl,
-    hasKey: !!supabaseAnonKey,
-    keyLength: supabaseAnonKey?.length
-  })
+// Create a getter function that returns the singleton client
+function getSingletonClient() {
+  if (typeof window === 'undefined') {
+    // Server-side: return a dummy object that will throw if used
+    return new Proxy({} as any, {
+      get() {
+        throw new Error('Cannot use Supabase client on server side. Use server.ts instead.')
+      }
+    })
+  }
+  return getSupabaseClient()
 }
 
-// Create the Supabase client
-export const supabase = createSupabaseClient(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    persistSession: true,
-    autoRefreshToken: true,
-    detectSessionInUrl: true,
-    storage: typeof window !== 'undefined' ? window.localStorage : undefined,
-    storageKey: 'supabase.auth.token',
-    flowType: 'pkce'
-  },
-  realtime: {
-    params: {
-      eventsPerSecond: 10,
-    },
-  },
-  global: {
-    headers: {
-      'x-application-name': 'futinfo-web'
-    }
-  }
-})
+// Export supabase client
+export const supabase = getSingletonClient()
+
+// Export functions
+export { getSupabaseClient, getSupabaseClient as createClient } from './client-singleton'
 
 // Type-safe client
-export type SupabaseClient = typeof supabase
-
-// Export createClient function for other uses
-export { createSupabaseClient as createClient }
+import type { SupabaseClient as SupabaseClientType } from '@supabase/supabase-js'
+export type SupabaseClient = SupabaseClientType
