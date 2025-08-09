@@ -8,19 +8,29 @@ import footballAPIService from '@/lib/supabase/football'
 export default function StandingsPage() {
   const searchParams = useSearchParams()
   const leagueId = searchParams.get('league') || '39' // Default to Premier League
+  const currentYear = new Date().getFullYear()
+  const season = searchParams.get('season') || currentYear.toString()
   const [standings, setStandings] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     loadStandings()
-  }, [leagueId])
+  }, [leagueId, season])
 
   const loadStandings = async () => {
     try {
       setLoading(true)
-      const data = await footballAPIService.getStandings(parseInt(leagueId))
-      setStandings(data)
+      const data = await footballAPIService.getStandings({
+        league: parseInt(leagueId),
+        season: parseInt(season)
+      })
+      // API response structure: data.response[0].league.standings[0]
+      if (data?.response?.[0]?.league?.standings?.[0]) {
+        setStandings(data.response[0].league.standings[0])
+      } else {
+        setStandings([])
+      }
     } catch (err) {
       setError('순위표를 불러오는데 실패했습니다.')
       console.error('Error loading standings:', err)
