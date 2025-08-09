@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { Loader2 } from 'lucide-react'
-import { FootballAPI } from '@/lib/supabase/football'
+import footballAPIService from '@/lib/supabase/football'
 
 export default function StandingsPage() {
   const searchParams = useSearchParams()
@@ -19,7 +19,7 @@ export default function StandingsPage() {
   const loadStandings = async () => {
     try {
       setLoading(true)
-      const data = await FootballAPI.getStandings(parseInt(leagueId))
+      const data = await footballAPIService.getStandings(parseInt(leagueId))
       setStandings(data)
     } catch (err) {
       setError('순위표를 불러오는데 실패했습니다.')
