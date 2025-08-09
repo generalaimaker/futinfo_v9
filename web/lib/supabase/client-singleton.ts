@@ -46,6 +46,11 @@ export function getSupabaseClient() {
         detectSessionInUrl: true,
         autoRefreshToken: true,
         flowType: 'pkce'
+      },
+      global: {
+        headers: {
+          'x-application-name': 'futinfo-web'
+        }
       }
     }
   )
