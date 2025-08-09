@@ -83,6 +83,20 @@ export default function ProfilePage() {
     )
   }
 
+  if (!profile) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
+          <p className="text-gray-500">프로필을 불러올 수 없습니다</p>
+          <Button onClick={() => router.push('/profile/setup')} className="mt-4">
+            프로필 설정하기
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}

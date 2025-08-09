@@ -95,17 +95,28 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
           console.log('[SupabaseProvider] User signed in, checking profile...')
           
           // 프로필 체크
-          const { data: profile } = await supabase
+          const { data: profile, error: profileError } = await supabase
             .from('user_profiles')
             .select('*')
             .eq('id', currentSession.user.id)
             .single()
           
+          // PGRST116 = no rows returned (프로필이 없음)
+          if (profileError && profileError.code !== 'PGRST116') {
+            console.error('[SupabaseProvider] Profile fetch error:', profileError)
+          }
+          
+          // 프로필이 없거나 닉네임이 없으면 설정 페이지로
           if (!profile || !profile.nickname) {
-            router.push('/profile/setup')
+            console.log('[SupabaseProvider] No profile/nickname, redirecting to setup')
+            // /profile/setup 페이지가 아닐 때만 리다이렉트
+            if (!window.location.pathname.includes('/profile/setup')) {
+              router.push('/profile/setup')
+            }
           } else {
-            // 홈으로 리다이렉트하지 않고 현재 페이지 유지
-            router.refresh() // 페이지 새로고침으로 UI 업데이트
+            console.log('[SupabaseProvider] Profile exists, refreshing UI')
+            // 페이지 새로고침으로 UI 업데이트
+            router.refresh()
           }
         }
       } else if (event === 'SIGNED_OUT') {
