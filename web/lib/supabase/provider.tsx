@@ -27,22 +27,40 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
   const supabase = getSupabaseClient()
 
   useEffect(() => {
+    let mounted = true
     const supabaseClient = getSupabaseClient()
     const routerRef = router
+    
     // 초기 세션 체크
     const initSession = async () => {
+      if (!mounted) return
       try {
         console.log('[SupabaseProvider] Checking for existing session...')
+        console.log('[SupabaseProvider] Supabase client:', !!supabaseClient)
         
-        // 먼저 User를 가져와서 세션 새로고침
-        const { data: { user: currentUser }, error: userError } = await supabaseClient.auth.getUser()
+        // 먼저 User를 가져와서 세션 새로고침 - 타임아웃 설정
+        const getUserPromise = supabaseClient.auth.getUser()
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('getUser timeout')), 5000)
+        )
+        
+        console.log('[SupabaseProvider] Calling getUser...')
+        
+        const { data: { user: currentUser }, error: userError } = await Promise.race([
+          getUserPromise,
+          timeoutPromise
+        ]) as any
+        
+        console.log('[SupabaseProvider] getUser result:', { currentUser: !!currentUser, error: userError })
         
         if (userError) {
           console.error('[SupabaseProvider] Error getting user:', userError)
           // 에러가 있으면 세션이 없는 것
-          setSession(null)
-          setUser(null)
-          setIsLoading(false)
+          if (mounted) {
+            setSession(null)
+            setUser(null)
+            setIsLoading(false)
+          }
           return
         }
         
@@ -53,33 +71,46 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
           
           if (currentSession) {
             console.log('[SupabaseProvider] Session found:', currentSession.user.id)
-            setSession(currentSession)
-            setUser(currentSession.user)
-            setIsLoading(false)
+            if (mounted) {
+              setSession(currentSession)
+              setUser(currentSession.user)
+              setIsLoading(false)
+            }
           } else {
             // User는 있지만 세션이 없는 경우 - 세션 새로고침 시도
             console.log('[SupabaseProvider] User exists but no session, refreshing...')
             const { data: { session: refreshedSession } } = await supabaseClient.auth.refreshSession()
             if (refreshedSession) {
-              setSession(refreshedSession)
-              setUser(refreshedSession.user)
+              if (mounted) {
+                setSession(refreshedSession)
+                setUser(refreshedSession.user)
+              }
             } else {
-              setSession(null)
-              setUser(null)
+              if (mounted) {
+                setSession(null)
+                setUser(null)
+              }
             }
-            setIsLoading(false)
+            if (mounted) setIsLoading(false)
           }
         } else {
           console.log('[SupabaseProvider] No user found')
+          if (mounted) {
+            setSession(null)
+            setUser(null)
+            setIsLoading(false)
+          }
+        }
+      } catch (error: any) {
+        console.error('[SupabaseProvider] Error in initSession:', error)
+        if (error?.message === 'getUser timeout') {
+          console.error('[SupabaseProvider] getUser timed out after 5 seconds')
+        }
+        if (mounted) {
           setSession(null)
           setUser(null)
           setIsLoading(false)
         }
-      } catch (error) {
-        console.error('[SupabaseProvider] Error in initSession:', error)
-        setSession(null)
-        setUser(null)
-        setIsLoading(false)
       }
     }
 
@@ -140,6 +171,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
     })
 
     return () => {
+      mounted = false
       subscription.unsubscribe()
     }
   }, [])
