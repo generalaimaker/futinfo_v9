@@ -2,6 +2,7 @@ import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 export async function middleware(request: NextRequest) {
+  // Create a response that we'll modify
   let response = NextResponse.next({
     request: {
       headers: request.headers,
@@ -20,15 +21,11 @@ export async function middleware(request: NextRequest) {
           return request.cookies.get(name)?.value
         },
         set(name: string, value: string, options: CookieOptions) {
+          // Set cookie on both request and response
           request.cookies.set({
             name,
             value,
             ...options,
-          })
-          response = NextResponse.next({
-            request: {
-              headers: request.headers,
-            },
           })
           response.cookies.set({
             name,
@@ -37,15 +34,11 @@ export async function middleware(request: NextRequest) {
           })
         },
         remove(name: string, options: CookieOptions) {
+          // Remove cookie from both request and response
           request.cookies.set({
             name,
             value: '',
             ...options,
-          })
-          response = NextResponse.next({
-            request: {
-              headers: request.headers,
-            },
           })
           response.cookies.set({
             name,
@@ -57,8 +50,13 @@ export async function middleware(request: NextRequest) {
     }
   )
 
-  // 세션 새로고침
-  await supabase.auth.getUser()
+  // Refresh session if exists - more reliable than getUser()
+  const { data: { session } } = await supabase.auth.getSession()
+  
+  // If we have a session, ensure it's fresh
+  if (session) {
+    await supabase.auth.refreshSession()
+  }
 
   return response
 }

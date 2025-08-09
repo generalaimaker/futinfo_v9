@@ -110,9 +110,9 @@ export async function GET(request: NextRequest) {
     
     if (data.user) {
       const { data: profile, error: profileError } = await supabase
-        .from('user_profiles')
+        .from('profiles')
         .select('*')
-        .eq('id', data.user.id)
+        .eq('user_id', data.user.id)
         .single()
       
       if (profileError && profileError.code !== 'PGRST116') {
