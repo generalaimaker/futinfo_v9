@@ -16,13 +16,20 @@ import { useSupabase } from '@/lib/supabase/provider'
 export default function LoginClient() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { signIn, signInWithGoogle, signInWithApple } = useSupabase()
+  const { signIn, signInWithGoogle, signInWithApple, user, isLoading: authLoading } = useSupabase()
   
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  
+  // 이미 로그인한 경우 리다이렉트
+  useEffect(() => {
+    if (user && !authLoading) {
+      router.push('/community')
+    }
+  }, [user, authLoading, router])
   
   // URL 파라미터에서 에러 메시지 확인
   useEffect(() => {
@@ -69,6 +76,30 @@ export default function LoginClient() {
       setError(err instanceof Error ? err.message : 'Apple 로그인에 실패했습니다.')
       setIsLoading(false)
     }
+  }
+
+  // 인증 상태 로딩 중
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="h-12 w-12 animate-spin mx-auto mb-4" />
+          <p className="text-gray-600">로그인 확인 중...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // 이미 로그인한 경우
+  if (user) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="h-12 w-12 animate-spin mx-auto mb-4" />
+          <p className="text-gray-600">커뮤니티로 이동 중...</p>
+        </div>
+      </div>
+    )
   }
 
   return (

@@ -53,6 +53,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
             console.log('[SupabaseProvider] Session found:', currentSession.user.id)
             setSession(currentSession)
             setUser(currentSession.user)
+            setIsLoading(false)
           } else {
             // User는 있지만 세션이 없는 경우 - 세션 새로고침 시도
             console.log('[SupabaseProvider] User exists but no session, refreshing...')
@@ -60,18 +61,22 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
             if (refreshedSession) {
               setSession(refreshedSession)
               setUser(refreshedSession.user)
+            } else {
+              setSession(null)
+              setUser(null)
             }
+            setIsLoading(false)
           }
         } else {
           console.log('[SupabaseProvider] No user found')
           setSession(null)
           setUser(null)
+          setIsLoading(false)
         }
       } catch (error) {
         console.error('[SupabaseProvider] Error in initSession:', error)
         setSession(null)
         setUser(null)
-      } finally {
         setIsLoading(false)
       }
     }
