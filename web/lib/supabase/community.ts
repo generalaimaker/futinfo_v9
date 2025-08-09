@@ -19,7 +19,7 @@ export class CommunityService {
   private static transformPost(post: any): CommunityPost {
     return {
       ...post,
-      author: post.author || post.user_profiles || null,
+      author: post.author || post.profiles || null,
       createdAt: post.created_at,
       updatedAt: post.updated_at,
       commentCount: post.comment_count || 0,
@@ -31,7 +31,7 @@ export class CommunityService {
   private static transformComment(comment: any): CommunityComment {
     return {
       ...comment,
-      author: comment.author || comment.user_profiles || null,
+      author: comment.author || comment.profiles || null,
       createdAt: comment.created_at,
       updatedAt: comment.updated_at
     }
@@ -60,7 +60,7 @@ export class CommunityService {
       .from('posts')
       .select(`
         *,
-        author:user_profiles(*)
+        author:profiles(*)
       `)
       .order('like_count', { ascending: false })
       .order('created_at', { ascending: false })
@@ -130,7 +130,7 @@ export class CommunityService {
       .from('posts')
       .select(`
         *,
-        author:user_profiles(*)
+        author:profiles(*)
       `, { count: 'exact' })
       .eq('board_id', boardId)
       .order('created_at', { ascending: false })
@@ -165,7 +165,7 @@ export class CommunityService {
       .from('posts')
       .select(`
         *,
-        author:user_profiles(*)
+        author:profiles(*)
       `)
       .eq('id', id)
       .single()
@@ -182,7 +182,7 @@ export class CommunityService {
 
     // Get the user's profile to use the correct profile ID
     const { data: profile } = await supabase
-      .from('user_profiles')
+      .from('profiles')
       .select('id')
       .eq('user_id', user.id)
       .single()
@@ -197,7 +197,7 @@ export class CommunityService {
       })
       .select(`
         *,
-        author:user_profiles(*)
+        author:profiles(*)
       `)
       .single()
 
@@ -217,7 +217,7 @@ export class CommunityService {
       .eq('id', id)
       .select(`
         *,
-        author:user_profiles(*)
+        author:profiles(*)
       `)
       .single()
 
@@ -252,7 +252,7 @@ export class CommunityService {
       .from('comments')
       .select(`
         *,
-        author:user_profiles(*)
+        author:profiles(*)
       `)
       .eq('post_id', postId)
       .order('created_at', { ascending: true })
@@ -269,7 +269,7 @@ export class CommunityService {
 
     // Get the user's profile to use the correct profile ID
     const { data: profile } = await supabase
-      .from('user_profiles')
+      .from('profiles')
       .select('id')
       .eq('user_id', user.id)
       .single()
@@ -284,7 +284,7 @@ export class CommunityService {
       })
       .select(`
         *,
-        author:user_profiles(*)
+        author:profiles(*)
       `)
       .single()
 
@@ -300,7 +300,7 @@ export class CommunityService {
     if (!user) return null
 
     const { data, error } = await supabase
-      .from('user_profiles')
+      .from('profiles')
       .select('*')
       .eq('user_id', user.id)
       .single()
@@ -316,7 +316,7 @@ export class CommunityService {
   static async getUserProfile(userId: string): Promise<UserProfile | null> {
     const supabase = this.getClient()
     const { data, error } = await supabase
-      .from('user_profiles')
+      .from('profiles')
       .select('*')
       .eq('user_id', userId)
       .single()
@@ -347,7 +347,7 @@ export class CommunityService {
 
     // 먼저 프로필이 있는지 확인
     const { data: existingProfile } = await supabase
-      .from('user_profiles')
+      .from('profiles')
       .select('*')
       .eq('user_id', user.id)
       .single()
@@ -364,7 +364,7 @@ export class CommunityService {
     if (existingProfile) {
       // 프로필이 있으면 업데이트
       const result = await supabase
-        .from('user_profiles')
+        .from('profiles')
         .update({
           ...dbUpdates,
           updated_at: new Date().toISOString()
@@ -378,7 +378,7 @@ export class CommunityService {
     } else {
       // 프로필이 없으면 생성
       const result = await supabase
-        .from('user_profiles')
+        .from('profiles')
         .insert({
           user_id: user.id,
           email: user.email,

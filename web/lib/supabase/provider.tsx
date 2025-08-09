@@ -134,7 +134,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
           
           // 프로필 체크
           const { data: profile, error: profileError } = await supabaseClient
-            .from('user_profiles')
+            .from('profiles')
             .select('*')
             .eq('user_id', currentSession.user.id)
             .single()
