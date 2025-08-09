@@ -1,11 +1,11 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { Loader2 } from 'lucide-react'
 import footballAPIService from '@/lib/supabase/football'
 
-export default function StandingsPage() {
+function StandingsContent() {
   const searchParams = useSearchParams()
   const leagueId = searchParams.get('league') || '39' // Default to Premier League
   const currentYear = new Date().getFullYear()
@@ -111,5 +111,17 @@ export default function StandingsPage() {
         </div>
       )}
     </div>
+  )
+}
+
+export default function StandingsPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    }>
+      <StandingsContent />
+    </Suspense>
   )
 }
