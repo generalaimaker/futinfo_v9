@@ -58,10 +58,10 @@ function FeaturedMatch() {
           <div className="flex items-center gap-2 mb-2">
             <Badge className="bg-primary text-white">{bigMatch.league.name}</Badge>
             <span className="text-sm text-muted-foreground">
-              {new Date(bigMatch.fixture.date).toLocaleTimeString('ko-KR', {
+              {bigMatch.fixture.date ? new Date(bigMatch.fixture.date).toLocaleTimeString('ko-KR', {
                 hour: '2-digit',
                 minute: '2-digit'
-              })}
+              }) : ''}
             </span>
           </div>
           <h2 className="text-2xl font-bold mb-1">
@@ -286,10 +286,10 @@ function UpcomingMatches() {
                 </div>
                 <div className="text-right">
                   <div className="text-sm font-medium">
-                    {new Date(fixture.fixture.date).toLocaleTimeString('ko-KR', {
+                    {fixture.fixture.date ? new Date(fixture.fixture.date).toLocaleTimeString('ko-KR', {
                       hour: '2-digit',
                       minute: '2-digit'
-                    })}
+                    }) : ''}
                   </div>
                   <div className="text-xs text-muted-foreground">
                     {fixture.league.name}
@@ -352,10 +352,10 @@ function CommunityHighlights() {
                 <span>💬 {post.comment_count}</span>
                 <span>❤️ {post.like_count}</span>
                 <span className="ml-auto">
-                  {formatDistanceToNow(new Date(post.created_at), { 
+                  {post.created_at ? formatDistanceToNow(new Date(post.created_at), { 
                     addSuffix: true, 
                     locale: ko 
-                  })}
+                  }) : '방금'}
                 </span>
               </div>
             </Link>
@@ -419,11 +419,11 @@ function PersonalizedMatches() {
                     {fixture.league.name}
                   </Badge>
                   <span className="text-xs text-muted-foreground">
-                    {new Date(fixture.fixture.date).toLocaleDateString('ko-KR', {
+                    {fixture.fixture.date ? new Date(fixture.fixture.date).toLocaleDateString('ko-KR', {
                       month: 'short',
                       day: 'numeric',
                       weekday: 'short'
-                    })}
+                    }) : ''}
                   </span>
                 </div>
                 
@@ -463,10 +463,10 @@ function PersonalizedMatches() {
                   </div>
                   <div className="text-right">
                     <div className="text-sm font-medium">
-                      {new Date(fixture.fixture.date).toLocaleTimeString('ko-KR', {
+                      {fixture.fixture.date ? new Date(fixture.fixture.date).toLocaleTimeString('ko-KR', {
                         hour: '2-digit',
                         minute: '2-digit'
-                      })}
+                      }) : ''}
                     </div>
                   </div>
                 </div>
