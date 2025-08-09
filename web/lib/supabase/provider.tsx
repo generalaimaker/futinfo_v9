@@ -27,13 +27,15 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
   const supabase = getSupabaseClient()
 
   useEffect(() => {
+    const supabaseClient = getSupabaseClient()
+    const routerRef = router
     // 초기 세션 체크
     const initSession = async () => {
       try {
         console.log('[SupabaseProvider] Checking for existing session...')
         
         // 먼저 User를 가져와서 세션 새로고침
-        const { data: { user: currentUser }, error: userError } = await supabase.auth.getUser()
+        const { data: { user: currentUser }, error: userError } = await supabaseClient.auth.getUser()
         
         if (userError) {
           console.error('[SupabaseProvider] Error getting user:', userError)
@@ -47,7 +49,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
         if (currentUser) {
           console.log('[SupabaseProvider] User found via getUser:', currentUser.id)
           // getUser가 성공하면 세션도 가져오기
-          const { data: { session: currentSession } } = await supabase.auth.getSession()
+          const { data: { session: currentSession } } = await supabaseClient.auth.getSession()
           
           if (currentSession) {
             console.log('[SupabaseProvider] Session found:', currentSession.user.id)
@@ -57,7 +59,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
           } else {
             // User는 있지만 세션이 없는 경우 - 세션 새로고침 시도
             console.log('[SupabaseProvider] User exists but no session, refreshing...')
-            const { data: { session: refreshedSession } } = await supabase.auth.refreshSession()
+            const { data: { session: refreshedSession } } = await supabaseClient.auth.refreshSession()
             if (refreshedSession) {
               setSession(refreshedSession)
               setUser(refreshedSession.user)
@@ -86,7 +88,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
     // Auth 상태 변경 구독
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, currentSession) => {
+    } = supabaseClient.auth.onAuthStateChange(async (event, currentSession) => {
       console.log('[SupabaseProvider] Auth state changed:', event, currentSession?.user?.id)
       
       // 세션이 변경되면 강제로 상태 업데이트
@@ -100,10 +102,10 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
           console.log('[SupabaseProvider] User signed in, checking profile...')
           
           // 프로필 체크
-          const { data: profile, error: profileError } = await supabase
+          const { data: profile, error: profileError } = await supabaseClient
             .from('user_profiles')
             .select('*')
-            .eq('id', currentSession.user.id)
+            .eq('user_id', currentSession.user.id)
             .single()
           
           // PGRST116 = no rows returned (프로필이 없음)
@@ -116,12 +118,12 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
             console.log('[SupabaseProvider] No profile/nickname, redirecting to setup')
             // /profile/setup 페이지가 아닐 때만 리다이렉트
             if (!window.location.pathname.includes('/profile/setup')) {
-              router.push('/profile/setup')
+              routerRef.push('/profile/setup')
             }
           } else {
             console.log('[SupabaseProvider] Profile exists, refreshing UI')
             // 페이지 새로고침으로 UI 업데이트
-            router.refresh()
+            routerRef.refresh()
           }
         }
       } else if (event === 'SIGNED_OUT') {
@@ -129,7 +131,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
         setSession(null)
         setUser(null)
         setIsLoading(false)
-        router.refresh()
+        routerRef.refresh()
       } else {
         setSession(currentSession)
         setUser(currentSession?.user ?? null)
@@ -140,7 +142,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
     return () => {
       subscription.unsubscribe()
     }
-  }, [router, supabase])
+  }, [])
 
   const signIn = async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password })
