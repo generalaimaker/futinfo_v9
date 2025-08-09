@@ -6,102 +6,67 @@ import type {
   UserProfile,
   CreatePostData,
   CreateCommentData,
-  PaginatedResponse
+  PaginatedResponse 
 } from '@/lib/types/community'
 
 export class CommunityService {
-  // Get supabase client for each method call
-  private static getClient() {
-    return getSupabaseClient()
-  }
-
-  // Transform raw data from database
-  private static transformPost(post: any): CommunityPost {
-    return {
-      ...post,
-      author: post.author || post.user_profiles || null,
-      createdAt: post.created_at,
-      updatedAt: post.updated_at,
-      commentCount: post.comment_count || 0,
-      likeCount: post.like_count || 0,
-      viewCount: post.view_count || 0
-    }
-  }
-
-  private static transformComment(comment: any): CommunityComment {
-    return {
-      ...comment,
-      author: comment.author || comment.user_profiles || null,
-      createdAt: comment.created_at,
-      updatedAt: comment.updated_at
-    }
-  }
-
-  private static transformProfile(profile: any): UserProfile {
-    return {
-      ...profile,
-      createdAt: profile.created_at,
-      updatedAt: profile.updated_at
-    }
-  }
-
-  // Popular posts for homepage
+  // 인기글 가져오기
   static async getPopularPosts(options: { limit?: number } = {}): Promise<CommunityPost[]> {
-    const supabase = this.getClient()
-    const { limit = 3 } = options
+    const { limit = 10 } = options
     
     const { data, error } = await supabase
       .from('posts')
       .select(`
         *,
-        author:user_profiles(*)
+        author:user_profiles(*),
+        board:boards(*)
       `)
       .order('like_count', { ascending: false })
-      .order('created_at', { ascending: false })
+      .order('comment_count', { ascending: false })
       .limit(limit)
 
     if (error) throw error
+    
     return data?.map(this.transformPost) || []
   }
 
-  // Stats for homepage
+  // 24시간 통계
   static async getStats24Hours(): Promise<{ activeUsers: number; newPosts: number }> {
-    const supabase = this.getClient()
-    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+    const yesterday = new Date()
+    yesterday.setDate(yesterday.getDate() - 1)
     
-    const [postsResult, usersResult] = await Promise.all([
-      supabase
-        .from('posts')
-        .select('id', { count: 'exact' })
-        .gte('created_at', twentyFourHoursAgo),
-      supabase
-        .from('posts')
-        .select('author_id')
-        .gte('created_at', twentyFourHoursAgo)
-    ])
-
-    const uniqueUsers = new Set(usersResult.data?.map(p => p.author_id) || [])
+    // 새 게시글 수
+    const { count: newPosts } = await supabase
+      .from('posts')
+      .select('*', { count: 'exact', head: true })
+      .gte('created_at', yesterday.toISOString())
+    
+    // 활성 사용자 수 (게시글이나 댓글 작성한 유저)
+    const { data: activeUserIds } = await supabase
+      .from('posts')
+      .select('author_id')
+      .gte('created_at', yesterday.toISOString())
+    
+    const uniqueUsers = new Set(activeUserIds?.map(p => p.author_id) || [])
     
     return {
       activeUsers: uniqueUsers.size,
-      newPosts: postsResult.count || 0
+      newPosts: newPosts || 0
     }
   }
-
-  // Board operations
+  // Boards
   static async getBoards(): Promise<CommunityBoard[]> {
-    const supabase = this.getClient()
     const { data, error } = await supabase
       .from('boards')
       .select('*')
-      .order('display_order', { ascending: true })
+      .order('member_count', { ascending: false })
 
     if (error) throw error
-    return data || []
+    
+    return data.map(this.transformBoard)
   }
 
   static async getBoard(id: string): Promise<CommunityBoard | null> {
-    const supabase = this.getClient()
     const { data, error } = await supabase
       .from('boards')
       .select('*')
@@ -109,17 +74,17 @@ export class CommunityService {
       .single()
 
     if (error) throw error
-    return data
+    
+    return data ? this.transformBoard(data) : null
   }
 
-  // Post operations  
+  // Posts
   static async getPosts(
     boardId: string, 
     page = 1, 
     limit = 20,
     category?: string
   ): Promise<PaginatedResponse<CommunityPost>> {
-    const supabase = this.getClient()
     let query = supabase
       .from('posts')
       .select(`
@@ -127,9 +92,10 @@ export class CommunityService {
         author:user_profiles(*)
       `, { count: 'exact' })
       .eq('board_id', boardId)
+      .order('is_pinned', { ascending: false })
       .order('created_at', { ascending: false })
 
-    if (category && category !== '전체') {
+    if (category && category !== 'all') {
       query = query.eq('category', category)
     }
 
@@ -154,7 +120,6 @@ export class CommunityService {
   }
 
   static async getPost(id: string): Promise<CommunityPost | null> {
-    const supabase = this.getClient()
     const { data, error } = await supabase
       .from('posts')
       .select(`
@@ -170,7 +135,6 @@ export class CommunityService {
   }
 
   static async createPost(postData: CreatePostData): Promise<CommunityPost> {
-    const supabase = this.getClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) throw new Error('User not authenticated')
 
@@ -186,8 +150,13 @@ export class CommunityService {
     const { data, error } = await supabase
       .from('posts')
       .insert({
-        ...postData,
-        author_id: profile.id
+        board_id: postData.boardId,
+        author_id: profile.id,
+        title: postData.title,
+        content: postData.content,
+        category: postData.category,
+        tags: postData.tags,
+        image_urls: postData.imageUrls,
       })
       .select(`
         *,
@@ -195,13 +164,15 @@ export class CommunityService {
       `)
       .single()
 
-    if (error) throw error
+    if (error) {
+      console.error('Error creating post:', error)
+      throw new Error(`Failed to create post: ${error.message}`)
+    }
     
     return this.transformPost(data)
   }
 
   static async updatePost(id: string, updates: Partial<CreatePostData>): Promise<CommunityPost> {
-    const supabase = this.getClient()
     const { data, error } = await supabase
       .from('posts')
       .update({
@@ -221,7 +192,6 @@ export class CommunityService {
   }
 
   static async deletePost(id: string): Promise<void> {
-    const supabase = this.getClient()
     const { error } = await supabase
       .from('posts')
       .delete()
@@ -231,17 +201,15 @@ export class CommunityService {
   }
 
   static async incrementViewCount(postId: string): Promise<void> {
-    const supabase = this.getClient()
-    const { error } = await supabase.rpc('increment_view_count', {
+    const { error } = await supabase.rpc('increment_post_view_count', {
       post_id: postId
     })
 
-    if (error) throw error
+    if (error) console.error('Error incrementing view count:', error)
   }
 
-  // Comment operations
+  // Comments
   static async getComments(postId: string): Promise<CommunityComment[]> {
-    const supabase = this.getClient()
     const { data, error } = await supabase
       .from('comments')
       .select(`
@@ -257,7 +225,6 @@ export class CommunityService {
   }
 
   static async createComment(commentData: CreateCommentData): Promise<CommunityComment> {
-    const supabase = this.getClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) throw new Error('User not authenticated')
 
@@ -273,8 +240,10 @@ export class CommunityService {
     const { data, error } = await supabase
       .from('comments')
       .insert({
-        ...commentData,
-        author_id: profile.id
+        post_id: commentData.postId,
+        author_id: profile.id,
+        content: commentData.content,
+        parent_id: commentData.parentCommentId,
       })
       .select(`
         *,
@@ -282,14 +251,16 @@ export class CommunityService {
       `)
       .single()
 
-    if (error) throw error
+    if (error) {
+      console.error('Error creating comment:', error)
+      throw new Error(`Failed to create comment: ${error.message}`)
+    }
     
     return this.transformComment(data)
   }
 
-  // User profile operations
+  // User Profile
   static async getCurrentUserProfile(): Promise<UserProfile | null> {
-    const supabase = this.getClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return null
 
@@ -299,32 +270,12 @@ export class CommunityService {
       .eq('user_id', user.id)
       .single()
 
-    if (error) {
-      if (error.code === 'PGRST116') return null // No rows found
-      throw error
-    }
-    
-    return this.transformProfile(data)
-  }
-
-  static async getUserProfile(userId: string): Promise<UserProfile | null> {
-    const supabase = this.getClient()
-    const { data, error } = await supabase
-      .from('user_profiles')
-      .select('*')
-      .eq('user_id', userId)
-      .single()
-
-    if (error) {
-      if (error.code === 'PGRST116') return null
-      throw error
-    }
+    if (error) return null
     
     return this.transformProfile(data)
   }
 
   static async updateProfile(updates: Partial<UserProfile>): Promise<UserProfile> {
-    const supabase = this.getClient()
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     
     if (authError) {
@@ -387,28 +338,99 @@ export class CommunityService {
 
   // Realtime subscriptions
   static subscribeToBoard(boardId: string, callback: (payload: any) => void) {
-    const supabase = this.getClient()
     return supabase
-      .channel(`board-${boardId}`)
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'posts',
-        filter: `board_id=eq.${boardId}`
-      }, callback)
+      .channel(`board_${boardId}`)
+      .on('postgres_changes', 
+        { 
+          event: '*', 
+          schema: 'public', 
+          table: 'posts',
+          filter: `board_id=eq.${boardId}`
+        },
+        callback
+      )
       .subscribe()
   }
 
   static subscribeToPost(postId: string, callback: (payload: any) => void) {
-    const supabase = this.getClient()
     return supabase
-      .channel(`post-${postId}`)
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'comments',
-        filter: `post_id=eq.${postId}`
-      }, callback)
+      .channel(`post_${postId}`)
+      .on('postgres_changes', 
+        { 
+          event: '*', 
+          schema: 'public', 
+          table: 'comments',
+          filter: `post_id=eq.${postId}`
+        },
+        callback
+      )
       .subscribe()
+  }
+
+  // Transform functions
+  private static transformBoard(data: any): CommunityBoard {
+    return {
+      id: data.id,
+      type: data.type,
+      name: data.name,
+      teamId: data.team_id,
+      leagueId: data.league_id,
+      description: data.description,
+      iconUrl: data.icon_url,
+      postCount: data.post_count,
+      memberCount: data.member_count,
+    }
+  }
+
+  private static transformPost(data: any): CommunityPost {
+    return {
+      id: data.id,
+      boardId: data.board_id,
+      authorId: data.author_id,
+      author: data.author ? CommunityService.transformProfile(data.author) : undefined,
+      title: data.title,
+      content: data.content,
+      category: data.category,
+      tags: data.tags,
+      imageUrls: data.image_urls,
+      createdAt: new Date(data.created_at),
+      updatedAt: data.updated_at ? new Date(data.updated_at) : undefined,
+      viewCount: data.view_count,
+      likeCount: data.like_count,
+      commentCount: data.comment_count,
+      isPinned: data.is_pinned,
+      isNotice: data.is_notice,
+    }
+  }
+
+  private static transformComment(data: any): CommunityComment {
+    return {
+      id: data.id,
+      postId: data.post_id,
+      authorId: data.author_id,
+      author: CommunityService.transformProfile(data.author),
+      content: data.content,
+      createdAt: new Date(data.created_at),
+      updatedAt: new Date(data.updated_at),
+      likeCount: data.like_count,
+      parentCommentId: data.parent_id,
+    }
+  }
+
+  private static transformProfile(data: any): UserProfile {
+    return {
+      id: data.id,
+      userId: data.user_id,
+      nickname: data.nickname,
+      avatarUrl: data.avatar_url,
+      favoriteTeamId: data.favorite_team_id,
+      favoriteTeamName: data.favorite_team_name,
+      language: data.language,
+      createdAt: data.created_at ? new Date(data.created_at) : undefined,
+      updatedAt: data.updated_at ? new Date(data.updated_at) : undefined,
+      joinedAt: data.joined_at ? new Date(data.joined_at) : undefined,
+      postCount: data.post_count,
+      commentCount: data.comment_count,
+    }
   }
 }

@@ -81,11 +81,14 @@ export default function ProfileSetupPage() {
     setError(null)
 
     try {
+      console.log('[ProfileSetup] Updating profile for user:', user.id)
       await CommunityService.updateProfile({
         nickname: nickname.trim(),
         favoriteTeamId: selectedTeam?.id,
         favoriteTeamName: selectedTeam?.name
       })
+      
+      console.log('[ProfileSetup] Profile updated successfully')
       
       // 팀 게시판 자동 팔로우
       if (selectedTeam) {
@@ -94,6 +97,7 @@ export default function ProfileSetupPage() {
 
       router.push('/community')
     } catch (err) {
+      console.error('[ProfileSetup] Error updating profile:', err)
       setError(err instanceof Error ? err.message : '프로필 설정에 실패했습니다.')
     } finally {
       setIsLoading(false)
