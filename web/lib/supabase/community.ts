@@ -39,7 +39,13 @@ export class CommunityService {
 
   private static transformProfile(profile: any): UserProfile {
     return {
-      ...profile,
+      id: profile.id,
+      userId: profile.user_id,
+      email: profile.email,
+      nickname: profile.nickname,
+      avatarUrl: profile.avatar_url,
+      favoriteTeamId: profile.favorite_team_id,
+      favoriteTeamName: profile.favorite_team_name,
       createdAt: profile.created_at,
       updatedAt: profile.updated_at
     }
@@ -348,12 +354,19 @@ export class CommunityService {
 
     let data, error
 
+    // Convert camelCase to snake_case for database
+    const dbUpdates: any = {}
+    if (updates.nickname !== undefined) dbUpdates.nickname = updates.nickname
+    if (updates.avatarUrl !== undefined) dbUpdates.avatar_url = updates.avatarUrl
+    if (updates.favoriteTeamId !== undefined) dbUpdates.favorite_team_id = updates.favoriteTeamId
+    if (updates.favoriteTeamName !== undefined) dbUpdates.favorite_team_name = updates.favoriteTeamName
+
     if (existingProfile) {
       // 프로필이 있으면 업데이트
       const result = await supabase
         .from('user_profiles')
         .update({
-          ...updates,
+          ...dbUpdates,
           updated_at: new Date().toISOString()
         })
         .eq('user_id', user.id)
@@ -369,7 +382,7 @@ export class CommunityService {
         .insert({
           user_id: user.id,
           email: user.email,
-          ...updates,
+          ...dbUpdates,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         })

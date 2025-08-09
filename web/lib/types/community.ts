@@ -51,6 +51,7 @@ export interface CommunityComment {
 export interface UserProfile {
   id: string
   userId?: string // auth user ID
+  email?: string
   nickname: string
   avatarUrl?: string
   favoriteTeamId?: number
