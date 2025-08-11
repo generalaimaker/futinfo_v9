@@ -181,10 +181,6 @@ export default function CommunityPage() {
             {/* 글쓰기 버튼 */}
             <Button
               onClick={() => {
-                if (mainTab === 'myteam' && userFanLevel < FanLevel.VERIFIED) {
-                  alert('팀 게시판에 글을 쓰려면 팬 인증이 필요합니다.')
-                  return
-                }
                 router.push(`/community/boards/${mainTab === 'myteam' ? `team_${userTeamId}` : 'all'}/write`)
               }}
               className="bg-blue-600 hover:bg-blue-700"
@@ -459,32 +455,6 @@ export default function CommunityPage() {
               </TabsList>
 
               <TabsContent value="all" className="space-y-0">
-                {/* 팬 인증 상태 표시 */}
-                {mainTab === 'myteam' && userFanLevel === FanLevel.NONE && (
-                  <Card className="mb-4 bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">
-                    <CardContent className="p-6">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <Shield className="h-8 w-8 text-blue-600" />
-                          <div>
-                            <h3 className="font-bold text-lg">Chelsea 팬 인증이 필요합니다</h3>
-                            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                              팬 인증 후 글쓰기와 댓글 기능을 사용할 수 있습니다
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex gap-2">
-                          <Button variant="outline" size="sm">
-                            간단 인증 (Level 1)
-                          </Button>
-                          <Button className="bg-blue-600 hover:bg-blue-700" size="sm">
-                            정식 팬 인증 (Level 2)
-                          </Button>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
                 
                 {mainTab === 'matchday' && liveMatches.length > 0 && (
                   <Card className="mb-4 bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800">
