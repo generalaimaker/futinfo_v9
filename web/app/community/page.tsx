@@ -1185,6 +1185,7 @@ export default function CommunityPage() {
           user={user}
           router={router}
           isLoading={isMatchdayLoading}
+          setMainTab={setMainTab}
         />
       )}
 
@@ -1213,7 +1214,8 @@ function MatchdayContent({
   userTeamId, 
   user, 
   router,
-  isLoading 
+  isLoading,
+  setMainTab 
 }: any) {
   const [newMessage, setNewMessage] = useState('')
   const [h2hData, setH2hData] = useState<any[]>([])
