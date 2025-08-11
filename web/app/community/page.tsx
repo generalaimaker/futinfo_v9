@@ -308,7 +308,7 @@ export default function CommunityPage() {
                                   addSuffix: true, 
                                   locale: ko 
                                 })}
-                                {post.boardId.startsWith('team_') && ' · 팀 게시판'}
+                                {post.boardId && post.boardId.startsWith('team_') && ' · 팀 게시판'}
                               </p>
                             </div>
                           </Link>
