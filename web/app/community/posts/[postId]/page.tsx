@@ -65,7 +65,8 @@ export default function PostDetailPage() {
     try {
       const newComment = await CommunityService.createComment({
         postId,
-        content: commentContent.trim()
+        content: commentContent.trim(),
+        userId: user.id  // user ID 직접 전달
       }, supabase)
       setComments([...comments, newComment])
       setCommentContent('')

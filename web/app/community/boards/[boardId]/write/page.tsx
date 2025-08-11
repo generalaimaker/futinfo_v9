@@ -68,7 +68,8 @@ export default function WritePage() {
         content: content.trim(),
         tags: tags.length > 0 ? tags : undefined,
         category: 'general',
-        imageUrls: []
+        imageUrls: [],
+        userId: user.id  // user ID 직접 전달
       }, supabase)
 
       console.log('Post created successfully:', newPost)

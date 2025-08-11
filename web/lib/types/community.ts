@@ -80,6 +80,7 @@ export interface CreatePostData {
   category?: string
   tags?: string[]
   imageUrls?: string[]
+  userId?: string  // 직접 userId 전달 가능
 }
 
 export interface UpdatePostData {
@@ -94,6 +95,7 @@ export interface CreateCommentData {
   postId: string
   content: string
   parentCommentId?: string
+  userId?: string  // 직접 userId 전달 가능
 }
 
 // Realtime event types

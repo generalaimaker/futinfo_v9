@@ -176,49 +176,43 @@ export class CommunityService {
   }
 
   static async createPost(postData: CreatePostData, customClient?: any): Promise<CommunityPost> {
-    console.log('[CommunityService] createPost called with customClient:', !!customClient)
+    console.log('[CommunityService] createPost called with userId:', postData.userId)
     const supabase = customClient || this.getClient()
     
-    // 디버그: 클라이언트 정보 확인
-    console.log('[CommunityService] Using client:', customClient ? 'custom' : 'singleton')
+    let userId: string | undefined = postData.userId
     
-    // 먼저 세션 확인
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession()
-    console.log('[CommunityService] createPost - Session check:', !!session, sessionError)
-    console.log('[CommunityService] Session details:', session ? { userId: session.user.id, email: session.user.email } : 'no session')
-    
-    if (sessionError) {
-      console.error('[CommunityService] Session error:', sessionError)
-      throw new Error(`Session error: ${sessionError.message}`)
-    }
-    
-    let user = session?.user
-    
-    if (!user) {
-      console.error('[CommunityService] No session found, trying getUser')
-      // getUser를 fallback으로 시도
-      const { data: { user: fallbackUser }, error: userError } = await supabase.auth.getUser()
-      console.log('[CommunityService] getUser result:', fallbackUser ? fallbackUser.id : 'no user', userError)
+    // userId가 없으면 세션에서 가져오기 시도
+    if (!userId) {
+      console.log('[CommunityService] No userId provided, checking session')
       
-      if (!fallbackUser) {
-        // 최후의 수단: 쿠키 직접 확인
-        if (typeof document !== 'undefined') {
-          const cookies = document.cookie
-          console.log('[CommunityService] Document cookies:', cookies)
+      // 먼저 세션 확인
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+      console.log('[CommunityService] Session check:', !!session, sessionError)
+      
+      if (session?.user) {
+        userId = session.user.id
+        console.log('[CommunityService] Using userId from session:', userId)
+      } else {
+        // getUser를 fallback으로 시도
+        const { data: { user: fallbackUser } } = await supabase.auth.getUser()
+        if (fallbackUser) {
+          userId = fallbackUser.id
+          console.log('[CommunityService] Using userId from getUser:', userId)
         }
-        throw new Error('No active session found')
       }
-      console.log('[CommunityService] Using fallback user from getUser:', fallbackUser.id)
-      user = fallbackUser
-    } else {
-      console.log('[CommunityService] User from session:', user.id)
     }
+    
+    if (!userId) {
+      throw new Error('User not authenticated - no userId available')
+    }
+    
+    console.log('[CommunityService] Final userId:', userId)
 
     // Get the user's profile to use the correct profile ID
     const { data: profile } = await supabase
       .from('profiles')
       .select('id')
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .single()
 
     if (!profile) throw new Error('User profile not found')
@@ -308,35 +302,35 @@ export class CommunityService {
   static async createComment(commentData: CreateCommentData, customClient?: any): Promise<CommunityComment> {
     const supabase = customClient || this.getClient()
     
-    // 먼저 세션 확인
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession()
-    console.log('[CommunityService] createComment - Session check:', !!session, sessionError)
+    let userId: string | undefined = commentData.userId
     
-    if (sessionError) {
-      console.error('[CommunityService] Session error:', sessionError)
-      throw new Error(`Session error: ${sessionError.message}`)
+    // userId가 없으면 세션에서 가져오기 시도
+    if (!userId) {
+      console.log('[CommunityService] No userId provided, checking session')
+      
+      // 먼저 세션 확인
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+      
+      if (session?.user) {
+        userId = session.user.id
+      } else {
+        // getUser를 fallback으로 시도
+        const { data: { user: fallbackUser } } = await supabase.auth.getUser()
+        if (fallbackUser) {
+          userId = fallbackUser.id
+        }
+      }
     }
     
-    let user = session?.user
-    
-    if (!user) {
-      console.error('[CommunityService] No session found, trying getUser')
-      // getUser를 fallback으로 시도
-      const { data: { user: fallbackUser } } = await supabase.auth.getUser()
-      if (!fallbackUser) {
-        throw new Error('No active session found')
-      }
-      console.log('[CommunityService] Using fallback user from getUser:', fallbackUser.id)
-      user = fallbackUser
-    } else {
-      console.log('[CommunityService] User from session:', user.id)
+    if (!userId) {
+      throw new Error('User not authenticated - no userId available')
     }
 
     // Get the user's profile to use the correct profile ID
     const { data: profile } = await supabase
       .from('profiles')
       .select('id')
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .single()
 
     if (!profile) throw new Error('User profile not found')
