@@ -176,11 +176,16 @@ export class CommunityService {
   }
 
   static async createPost(postData: CreatePostData, customClient?: any): Promise<CommunityPost> {
+    console.log('[CommunityService] createPost called with customClient:', !!customClient)
     const supabase = customClient || this.getClient()
+    
+    // 디버그: 클라이언트 정보 확인
+    console.log('[CommunityService] Using client:', customClient ? 'custom' : 'singleton')
     
     // 먼저 세션 확인
     const { data: { session }, error: sessionError } = await supabase.auth.getSession()
     console.log('[CommunityService] createPost - Session check:', !!session, sessionError)
+    console.log('[CommunityService] Session details:', session ? { userId: session.user.id, email: session.user.email } : 'no session')
     
     if (sessionError) {
       console.error('[CommunityService] Session error:', sessionError)
@@ -192,8 +197,15 @@ export class CommunityService {
     if (!user) {
       console.error('[CommunityService] No session found, trying getUser')
       // getUser를 fallback으로 시도
-      const { data: { user: fallbackUser } } = await supabase.auth.getUser()
+      const { data: { user: fallbackUser }, error: userError } = await supabase.auth.getUser()
+      console.log('[CommunityService] getUser result:', fallbackUser ? fallbackUser.id : 'no user', userError)
+      
       if (!fallbackUser) {
+        // 최후의 수단: 쿠키 직접 확인
+        if (typeof document !== 'undefined') {
+          const cookies = document.cookie
+          console.log('[CommunityService] Document cookies:', cookies)
+        }
         throw new Error('No active session found')
       }
       console.log('[CommunityService] Using fallback user from getUser:', fallbackUser.id)

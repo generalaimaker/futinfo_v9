@@ -53,6 +53,14 @@ export default function WritePage() {
         category: 'general',
         imageUrls: []
       })
+      
+      // 디버그: supabase 인스턴스 확인
+      console.log('[WritePage] Supabase instance exists:', !!supabase)
+      console.log('[WritePage] User from context:', user?.id)
+      
+      // 세션 직접 확인
+      const { data: { session } } = await supabase.auth.getSession()
+      console.log('[WritePage] Direct session check:', !!session, session?.user?.id)
 
       const newPost = await CommunityService.createPost({
         boardId,
