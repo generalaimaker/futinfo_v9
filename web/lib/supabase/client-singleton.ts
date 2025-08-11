@@ -38,7 +38,36 @@ export function getSupabaseClient() {
 
   client = createBrowserClient(
     supabaseUrl,
-    supabaseAnonKey
+    supabaseAnonKey,
+    {
+      cookies: {
+        get(name: string) {
+          if (typeof document !== 'undefined') {
+            const cookies = document.cookie.split('; ')
+            const cookie = cookies.find(c => c.startsWith(`${name}=`))
+            return cookie ? decodeURIComponent(cookie.split('=')[1]) : undefined
+          }
+          return undefined
+        },
+        set(name: string, value: string, options?: any) {
+          if (typeof document !== 'undefined') {
+            let cookieString = `${name}=${encodeURIComponent(value)}`
+            if (options?.maxAge) {
+              cookieString += `; max-age=${options.maxAge}`
+            }
+            if (options?.path) {
+              cookieString += `; path=${options.path}`
+            }
+            document.cookie = cookieString
+          }
+        },
+        remove(name: string, options?: any) {
+          if (typeof document !== 'undefined') {
+            document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=${options?.path || '/'}`
+          }
+        }
+      }
+    }
   )
 
   // Store in window for true singleton
