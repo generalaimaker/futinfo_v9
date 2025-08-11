@@ -316,9 +316,16 @@ export default function LeaguePage() {
                                       // 단일 연도 리그는 현재 연도보다 작으면 종료됨
                                       return selectedSeason < currentYear ? " 🏆" : ""
                                     } else {
-                                      // 크로스 연도 리그는 현재 연도보다 작거나, 현재 연도이고 8월 이후면 종료됨
-                                      return selectedSeason < currentYear || 
-                                             (selectedSeason === currentYear && currentMonth >= 8) ? " 🏆" : ""
+                                      // 크로스 연도 리그 (예: 2024-25 시즌)
+                                      // 2024-25 시즌은 2025년 5-6월에 종료
+                                      // selectedSeason이 2024이고 현재가 2025년 6월 이후면 종료
+                                      // selectedSeason이 2023 이하면 무조건 종료
+                                      if (selectedSeason < currentYear - 1) {
+                                        return " 🏆" // 2년 이상 지난 시즌
+                                      } else if (selectedSeason === currentYear - 1 && currentMonth >= 6) {
+                                        return " 🏆" // 작년 시즌이고 6월 이후 (시즌 종료)
+                                      }
+                                      return "" // 현재 진행 중인 시즌
                                     }
                                   }
                                   return ""
