@@ -61,6 +61,9 @@ export default function WritePage() {
       const lines = content.trim().split('\n')
       const title = lines[0].substring(0, 100) || '제목 없음'
       
+      // 크로스 포스팅 옵션 확인
+      const shouldCrossPost = boardId.startsWith('team_') && window.confirm('이 게시글을 전체 게시판에도 공유하시겠습니까?')
+      
       const newPost = await CommunityService.createPost({
         boardId,
         title: title,
@@ -68,7 +71,9 @@ export default function WritePage() {
         tags: tags.length > 0 ? tags : undefined,
         category: 'general',
         imageUrls: uploadedImages,
-        userId: user.id
+        userId: user.id,
+        crossPost: shouldCrossPost,
+        visibility: privacy === 'team' ? 'team_only' : 'public'
       }, supabase)
 
       // 게시판으로 리다이렉트

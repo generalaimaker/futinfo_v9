@@ -23,6 +23,7 @@ import { FootballAPIService } from '@/lib/supabase/football'
 import { formatDistanceToNow } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import { cn } from '@/lib/utils'
+import { FanLevel, PostVisibility } from '@/lib/types/community'
 
 // 인기 팀 데이터
 const popularTeams = [
@@ -64,6 +65,10 @@ export default function CommunityPage() {
   const [liveMatches, setLiveMatches] = useState<any[]>([])
   const [searchQuery, setSearchQuery] = useState('')
   const [activeTab, setActiveTab] = useState('all')
+  const [mainTab, setMainTab] = useState<'all' | 'myteam' | 'rival' | 'matchday'>('all')
+  const [userFanLevel, setUserFanLevel] = useState<FanLevel>(FanLevel.NONE)
+  const [userTeamId, setUserTeamId] = useState<number | null>(49) // 기본값 Chelsea
+  const [rivalTeamId, setRivalTeamId] = useState<number | null>(47) // Tottenham as default rival
   
   useEffect(() => {
     loadCommunityData()
@@ -114,74 +119,173 @@ export default function CommunityPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white dark:from-gray-900 dark:to-gray-800">
-      {/* Hero Section - 개선된 디자인 */}
-      <div className="relative overflow-hidden bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 text-white">
-        <div className="absolute inset-0 bg-black/20" />
-        <div className="relative container mx-auto px-4 py-8 lg:py-12">
-          <div className="flex flex-col lg:flex-row items-center justify-between gap-8">
-            <div className="flex-1">
-              <h1 className="text-3xl lg:text-4xl font-bold mb-3 animate-fadeInUp">
-                FutInfo 커뮤니티
-              </h1>
-              <p className="text-lg text-white/90 mb-4">
-                전 세계 축구 팬들과 함께 열정을 나누세요
-              </p>
-              <div className="flex flex-wrap gap-4">
-                <Button 
-                  size="lg" 
-                  className="bg-white text-blue-600 hover:bg-gray-100"
-                  onClick={() => router.push('/community/boards/all/write')}
-                >
-                  <Plus className="mr-2 h-5 w-5" />
-                  글쓰기
-                </Button>
-                <Button 
-                  size="lg" 
-                  variant="outline" 
-                  className="text-white border-white hover:bg-white/10"
-                >
-                  <Search className="mr-2 h-5 w-5" />
-                  토론 검색
-                </Button>
-              </div>
+      {/* 상단 탭 네비게이션 - 주요 구분 */}
+      <div className="bg-white dark:bg-gray-900 border-b dark:border-gray-800 sticky top-0 z-50">
+        <div className="container mx-auto px-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 overflow-x-auto">
+              <button
+                onClick={() => setMainTab('all')}
+                className={cn(
+                  "px-6 py-4 font-semibold border-b-2 transition-all whitespace-nowrap",
+                  mainTab === 'all'
+                    ? "text-blue-600 border-blue-600"
+                    : "text-gray-600 border-transparent hover:text-gray-900"
+                )}
+              >
+                <span className="flex items-center gap-2">
+                  <Globe className="h-5 w-5" />
+                  전체
+                </span>
+              </button>
+              <button
+                onClick={() => setMainTab('myteam')}
+                className={cn(
+                  "px-6 py-4 font-semibold border-b-2 transition-all whitespace-nowrap",
+                  mainTab === 'myteam'
+                    ? "text-blue-600 border-blue-600"
+                    : "text-gray-600 border-transparent hover:text-gray-900"
+                )}
+              >
+                <span className="flex items-center gap-2">
+                  <Heart className="h-5 w-5" />
+                  내 팀
+                  {userTeamId === 49 && <span className="text-xs bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full">Chelsea</span>}
+                </span>
+              </button>
+              <button
+                onClick={() => setMainTab('rival')}
+                className={cn(
+                  "px-6 py-4 font-semibold border-b-2 transition-all whitespace-nowrap",
+                  mainTab === 'rival'
+                    ? "text-red-600 border-red-600"
+                    : "text-gray-600 border-transparent hover:text-gray-900"
+                )}
+              >
+                <span className="flex items-center gap-2">
+                  <Flame className="h-5 w-5" />
+                  라이벌
+                </span>
+              </button>
+              <button
+                onClick={() => setMainTab('matchday')}
+                className={cn(
+                  "px-6 py-4 font-semibold border-b-2 transition-all whitespace-nowrap",
+                  mainTab === 'matchday'
+                    ? "text-green-600 border-green-600"
+                    : "text-gray-600 border-transparent hover:text-gray-900"
+                )}
+              >
+                <span className="flex items-center gap-2">
+                  <Activity className="h-5 w-5" />
+                  매치데이
+                  {liveMatches.length > 0 && (
+                    <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+                  )}
+                </span>
+              </button>
             </div>
             
-            {/* 오늘의 HOT 토픽 */}
-            <Card className="bg-white/10 backdrop-blur-md border-white/20 text-white lg:w-96">
-              <CardHeader className="pb-3">
-                <div className="flex items-center gap-2">
-                  <Flame className="h-5 w-5 text-orange-400" />
-                  <CardTitle className="text-lg">오늘의 HOT 토픽</CardTitle>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="p-3 bg-white/10 rounded-lg hover:bg-white/20 transition-colors cursor-pointer">
-                  <p className="font-semibold mb-1">손흥민 2골 폭발!</p>
-                  <div className="flex items-center gap-4 text-sm text-white/80">
-                    <span className="flex items-center gap-1">
-                      <Eye className="h-3 w-3" /> 12.3K
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <MessageSquare className="h-3 w-3" /> 342
-                    </span>
-                  </div>
-                </div>
-                <div className="p-3 bg-white/10 rounded-lg hover:bg-white/20 transition-colors cursor-pointer">
-                  <p className="font-semibold mb-1">첼시 vs 맨유 빅매치 프리뷰</p>
-                  <div className="flex items-center gap-4 text-sm text-white/80">
-                    <span className="flex items-center gap-1">
-                      <Eye className="h-3 w-3" /> 8.7K
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <MessageSquare className="h-3 w-3" /> 256
-                    </span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            {/* 글쓰기 버튼 */}
+            <Button
+              onClick={() => {
+                if (mainTab === 'myteam' && userFanLevel < FanLevel.VERIFIED) {
+                  alert('팀 게시판에 글을 쓰려면 팬 인증이 필요합니다.')
+                  return
+                }
+                router.push(`/community/boards/${mainTab === 'myteam' ? `team_${userTeamId}` : 'all'}/write`)
+              }}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              글쓰기
+            </Button>
           </div>
         </div>
       </div>
+
+      {/* Hero Section - 조건부 렌더링 */}
+      {mainTab === 'all' && (
+        <div className="relative overflow-hidden bg-gradient-to-r from-gray-600 via-gray-700 to-gray-800 text-white">
+          <div className="absolute inset-0 bg-black/20" />
+          <div className="relative container mx-auto px-4 py-6">
+            <div className="text-center">
+              <h1 className="text-2xl lg:text-3xl font-bold mb-2">
+                🌍 전체 게시판
+              </h1>
+              <p className="text-sm text-white/80">
+                모든 축구 팬들이 함께 소통하는 공간
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {mainTab === 'myteam' && (
+        <div className="relative overflow-hidden bg-gradient-to-r from-blue-600 via-blue-700 to-blue-800 text-white">
+          <div className="absolute inset-0 bg-black/20" />
+          <div className="relative container mx-auto px-4 py-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <Image
+                  src={`https://media.api-sports.io/football/teams/${userTeamId}.png`}
+                  alt="Team Logo"
+                  width={60}
+                  height={60}
+                  className="bg-white rounded-full p-2"
+                />
+                <div>
+                  <h1 className="text-2xl lg:text-3xl font-bold mb-1">
+                    💙 Chelsea 팬 게시판
+                  </h1>
+                  <p className="text-sm text-white/80">
+                    우리만의 특별한 공간 #KTBFFH
+                  </p>
+                </div>
+              </div>
+              {userFanLevel >= FanLevel.VIP && (
+                <Badge className="bg-yellow-500 text-black">
+                  👑 VIP FAN
+                </Badge>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {mainTab === 'rival' && (
+        <div className="relative overflow-hidden bg-gradient-to-r from-red-600 via-orange-600 to-red-700 text-white">
+          <div className="absolute inset-0 bg-black/20" />
+          <div className="relative container mx-auto px-4 py-6">
+            <div className="text-center">
+              <h1 className="text-2xl lg:text-3xl font-bold mb-2">
+                🔥 라이벌 대결
+              </h1>
+              <p className="text-sm text-white/80">
+                Chelsea vs Tottenham - 건전한 경쟁이 시작됩니다
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {mainTab === 'matchday' && (
+        <div className="relative overflow-hidden bg-gradient-to-r from-green-600 via-emerald-600 to-green-700 text-white">
+          <div className="absolute inset-0 bg-black/20" />
+          <div className="relative container mx-auto px-4 py-6">
+            <div className="text-center">
+              <h1 className="text-2xl lg:text-3xl font-bold mb-2 flex items-center justify-center gap-2">
+                ⚽ 매치데이 모드
+                {liveMatches.length > 0 && <span className="text-xs bg-red-500 px-2 py-1 rounded-full animate-pulse">LIVE</span>}
+              </h1>
+              <p className="text-sm text-white/80">
+                실시간 경기 토론과 응원
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+            
 
       {/* 3단 레이아웃 */}
       <div className="container mx-auto px-4 py-8">
@@ -396,6 +500,55 @@ export default function CommunityPage() {
               </TabsList>
 
               <TabsContent value="all" className="space-y-0">
+                {/* 팬 인증 상태 표시 */}
+                {mainTab === 'myteam' && userFanLevel === FanLevel.NONE && (
+                  <Card className="mb-4 bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">
+                    <CardContent className="p-6">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <Shield className="h-8 w-8 text-blue-600" />
+                          <div>
+                            <h3 className="font-bold text-lg">Chelsea 팬 인증이 필요합니다</h3>
+                            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                              팬 인증 후 글쓰기와 댓글 기능을 사용할 수 있습니다
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button variant="outline" size="sm">
+                            간단 인증 (Level 1)
+                          </Button>
+                          <Button className="bg-blue-600 hover:bg-blue-700" size="sm">
+                            정식 팬 인증 (Level 2)
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+                
+                {mainTab === 'matchday' && liveMatches.length > 0 && (
+                  <Card className="mb-4 bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800">
+                    <CardContent className="p-6">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h3 className="font-bold text-lg flex items-center gap-2">
+                            <Activity className="h-5 w-5 text-green-600" />
+                            실시간 매치 스레드 활성화!
+                          </h3>
+                          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                            {liveMatches.length}개의 경기가 진행 중입니다. 실시간으로 함께 응원해요!
+                          </p>
+                        </div>
+                        <Button className="bg-green-600 hover:bg-green-700">
+                          <MessagesSquare className="h-4 w-4 mr-2" />
+                          라이브 채팅 참여
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
                 {/* 주요 CTA 섹션 */}
                 {posts.length === 0 && (
                   <Card className="mb-6 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 border-blue-200 dark:border-blue-800">
