@@ -523,24 +523,46 @@ export default function CommunityPage() {
                   )}
                 </div>
 
-                {/* Champions League */}
+                {/* Ligue 1 */}
                 <div className="border rounded-lg overflow-hidden">
                   <button
-                    onClick={() => setSelectedLeague(selectedLeague === 2 ? null : 2)}
+                    onClick={() => setSelectedLeague(selectedLeague === 61 ? null : 61)}
                     className="w-full flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                   >
                     <div className="flex items-center gap-3">
-                      <span className="text-xl">⭐</span>
-                      <span className="font-medium">Champions League</span>
+                      <span className="text-xl">🇫🇷</span>
+                      <span className="font-medium">Ligue 1</span>
                     </div>
                     <ChevronRight className={cn(
                       "h-4 w-4 transition-transform",
-                      selectedLeague === 2 ? "rotate-90" : ""
+                      selectedLeague === 61 ? "rotate-90" : ""
                     )} />
                   </button>
-                  {selectedLeague === 2 && (
-                    <div className="p-2 text-center text-sm text-gray-500">
-                      참가 팀들을 확인하려면 리그별 게시판을 방문하세요
+                  {selectedLeague === 61 && (
+                    <div className="p-2 space-y-1 border-t">
+                      {[85, 81, 91].map(teamId => {
+                        const team = popularTeams.find(t => t.id === teamId)
+                        if (!team) return null
+                        return (
+                          <Link
+                            key={team.id}
+                            href={`/community/boards/team_${team.id}`}
+                            className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                          >
+                            <Image
+                              src={team.logo}
+                              alt={team.name}
+                              width={20}
+                              height={20}
+                              className="object-contain"
+                            />
+                            <span className="text-sm flex-1">{team.name}</span>
+                            <Badge variant="secondary" className="text-xs">
+                              {team.memberCount.toLocaleString()}
+                            </Badge>
+                          </Link>
+                        )
+                      })}
                     </div>
                   )}
                 </div>
