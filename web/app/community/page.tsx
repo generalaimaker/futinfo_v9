@@ -127,10 +127,16 @@ export default function CommunityPage() {
   const [matchdayPosts, setMatchdayPosts] = useState<CommunityPost[]>([])
   const [chatMessages, setChatMessages] = useState<any[]>([])
   const [matchdayTab, setMatchdayTab] = useState<'match' | 'board' | 'chat'>('match')
+  const [isMatchdayLoading, setIsMatchdayLoading] = useState(true)
   
   useEffect(() => {
     loadCommunityData()
     loadLiveMatches()
+    // 매치데이 데이터 미리 로드
+    if (userTeamId) {
+      setIsMatchdayLoading(true)
+      loadMatchdayData().finally(() => setIsMatchdayLoading(false))
+    }
   }, [])
 
   const loadCommunityData = async (boardId?: string) => {
@@ -179,8 +185,8 @@ export default function CommunityPage() {
   }
 
   const loadMatchdayData = async () => {
+    // 로딩 상태를 유지하면서 데이터 로드
     try {
-      setIsLoading(true)
       const service = new FootballAPIService()
       const today = new Date().toISOString().split('T')[0]
       
@@ -190,16 +196,22 @@ export default function CommunityPage() {
         team: userTeamId || 49
       })
 
+      let matchFound = false
+      
       if (todayFixtures?.response?.length > 0) {
         const match = todayFixtures.response[0]
         if (['LIVE', '1H', '2H', 'HT'].includes(match.fixture.status.short)) {
           setCurrentMatch(match)
           setUpcomingMatch(null)
+          matchFound = true
         } else if (['NS', 'TBD'].includes(match.fixture.status.short)) {
           setUpcomingMatch(match)
           setCurrentMatch(null)
+          matchFound = true
         }
-      } else {
+      }
+      
+      if (!matchFound) {
         // 다음 경기 확인
         const nextFixtures = await service.getFixtures({
           team: userTeamId || 49,
@@ -207,6 +219,7 @@ export default function CommunityPage() {
         })
         if (nextFixtures?.response?.length > 0) {
           setUpcomingMatch(nextFixtures.response[0])
+          setCurrentMatch(null)
         }
       }
 
@@ -221,7 +234,8 @@ export default function CommunityPage() {
     } catch (error) {
       console.error('Error loading matchday data:', error)
     } finally {
-      setIsLoading(false)
+      // 로딩 상태는 별도로 관리
+      setTimeout(() => setIsLoading(false), 300) // 최소 로딩 시간 보장
     }
   }
 
@@ -270,7 +284,10 @@ export default function CommunityPage() {
               <button
                 onClick={() => {
                   setMainTab('matchday')
-                  loadMatchdayData()
+                  if (!currentMatch && !upcomingMatch) {
+                    setIsMatchdayLoading(true)
+                    loadMatchdayData().finally(() => setIsMatchdayLoading(false))
+                  }
                 }}
                 className={cn(
                   "px-6 py-4 font-semibold border-b-2 transition-all whitespace-nowrap",
@@ -730,7 +747,7 @@ export default function CommunityPage() {
                       <div className="p-4">
                         {/* 헤더 - 프로필 & 더보기 */}
                         <div className="flex items-center justify-between mb-3">
-                          <Link href={`/profile/${post.author?.id}`} className="flex items-center gap-3 group">
+                          <div className="flex items-center gap-3 group cursor-pointer">
                             <div className="relative">
                               <div className="w-10 h-10 bg-gradient-to-br from-pink-500 via-red-500 to-yellow-500 rounded-full p-0.5 group-hover:scale-110 transition-transform">
                                 <div className="w-full h-full bg-white dark:bg-gray-900 rounded-full p-0.5">
@@ -759,7 +776,7 @@ export default function CommunityPage() {
                                 {post.boardId && post.boardId.startsWith('team_') && ' · 팀 게시판'}
                               </p>
                             </div>
-                          </Link>
+                          </div>
                           <button className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors">
                             <MoreHorizontal className="h-5 w-5 text-gray-600 dark:text-gray-400" />
                           </button>
@@ -802,13 +819,12 @@ export default function CommunityPage() {
                             {post.tags && post.tags.length > 0 && (
                               <div className="flex flex-wrap gap-2">
                                 {post.tags.map((tag, idx) => (
-                                  <Link 
+                                  <span 
                                     key={idx}
-                                    href={`/community/tags/${tag}`}
-                                    className="text-blue-600 dark:text-blue-400 hover:underline text-sm"
+                                    className="text-blue-600 dark:text-blue-400 text-sm cursor-pointer hover:underline"
                                   >
                                     #{tag}
-                                  </Link>
+                                  </span>
                                 ))}
                               </div>
                             )}
@@ -1168,6 +1184,7 @@ export default function CommunityPage() {
           userTeamId={userTeamId || 49}
           user={user}
           router={router}
+          isLoading={isMatchdayLoading}
         />
       )}
 
@@ -1195,7 +1212,8 @@ function MatchdayContent({
   setMatchdayTab, 
   userTeamId, 
   user, 
-  router 
+  router,
+  isLoading 
 }: any) {
   const [newMessage, setNewMessage] = useState('')
   const [h2hData, setH2hData] = useState<any[]>([])
@@ -1265,21 +1283,80 @@ function MatchdayContent({
     setNewMessage('')
   }
 
+  // 로딩 중일 때 스켈레톤 UI
+  if (isLoading || (isLoadingH2H && !currentMatch)) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white dark:from-gray-900 dark:to-gray-800">
+        <div className="container mx-auto px-4 py-6">
+          {/* 스켈레톤 메인 카드 */}
+          <Card className="mb-6 overflow-hidden shadow-2xl border-0">
+            <div className="bg-gradient-to-br from-gray-200 to-gray-300 dark:from-gray-700 dark:to-gray-800 animate-pulse">
+              <div className="relative p-8">
+                <div className="text-center mb-8">
+                  <div className="inline-flex flex-col items-center p-6">
+                    <div className="h-6 w-32 bg-gray-300 dark:bg-gray-600 rounded mb-3" />
+                    <div className="h-12 w-24 bg-gray-300 dark:bg-gray-600 rounded mb-3" />
+                    <div className="h-4 w-48 bg-gray-300 dark:bg-gray-600 rounded" />
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-3 items-center gap-8">
+                  <div className="text-center">
+                    <div className="w-24 h-24 bg-gray-300 dark:bg-gray-600 rounded-full mx-auto mb-3" />
+                    <div className="h-5 w-20 bg-gray-300 dark:bg-gray-600 rounded mx-auto" />
+                  </div>
+                  <div className="text-center">
+                    <div className="h-10 w-16 bg-gray-300 dark:bg-gray-600 rounded mx-auto" />
+                  </div>
+                  <div className="text-center">
+                    <div className="w-24 h-24 bg-gray-300 dark:bg-gray-600 rounded-full mx-auto mb-3" />
+                    <div className="h-5 w-20 bg-gray-300 dark:bg-gray-600 rounded mx-auto" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </Card>
+          
+          <div className="text-center">
+            <p className="text-gray-500">경기 정보를 불러오는 중...</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+  
   if (!currentMatch) {
     return (
-      <div className="container mx-auto px-4 py-12">
-        <Card className="max-w-2xl mx-auto">
-          <CardContent className="py-12 text-center">
-            <Trophy className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-            <h2 className="text-2xl font-bold mb-2">오늘은 경기가 없습니다</h2>
-            <p className="text-gray-600 dark:text-gray-400 mb-6">
-              다음 경기 일정을 확인해보세요
-            </p>
-            <Button onClick={() => router.push('/fixtures')}>
-              경기 일정 보기
-            </Button>
-          </CardContent>
-        </Card>
+      <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white dark:from-gray-900 dark:to-gray-800">
+        <div className="container mx-auto px-4 py-12">
+          <Card className="max-w-2xl mx-auto border-0 shadow-xl">
+            <CardContent className="py-16 text-center">
+              <div className="mb-6">
+                <Trophy className="h-20 w-20 text-gray-300 mx-auto mb-4" />
+                <h2 className="text-3xl font-bold mb-2">현재 예정된 경기가 없습니다</h2>
+                <p className="text-gray-600 dark:text-gray-400 text-lg">
+                  다음 경기 일정을 확인해보세요
+                </p>
+              </div>
+              <div className="flex gap-3 justify-center">
+                <Button 
+                  onClick={() => router.push('/fixtures')}
+                  className="bg-blue-600 hover:bg-blue-700"
+                >
+                  <Trophy className="h-4 w-4 mr-2" />
+                  경기 일정 보기
+                </Button>
+                <Button 
+                  onClick={() => setMainTab('all')}
+                  variant="outline"
+                >
+                  <Globe className="h-4 w-4 mr-2" />
+                  전체 게시판으로
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     )
   }
