@@ -8,7 +8,8 @@ import {
   Users, MessageSquare, TrendingUp, Crown, Shield, Heart,
   ArrowRight, Sparkles, Trophy, Zap, Star, Flame, Clock,
   ChevronRight, BarChart3, Hash, Plus, Search, Filter,
-  Eye, ThumbsUp, Bookmark, Share2, MessagesSquare, Activity
+  Eye, ThumbsUp, Bookmark, Share2, MessagesSquare, Activity,
+  MoreHorizontal, Send, Repeat2
 } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -273,79 +274,150 @@ export default function CommunityPage() {
                 <TabsTrigger value="transfer">이적</TabsTrigger>
               </TabsList>
 
-              <TabsContent value="all" className="space-y-4">
+              <TabsContent value="all" className="space-y-0">
                 {posts.length > 0 ? (
                   posts.map((post) => (
-                    <Card key={post.id} className="hover:shadow-lg transition-shadow cursor-pointer">
-                      <CardContent className="p-6">
+                    <article key={post.id} className="bg-white dark:bg-gray-900 border-b dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+                      {/* 인스타그램 스타일 카드 */}
+                      <div className="p-4">
+                        {/* 헤더 - 프로필 & 더보기 */}
+                        <div className="flex items-center justify-between mb-3">
+                          <Link href={`/profile/${post.author?.id}`} className="flex items-center gap-3">
+                            <div className="relative">
+                              <div className="w-10 h-10 bg-gradient-to-br from-pink-500 via-red-500 to-yellow-500 rounded-full p-0.5">
+                                <div className="w-full h-full bg-white dark:bg-gray-900 rounded-full p-0.5">
+                                  <div className="w-full h-full bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-sm">
+                                    {post.author?.nickname?.charAt(0) || 'U'}
+                                  </div>
+                                </div>
+                              </div>
+                              {/* 온라인 상태 표시 */}
+                              <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white dark:border-gray-900" />
+                            </div>
+                            <div>
+                              <p className="font-semibold text-sm dark:text-white">
+                                {post.author?.nickname || '익명'}
+                                {post.author?.favoriteTeamId && (
+                                  <span className="ml-2 text-xs text-blue-600 dark:text-blue-400">
+                                    ⚽ Team {post.author.favoriteTeamId}
+                                  </span>
+                                )}
+                              </p>
+                              <p className="text-xs text-gray-500 dark:text-gray-400">
+                                {formatDistanceToNow(new Date(post.createdAt), { 
+                                  addSuffix: true, 
+                                  locale: ko 
+                                })}
+                                {post.boardId.startsWith('team_') && ' · 팀 게시판'}
+                              </p>
+                            </div>
+                          </Link>
+                          <button className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors">
+                            <MoreHorizontal className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                          </button>
+                        </div>
+
+                        {/* 콘텐츠 */}
                         <Link href={`/community/posts/${post.id}`}>
-                          <div className="space-y-4">
-                            {/* 작성자 정보 */}
-                            <div className="flex items-center gap-3">
-                              <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-bold">
-                                {post.author?.nickname?.charAt(0) || 'U'}
+                          <div className="space-y-3">
+                            {/* 이미지가 있다면 표시 */}
+                            {post.imageUrls && post.imageUrls.length > 0 && (
+                              <div className="relative -mx-4 aspect-square max-h-[500px] bg-gray-100 dark:bg-gray-800">
+                                <img 
+                                  src={post.imageUrls[0]} 
+                                  alt="Post image"
+                                  className="w-full h-full object-cover"
+                                />
+                                {post.imageUrls.length > 1 && (
+                                  <div className="absolute top-2 right-2 bg-black/60 text-white text-xs px-2 py-1 rounded-lg">
+                                    +{post.imageUrls.length - 1}
+                                  </div>
+                                )}
                               </div>
-                              <div className="flex-1">
-                                <p className="font-semibold">{post.author?.nickname || '익명'}</p>
-                                <p className="text-sm text-gray-500">
-                                  {formatDistanceToNow(new Date(post.createdAt), { 
-                                    addSuffix: true, 
-                                    locale: ko 
-                                  })}
-                                </p>
-                              </div>
-                              {post.category && (
-                                <Badge variant="outline">{post.category}</Badge>
+                            )}
+                            
+                            {/* 텍스트 콘텐츠 */}
+                            <div>
+                              <p className="text-gray-900 dark:text-white whitespace-pre-wrap">
+                                {post.content.length > 200 
+                                  ? `${post.content.substring(0, 200)}...` 
+                                  : post.content}
+                              </p>
+                              {post.content.length > 200 && (
+                                <button className="text-gray-500 dark:text-gray-400 text-sm mt-1">
+                                  더 보기
+                                </button>
                               )}
                             </div>
 
-                            {/* 게시글 내용 */}
-                            <div>
-                              <h3 className="text-xl font-bold mb-2 hover:text-blue-600 transition-colors">
-                                {post.title}
-                              </h3>
-                              <p className="text-gray-600 dark:text-gray-300 line-clamp-2">
-                                {post.content}
-                              </p>
-                            </div>
-
-                            {/* 태그 */}
+                            {/* 해시태그 */}
                             {post.tags && post.tags.length > 0 && (
                               <div className="flex flex-wrap gap-2">
                                 {post.tags.map((tag, idx) => (
-                                  <Badge key={idx} variant="secondary" className="text-xs">
+                                  <Link 
+                                    key={idx}
+                                    href={`/community/tags/${tag}`}
+                                    className="text-blue-600 dark:text-blue-400 hover:underline text-sm"
+                                  >
                                     #{tag}
-                                  </Badge>
+                                  </Link>
                                 ))}
                               </div>
                             )}
-
-                            {/* 상호작용 바 */}
-                            <div className="flex items-center gap-6 pt-3 border-t">
-                              <button className="flex items-center gap-2 text-gray-500 hover:text-blue-600 transition-colors">
-                                <ThumbsUp className="h-4 w-4" />
-                                <span className="text-sm">{post.likeCount}</span>
-                              </button>
-                              <button className="flex items-center gap-2 text-gray-500 hover:text-blue-600 transition-colors">
-                                <MessageSquare className="h-4 w-4" />
-                                <span className="text-sm">{post.commentCount}</span>
-                              </button>
-                              <button className="flex items-center gap-2 text-gray-500 hover:text-blue-600 transition-colors">
-                                <Eye className="h-4 w-4" />
-                                <span className="text-sm">{post.viewCount}</span>
-                              </button>
-                              <div className="flex-1" />
-                              <button className="text-gray-500 hover:text-blue-600 transition-colors">
-                                <Bookmark className="h-4 w-4" />
-                              </button>
-                              <button className="text-gray-500 hover:text-blue-600 transition-colors">
-                                <Share2 className="h-4 w-4" />
-                              </button>
-                            </div>
                           </div>
                         </Link>
-                      </CardContent>
-                    </Card>
+
+                        {/* 액션 버튼 - 인스타그램 스타일 */}
+                        <div className="mt-4">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-4">
+                              <button className="group flex items-center gap-1.5 transition-transform hover:scale-110">
+                                <Heart className="h-6 w-6 text-gray-700 dark:text-gray-300 group-hover:text-red-500 transition-colors" />
+                                <span className="text-sm font-semibold dark:text-gray-300">
+                                  {post.likeCount > 0 && post.likeCount}
+                                </span>
+                              </button>
+                              <button className="group flex items-center gap-1.5 transition-transform hover:scale-110">
+                                <MessageSquare className="h-6 w-6 text-gray-700 dark:text-gray-300 group-hover:text-blue-500 transition-colors" />
+                                <span className="text-sm font-semibold dark:text-gray-300">
+                                  {post.commentCount > 0 && post.commentCount}
+                                </span>
+                              </button>
+                              <button className="group transition-transform hover:scale-110">
+                                <Send className="h-6 w-6 text-gray-700 dark:text-gray-300 group-hover:text-blue-500 transition-colors -rotate-12" />
+                              </button>
+                            </div>
+                            <button className="group transition-transform hover:scale-110">
+                              <Bookmark className="h-6 w-6 text-gray-700 dark:text-gray-300 group-hover:text-yellow-500 transition-colors" />
+                            </button>
+                          </div>
+                          
+                          {/* 좋아요 & 조회수 정보 */}
+                          {(post.likeCount > 0 || post.viewCount > 0) && (
+                            <div className="mt-3 text-sm">
+                              {post.likeCount > 0 && (
+                                <p className="font-semibold dark:text-white">
+                                  좋아요 {post.likeCount.toLocaleString()}개
+                                </p>
+                              )}
+                              <p className="text-gray-500 dark:text-gray-400 text-xs mt-1">
+                                조회 {post.viewCount.toLocaleString()}회
+                              </p>
+                            </div>
+                          )}
+                          
+                          {/* 댓글 미리보기 */}
+                          {post.commentCount > 0 && (
+                            <Link 
+                              href={`/community/posts/${post.id}`}
+                              className="text-gray-500 dark:text-gray-400 text-sm mt-2 block hover:text-gray-700 dark:hover:text-gray-300"
+                            >
+                              댓글 {post.commentCount}개 모두 보기
+                            </Link>
+                          )}
+                        </div>
+                      </div>
+                    </article>
                   ))
                 ) : (
                   <Card>

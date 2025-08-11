@@ -1,11 +1,13 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
 import { 
-  ArrowLeft, Type, Hash, Bold, Italic, List, 
-  Image as ImageIcon, Send, Loader2, AlertCircle 
+  ArrowLeft, Camera, Hash, X, 
+  Image as ImageIcon, Send, Loader2, AlertCircle,
+  Smile, MapPin, Users, AtSign, Globe,
+  Sparkles, TrendingUp, Heart, ChevronRight
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -13,6 +15,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { useSupabase } from '@/lib/supabase/provider'
 import { CommunityService } from '@/lib/supabase/community'
+import Image from 'next/image'
 
 export default function WritePage() {
   const router = useRouter()
@@ -20,15 +23,24 @@ export default function WritePage() {
   const boardId = params.boardId as string
   const { user, supabase } = useSupabase()
   
-  const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
   const [tags, setTags] = useState<string[]>([])
   const [tagInput, setTagInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-
-  // 에디터 도구 상태
-  const [selectedText, setSelectedText] = useState('')
+  const [uploadedImages, setUploadedImages] = useState<string[]>([])
+  const [imagePreview, setImagePreview] = useState<string | null>(null)
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false)
+  const [privacy, setPrivacy] = useState<'public' | 'followers' | 'team'>('public')
+  
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  
+  // 자주 사용하는 이모지
+  const popularEmojis = ['⚽', '🔥', '💪', '🎉', '👏', '❤️', '😍', '🤩', '😎', '🙌', '⭐', '🏆']
+  
+  // 인기 해시태그
+  const popularHashtags = ['승리', '응원', '경기', '골', '팀워크', '챔피언', '레전드', '히어로']
 
   const handleSubmit = async () => {
     if (!user) {
@@ -36,8 +48,8 @@ export default function WritePage() {
       return
     }
 
-    if (!title.trim() || !content.trim()) {
-      setError('제목과 내용을 모두 입력해주세요.')
+    if (!content.trim()) {
+      setError('내용을 입력해주세요.')
       return
     }
 
@@ -45,34 +57,19 @@ export default function WritePage() {
     setError(null)
 
     try {
-      console.log('Creating post with data:', {
-        boardId,
-        title: title.trim(),
-        content: content.trim(),
-        tags: tags.length > 0 ? tags : undefined,
-        category: 'general',
-        imageUrls: []
-      })
+      // 첫 줄을 제목으로 사용 (인스타그램 스타일)
+      const lines = content.trim().split('\n')
+      const title = lines[0].substring(0, 100) || '제목 없음'
       
-      // 디버그: supabase 인스턴스 확인
-      console.log('[WritePage] Supabase instance exists:', !!supabase)
-      console.log('[WritePage] User from context:', user?.id)
-      
-      // 세션 직접 확인
-      const { data: { session } } = await supabase.auth.getSession()
-      console.log('[WritePage] Direct session check:', !!session, session?.user?.id)
-
       const newPost = await CommunityService.createPost({
         boardId,
-        title: title.trim(),
+        title: title,
         content: content.trim(),
         tags: tags.length > 0 ? tags : undefined,
         category: 'general',
-        imageUrls: [],
-        userId: user.id  // user ID 직접 전달
+        imageUrls: uploadedImages,
+        userId: user.id
       }, supabase)
-
-      console.log('Post created successfully:', newPost)
 
       // 게시판으로 리다이렉트
       router.push(`/community/boards/${boardId}`)
@@ -83,12 +80,43 @@ export default function WritePage() {
       setIsLoading(false)
     }
   }
+  
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      const reader = new FileReader()
+      reader.onloadend = () => {
+        setImagePreview(reader.result as string)
+        setUploadedImages([...uploadedImages, reader.result as string])
+      }
+      reader.readAsDataURL(file)
+    }
+  }
+  
+  const removeImage = (index: number) => {
+    setUploadedImages(uploadedImages.filter((_, i) => i !== index))
+    if (uploadedImages.length === 1) {
+      setImagePreview(null)
+    }
+  }
+  
+  const addEmoji = (emoji: string) => {
+    setContent(content + emoji)
+    setShowEmojiPicker(false)
+    textareaRef.current?.focus()
+  }
 
   const handleAddTag = () => {
-    const trimmedTag = tagInput.trim()
-    if (trimmedTag && !tags.includes(trimmedTag) && tags.length < 5) {
+    const trimmedTag = tagInput.trim().replace('#', '')
+    if (trimmedTag && !tags.includes(trimmedTag) && tags.length < 10) {
       setTags([...tags, trimmedTag])
       setTagInput('')
+    }
+  }
+  
+  const addHashtag = (tag: string) => {
+    if (!tags.includes(tag) && tags.length < 10) {
+      setTags([...tags, tag])
     }
   }
 
@@ -96,39 +124,17 @@ export default function WritePage() {
     setTags(tags.filter(tag => tag !== tagToRemove))
   }
 
-  const insertMarkdown = (before: string, after: string = '') => {
-    const textarea = document.querySelector('textarea') as HTMLTextAreaElement
-    if (!textarea) return
-
-    const start = textarea.selectionStart
-    const end = textarea.selectionEnd
-    const selectedText = content.substring(start, end)
-    
-    const newText = content.substring(0, start) + 
-                   before + selectedText + after + 
-                   content.substring(end)
-    
-    setContent(newText)
-    
-    // 커서 위치 조정
-    setTimeout(() => {
-      textarea.focus()
-      const newCursorPos = start + before.length + selectedText.length
-      textarea.setSelectionRange(newCursorPos, newCursorPos)
-    }, 0)
-  }
-
   if (!user) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <Card className="max-w-md w-full">
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <Card className="max-w-md w-full bg-gray-900 border-gray-800">
           <CardContent className="p-8 text-center">
             <AlertCircle className="w-12 h-12 text-orange-500 mx-auto mb-4" />
-            <h2 className="text-xl font-semibold mb-2">로그인이 필요합니다</h2>
-            <p className="text-gray-600 mb-6">
+            <h2 className="text-xl font-semibold mb-2 text-white">로그인이 필요합니다</h2>
+            <p className="text-gray-400 mb-6">
               게시글을 작성하려면 먼저 로그인해주세요.
             </p>
-            <Button onClick={() => router.push('/auth/login')} className="w-full">
+            <Button onClick={() => router.push('/auth/login')} className="w-full bg-blue-600 hover:bg-blue-700">
               로그인하기
             </Button>
           </CardContent>
@@ -138,215 +144,223 @@ export default function WritePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* 헤더 */}
-      <header className="bg-white border-b shadow-sm sticky top-0 z-10">
-        <div className="container mx-auto px-4 py-4">
+    <div className="min-h-screen bg-black">
+      {/* 인스타그램 스타일 헤더 */}
+      <header className="bg-black border-b border-gray-800 sticky top-0 z-50">
+        <div className="max-w-2xl mx-auto px-4 py-3">
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <Link href={`/community/boards/${boardId}`}>
-                <Button variant="ghost" size="sm">
-                  <ArrowLeft className="h-4 w-4 mr-1" />
-                  게시판으로
-                </Button>
-              </Link>
-              <h1 className="text-xl font-bold">새 글 작성</h1>
-            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => router.back()}
+              className="text-white hover:text-gray-300"
+            >
+              <X className="h-6 w-6" />
+            </Button>
             
-            <div className="flex items-center space-x-2">
-              <Button
-                variant="outline"
-                onClick={() => router.back()}
-                disabled={isLoading}
-              >
-                취소
-              </Button>
-              <Button
-                onClick={handleSubmit}
-                disabled={isLoading || !title.trim() || !content.trim()}
-              >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    작성 중...
-                  </>
-                ) : (
-                  <>
-                    <Send className="mr-2 h-4 w-4" />
-                    게시하기
-                  </>
-                )}
-              </Button>
-            </div>
+            <h1 className="text-lg font-semibold text-white">새 게시물</h1>
+            
+            <Button
+              onClick={handleSubmit}
+              disabled={isLoading || !content.trim()}
+              className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-1.5 rounded-lg disabled:opacity-50"
+            >
+              {isLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                '공유'
+              )}
+            </Button>
           </div>
         </div>
       </header>
 
-      {/* 작성 폼 */}
-      <main className="container mx-auto px-4 py-8 max-w-4xl">
-        <Card className="border-0 shadow-lg">
-          <CardContent className="p-6 space-y-6">
-            {/* 제목 입력 */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                제목
-              </label>
-              <Input
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="제목을 입력하세요"
-                className="text-lg font-semibold h-12"
-                maxLength={100}
-              />
-              <p className="text-sm text-gray-500 mt-1 text-right">
-                {title.length}/100
-              </p>
+      {/* 인스타그램 스타일 작성 폼 */}
+      <main className="max-w-2xl mx-auto">
+        <div className="bg-gray-900 border-b border-gray-800">
+          {/* 프로필 섹션 */}
+          <div className="p-4 flex items-center gap-3">
+            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold">
+              {user.email?.charAt(0).toUpperCase() || 'U'}
             </div>
-
-            {/* 내용 입력 */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                내용
-              </label>
-              
-              {/* 에디터 툴바 */}
-              <div className="border border-b-0 rounded-t-lg bg-gray-50 p-2 flex items-center space-x-1">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => insertMarkdown('**', '**')}
-                  title="굵게"
-                >
-                  <Bold className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => insertMarkdown('*', '*')}
-                  title="기울임"
-                >
-                  <Italic className="h-4 w-4" />
-                </Button>
-                <div className="w-px h-6 bg-gray-300 mx-1" />
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => insertMarkdown('### ')}
-                  title="제목"
-                >
-                  <Type className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => insertMarkdown('- ')}
-                  title="목록"
-                >
-                  <List className="h-4 w-4" />
-                </Button>
-                <div className="w-px h-6 bg-gray-300 mx-1" />
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => insertMarkdown('![이미지](', ')')}
-                  title="이미지"
-                >
-                  <ImageIcon className="h-4 w-4" />
-                </Button>
-              </div>
-              
-              <textarea
-                value={content}
-                onChange={(e) => setContent(e.target.value)}
-                placeholder="내용을 입력하세요...
-
-마크다운 문법을 지원합니다:
-- **굵은 글씨**
-- *기울임 글씨*
-- ### 제목
-- 목록
-- ![이미지](URL)"
-                className="w-full min-h-[400px] p-4 border rounded-b-lg resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
+            <div className="flex-1">
+              <p className="text-white font-medium">{user.email?.split('@')[0] || 'User'}</p>
+              <button className="text-xs text-blue-400 hover:text-blue-300">
+                {boardId.startsWith('team_') ? '팀 게시판' : '전체 게시판'}
+              </button>
             </div>
-
-            {/* 태그 입력 */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                태그 (선택사항)
-              </label>
-              <div className="flex items-center space-x-2 mb-3">
-                <div className="relative flex-1">
-                  <Hash className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <Input
-                    value={tagInput}
-                    onChange={(e) => setTagInput(e.target.value)}
-                    onKeyPress={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault()
-                        handleAddTag()
-                      }
-                    }}
-                    placeholder="태그 입력 후 Enter"
-                    className="pl-8"
-                    disabled={tags.length >= 5}
-                  />
-                </div>
-                <Button
-                  variant="outline"
-                  onClick={handleAddTag}
-                  disabled={tags.length >= 5 || !tagInput.trim()}
-                >
-                  추가
-                </Button>
-              </div>
-              
-              {tags.length > 0 && (
-                <div className="flex flex-wrap gap-2">
-                  {tags.map((tag, index) => (
-                    <Badge
-                      key={index}
-                      variant="secondary"
-                      className="pl-2 pr-1 py-1 cursor-pointer hover:bg-gray-200"
-                      onClick={() => handleRemoveTag(tag)}
+          </div>
+          
+          {/* 이미지 업로드 영역 */}
+          {uploadedImages.length > 0 ? (
+            <div className="relative bg-black aspect-square max-h-[600px] overflow-hidden">
+              <div className="flex overflow-x-auto snap-x snap-mandatory scrollbar-hide">
+                {uploadedImages.map((img, index) => (
+                  <div key={index} className="relative min-w-full snap-center">
+                    <img 
+                      src={img} 
+                      alt={`Upload ${index + 1}`}
+                      className="w-full h-full object-contain"
+                    />
+                    <button
+                      onClick={() => removeImage(index)}
+                      className="absolute top-2 right-2 bg-black/50 rounded-full p-1.5 hover:bg-black/70"
                     >
-                      <Hash className="h-3 w-3 mr-1" />
-                      {tag}
-                      <button className="ml-2 hover:bg-gray-300 rounded-full p-0.5">
-                        ×
-                      </button>
-                    </Badge>
+                      <X className="h-4 w-4 text-white" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+              {uploadedImages.length > 1 && (
+                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1">
+                  {uploadedImages.map((_, index) => (
+                    <div 
+                      key={index}
+                      className="w-1.5 h-1.5 bg-white/50 rounded-full"
+                    />
                   ))}
                 </div>
               )}
-              
-              <p className="text-sm text-gray-500 mt-2">
-                최대 5개까지 추가 가능 ({tags.length}/5)
-              </p>
             </div>
-
-            {/* 에러 메시지 */}
-            {error && (
-              <div className="bg-red-50 text-red-600 p-4 rounded-lg flex items-start space-x-3">
-                <AlertCircle className="h-5 w-5 mt-0.5" />
-                <p>{error}</p>
+          ) : (
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="w-full aspect-square max-h-[400px] bg-gradient-to-br from-gray-800 to-gray-900 flex flex-col items-center justify-center hover:from-gray-700 hover:to-gray-800 transition-colors"
+            >
+              <Camera className="h-16 w-16 text-gray-600 mb-3" />
+              <p className="text-gray-500 text-sm">사진을 추가하려면 클릭</p>
+            </button>
+          )}
+          
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handleImageUpload}
+            className="hidden"
+          />
+          
+          {/* 텍스트 입력 영역 */}
+          <div className="p-4">
+            <textarea
+              ref={textareaRef}
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+              placeholder="문구를 작성하거나 @멘션, #해시태그를 추가하세요..."
+              className="w-full bg-transparent text-white placeholder-gray-500 resize-none focus:outline-none min-h-[120px]"
+              style={{ lineHeight: '1.5' }}
+            />
+            
+            {/* 이모지 선택기 */}
+            <div className="mt-4 pb-2 border-b border-gray-800">
+              <div className="flex items-center justify-between">
+                <div className="flex gap-1">
+                  {popularEmojis.map((emoji) => (
+                    <button
+                      key={emoji}
+                      onClick={() => addEmoji(emoji)}
+                      className="p-2 hover:bg-gray-800 rounded-lg transition-colors text-xl"
+                    >
+                      {emoji}
+                    </button>
+                  ))}
+                </div>
+                <button
+                  onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                  className="p-2 hover:bg-gray-800 rounded-lg transition-colors"
+                >
+                  <Smile className="h-5 w-5 text-gray-400" />
+                </button>
+              </div>
+            </div>
+            
+            {/* 인기 해시태그 */}
+            <div className="mt-4">
+              <p className="text-xs text-gray-500 mb-2">인기 태그</p>
+              <div className="flex flex-wrap gap-2">
+                {popularHashtags.map((tag) => (
+                  <button
+                    key={tag}
+                    onClick={() => addHashtag(tag)}
+                    className={`px-3 py-1.5 rounded-full text-sm transition-all ${
+                      tags.includes(tag)
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+                    }`}
+                  >
+                    #{tag}
+                  </button>
+                ))}
+              </div>
+            </div>
+            
+            {/* 선택된 태그 표시 */}
+            {tags.length > 0 && (
+              <div className="mt-4 pt-4 border-t border-gray-800">
+                <div className="flex flex-wrap gap-2">
+                  {tags.map((tag, index) => (
+                    <span
+                      key={index}
+                      className="inline-flex items-center gap-1 px-3 py-1 bg-blue-600/20 text-blue-400 rounded-full text-sm"
+                    >
+                      #{tag}
+                      <button
+                        onClick={() => handleRemoveTag(tag)}
+                        className="hover:text-white"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
               </div>
             )}
-          </CardContent>
-        </Card>
-
-        {/* 작성 가이드 */}
-        <Card className="mt-6 border-0 bg-blue-50">
-          <CardContent className="p-6">
-            <h3 className="font-semibold text-blue-900 mb-3">작성 가이드</h3>
-            <ul className="space-y-2 text-sm text-blue-800">
-              <li>• 제목은 내용을 잘 나타낼 수 있도록 명확하게 작성해주세요.</li>
-              <li>• 욕설, 비방, 광고 등 부적절한 내용은 삭제될 수 있습니다.</li>
-              <li>• 이미지는 URL 형식으로 첨부할 수 있습니다.</li>
-              <li>• 태그를 활용하면 다른 사용자들이 글을 찾기 쉬워집니다.</li>
-            </ul>
-          </CardContent>
-        </Card>
+          </div>
+          
+          {/* 추가 옵션 */}
+          <div className="p-4 border-t border-gray-800">
+            <div className="space-y-3">
+              <button className="w-full flex items-center justify-between p-3 hover:bg-gray-800 rounded-lg transition-colors">
+                <div className="flex items-center gap-3">
+                  <MapPin className="h-5 w-5 text-gray-400" />
+                  <span className="text-gray-300">위치 추가</span>
+                </div>
+                <ChevronRight className="h-4 w-4 text-gray-500" />
+              </button>
+              
+              <button className="w-full flex items-center justify-between p-3 hover:bg-gray-800 rounded-lg transition-colors">
+                <div className="flex items-center gap-3">
+                  <Users className="h-5 w-5 text-gray-400" />
+                  <span className="text-gray-300">사람 태그</span>
+                </div>
+                <ChevronRight className="h-4 w-4 text-gray-500" />
+              </button>
+              
+              <button className="w-full flex items-center justify-between p-3 hover:bg-gray-800 rounded-lg transition-colors">
+                <div className="flex items-center gap-3">
+                  <Globe className="h-5 w-5 text-gray-400" />
+                  <span className="text-gray-300">공개 범위</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-gray-500">
+                    {privacy === 'public' ? '전체 공개' : privacy === 'team' ? '팀 멤버만' : '팔로워만'}
+                  </span>
+                  <ChevronRight className="h-4 w-4 text-gray-500" />
+                </div>
+              </button>
+            </div>
+          </div>
+        </div>
+        
+        {/* 에러 메시지 */}
+        {error && (
+          <div className="m-4 p-4 bg-red-900/20 border border-red-800 rounded-lg">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="h-5 w-5 text-red-400 mt-0.5" />
+              <p className="text-red-400 text-sm">{error}</p>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   )
