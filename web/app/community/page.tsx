@@ -27,12 +27,65 @@ import { FanLevel, PostVisibility } from '@/lib/types/community'
 
 // 인기 팀 데이터
 const popularTeams = [
+  // Premier League
   { id: 49, name: 'Chelsea', logo: 'https://media.api-sports.io/football/teams/49.png', memberCount: 2345, color: 'from-blue-600 to-blue-800' },
   { id: 33, name: 'Man United', logo: 'https://media.api-sports.io/football/teams/33.png', memberCount: 3456, color: 'from-red-600 to-red-800' },
   { id: 40, name: 'Liverpool', logo: 'https://media.api-sports.io/football/teams/40.png', memberCount: 3211, color: 'from-red-500 to-red-700' },
+  { id: 50, name: 'Man City', logo: 'https://media.api-sports.io/football/teams/50.png', memberCount: 2987, color: 'from-sky-500 to-sky-700' },
+  { id: 42, name: 'Arsenal', logo: 'https://media.api-sports.io/football/teams/42.png', memberCount: 2765, color: 'from-red-600 to-red-800' },
+  { id: 47, name: 'Tottenham', logo: 'https://media.api-sports.io/football/teams/47.png', memberCount: 1987, color: 'from-gray-100 to-blue-900' },
+  { id: 34, name: 'Newcastle', logo: 'https://media.api-sports.io/football/teams/34.png', memberCount: 1654, color: 'from-gray-900 to-gray-700' },
+  { id: 51, name: 'Brighton', logo: 'https://media.api-sports.io/football/teams/51.png', memberCount: 987, color: 'from-blue-600 to-white' },
+  { id: 39, name: 'Wolves', logo: 'https://media.api-sports.io/football/teams/39.png', memberCount: 876, color: 'from-yellow-600 to-gray-900' },
+  { id: 48, name: 'West Ham', logo: 'https://media.api-sports.io/football/teams/48.png', memberCount: 1543, color: 'from-red-800 to-blue-900' },
+  
+  // La Liga
   { id: 541, name: 'Real Madrid', logo: 'https://media.api-sports.io/football/teams/541.png', memberCount: 4567, color: 'from-purple-600 to-indigo-700' },
   { id: 529, name: 'Barcelona', logo: 'https://media.api-sports.io/football/teams/529.png', memberCount: 4321, color: 'from-blue-800 to-red-700' },
-  { id: 157, name: 'Bayern', logo: 'https://media.api-sports.io/football/teams/157.png', memberCount: 2890, color: 'from-red-600 to-gray-800' },
+  { id: 530, name: 'Atletico Madrid', logo: 'https://media.api-sports.io/football/teams/530.png', memberCount: 2123, color: 'from-red-600 to-white' },
+  { id: 532, name: 'Valencia', logo: 'https://media.api-sports.io/football/teams/532.png', memberCount: 1234, color: 'from-orange-600 to-black' },
+  { id: 533, name: 'Villarreal', logo: 'https://media.api-sports.io/football/teams/533.png', memberCount: 987, color: 'from-yellow-500 to-yellow-700' },
+  { id: 531, name: 'Athletic Bilbao', logo: 'https://media.api-sports.io/football/teams/531.png', memberCount: 1123, color: 'from-red-600 to-white' },
+  { id: 543, name: 'Real Betis', logo: 'https://media.api-sports.io/football/teams/543.png', memberCount: 876, color: 'from-green-600 to-white' },
+  { id: 536, name: 'Sevilla', logo: 'https://media.api-sports.io/football/teams/536.png', memberCount: 1456, color: 'from-red-600 to-white' },
+  { id: 548, name: 'Real Sociedad', logo: 'https://media.api-sports.io/football/teams/548.png', memberCount: 765, color: 'from-blue-600 to-white' },
+  { id: 727, name: 'Osasuna', logo: 'https://media.api-sports.io/football/teams/727.png', memberCount: 543, color: 'from-red-600 to-blue-900' },
+  
+  // Bundesliga
+  { id: 157, name: 'Bayern Munich', logo: 'https://media.api-sports.io/football/teams/157.png', memberCount: 2890, color: 'from-red-600 to-gray-800' },
+  { id: 165, name: 'Dortmund', logo: 'https://media.api-sports.io/football/teams/165.png', memberCount: 2345, color: 'from-yellow-500 to-black' },
+  { id: 173, name: 'RB Leipzig', logo: 'https://media.api-sports.io/football/teams/173.png', memberCount: 1234, color: 'from-red-600 to-white' },
+  { id: 168, name: 'Leverkusen', logo: 'https://media.api-sports.io/football/teams/168.png', memberCount: 987, color: 'from-red-600 to-black' },
+  { id: 161, name: 'Wolfsburg', logo: 'https://media.api-sports.io/football/teams/161.png', memberCount: 765, color: 'from-green-600 to-white' },
+  { id: 163, name: 'Frankfurt', logo: 'https://media.api-sports.io/football/teams/163.png', memberCount: 876, color: 'from-red-600 to-black' },
+  { id: 160, name: 'SC Freiburg', logo: 'https://media.api-sports.io/football/teams/160.png', memberCount: 654, color: 'from-red-600 to-white' },
+  { id: 159, name: 'Hertha', logo: 'https://media.api-sports.io/football/teams/159.png', memberCount: 543, color: 'from-blue-600 to-white' },
+  { id: 162, name: 'Union Berlin', logo: 'https://media.api-sports.io/football/teams/162.png', memberCount: 432, color: 'from-red-600 to-yellow-500' },
+  { id: 172, name: 'Stuttgart', logo: 'https://media.api-sports.io/football/teams/172.png', memberCount: 567, color: 'from-white to-red-600' },
+  
+  // Serie A
+  { id: 489, name: 'AC Milan', logo: 'https://media.api-sports.io/football/teams/489.png', memberCount: 2456, color: 'from-red-600 to-black' },
+  { id: 505, name: 'Inter', logo: 'https://media.api-sports.io/football/teams/505.png', memberCount: 2345, color: 'from-blue-600 to-black' },
+  { id: 496, name: 'Juventus', logo: 'https://media.api-sports.io/football/teams/496.png', memberCount: 3456, color: 'from-black to-white' },
+  { id: 492, name: 'Napoli', logo: 'https://media.api-sports.io/football/teams/492.png', memberCount: 1876, color: 'from-blue-600 to-white' },
+  { id: 497, name: 'Roma', logo: 'https://media.api-sports.io/football/teams/497.png', memberCount: 1765, color: 'from-red-800 to-yellow-600' },
+  { id: 487, name: 'Lazio', logo: 'https://media.api-sports.io/football/teams/487.png', memberCount: 1234, color: 'from-sky-400 to-white' },
+  { id: 499, name: 'Atalanta', logo: 'https://media.api-sports.io/football/teams/499.png', memberCount: 987, color: 'from-blue-600 to-black' },
+  { id: 502, name: 'Fiorentina', logo: 'https://media.api-sports.io/football/teams/502.png', memberCount: 876, color: 'from-purple-600 to-white' },
+  { id: 503, name: 'Torino', logo: 'https://media.api-sports.io/football/teams/503.png', memberCount: 654, color: 'from-red-800 to-white' },
+  { id: 488, name: 'Sassuolo', logo: 'https://media.api-sports.io/football/teams/488.png', memberCount: 432, color: 'from-green-600 to-black' },
+  
+  // Ligue 1
+  { id: 85, name: 'PSG', logo: 'https://media.api-sports.io/football/teams/85.png', memberCount: 3456, color: 'from-blue-900 to-red-600' },
+  { id: 91, name: 'Monaco', logo: 'https://media.api-sports.io/football/teams/91.png', memberCount: 1234, color: 'from-red-600 to-white' },
+  { id: 81, name: 'Marseille', logo: 'https://media.api-sports.io/football/teams/81.png', memberCount: 1876, color: 'from-sky-400 to-white' },
+  { id: 84, name: 'Nice', logo: 'https://media.api-sports.io/football/teams/84.png', memberCount: 876, color: 'from-red-600 to-black' },
+  { id: 80, name: 'Lyon', logo: 'https://media.api-sports.io/football/teams/80.png', memberCount: 1543, color: 'from-blue-600 to-red-600' },
+  { id: 79, name: 'Lille', logo: 'https://media.api-sports.io/football/teams/79.png', memberCount: 987, color: 'from-red-600 to-white' },
+  { id: 94, name: 'Rennes', logo: 'https://media.api-sports.io/football/teams/94.png', memberCount: 765, color: 'from-red-600 to-black' },
+  { id: 83, name: 'Nantes', logo: 'https://media.api-sports.io/football/teams/83.png', memberCount: 543, color: 'from-yellow-500 to-green-600' },
+  { id: 82, name: 'Montpellier', logo: 'https://media.api-sports.io/football/teams/82.png', memberCount: 432, color: 'from-blue-900 to-orange-600' },
+  { id: 93, name: 'Reims', logo: 'https://media.api-sports.io/football/teams/93.png', memberCount: 321, color: 'from-red-600 to-white' },
 ]
 
 // 인기 리그 데이터
@@ -338,12 +391,12 @@ export default function CommunityPage() {
               </CardContent>
             </Card>
 
-            {/* 리그 & 팀 아코디언 구조 */}
+            {/* 팀 라커룸 */}
             <Card>
               <CardHeader className="pb-4">
                 <CardTitle className="text-lg flex items-center gap-2">
-                  <Trophy className="h-5 w-5 text-yellow-500" />
-                  리그 & 팀 게시판
+                  <Shield className="h-5 w-5 text-yellow-500" />
+                  팀 라커룸
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
@@ -364,7 +417,7 @@ export default function CommunityPage() {
                   </button>
                   {selectedLeague === 39 && (
                     <div className="p-2 space-y-1 border-t">
-                      {[49, 33, 40, 42, 50].map(teamId => {
+                      {[49, 33, 40, 50, 42, 47, 34, 51, 39, 48].map(teamId => {
                         const team = popularTeams.find(t => t.id === teamId)
                         if (!team) return null
                         return (
@@ -408,7 +461,7 @@ export default function CommunityPage() {
                   </button>
                   {selectedLeague === 140 && (
                     <div className="p-2 space-y-1 border-t">
-                      {[541, 529].map(teamId => {
+                      {[541, 529, 530, 532, 533, 531, 543, 536, 548, 727].map(teamId => {
                         const team = popularTeams.find(t => t.id === teamId)
                         if (!team) return null
                         return (
@@ -452,7 +505,7 @@ export default function CommunityPage() {
                   </button>
                   {selectedLeague === 78 && (
                     <div className="p-2 space-y-1 border-t">
-                      {[157, 165, 173].map(teamId => {
+                      {[157, 165, 173, 168, 161, 163, 160, 159, 162, 172].map(teamId => {
                         const team = popularTeams.find(t => t.id === teamId)
                         if (!team) return null
                         return (
@@ -496,7 +549,7 @@ export default function CommunityPage() {
                   </button>
                   {selectedLeague === 135 && (
                     <div className="p-2 space-y-1 border-t">
-                      {[489, 496, 492, 497].map(teamId => {
+                      {[489, 505, 496, 492, 497, 487, 499, 502, 503, 488].map(teamId => {
                         const team = popularTeams.find(t => t.id === teamId)
                         if (!team) return null
                         return (
@@ -540,7 +593,7 @@ export default function CommunityPage() {
                   </button>
                   {selectedLeague === 61 && (
                     <div className="p-2 space-y-1 border-t">
-                      {[85, 81, 91].map(teamId => {
+                      {[85, 91, 81, 84, 80, 79, 94, 83, 82, 93].map(teamId => {
                         const team = popularTeams.find(t => t.id === teamId)
                         if (!team) return null
                         return (
