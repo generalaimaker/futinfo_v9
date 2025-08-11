@@ -393,6 +393,32 @@ export class CommunityService {
     return this.transformProfile(data)
   }
 
+  // 사용자가 특정 팀의 팬인지 확인
+  static async isTeamFan(userId: string, teamId: number): Promise<boolean> {
+    const supabase = this.getClient()
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('favorite_team_id')
+      .eq('user_id', userId)
+      .single()
+
+    if (error || !data) return false
+    return data.favorite_team_id === teamId
+  }
+
+  // 팀 게시판 글쓰기 권한 확인
+  static async canWriteToTeamBoard(userId: string, boardId: string): Promise<boolean> {
+    // 팀 게시판이 아니면 모두 허용
+    if (!boardId.startsWith('team_')) return true
+    
+    // 팀 ID 추출
+    const teamId = parseInt(boardId.replace('team_', ''))
+    if (isNaN(teamId)) return false
+    
+    // 사용자가 해당 팀의 팬인지 확인
+    return await this.isTeamFan(userId, teamId)
+  }
+
   static async updateProfile(updates: Partial<UserProfile>): Promise<UserProfile> {
     const supabase = this.getClient()
     const { data: { user }, error: authError } = await supabase.auth.getUser()

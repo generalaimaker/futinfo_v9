@@ -1,13 +1,13 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
 import { 
   ArrowLeft, Camera, Hash, X, 
   Image as ImageIcon, Send, Loader2, AlertCircle,
   Smile, MapPin, Users, AtSign, Globe,
-  Sparkles, TrendingUp, Heart, ChevronRight
+  Sparkles, TrendingUp, Heart, ChevronRight, Shield
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -33,6 +33,9 @@ export default function WritePage() {
   const [imagePreview, setImagePreview] = useState<string | null>(null)
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
   const [privacy, setPrivacy] = useState<'public' | 'followers' | 'team'>('public')
+  const [canWrite, setCanWrite] = useState<boolean | null>(null)
+  const [checkingPermission, setCheckingPermission] = useState(true)
+  const [userProfile, setUserProfile] = useState<any>(null)
   
   const fileInputRef = useRef<HTMLInputElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -42,6 +45,34 @@ export default function WritePage() {
   
   // 인기 해시태그
   const popularHashtags = ['승리', '응원', '경기', '골', '팀워크', '챔피언', '레전드', '히어로']
+  
+  // 팀 게시판 권한 체크
+  useEffect(() => {
+    checkWritePermission()
+  }, [user, boardId])
+  
+  const checkWritePermission = async () => {
+    if (!user) {
+      setCanWrite(false)
+      setCheckingPermission(false)
+      return
+    }
+    
+    try {
+      // 프로필 정보 가져오기
+      const profile = await CommunityService.getUserProfile(user.id)
+      setUserProfile(profile)
+      
+      // 권한 체크
+      const hasPermission = await CommunityService.canWriteToTeamBoard(user.id, boardId)
+      setCanWrite(hasPermission)
+    } catch (error) {
+      console.error('Error checking write permission:', error)
+      setCanWrite(false)
+    } finally {
+      setCheckingPermission(false)
+    }
+  }
 
   const handleSubmit = async () => {
     if (!user) {
@@ -130,6 +161,16 @@ export default function WritePage() {
     setTags(tags.filter(tag => tag !== tagToRemove))
   }
 
+  // 로딩 중
+  if (checkingPermission) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+      </div>
+    )
+  }
+
+  // 로그인 필요
   if (!user) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
@@ -143,6 +184,44 @@ export default function WritePage() {
             <Button onClick={() => router.push('/auth/login')} className="w-full bg-blue-600 hover:bg-blue-700">
               로그인하기
             </Button>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  // 팀 게시판 글쓰기 권한 없음
+  if (canWrite === false && boardId.startsWith('team_')) {
+    const teamId = parseInt(boardId.replace('team_', ''))
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <Card className="max-w-md w-full bg-gray-900 border-gray-800">
+          <CardContent className="p-8 text-center">
+            <Shield className="w-12 h-12 text-red-500 mx-auto mb-4" />
+            <h2 className="text-xl font-semibold mb-2 text-white">팀 팬만 작성 가능합니다</h2>
+            <p className="text-gray-400 mb-6">
+              이 게시판은 팀 팬으로 등록된 사용자만 글을 작성할 수 있습니다.
+              {userProfile?.favoriteTeamId && (
+                <span className="block mt-2 text-sm">
+                  현재 팬 팀: {userProfile.favoriteTeamName || `팀 #${userProfile.favoriteTeamId}`}
+                </span>
+              )}
+            </p>
+            <div className="space-y-3">
+              <Button 
+                onClick={() => router.push('/profile/setup')} 
+                className="w-full bg-blue-600 hover:bg-blue-700"
+              >
+                팬 팀 설정하기
+              </Button>
+              <Button 
+                onClick={() => router.back()} 
+                variant="outline"
+                className="w-full"
+              >
+                돌아가기
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </div>

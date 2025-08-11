@@ -32,6 +32,8 @@ export default function BoardDetailPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [realtimeChannel, setRealtimeChannel] = useState<RealtimeChannel | null>(null)
+  const [canWrite, setCanWrite] = useState<boolean>(true)
+  const [userProfile, setUserProfile] = useState<any>(null)
   
   // 팀 정보 관련 상태
   const isTeamBoard = boardId.startsWith('team_')
@@ -112,6 +114,7 @@ export default function BoardDetailPage() {
 
   useEffect(() => {
     loadBoardData()
+    checkWritePermission()
     
     // 실시간 구독 설정
     const channel = supabase
@@ -135,7 +138,27 @@ export default function BoardDetailPage() {
         supabase.removeChannel(channel)
       }
     }
-  }, [boardId])
+  }, [boardId, user])
+
+  const checkWritePermission = async () => {
+    if (!user) {
+      setCanWrite(false)
+      return
+    }
+    
+    try {
+      // 프로필 정보 가져오기
+      const profile = await CommunityService.getUserProfile(user.id)
+      setUserProfile(profile)
+      
+      // 권한 체크
+      const hasPermission = await CommunityService.canWriteToTeamBoard(user.id, boardId)
+      setCanWrite(hasPermission)
+    } catch (error) {
+      console.error('Error checking write permission:', error)
+      setCanWrite(false)
+    }
+  }
 
   const loadBoardData = async () => {
     try {
@@ -261,14 +284,29 @@ export default function BoardDetailPage() {
               </div>
             </div>
             
-            {user && (
+            {user && canWrite ? (
               <Link href={`/community/boards/${boardId}/write`}>
                 <Button>
                   <Plus className="h-4 w-4 mr-2" />
                   글쓰기
                 </Button>
               </Link>
-            )}
+            ) : user && !canWrite && isTeamBoard ? (
+              <Button 
+                variant="outline" 
+                disabled
+                title={`${userProfile?.favoriteTeamName || '다른 팀'} 팬입니다`}
+              >
+                <Shield className="h-4 w-4 mr-2" />
+                팬 전용
+              </Button>
+            ) : !user ? (
+              <Link href="/auth/login">
+                <Button variant="outline">
+                  로그인
+                </Button>
+              </Link>
+            ) : null}
           </div>
         </div>
       </header>
