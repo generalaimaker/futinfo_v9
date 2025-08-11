@@ -152,12 +152,30 @@ export default function BoardDetailPage() {
           memberCount: 0,
           postCount: 0
         })
+      } else if (isTeamBoard && teamId) {
+        // 팀 게시판인 경우
+        const teamInfo = getTeamBasicInfo(teamId)
+        setBoard({
+          id: boardId,
+          name: `${teamInfo.name} 팬 게시판`,
+          description: `${teamInfo.name} 팬들이 모여 소통하는 공간`,
+          type: 'team',
+          teamId: teamId,
+          iconUrl: `https://media.api-sports.io/football/teams/${teamId}.png`,
+          memberCount: 0, // 기본값 설정
+          postCount: 0
+        })
       } else {
         const boardData = await CommunityService.getBoard(boardId)
         if (!boardData) {
           throw new Error('게시판을 찾을 수 없습니다')
         }
-        setBoard(boardData)
+        // memberCount가 없으면 기본값 설정
+        setBoard({
+          ...boardData,
+          memberCount: boardData.memberCount || 0,
+          postCount: boardData.postCount || 0
+        })
       }
       
       // 게시글 목록 가져오기
@@ -554,7 +572,7 @@ export default function BoardDetailPage() {
             <div className="flex items-center space-x-2">
               <Users className="h-4 w-4 text-gray-500" />
               <span className="text-gray-600">멤버</span>
-              <span className="font-semibold">{board.memberCount.toLocaleString()}</span>
+              <span className="font-semibold">{(board.memberCount || 0).toLocaleString()}</span>
             </div>
             <div className="flex items-center space-x-2">
               <MessageSquare className="h-4 w-4 text-gray-500" />
