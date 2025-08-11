@@ -23,6 +23,11 @@ import { useUserPreferences, usePersonalizedFixtures } from '@/lib/hooks/useUser
 import { formatDistanceToNow } from 'date-fns'
 import { ko } from 'date-fns/locale'
 
+// 개선된 컴포넌트들 import
+import { PersonalizedSection } from '@/components/home/PersonalizedSection'
+import { LiveScoreSection } from '@/components/home/LiveScoreSection'
+import { NewsSection } from '@/components/home/NewsSection'
+
 // Featured match banner component
 function FeaturedMatch() {
   const { fixtures, isLoading } = useTodayFixtures()
@@ -522,29 +527,52 @@ function StatsCards() {
 }
 
 export default function HomePage() {
+  const { preferences, isAuthenticated } = useUserPreferences()
+  const hasPersonalizedContent = isAuthenticated && 
+    (preferences.favoriteTeamIds.length > 0 || preferences.favoriteLeagueIds.length > 0)
+
   return (
     <div className="min-h-screen lg:ml-64 p-4 lg:p-6">
       <div className="max-w-7xl mx-auto space-y-6">
-        {/* Featured Match */}
+        {/* Featured Match - 빅매치 하이라이트 */}
         <FeaturedMatch />
 
-        {/* Stats */}
+        {/* Stats - 전체 통계 */}
         <StatsCards />
 
-        {/* Main Content Grid */}
+        {/* Main Content Grid - 개선된 레이아웃 */}
         <div className="grid lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-6">
-            <PersonalizedMatches />
-            <LiveMatches />
-            <UpcomingMatches />
+            {/* 개인화 섹션 - 로그인한 사용자에게 우선 표시 */}
+            {hasPersonalizedContent && <PersonalizedSection />}
+            
+            {/* 실시간 스코어 - 개선된 실시간 업데이트 */}
+            <LiveScoreSection />
+            
+            {/* 뉴스 섹션 - 새로 추가 */}
+            <NewsSection />
+            
+            {/* 오늘의 경기 - 개인화 콘텐츠가 없는 경우에만 표시 */}
+            {!hasPersonalizedContent && <UpcomingMatches />}
           </div>
+          
           <div className="space-y-6">
+            {/* 커뮤니티 인기글 */}
             <CommunityHighlights />
             
-            {/* Quick Actions */}
+            {/* 빠른 메뉴 */}
             <Card className="dark-card p-6">
               <h3 className="text-lg font-semibold mb-4">빠른 메뉴</h3>
               <div className="space-y-3">
+                <Link href="/fixtures" className="block">
+                  <Button variant="outline" className="w-full justify-start h-12 text-left">
+                    <Calendar className="mr-3 h-5 w-5" />
+                    <div>
+                      <div className="font-medium">경기 일정</div>
+                      <div className="text-xs text-muted-foreground">전체 경기 일정 확인</div>
+                    </div>
+                  </Button>
+                </Link>
                 <Link href="/standings" className="block">
                   <Button variant="outline" className="w-full justify-start h-12 text-left">
                     <Trophy className="mr-3 h-5 w-5" />
@@ -554,24 +582,52 @@ export default function HomePage() {
                     </div>
                   </Button>
                 </Link>
-                <Link href="/follow" className="block">
+                <Link href="/transfer" className="block">
                   <Button variant="outline" className="w-full justify-start h-12 text-left">
-                    <Star className="mr-3 h-5 w-5" />
+                    <TrendingUp className="mr-3 h-5 w-5" />
                     <div>
-                      <div className="font-medium">팀 팔로우 설정</div>
-                      <div className="text-xs text-muted-foreground">좋아하는 팀 관리</div>
+                      <div className="font-medium">이적 시장</div>
+                      <div className="text-xs text-muted-foreground">최신 이적 소식</div>
                     </div>
                   </Button>
                 </Link>
-                <Link href="/notifications" className="block">
-                  <Button variant="outline" className="w-full justify-start h-12 text-left">
-                    <AlertCircle className="mr-3 h-5 w-5" />
-                    <div>
-                      <div className="font-medium">경기 알림 설정</div>
-                      <div className="text-xs text-muted-foreground">실시간 알림 관리</div>
-                    </div>
-                  </Button>
-                </Link>
+                {!isAuthenticated ? (
+                  <Link href="/auth/login" className="block">
+                    <Button className="w-full justify-start h-12 text-left dark-button-primary">
+                      <Star className="mr-3 h-5 w-5" />
+                      <div>
+                        <div className="font-medium">로그인하기</div>
+                        <div className="text-xs">개인화된 콘텐츠 받기</div>
+                      </div>
+                    </Button>
+                  </Link>
+                ) : (
+                  <Link href="/follow" className="block">
+                    <Button variant="outline" className="w-full justify-start h-12 text-left">
+                      <Star className="mr-3 h-5 w-5" />
+                      <div>
+                        <div className="font-medium">팀 팔로우 설정</div>
+                        <div className="text-xs text-muted-foreground">좋아하는 팀 관리</div>
+                      </div>
+                    </Button>
+                  </Link>
+                )}
+              </div>
+            </Card>
+
+            {/* 모바일 앱 다운로드 안내 */}
+            <Card className="dark-card p-6 bg-gradient-to-br from-primary/10 to-transparent">
+              <h3 className="text-lg font-semibold mb-2">모바일 앱</h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                언제 어디서나 실시간 축구 정보를 받아보세요
+              </p>
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" disabled>
+                  iOS (준비중)
+                </Button>
+                <Button size="sm" variant="outline" disabled>
+                  Android (준비중)
+                </Button>
               </div>
             </Card>
           </div>

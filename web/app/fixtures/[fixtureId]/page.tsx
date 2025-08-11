@@ -5,6 +5,7 @@ import { useState, useEffect } from 'react'
 import { useFixtureDetail } from '@/lib/supabase/football'
 import { isFinishedMatch } from '@/lib/types/football'
 import { useFixtureRealtime } from '@/hooks/useFixtureRealtime'
+import { EnhancedMatchDetail } from '@/components/fixtures/EnhancedMatchDetail'
 import MatchHeader from '@/components/fixtures/match-header'
 import MatchTabs from '@/components/fixtures/match-tabs'
 import MatchSummary from '@/components/fixtures/match-summary'
@@ -15,7 +16,8 @@ import MatchH2H from '@/components/fixtures/match-h2h'
 import MatchInfo from '@/components/fixtures/match-info'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
-import { ChevronLeft, RefreshCw } from 'lucide-react'
+import { Card } from '@/components/ui/card'
+import { ChevronLeft, RefreshCw, AlertCircle } from 'lucide-react'
 import Link from 'next/link'
 
 export default function FixtureDetailPage() {
@@ -126,6 +128,49 @@ export default function FixtureDetailPage() {
     { id: 'h2h', label: '상대전적' }
   ]
   
+  // 개선된 UI 사용 여부 (토글 가능)
+  const useEnhancedUI = true
+  
+  if (useEnhancedUI) {
+    return (
+      <div className="min-h-screen lg:ml-64 p-4 lg:p-6">
+        <div className="max-w-7xl mx-auto space-y-6">
+          {/* 헤더 */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <Link href="/fixtures">
+                <Button variant="ghost">
+                  <ChevronLeft className="h-4 w-4 mr-2" />
+                  경기 목록
+                </Button>
+              </Link>
+              <h1 className="text-2xl font-bold">경기 상세</h1>
+            </div>
+            
+            {isLive && (
+              <Button
+                onClick={() => refetch()}
+                variant="outline"
+                className="gap-2"
+              >
+                <RefreshCw className="h-4 w-4" />
+                새로고침
+              </Button>
+            )}
+          </div>
+          
+          {/* 개선된 경기 상세 컴포넌트 */}
+          <EnhancedMatchDetail 
+            fixture={fixture} 
+            isLive={isLive}
+            onRefresh={refetch}
+          />
+        </div>
+      </div>
+    )
+  }
+  
+  // 기존 UI (폴백)
   return (
     <div className="min-h-screen lg:ml-64 bg-gray-50">
       {/* 헤더 */}
