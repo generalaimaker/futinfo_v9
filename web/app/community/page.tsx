@@ -120,8 +120,10 @@ export default function CommunityPage() {
   const [activeTab, setActiveTab] = useState('all')
   const [mainTab, setMainTab] = useState<'all' | 'myteam' | 'matchday'>('all')
   const [userFanLevel, setUserFanLevel] = useState<FanLevel>(FanLevel.NONE)
-  const [userTeamId, setUserTeamId] = useState<number | null>(49) // 기본값 Chelsea
-  const [rivalTeamId, setRivalTeamId] = useState<number | null>(47) // Tottenham as default rival
+  const [userTeamId, setUserTeamId] = useState<number | null>(null)
+  const [userTeamName, setUserTeamName] = useState<string | null>(null)
+  const [userProfile, setUserProfile] = useState<any>(null)
+  const [rivalTeamId, setRivalTeamId] = useState<number | null>(null)
   const [currentMatch, setCurrentMatch] = useState<any>(null)
   const [upcomingMatch, setUpcomingMatch] = useState<any>(null)
   const [matchdayPosts, setMatchdayPosts] = useState<CommunityPost[]>([])
@@ -130,14 +132,73 @@ export default function CommunityPage() {
   const [isMatchdayLoading, setIsMatchdayLoading] = useState(true)
   
   useEffect(() => {
+    loadUserProfile()
     loadCommunityData()
     loadLiveMatches()
-    // 매치데이 데이터 미리 로드
+    
+    // 로그인하지 않은 상태에서 내 팀 탭이 선택되어 있으면 전체 탭으로 변경
+    if (!user && mainTab === 'myteam') {
+      setMainTab('all')
+    }
+  }, [])
+
+  // 페이지 포커스 시 프로필 새로고침 (설정에서 팀 변경 후 돌아올 때)
+  useEffect(() => {
+    const handleFocus = () => {
+      if (user) {
+        loadUserProfile()
+      }
+    }
+
+    window.addEventListener('focus', handleFocus)
+    return () => window.removeEventListener('focus', handleFocus)
+  }, [user])
+
+  // 로그인 상태 변경 시 탭 체크
+  useEffect(() => {
+    if (!user && mainTab === 'myteam') {
+      setMainTab('all')
+    }
+  }, [user, mainTab])
+
+  useEffect(() => {
+    // 유저 프로필이 로드되고 팀 ID가 있으면 매치데이 데이터 로드
     if (userTeamId) {
       setIsMatchdayLoading(true)
       loadMatchdayData().finally(() => setIsMatchdayLoading(false))
+      
+      // 내 팀 탭이 선택되어 있으면 게시글도 다시 로드
+      if (mainTab === 'myteam') {
+        loadCommunityData(`team_${userTeamId}`)
+      }
     }
-  }, [])
+  }, [userTeamId])
+
+  const loadUserProfile = async () => {
+    if (!user) return
+    
+    try {
+      const profile = await CommunityService.getUserProfile(user.id)
+      if (profile) {
+        setUserProfile(profile)
+        setUserTeamId(profile.favoriteTeamId)
+        setUserTeamName(profile.favoriteTeamName)
+        
+        // 라이벌 팀 설정 (예시)
+        const rivalMap: Record<number, number> = {
+          49: 47,  // Chelsea -> Tottenham
+          47: 49,  // Tottenham -> Chelsea
+          33: 40,  // Man United -> Liverpool
+          40: 33,  // Liverpool -> Man United
+          42: 47,  // Arsenal -> Tottenham
+          // 추가 라이벌 매핑...
+        }
+        setRivalTeamId(rivalMap[profile.favoriteTeamId] || null)
+      }
+    } catch (error) {
+      console.error('Error loading user profile:', error)
+    }
+  }
 
   const loadCommunityData = async (boardId?: string) => {
     try {
@@ -150,7 +211,7 @@ export default function CommunityPage() {
       }
       
       // 해당 게시판의 게시글 가져오기
-      const targetBoardId = boardId || (mainTab === 'myteam' ? `team_${userTeamId}` : 'all')
+      const targetBoardId = boardId || (mainTab === 'myteam' && userTeamId ? `team_${userTeamId}` : 'all')
       const postsResponse = await CommunityService.getPosts(targetBoardId)
       setPosts(postsResponse.data)
       
@@ -191,9 +252,11 @@ export default function CommunityPage() {
       const today = new Date().toISOString().split('T')[0]
       
       // 오늘 경기 확인
+      if (!userTeamId) return  // 팀 ID가 없으면 종료
+      
       const todayFixtures = await service.getFixtures({
         date: today,
-        team: userTeamId || 49
+        team: userTeamId
       })
 
       let matchFound = false
@@ -214,7 +277,7 @@ export default function CommunityPage() {
       if (!matchFound) {
         // 다음 경기 확인
         const nextFixtures = await service.getFixtures({
-          team: userTeamId || 49,
+          team: userTeamId,
           next: 1
         })
         if (nextFixtures?.response?.length > 0) {
@@ -263,24 +326,26 @@ export default function CommunityPage() {
                   전체
                 </span>
               </button>
-              <button
-                onClick={() => {
-                  setMainTab('myteam')
-                  loadCommunityData(`team_${userTeamId}`)
-                }}
-                className={cn(
-                  "px-6 py-4 font-semibold border-b-2 transition-all whitespace-nowrap",
-                  mainTab === 'myteam'
-                    ? "text-blue-600 border-blue-600"
-                    : "text-gray-600 border-transparent hover:text-gray-900"
-                )}
-              >
-                <span className="flex items-center gap-2">
-                  <Heart className="h-5 w-5" />
-                  내 팀
-                  {userTeamId === 49 && <span className="text-xs bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full">Chelsea</span>}
-                </span>
-              </button>
+              {user && userTeamId && (
+                <button
+                  onClick={() => {
+                    setMainTab('myteam')
+                    loadCommunityData(`team_${userTeamId}`)
+                  }}
+                  className={cn(
+                    "px-6 py-4 font-semibold border-b-2 transition-all whitespace-nowrap",
+                    mainTab === 'myteam'
+                      ? "text-blue-600 border-blue-600"
+                      : "text-gray-600 border-transparent hover:text-gray-900"
+                  )}
+                >
+                  <span className="flex items-center gap-2">
+                    <Heart className="h-5 w-5" />
+                    내 팀
+                    {userTeamName && <span className="text-xs bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full">{userTeamName}</span>}
+                  </span>
+                </button>
+              )}
               <button
                 onClick={() => {
                   setMainTab('matchday')
@@ -309,7 +374,7 @@ export default function CommunityPage() {
             {/* 글쓰기 버튼 */}
             <Button
               onClick={() => {
-                router.push(`/community/boards/${mainTab === 'myteam' ? `team_${userTeamId}` : 'all'}/write`)
+                router.push(`/community/boards/${mainTab === 'myteam' && userTeamId ? `team_${userTeamId}` : 'all'}/write`)
               }}
               className="bg-blue-600 hover:bg-blue-700"
             >
@@ -337,7 +402,7 @@ export default function CommunityPage() {
         </div>
       )}
       
-      {mainTab === 'myteam' && (
+      {mainTab === 'myteam' && user && userTeamId && (
         <div className="relative overflow-hidden bg-gradient-to-r from-blue-600 via-blue-700 to-blue-800 text-white">
           <div className="absolute inset-0 bg-black/20" />
           <div className="relative container mx-auto px-4 py-6">
@@ -352,10 +417,10 @@ export default function CommunityPage() {
                 />
                 <div>
                   <h1 className="text-2xl lg:text-3xl font-bold mb-1">
-                    💙 Chelsea 팬 게시판
+                    💙 {userTeamName || '내 팀'} 팬 게시판
                   </h1>
                   <p className="text-sm text-white/80">
-                    우리만의 특별한 공간 #KTBFFH
+                    우리만의 특별한 공간
                   </p>
                 </div>
               </div>
@@ -1017,7 +1082,7 @@ export default function CommunityPage() {
                     <Shield className="h-4 w-4 text-blue-500 mt-0.5" />
                     <div className="flex-1">
                       <p className="text-sm">
-                        <span className="font-semibold">Chelsea</span> 게시판이 활발해요
+                        <span className="font-semibold">{userTeamName || '내 팀'}</span> 게시판이 활발해요
                       </p>
                       <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
                         15개의 새 게시글
