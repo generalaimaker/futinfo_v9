@@ -211,12 +211,21 @@ export class CommunityService {
 
     if (!profile) throw new Error('User profile not found')
 
+    // Convert camelCase to snake_case for database
+    const dbData: any = {
+      board_id: postData.boardId,
+      title: postData.title,
+      content: postData.content,
+      category: postData.category,
+      author_id: profile.id
+    }
+    
+    if (postData.tags) dbData.tags = postData.tags
+    if (postData.imageUrls) dbData.image_urls = postData.imageUrls
+    
     const { data, error } = await supabase
       .from('posts')
-      .insert({
-        ...postData,
-        author_id: profile.id
-      })
+      .insert(dbData)
       .select(`
         *,
         author:profiles(*)
@@ -320,12 +329,16 @@ export class CommunityService {
 
     if (!profile) throw new Error('User profile not found')
 
+    // Convert camelCase to snake_case for database
+    const dbData: any = {
+      post_id: commentData.postId,
+      content: commentData.content,
+      author_id: profile.id
+    }
+    
     const { data, error } = await supabase
       .from('comments')
-      .insert({
-        ...commentData,
-        author_id: profile.id
-      })
+      .insert(dbData)
       .select(`
         *,
         author:profiles(*)
