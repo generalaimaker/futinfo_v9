@@ -69,6 +69,11 @@ export default function CommunityPage() {
   const [userFanLevel, setUserFanLevel] = useState<FanLevel>(FanLevel.NONE)
   const [userTeamId, setUserTeamId] = useState<number | null>(49) // 기본값 Chelsea
   const [rivalTeamId, setRivalTeamId] = useState<number | null>(47) // Tottenham as default rival
+  const [currentMatch, setCurrentMatch] = useState<any>(null)
+  const [upcomingMatch, setUpcomingMatch] = useState<any>(null)
+  const [matchdayPosts, setMatchdayPosts] = useState<CommunityPost[]>([])
+  const [chatMessages, setChatMessages] = useState<any[]>([])
+  const [matchdayTab, setMatchdayTab] = useState<'match' | 'board' | 'chat'>('match')
   
   useEffect(() => {
     loadCommunityData()
@@ -120,6 +125,53 @@ export default function CommunityPage() {
     }
   }
 
+  const loadMatchdayData = async () => {
+    try {
+      setIsLoading(true)
+      const service = new FootballAPIService()
+      const today = new Date().toISOString().split('T')[0]
+      
+      // 오늘 경기 확인
+      const todayFixtures = await service.getFixtures({
+        date: today,
+        team: userTeamId || 49
+      })
+
+      if (todayFixtures?.response?.length > 0) {
+        const match = todayFixtures.response[0]
+        if (['LIVE', '1H', '2H', 'HT'].includes(match.fixture.status.short)) {
+          setCurrentMatch(match)
+          setUpcomingMatch(null)
+        } else if (['NS', 'TBD'].includes(match.fixture.status.short)) {
+          setUpcomingMatch(match)
+          setCurrentMatch(null)
+        }
+      } else {
+        // 다음 경기 확인
+        const nextFixtures = await service.getFixtures({
+          team: userTeamId || 49,
+          next: 1
+        })
+        if (nextFixtures?.response?.length > 0) {
+          setUpcomingMatch(nextFixtures.response[0])
+        }
+      }
+
+      // 매치데이 게시글 가져오기
+      const response = await CommunityService.getPosts('all')
+      const matchdayFiltered = response.data.filter(post => 
+        post.category === 'matchday' || 
+        post.tags?.includes('매치데이') ||
+        post.tags?.includes('라이브')
+      )
+      setMatchdayPosts(matchdayFiltered)
+    } catch (error) {
+      console.error('Error loading matchday data:', error)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white dark:from-gray-900 dark:to-gray-800">
       {/* 상단 탭 네비게이션 - 주요 구분 */}
@@ -164,11 +216,8 @@ export default function CommunityPage() {
               </button>
               <button
                 onClick={() => {
-                  if (mainTab === 'matchday') {
-                    setMainTab('matchday')
-                  } else {
-                    router.push('/matchday')
-                  }
+                  setMainTab('matchday')
+                  loadMatchdayData()
                 }}
                 className={cn(
                   "px-6 py-4 font-semibold border-b-2 transition-all whitespace-nowrap",
@@ -249,9 +298,26 @@ export default function CommunityPage() {
           </div>
         </div>
       )}
+
+      {mainTab === 'matchday' && (
+        <div className="relative overflow-hidden bg-gradient-to-r from-green-600 via-emerald-600 to-green-700 text-white">
+          <div className="absolute inset-0 bg-black/20" />
+          <div className="relative container mx-auto px-4 py-6">
+            <div className="text-center">
+              <h1 className="text-2xl lg:text-3xl font-bold mb-2">
+                ⚽ 매치데이
+              </h1>
+              <p className="text-sm text-white/80">
+                경기와 함께하는 실시간 소통
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
             
 
-      {/* 3단 레이아웃 */}
+      {/* 3단 레이아웃 - 매치데이가 아닐 때만 표시 */}
+      {mainTab !== 'matchday' ? (
       <div className="container mx-auto px-4 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           
@@ -943,6 +1009,20 @@ export default function CommunityPage() {
           </div>
         </div>
       </div>
+      ) : (
+        /* 매치데이 콘텐츠 */
+        <MatchdayContent 
+          currentMatch={currentMatch || upcomingMatch}
+          matchdayPosts={matchdayPosts}
+          chatMessages={chatMessages}
+          setChatMessages={setChatMessages}
+          matchdayTab={matchdayTab}
+          setMatchdayTab={setMatchdayTab}
+          userTeamId={userTeamId || 49}
+          user={user}
+          router={router}
+        />
+      )}
 
       {/* 플로팅 액션 버튼 - 모바일 */}
       <div className="fixed bottom-6 right-6 lg:hidden z-50">
@@ -954,6 +1034,315 @@ export default function CommunityPage() {
           <Plus className="h-6 w-6" />
         </Button>
       </div>
+    </div>
+  )
+}
+
+// 매치데이 콘텐츠 컴포넌트
+function MatchdayContent({ 
+  currentMatch, 
+  matchdayPosts, 
+  chatMessages, 
+  setChatMessages, 
+  matchdayTab, 
+  setMatchdayTab, 
+  userTeamId, 
+  user, 
+  router 
+}: any) {
+  const [newMessage, setNewMessage] = useState('')
+  const isLive = currentMatch && ['LIVE', '1H', '2H', 'HT'].includes(currentMatch.fixture?.status?.short)
+  const isHome = currentMatch?.teams?.home?.id === userTeamId
+
+  const sendChatMessage = () => {
+    if (!newMessage.trim() || !user) return
+
+    const message = {
+      id: Date.now().toString(),
+      userId: user.id,
+      userName: user.email?.split('@')[0] || 'User',
+      content: newMessage,
+      timestamp: new Date(),
+      teamId: userTeamId
+    }
+
+    setChatMessages([...chatMessages, message])
+    setNewMessage('')
+  }
+
+  if (!currentMatch) {
+    return (
+      <div className="container mx-auto px-4 py-12">
+        <Card className="max-w-2xl mx-auto">
+          <CardContent className="py-12 text-center">
+            <Trophy className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+            <h2 className="text-2xl font-bold mb-2">오늘은 경기가 없습니다</h2>
+            <p className="text-gray-600 dark:text-gray-400 mb-6">
+              다음 경기 일정을 확인해보세요
+            </p>
+            <Button onClick={() => router.push('/fixtures')}>
+              경기 일정 보기
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  return (
+    <div className="container mx-auto px-4 py-6">
+      {/* 경기 정보 카드 */}
+      <Card className="mb-6 overflow-hidden">
+        <div className={cn(
+          "p-6",
+          isLive 
+            ? "bg-gradient-to-r from-green-500 to-emerald-600 text-white"
+            : "bg-gradient-to-r from-blue-500 to-indigo-600 text-white"
+        )}>
+          <div className="flex items-center justify-between mb-4">
+            <Badge className={cn(
+              "text-white border-white",
+              isLive && "bg-red-500 animate-pulse"
+            )}>
+              {isLive ? (
+                <>
+                  <Activity className="h-3 w-3 mr-1" />
+                  LIVE {currentMatch.fixture.status.elapsed}'
+                </>
+              ) : (
+                <>
+                  <Clock className="h-3 w-3 mr-1" />
+                  {new Date(currentMatch.fixture.date).toLocaleTimeString('ko-KR', { 
+                    hour: '2-digit', 
+                    minute: '2-digit' 
+                  })}
+                </>
+              )}
+            </Badge>
+            <span className="text-sm opacity-80">{currentMatch.league.name}</span>
+          </div>
+
+          <div className="grid grid-cols-3 items-center gap-4">
+            <div className="text-center">
+              <Image
+                src={currentMatch.teams.home.logo}
+                alt={currentMatch.teams.home.name}
+                width={60}
+                height={60}
+                className="mx-auto mb-2"
+              />
+              <p className={cn("font-semibold", isHome && "text-yellow-300")}>
+                {currentMatch.teams.home.name}
+              </p>
+              {isHome && <Badge className="mt-1 bg-yellow-500 text-black text-xs">우리팀</Badge>}
+            </div>
+
+            <div className="text-center">
+              {isLive ? (
+                <div className="text-3xl font-bold">
+                  {currentMatch.goals?.home || 0} - {currentMatch.goals?.away || 0}
+                </div>
+              ) : (
+                <div className="text-2xl font-bold">VS</div>
+              )}
+            </div>
+
+            <div className="text-center">
+              <Image
+                src={currentMatch.teams.away.logo}
+                alt={currentMatch.teams.away.name}
+                width={60}
+                height={60}
+                className="mx-auto mb-2"
+              />
+              <p className={cn("font-semibold", !isHome && "text-yellow-300")}>
+                {currentMatch.teams.away.name}
+              </p>
+              {!isHome && <Badge className="mt-1 bg-yellow-500 text-black text-xs">우리팀</Badge>}
+            </div>
+          </div>
+        </div>
+      </Card>
+
+      {/* 매치데이 탭 */}
+      <Tabs value={matchdayTab} onValueChange={(v) => setMatchdayTab(v as any)}>
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="match">경기 정보</TabsTrigger>
+          <TabsTrigger value="board">
+            실시간 게시판
+            {matchdayPosts.length > 0 && (
+              <Badge className="ml-2" variant="secondary">{matchdayPosts.length}</Badge>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="chat">
+            라이브 채팅
+            {chatMessages.length > 0 && (
+              <Badge className="ml-2" variant="secondary">{chatMessages.length}</Badge>
+            )}
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="match" className="space-y-4">
+          <div className="grid md:grid-cols-2 gap-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">예상 라인업</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-center py-8 text-gray-500">
+                  {isLive ? "라인업 정보를 불러오는 중..." : "경기 시작 전 공개됩니다"}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">최근 맞대결</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-center py-8 text-gray-500">
+                  맞대결 기록을 불러오는 중...
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="board" className="space-y-4">
+          {user && (
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="경기 응원 메시지를 남겨주세요..."
+                    className="flex-1"
+                  />
+                  <Button className="bg-green-600 hover:bg-green-700">
+                    <Send className="h-4 w-4" />
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {matchdayPosts.length > 0 ? (
+            matchdayPosts.map((post) => (
+              <Card key={post.id} className="hover:shadow-lg transition-shadow">
+                <CardContent className="p-4">
+                  <div className="flex items-start gap-3">
+                    <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-emerald-600 rounded-full flex items-center justify-center text-white font-bold">
+                      {post.author?.nickname?.charAt(0) || 'U'}
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="font-semibold">{post.author?.nickname || '익명'}</span>
+                        <span className="text-xs text-gray-500">
+                          {formatDistanceToNow(new Date(post.createdAt), { 
+                            addSuffix: true, 
+                            locale: ko 
+                          })}
+                        </span>
+                      </div>
+                      <p className="text-gray-700 dark:text-gray-300">{post.content}</p>
+                      <div className="flex items-center gap-4 mt-2">
+                        <button className="flex items-center gap-1 text-sm text-gray-500 hover:text-red-500">
+                          <Heart className="h-4 w-4" />
+                          {post.likeCount > 0 && post.likeCount}
+                        </button>
+                        <button className="flex items-center gap-1 text-sm text-gray-500 hover:text-blue-500">
+                          <MessageSquare className="h-4 w-4" />
+                          {post.commentCount > 0 && post.commentCount}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))
+          ) : (
+            <Card>
+              <CardContent className="py-12 text-center">
+                <MessageSquare className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+                <p className="text-gray-500">첫 번째 응원 메시지를 남겨주세요!</p>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+
+        <TabsContent value="chat" className="space-y-4">
+          <Card className="h-[500px] flex flex-col">
+            <CardHeader className="border-b">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Users className="h-5 w-5" />
+                  실시간 채팅
+                  <Badge variant="secondary">{chatMessages.length}명 참여중</Badge>
+                </CardTitle>
+                <Badge className="bg-green-500">
+                  <Activity className="h-3 w-3 mr-1" />
+                  LIVE
+                </Badge>
+              </div>
+            </CardHeader>
+            
+            <CardContent className="flex-1 overflow-y-auto p-4 space-y-3">
+              {chatMessages.length > 0 ? (
+                chatMessages.map((msg: any) => (
+                  <div key={msg.id} className="flex items-start gap-2">
+                    <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white text-xs font-bold">
+                      {msg.userName.charAt(0).toUpperCase()}
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-sm">{msg.userName}</span>
+                        <span className="text-xs text-gray-500">
+                          {formatDistanceToNow(new Date(msg.timestamp), { 
+                            addSuffix: true, 
+                            locale: ko 
+                          })}
+                        </span>
+                      </div>
+                      <p className="text-sm text-gray-700 dark:text-gray-300">{msg.content}</p>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="text-center py-12">
+                  <Sparkles className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+                  <p className="text-gray-500">채팅을 시작해보세요!</p>
+                </div>
+              )}
+            </CardContent>
+
+            <div className="border-t p-4">
+              {user ? (
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="메시지를 입력하세요..."
+                    value={newMessage}
+                    onChange={(e) => setNewMessage(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && sendChatMessage()}
+                    className="flex-1"
+                  />
+                  <Button 
+                    onClick={sendChatMessage}
+                    className="bg-green-600 hover:bg-green-700"
+                  >
+                    <Send className="h-4 w-4" />
+                  </Button>
+                </div>
+              ) : (
+                <div className="text-center">
+                  <p className="text-sm text-gray-500 mb-2">채팅 참여는 로그인이 필요합니다</p>
+                  <Button onClick={() => router.push('/auth/login')} size="sm">
+                    로그인
+                  </Button>
+                </div>
+              )}
+            </div>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }
