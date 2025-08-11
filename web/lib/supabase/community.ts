@@ -177,8 +177,24 @@ export class CommunityService {
 
   static async createPost(postData: CreatePostData): Promise<CommunityPost> {
     const supabase = this.getClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) throw new Error('User not authenticated')
+    
+    // 먼저 세션 확인
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+    console.log('[CommunityService] createPost - Session check:', !!session, sessionError)
+    
+    if (sessionError) {
+      console.error('[CommunityService] Session error:', sessionError)
+      throw new Error(`Session error: ${sessionError.message}`)
+    }
+    
+    if (!session) {
+      console.error('[CommunityService] No session found')
+      throw new Error('No active session found')
+    }
+    
+    // 세션이 있으면 user 정보 사용
+    const user = session.user
+    console.log('[CommunityService] User from session:', user.id)
 
     // Get the user's profile to use the correct profile ID
     const { data: profile } = await supabase
@@ -264,8 +280,24 @@ export class CommunityService {
 
   static async createComment(commentData: CreateCommentData): Promise<CommunityComment> {
     const supabase = this.getClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) throw new Error('User not authenticated')
+    
+    // 먼저 세션 확인
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+    console.log('[CommunityService] createComment - Session check:', !!session, sessionError)
+    
+    if (sessionError) {
+      console.error('[CommunityService] Session error:', sessionError)
+      throw new Error(`Session error: ${sessionError.message}`)
+    }
+    
+    if (!session) {
+      console.error('[CommunityService] No session found')
+      throw new Error('No active session found')
+    }
+    
+    // 세션이 있으면 user 정보 사용
+    const user = session.user
+    console.log('[CommunityService] User from session:', user.id)
 
     // Get the user's profile to use the correct profile ID
     const { data: profile } = await supabase
