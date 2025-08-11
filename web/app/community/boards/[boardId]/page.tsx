@@ -275,234 +275,396 @@ export default function BoardDetailPage() {
 
       {/* 팀 정보 섹션 (팀 게시판인 경우) */}
       {isTeamBoard && (
-        <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white">
-          <div className="container mx-auto px-4 py-8">
-            {/* 팀 헤더 */}
-            <div className="flex items-center justify-between mb-8">
-              <div className="flex items-center space-x-6">
-                <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center shadow-xl">
-                  {teamProfile?.team?.logo ? (
-                    <Image
-                      src={teamProfile.team.logo}
-                      alt={teamProfile.team.name}
-                      width={64}
-                      height={64}
-                      className="rounded-full"
-                    />
-                  ) : (
-                    <img 
-                      src={`https://media.api-sports.io/football/teams/${teamId}.png`}
-                      alt="Team Logo"
-                      className="w-16 h-16 object-contain"
-                    />
-                  )}
+        <div className="relative overflow-hidden">
+          {/* 배경 그라데이션 */}
+          <div className="absolute inset-0 bg-gradient-to-br from-blue-600 via-purple-600 to-pink-600 opacity-90" />
+          
+          {/* 애니메이션 배경 효과 */}
+          <div className="absolute inset-0">
+            <div className="absolute top-0 -left-4 w-72 h-72 bg-purple-300 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob" />
+            <div className="absolute top-0 -right-4 w-72 h-72 bg-yellow-300 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob animation-delay-2000" />
+            <div className="absolute -bottom-8 left-20 w-72 h-72 bg-pink-300 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob animation-delay-4000" />
+          </div>
+          
+          <div className="relative container mx-auto px-4 py-12">
+            {/* 팀 헤더 - 개선된 레이아웃 */}
+            <div className="flex flex-col lg:flex-row items-center lg:items-start justify-between gap-8 mb-10">
+              <div className="flex flex-col lg:flex-row items-center lg:items-start gap-6 flex-1">
+                {/* 팀 로고 컨테이너 */}
+                <div className="relative group">
+                  <div className="absolute inset-0 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full blur-lg opacity-75 group-hover:opacity-100 transition-opacity" />
+                  <div className="relative w-24 h-24 bg-white rounded-full flex items-center justify-center shadow-2xl transform group-hover:scale-105 transition-transform">
+                    {teamProfile?.team?.logo ? (
+                      <Image
+                        src={teamProfile.team.logo}
+                        alt={teamProfile.team.name}
+                        width={72}
+                        height={72}
+                        className="rounded-full p-2"
+                      />
+                    ) : (
+                      <img 
+                        src={`https://media.api-sports.io/football/teams/${teamId}.png`}
+                        alt="Team Logo"
+                        className="w-20 h-20 object-contain p-2"
+                      />
+                    )}
+                  </div>
                 </div>
-                <div>
-                  <h1 className="text-4xl font-bold mb-2">
-                    {teamProfile?.team?.name || teamBasicInfo?.name || `팀 #${teamId}`} 
-                    <span className="text-blue-200 ml-2">팬 게시판</span>
+                
+                {/* 팀 정보 */}
+                <div className="text-center lg:text-left">
+                  <h1 className="text-4xl lg:text-5xl font-extrabold text-white mb-3 tracking-tight">
+                    {teamProfile?.team?.name || teamBasicInfo?.name || `팀 #${teamId}`}
                   </h1>
-                  <div className="flex items-center space-x-6 text-sm text-blue-100">
-                    <div className="flex items-center space-x-1">
+                  <p className="text-xl lg:text-2xl text-yellow-300 font-medium mb-4">
+                    공식 팬 커뮤니티
+                  </p>
+                  
+                  {/* 팀 메타 정보 */}
+                  <div className="flex flex-wrap items-center gap-4 text-white/90 mb-4">
+                    <div className="flex items-center gap-2 bg-white/10 backdrop-blur-sm rounded-full px-3 py-1">
                       <Calendar className="h-4 w-4" />
-                      <span>창단 {teamProfile?.team?.founded || teamBasicInfo?.founded || '미정'}년</span>
+                      <span className="text-sm">Since {teamProfile?.team?.founded || teamBasicInfo?.founded || 'N/A'}</span>
                     </div>
-                    <div className="flex items-center space-x-1">
+                    <div className="flex items-center gap-2 bg-white/10 backdrop-blur-sm rounded-full px-3 py-1">
                       <MapPin className="h-4 w-4" />
-                      <span>{teamProfile?.team?.country || teamBasicInfo?.country || '국가 정보 없음'}</span>
+                      <span className="text-sm">{teamProfile?.team?.country || teamBasicInfo?.country || 'Unknown'}</span>
                     </div>
                     {teamProfile?.venue && (
-                      <div className="flex items-center space-x-1">
+                      <div className="flex items-center gap-2 bg-white/10 backdrop-blur-sm rounded-full px-3 py-1">
                         <Trophy className="h-4 w-4" />
-                        <span>{teamProfile.venue.name}</span>
+                        <span className="text-sm">{teamProfile.venue.name}</span>
                       </div>
                     )}
                   </div>
-                  <div className="mt-3">
-                    <p className="text-yellow-300 font-bold text-lg italic">
-                      "{teamBasicInfo?.slogan || `우리는 ${teamProfile?.team?.name || teamBasicInfo?.name || '이 팀'}!`}"
+                  
+                  {/* 팀 슬로건 */}
+                  <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 max-w-xl">
+                    <p className="text-lg font-bold text-yellow-300 italic mb-2">
+                      "{teamBasicInfo?.slogan || `우리는 ${teamProfile?.team?.name || teamBasicInfo?.name}!`}"
                     </p>
-                    <p className="text-blue-100 text-sm mt-1">
-                      {teamProfile?.team?.name || teamBasicInfo?.name || '이 팀'} 팬들만이 모이는 특별한 공간입니다! 🔥
+                    <p className="text-sm text-white/80">
+                      열정적인 팬들이 모여 응원하고 소통하는 공간입니다 ⚽️
                     </p>
                   </div>
                 </div>
               </div>
-              <Badge className="bg-red-500 text-white border-none px-4 py-2 text-lg">
-                <Heart className="w-5 h-5 mr-2 fill-current" />
-                OFFICIAL FAN ZONE
-              </Badge>
+              
+              {/* 액션 버튼 그룹 */}
+              <div className="flex flex-col gap-3">
+                <Badge className="bg-gradient-to-r from-red-500 to-pink-500 text-white border-none px-6 py-3 text-lg shadow-lg">
+                  <Heart className="w-5 h-5 mr-2 fill-current animate-pulse" />
+                  OFFICIAL FAN ZONE
+                </Badge>
+                <Button 
+                  className="bg-white/20 backdrop-blur-sm hover:bg-white/30 text-white border border-white/30"
+                  onClick={() => router.push(`/teams/${teamId}`)}
+                >
+                  <Shield className="w-4 h-4 mr-2" />
+                  팀 정보 보기
+                </Button>
+              </div>
             </div>
             
-            {/* 팀 통계 */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-              <div className="bg-white/10 rounded-xl p-6 backdrop-blur-sm">
-                <div className="text-3xl font-bold text-yellow-300">
+            {/* 팀 통계 - 개선된 디자인 */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+              <div className="group relative bg-white/10 backdrop-blur-sm rounded-2xl p-6 hover:bg-white/20 transition-all transform hover:scale-105">
+                <div className="absolute top-2 right-2">
+                  <div className="w-2 h-2 bg-yellow-400 rounded-full animate-pulse" />
+                </div>
+                <div className="text-4xl font-bold text-white mb-2">
                   {teamStats?.fixtures?.played?.total || '0'}
                 </div>
-                <div className="text-sm text-blue-100 mt-1">시즌 경기수</div>
+                <div className="text-sm text-white/70">경기</div>
+                <div className="mt-2 h-1 bg-white/20 rounded-full overflow-hidden">
+                  <div className="h-full bg-yellow-400 w-full" />
+                </div>
               </div>
-              <div className="bg-white/10 rounded-xl p-6 backdrop-blur-sm">
-                <div className="text-3xl font-bold text-green-300">
+              
+              <div className="group relative bg-white/10 backdrop-blur-sm rounded-2xl p-6 hover:bg-white/20 transition-all transform hover:scale-105">
+                <div className="absolute top-2 right-2">
+                  <Trophy className="w-4 h-4 text-green-400" />
+                </div>
+                <div className="text-4xl font-bold text-green-400 mb-2">
                   {teamStats?.fixtures?.wins?.total || '0'}
                 </div>
-                <div className="text-sm text-blue-100 mt-1">승리</div>
+                <div className="text-sm text-white/70">승리</div>
+                <div className="mt-2 h-1 bg-white/20 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-green-400 transition-all"
+                    style={{ 
+                      width: `${teamStats?.fixtures?.played?.total ? 
+                        (teamStats.fixtures.wins.total / teamStats.fixtures.played.total) * 100 : 0
+                      }%` 
+                    }}
+                  />
+                </div>
               </div>
-              <div className="bg-white/10 rounded-xl p-6 backdrop-blur-sm">
-                <div className="text-3xl font-bold text-gray-300">
+              
+              <div className="group relative bg-white/10 backdrop-blur-sm rounded-2xl p-6 hover:bg-white/20 transition-all transform hover:scale-105">
+                <div className="absolute top-2 right-2">
+                  <div className="w-4 h-4 bg-gray-400 rounded-full" />
+                </div>
+                <div className="text-4xl font-bold text-gray-300 mb-2">
                   {teamStats?.fixtures?.draws?.total || '0'}
                 </div>
-                <div className="text-sm text-blue-100 mt-1">무승부</div>
+                <div className="text-sm text-white/70">무승부</div>
+                <div className="mt-2 h-1 bg-white/20 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-gray-400 transition-all"
+                    style={{ 
+                      width: `${teamStats?.fixtures?.played?.total ? 
+                        (teamStats.fixtures.draws.total / teamStats.fixtures.played.total) * 100 : 0
+                      }%` 
+                    }}
+                  />
+                </div>
               </div>
-              <div className="bg-white/10 rounded-xl p-6 backdrop-blur-sm">
-                <div className="text-3xl font-bold text-red-300">
+              
+              <div className="group relative bg-white/10 backdrop-blur-sm rounded-2xl p-6 hover:bg-white/20 transition-all transform hover:scale-105">
+                <div className="absolute top-2 right-2">
+                  <div className="w-4 h-4 bg-red-400 rounded" />
+                </div>
+                <div className="text-4xl font-bold text-red-400 mb-2">
                   {teamStats?.fixtures?.loses?.total || '0'}
                 </div>
-                <div className="text-sm text-blue-100 mt-1">패배</div>
+                <div className="text-sm text-white/70">패배</div>
+                <div className="mt-2 h-1 bg-white/20 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-red-400 transition-all"
+                    style={{ 
+                      width: `${teamStats?.fixtures?.played?.total ? 
+                        (teamStats.fixtures.loses.total / teamStats.fixtures.played.total) * 100 : 0
+                      }%` 
+                    }}
+                  />
+                </div>
               </div>
             </div>
             
-            {/* 팀 폼 상태 */}
+            {/* 팀 폼 상태 - 개선된 디자인 */}
             {teamStats && (
-              <div className="bg-white/10 rounded-xl p-6 mb-8">
-                <h3 className="text-xl font-bold mb-4 flex items-center space-x-2">
-                  <TrendingUp className="h-6 w-6" />
-                  <span>시즌 폼 상태</span>
+              <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-8 mb-8 border border-white/20">
+                <h3 className="text-2xl font-bold mb-6 flex items-center gap-3 text-white">
+                  <div className="p-2 bg-yellow-400/20 rounded-lg">
+                    <TrendingUp className="h-6 w-6 text-yellow-400" />
+                  </div>
+                  <span>시즌 퍼포먼스</span>
                 </h3>
-                <div className="grid md:grid-cols-2 gap-6">
-                  <div>
-                    <div className="mb-4">
-                      <div className="flex justify-between items-center mb-2">
-                        <span className="text-sm">승률</span>
-                        <span className="text-sm font-bold">
-                          {teamStats.fixtures?.played?.total ? 
-                            Math.round((teamStats.fixtures.wins.total / teamStats.fixtures.played.total) * 100) : 0
-                          }%
-                        </span>
+                
+                <div className="grid md:grid-cols-2 gap-8">
+                  {/* 승률 차트 */}
+                  <div className="space-y-4">
+                    <div>
+                      <div className="flex justify-between items-end mb-3">
+                        <div>
+                          <p className="text-white/60 text-sm mb-1">승률</p>
+                          <p className="text-3xl font-bold text-white">
+                            {teamStats.fixtures?.played?.total ? 
+                              Math.round((teamStats.fixtures.wins.total / teamStats.fixtures.played.total) * 100) : 0
+                            }%
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-xs text-white/60">W-D-L</p>
+                          <p className="text-sm font-medium text-white">
+                            {teamStats.fixtures?.wins?.total || 0}-
+                            {teamStats.fixtures?.draws?.total || 0}-
+                            {teamStats.fixtures?.loses?.total || 0}
+                          </p>
+                        </div>
                       </div>
-                      <div className="w-full bg-white/20 rounded-full h-2">
+                      
+                      <div className="relative h-3 bg-white/10 rounded-full overflow-hidden">
                         <div 
-                          className="bg-green-400 h-2 rounded-full transition-all duration-300"
+                          className="absolute h-full bg-gradient-to-r from-green-400 to-emerald-500 rounded-full transition-all duration-1000 ease-out"
                           style={{ 
                             width: `${teamStats.fixtures?.played?.total ? 
                               (teamStats.fixtures.wins.total / teamStats.fixtures.played.total) * 100 : 0
                             }%` 
                           }}
-                        ></div>
+                        >
+                          <div className="absolute right-0 top-1/2 -translate-y-1/2 w-2 h-2 bg-white rounded-full shadow-lg" />
+                        </div>
                       </div>
                     </div>
-                    <div className="text-sm text-blue-100">
-                      홈: {teamStats.fixtures?.wins?.home || 0}승 | 
-                      어웨이: {teamStats.fixtures?.wins?.away || 0}승
+                    
+                    <div className="flex gap-4 text-sm">
+                      <div className="flex-1 bg-white/5 rounded-lg p-3">
+                        <p className="text-white/60 text-xs mb-1">홈 승리</p>
+                        <p className="text-lg font-bold text-green-400">{teamStats.fixtures?.wins?.home || 0}</p>
+                      </div>
+                      <div className="flex-1 bg-white/5 rounded-lg p-3">
+                        <p className="text-white/60 text-xs mb-1">원정 승리</p>
+                        <p className="text-lg font-bold text-blue-400">{teamStats.fixtures?.wins?.away || 0}</p>
+                      </div>
                     </div>
                   </div>
-                  <div>
-                    <div className="mb-4">
-                      <div className="flex justify-between items-center mb-2">
-                        <span className="text-sm">득점/실점</span>
-                        <span className="text-sm font-bold">
-                          {teamStats.goals?.for?.total?.total || 0} / {teamStats.goals?.against?.total?.total || 0}
-                        </span>
+                  
+                  {/* 득점/실점 통계 */}
+                  <div className="space-y-4">
+                    <div>
+                      <div className="flex justify-between items-end mb-3">
+                        <div>
+                          <p className="text-white/60 text-sm mb-1">득점력</p>
+                          <p className="text-3xl font-bold text-white">
+                            {teamStats.goals?.for?.total?.total || 0}
+                            <span className="text-lg font-normal text-white/60 ml-2">골</span>
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-xs text-white/60">평균</p>
+                          <p className="text-sm font-medium text-white">
+                            {teamStats.goals?.for?.average?.total || '0.0'} / 경기
+                          </p>
+                        </div>
                       </div>
-                      <div className="text-sm text-blue-100">
-                        평균 득점: {teamStats.goals?.for?.average?.total || '0.0'} | 
-                        평균 실점: {teamStats.goals?.against?.average?.total || '0.0'}
+                      
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-3">
+                          <span className="text-xs text-white/60 w-12">득점</span>
+                          <div className="flex-1 h-2 bg-white/10 rounded-full overflow-hidden">
+                            <div className="h-full bg-gradient-to-r from-blue-400 to-cyan-500 rounded-full" 
+                                 style={{width: `${Math.min((teamStats.goals?.for?.total?.total || 0) * 2, 100)}%`}} />
+                          </div>
+                          <span className="text-sm font-medium text-white w-10 text-right">
+                            {teamStats.goals?.for?.total?.total || 0}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className="text-xs text-white/60 w-12">실점</span>
+                          <div className="flex-1 h-2 bg-white/10 rounded-full overflow-hidden">
+                            <div className="h-full bg-gradient-to-r from-red-400 to-pink-500 rounded-full" 
+                                 style={{width: `${Math.min((teamStats.goals?.against?.total?.total || 0) * 2, 100)}%`}} />
+                          </div>
+                          <span className="text-sm font-medium text-white w-10 text-right">
+                            {teamStats.goals?.against?.total?.total || 0}
+                          </span>
+                        </div>
                       </div>
+                    </div>
+                    
+                    <div className="bg-white/5 rounded-lg p-3">
+                      <p className="text-white/60 text-xs mb-1">득실차</p>
+                      <p className={`text-lg font-bold ${
+                        (teamStats.goals?.for?.total?.total || 0) - (teamStats.goals?.against?.total?.total || 0) > 0 
+                          ? 'text-green-400' 
+                          : (teamStats.goals?.for?.total?.total || 0) - (teamStats.goals?.against?.total?.total || 0) < 0 
+                            ? 'text-red-400' 
+                            : 'text-gray-400'
+                      }`}>
+                        {(teamStats.goals?.for?.total?.total || 0) - (teamStats.goals?.against?.total?.total || 0) > 0 ? '+' : ''}
+                        {(teamStats.goals?.for?.total?.total || 0) - (teamStats.goals?.against?.total?.total || 0)}
+                      </p>
                     </div>
                   </div>
                 </div>
               </div>
             )}
             
-            {/* 최근 경기 및 다음 경기 */}
-            <div className="grid md:grid-cols-2 gap-6">
+            {/* 최근 경기 및 다음 경기 - 개선된 디자인 */}
+            <div className="grid lg:grid-cols-2 gap-6">
               {/* 최근 경기 */}
-              <div className="bg-white/10 rounded-xl p-6">
-                <h3 className="text-xl font-bold mb-4 flex items-center space-x-2">
-                  <TrendingUp className="h-6 w-6 text-yellow-300" />
+              <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 border border-white/20">
+                <h3 className="text-xl font-bold mb-5 flex items-center gap-3 text-white">
+                  <div className="p-2 bg-orange-400/20 rounded-lg">
+                    <TrendingUp className="h-5 w-5 text-orange-400" />
+                  </div>
                   <span>최근 경기 결과</span>
                 </h3>
                 {lastFixtures && lastFixtures.response && lastFixtures.response.length > 0 ? (
                   <div className="space-y-3">
-                    {lastFixtures.response.slice(0, 3).map((fixture: any) => (
-                      <Link 
-                        key={fixture.fixture.id} 
-                        href={`/fixtures/${fixture.fixture.id}`}
-                        className="block"
-                      >
-                        <div className="bg-white/10 rounded-lg p-4 hover:bg-white/20 transition-colors cursor-pointer">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center space-x-3">
-                              <Link 
-                                href={`/teams/${fixture.teams.home.id}`}
-                                onClick={(e) => e.stopPropagation()}
-                                className="transition-transform hover:scale-110"
-                              >
+                    {lastFixtures.response.slice(0, 3).map((fixture: any, index: number) => {
+                      const isWin = fixture.teams.home.id === teamId 
+                        ? fixture.goals.home > fixture.goals.away
+                        : fixture.goals.away > fixture.goals.home
+                      const isDraw = fixture.goals.home === fixture.goals.away
+                      const resultColor = isWin ? 'bg-green-400/20 border-green-400/30' : isDraw ? 'bg-gray-400/20 border-gray-400/30' : 'bg-red-400/20 border-red-400/30'
+                      const resultText = isWin ? 'W' : isDraw ? 'D' : 'L'
+                      const resultTextColor = isWin ? 'text-green-400' : isDraw ? 'text-gray-400' : 'text-red-400'
+                      
+                      return (
+                        <Link 
+                          key={fixture.fixture.id} 
+                          href={`/fixtures/${fixture.fixture.id}`}
+                          className="block group"
+                        >
+                          <div className={`relative ${resultColor} border rounded-xl p-4 hover:bg-white/10 transition-all group-hover:scale-[1.02]`}>
+                            {/* 결과 표시 */}
+                            <div className={`absolute -top-2 -right-2 w-8 h-8 ${resultColor} rounded-full flex items-center justify-center font-bold ${resultTextColor} border border-white/20`}>
+                              {resultText}
+                            </div>
+                            
+                            <div className="flex items-center justify-between gap-4">
+                              <div className="flex items-center gap-3 flex-1">
                                 <Image
                                   src={fixture.teams.home.logo}
                                   alt={fixture.teams.home.name}
-                                  width={24}
-                                  height={24}
+                                  width={28}
+                                  height={28}
+                                  className="drop-shadow-lg"
                                 />
-                              </Link>
-                              <Link 
-                                href={`/teams/${fixture.teams.home.id}`}
-                                onClick={(e) => e.stopPropagation()}
-                                className="text-sm font-medium hover:text-yellow-200 transition-colors"
-                              >
-                                {fixture.teams.home.name}
-                              </Link>
-                            </div>
-                            <div className="text-lg font-bold text-yellow-300">
-                              {fixture.goals.home} - {fixture.goals.away}
-                            </div>
-                            <div className="flex items-center space-x-3">
-                              <Link 
-                                href={`/teams/${fixture.teams.away.id}`}
-                                onClick={(e) => e.stopPropagation()}
-                                className="text-sm font-medium hover:text-yellow-200 transition-colors"
-                              >
-                                {fixture.teams.away.name}
-                              </Link>
-                              <Link 
-                                href={`/teams/${fixture.teams.away.id}`}
-                                onClick={(e) => e.stopPropagation()}
-                                className="transition-transform hover:scale-110"
-                              >
+                                <span className={`text-sm font-medium text-white ${fixture.teams.home.id === teamId ? 'font-bold' : ''}`}>
+                                  {fixture.teams.home.name}
+                                </span>
+                              </div>
+                              
+                              <div className="px-4 py-2 bg-black/20 rounded-lg">
+                                <div className="text-xl font-bold text-white text-center">
+                                  {fixture.goals.home} - {fixture.goals.away}
+                                </div>
+                              </div>
+                              
+                              <div className="flex items-center gap-3 flex-1 justify-end">
+                                <span className={`text-sm font-medium text-white ${fixture.teams.away.id === teamId ? 'font-bold' : ''}`}>
+                                  {fixture.teams.away.name}
+                                </span>
                                 <Image
                                   src={fixture.teams.away.logo}
                                   alt={fixture.teams.away.name}
-                                  width={24}
-                                  height={24}
+                                  width={28}
+                                  height={28}
+                                  className="drop-shadow-lg"
                                 />
-                              </Link>
+                              </div>
+                            </div>
+                            
+                            <div className="mt-3 pt-3 border-t border-white/10">
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs text-white/60">
+                                  {new Date(fixture.fixture.date).toLocaleDateString('ko-KR', { 
+                                    month: 'short', 
+                                    day: 'numeric',
+                                    weekday: 'short'
+                                  })}
+                                </span>
+                                <span className="text-xs text-white/60">
+                                  {fixture.league.name}
+                                </span>
+                              </div>
                             </div>
                           </div>
-                          <div className="text-xs text-blue-200 mt-2 text-center">
-                            {new Date(fixture.fixture.date).toLocaleDateString('ko-KR', { 
-                              month: 'long', 
-                              day: 'numeric',
-                              weekday: 'short'
-                            })}
-                          </div>
-                          <div className="text-xs text-blue-300 mt-1 text-center opacity-75">
-                            클릭하여 경기 상세 보기
-                          </div>
-                        </div>
-                      </Link>
-                    ))}
+                        </Link>
+                      )
+                    })}
                   </div>
                 ) : (
-                  <p className="text-blue-200 text-center py-8">
-                    최근 경기 정보를 불러오는 중입니다...
-                  </p>
+                  <div className="text-center py-12">
+                    <div className="inline-flex items-center justify-center w-16 h-16 bg-white/10 rounded-full mb-4">
+                      <Trophy className="h-8 w-8 text-white/40" />
+                    </div>
+                    <p className="text-white/60">최근 경기 정보를 불러오는 중...</p>
+                  </div>
                 )}
               </div>
               
               {/* 다음 경기 */}
-              <div className="bg-white/10 rounded-xl p-6">
-                <h3 className="text-xl font-bold mb-4 flex items-center space-x-2">
-                  <Target className="h-6 w-6 text-green-300" />
+              <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 border border-white/20">
+                <h3 className="text-xl font-bold mb-5 flex items-center gap-3 text-white">
+                  <div className="p-2 bg-green-400/20 rounded-lg">
+                    <Target className="h-5 w-5 text-green-400" />
+                  </div>
                   <span>다음 경기 일정</span>
                 </h3>
                 {nextFixtures && nextFixtures.response && nextFixtures.response.length > 0 ? (
@@ -511,53 +673,89 @@ export default function BoardDetailPage() {
                       <Link 
                         key={fixture.fixture.id} 
                         href={`/fixtures/${fixture.fixture.id}`}
-                        className="block"
+                        className="block group"
                       >
-                        <div className={`bg-white/10 rounded-lg p-4 hover:bg-white/20 transition-colors cursor-pointer ${index === 0 ? 'ring-2 ring-green-300' : ''}`}>
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center space-x-3">
+                        <div className={`relative bg-white/5 border ${index === 0 ? 'border-green-400/50 bg-green-400/10' : 'border-white/10'} rounded-xl p-4 hover:bg-white/10 transition-all group-hover:scale-[1.02]`}>
+                          {index === 0 && (
+                            <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                              <span className="px-3 py-1 bg-gradient-to-r from-green-400 to-emerald-500 text-xs font-bold text-white rounded-full">
+                                NEXT MATCH
+                              </span>
+                            </div>
+                          )}
+                          
+                          <div className="flex items-center justify-between gap-4">
+                            <div className="flex items-center gap-3 flex-1">
                               <Image
                                 src={fixture.teams.home.logo}
                                 alt={fixture.teams.home.name}
-                                width={24}
-                                height={24}
+                                width={28}
+                                height={28}
+                                className="drop-shadow-lg"
                               />
-                              <span className="text-sm font-medium">{fixture.teams.home.name}</span>
+                              <span className={`text-sm font-medium text-white ${fixture.teams.home.id === teamId ? 'font-bold' : ''}`}>
+                                {fixture.teams.home.name}
+                              </span>
                             </div>
-                            <div className="text-center">
-                              <div className="text-lg font-bold text-green-300">VS</div>
-                              {index === 0 && <div className="text-xs text-green-300">NEXT</div>}
+                            
+                            <div className="px-4 py-2">
+                              <div className={`text-lg font-bold ${index === 0 ? 'text-green-400' : 'text-white/80'}`}>
+                                VS
+                              </div>
                             </div>
-                            <div className="flex items-center space-x-3">
-                              <span className="text-sm font-medium">{fixture.teams.away.name}</span>
+                            
+                            <div className="flex items-center gap-3 flex-1 justify-end">
+                              <span className={`text-sm font-medium text-white ${fixture.teams.away.id === teamId ? 'font-bold' : ''}`}>
+                                {fixture.teams.away.name}
+                              </span>
                               <Image
                                 src={fixture.teams.away.logo}
                                 alt={fixture.teams.away.name}
-                                width={24}
-                                height={24}
+                                width={28}
+                                height={28}
+                                className="drop-shadow-lg"
                               />
                             </div>
                           </div>
-                          <div className="text-xs text-blue-200 mt-2 text-center">
-                            {new Date(fixture.fixture.date).toLocaleDateString('ko-KR', { 
-                              month: 'long', 
-                              day: 'numeric',
-                              weekday: 'short',
-                              hour: '2-digit',
-                              minute: '2-digit'
-                            })}
-                          </div>
-                          <div className="text-xs text-blue-300 mt-1 text-center opacity-75">
-                            클릭하여 경기 정보 보기
+                          
+                          <div className="mt-3 pt-3 border-t border-white/10">
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs text-white/60">
+                                {new Date(fixture.fixture.date).toLocaleDateString('ko-KR', { 
+                                  month: 'short', 
+                                  day: 'numeric',
+                                  weekday: 'short'
+                                })}
+                              </span>
+                              <span className={`text-xs font-medium ${index === 0 ? 'text-green-400' : 'text-white/60'}`}>
+                                {new Date(fixture.fixture.date).toLocaleTimeString('ko-KR', { 
+                                  hour: '2-digit',
+                                  minute: '2-digit'
+                                })}
+                              </span>
+                              <span className="text-xs text-white/60">
+                                {fixture.league.name}
+                              </span>
+                            </div>
+                            {index === 0 && (
+                              <div className="mt-2 text-center">
+                                <span className="text-xs text-green-400">
+                                  D-{Math.ceil((new Date(fixture.fixture.date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))}
+                                </span>
+                              </div>
+                            )}
                           </div>
                         </div>
                       </Link>
                     ))}
                   </div>
                 ) : (
-                  <p className="text-blue-200 text-center py-8">
-                    다음 경기 일정을 불러오는 중입니다...
-                  </p>
+                  <div className="text-center py-12">
+                    <div className="inline-flex items-center justify-center w-16 h-16 bg-white/10 rounded-full mb-4">
+                      <Calendar className="h-8 w-8 text-white/40" />
+                    </div>
+                    <p className="text-white/60">다음 경기 일정을 불러오는 중...</p>
+                  </div>
                 )}
               </div>
             </div>
