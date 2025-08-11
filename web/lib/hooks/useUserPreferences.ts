@@ -66,12 +66,12 @@ export function useUserPreferences() {
       }
 
       setIsAuthenticated(true)
-      // 서버에서 설정 불러오기
+      // 서버에서 설정 불러오기 - .maybeSingle() 사용으로 레코드가 없어도 에러 없음
       const { data, error } = await supabase
         .from('user_preferences')
         .select('*')
         .eq('user_id', user.id)
-        .single()
+        .maybeSingle()
 
       if (data) {
         setPreferences({
@@ -80,6 +80,23 @@ export function useUserPreferences() {
           notificationSettings: data.notification_settings || DEFAULT_PREFERENCES.notificationSettings,
           language: data.language || 'ko'
         })
+      } else if (!error) {
+        // 레코드가 없는 경우 기본값으로 새 레코드 생성
+        const defaultPrefs = {
+          user_id: user.id,
+          favorite_team_ids: [],
+          favorite_league_ids: [],
+          notification_settings: DEFAULT_PREFERENCES.notificationSettings,
+          language: 'ko',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        }
+        
+        await supabase
+          .from('user_preferences')
+          .insert(defaultPrefs)
+          .select()
+          .maybeSingle()
       }
     } catch (error) {
       console.error('Error loading preferences:', error)
