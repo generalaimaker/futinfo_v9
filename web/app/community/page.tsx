@@ -90,12 +90,21 @@ export default function CommunityPage() {
 
   const loadLiveMatches = async () => {
     try {
+      // 오늘 날짜의 경기 가져오기 (라이브 대신)
       const service = new FootballAPIService()
+      const today = new Date().toISOString().split('T')[0]
       const data = await service.getFixtures({
-        live: 'all'
+        date: today
       })
       if (data?.response) {
-        setLiveMatches(data.response.slice(0, 5))
+        // 진행 중인 경기만 필터링
+        const liveGames = data.response.filter((match: any) => 
+          match.fixture.status.short === 'LIVE' || 
+          match.fixture.status.short === '1H' || 
+          match.fixture.status.short === '2H' ||
+          match.fixture.status.short === 'HT'
+        )
+        setLiveMatches(liveGames.slice(0, 5))
       }
     } catch (error) {
       console.error('Error loading live matches:', error)
