@@ -31,7 +31,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
     const supabaseClient = getSupabaseClient()
     const routerRef = router
     
-    // 초기 세션 체크 - 간소화
+    // 초기 세션 체크
     const initSession = async () => {
       if (!mounted) return
       
@@ -52,14 +52,14 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
         }
         
         if (currentSession) {
-          console.log('[SupabaseProvider] Session found:', currentSession.user.id)
+          console.log('[SupabaseProvider] Initial session found:', currentSession.user.id)
           if (mounted) {
             setSession(currentSession)
             setUser(currentSession.user)
             setIsLoading(false)
           }
         } else {
-          console.log('[SupabaseProvider] No session found')
+          console.log('[SupabaseProvider] No initial session found')
           if (mounted) {
             setSession(null)
             setUser(null)
@@ -76,7 +76,10 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
-    initSession()
+    // 초기 세션 체크를 약간 지연시켜 auth 상태가 안정화되도록 함
+    setTimeout(() => {
+      initSession()
+    }, 100)
 
     // Auth 상태 변경 구독
     const {
@@ -84,51 +87,67 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
     } = supabaseClient.auth.onAuthStateChange(async (event, currentSession) => {
       console.log('[SupabaseProvider] Auth state changed:', event, currentSession?.user?.id)
       
-      // 세션이 변경되면 강제로 상태 업데이트
-      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
+      // SIGNED_IN 이벤트일 때만 특별 처리
+      if (event === 'SIGNED_IN' && currentSession) {
+        console.log('[SupabaseProvider] SIGNED_IN detected, updating state immediately')
         setSession(currentSession)
-        setUser(currentSession?.user ?? null)
+        setUser(currentSession.user)
         setIsLoading(false)
         
-        // 로그인 성공 시 프로필 체크
-        if (event === 'SIGNED_IN' && currentSession) {
-          console.log('[SupabaseProvider] User signed in, checking profile...')
-          
-          // 프로필 체크
-          const { data: profile, error: profileError } = await supabaseClient
-            .from('profiles')
-            .select('*')
-            .eq('user_id', currentSession.user.id)
-            .single()
-          
-          // PGRST116 = no rows returned (프로필이 없음)
-          if (profileError && profileError.code !== 'PGRST116') {
-            console.error('[SupabaseProvider] Profile fetch error:', profileError)
-          }
-          
-          // 프로필이 없거나 닉네임이 없으면 설정 페이지로
-          if (!profile || !profile.nickname) {
-            console.log('[SupabaseProvider] No profile/nickname, redirecting to setup')
-            // /profile/setup 페이지가 아닐 때만 리다이렉트
-            if (!window.location.pathname.includes('/profile/setup')) {
-              routerRef.push('/profile/setup')
-            }
-          } else {
-            console.log('[SupabaseProvider] Profile exists, refreshing UI')
-            // 페이지 새로고침으로 UI 업데이트
-            routerRef.refresh()
-          }
-        }
-      } else if (event === 'SIGNED_OUT') {
-        console.log('[SupabaseProvider] User signed out')
-        setSession(null)
-        setUser(null)
-        setIsLoading(false)
-        routerRef.refresh()
+        // 강제로 리렌더링 트리거
+        setTimeout(() => {
+          console.log('[SupabaseProvider] Forcing re-render after sign in')
+          setUser(currentSession.user)
+        }, 100)
       } else {
+        // 다른 이벤트는 일반 처리
         setSession(currentSession)
         setUser(currentSession?.user ?? null)
         setIsLoading(false)
+      }
+      
+      console.log('[SupabaseProvider] State updated - user:', currentSession?.user?.id, 'isLoading:', false)
+      
+      // 세션이 변경되면 프로필 체크
+      if (event === 'SIGNED_IN' && currentSession) {
+        console.log('[SupabaseProvider] User signed in, checking profile...')
+        
+        // 약간의 지연 후 프로필 체크 (API가 준비될 시간을 줌)
+        setTimeout(async () => {
+          try {
+            // 프로필 체크
+            const { data: profile, error: profileError } = await supabaseClient
+              .from('profiles')
+              .select('*')
+              .eq('user_id', currentSession.user.id)
+              .single()
+            
+            // PGRST116 = no rows returned (프로필이 없음)
+            if (profileError && profileError.code !== 'PGRST116') {
+              console.error('[SupabaseProvider] Profile fetch error:', profileError)
+            }
+            
+            // 프로필이 없거나 닉네임이 없으면 설정 페이지로
+            if (!profile || !profile.nickname) {
+              console.log('[SupabaseProvider] No profile/nickname, redirecting to setup')
+              // /profile/setup 페이지가 아닐 때만 리다이렉트
+              if (!window.location.pathname.includes('/profile/setup')) {
+                routerRef.push('/profile/setup')
+              }
+            } else {
+              console.log('[SupabaseProvider] Profile exists, user ready')
+            }
+          } catch (error) {
+            console.error('[SupabaseProvider] Error checking profile:', error)
+          }
+        }, 500)
+      } else if (event === 'SIGNED_OUT') {
+        console.log('[SupabaseProvider] User signed out')
+        if (mounted) {
+          setSession(null)
+          setUser(null)
+          setIsLoading(false)
+        }
       }
     })
 

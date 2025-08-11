@@ -29,7 +29,7 @@ const popularTeams = [
 
 export default function CommunityPage() {
   const router = useRouter()
-  const { user } = useSupabase()
+  const { user, isLoading: authLoading } = useSupabase()
   const [isLoading, setIsLoading] = useState(true)
   const [userProfile, setUserProfile] = useState<any>(null)
   
@@ -98,12 +98,15 @@ export default function CommunityPage() {
   )
 
   useEffect(() => {
-    if (user) {
-      checkUserProfile()
-    } else {
-      setIsLoading(false)
+    // authLoading이 끝나면 프로필 체크
+    if (!authLoading) {
+      if (user) {
+        checkUserProfile()
+      } else {
+        setIsLoading(false)
+      }
     }
-  }, [user])
+  }, [user, authLoading])
 
   const checkUserProfile = async () => {
     try {
@@ -121,7 +124,8 @@ export default function CommunityPage() {
     }
   }
 
-  if (isLoading) {
+  // authLoading이거나 isLoading일 때 로딩 표시
+  if (authLoading || isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">

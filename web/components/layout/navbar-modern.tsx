@@ -50,15 +50,19 @@ export function NavbarModern() {
   const [userProfile, setUserProfile] = useState<any>(null)
   const { theme, toggleTheme } = useTheme()
   const { user, session, signOut, isLoading } = useSupabase()
+  
+  // 디버그용 로그
+  console.log('[NavbarModern] Current state - User:', user?.id, 'Session:', !!session, 'isLoading:', isLoading)
 
   useEffect(() => {
-    console.log('[NavbarModern] User state changed:', user?.id, 'Session:', !!session)
-    if (user) {
+    console.log('[NavbarModern] Effect triggered - User:', user?.id, 'Session:', !!session, 'isLoading:', isLoading)
+    if (user && !isLoading) {
+      console.log('[NavbarModern] Loading user profile...')
       loadUserProfile()
     } else {
       setUserProfile(null)
     }
-  }, [user, session])
+  }, [user, session, isLoading])
 
   const loadUserProfile = async () => {
     if (!user) return

@@ -11,26 +11,41 @@ import { CommunityService } from '@/lib/supabase/community'
 export function Navbar() {
   const router = useRouter()
   const pathname = usePathname()
-  const { user, signOut } = useSupabase()
+  const { user, signOut, isLoading: authLoading } = useSupabase()
   const [userProfile, setUserProfile] = useState<any>(null)
   const [loading, setLoading] = useState(false)
   const [showMenu, setShowMenu] = useState(false)
+  const [profileLoading, setProfileLoading] = useState(false)
 
   useEffect(() => {
-    if (user) {
-      loadUserProfile()
-    } else {
-      setUserProfile(null)
+    // authLoading이 끝났을 때만 프로필 로드
+    if (!authLoading) {
+      if (user) {
+        loadUserProfile()
+      } else {
+        setUserProfile(null)
+        setProfileLoading(false)
+      }
     }
-  }, [user])
+  }, [user, authLoading])
 
   const loadUserProfile = async () => {
-    if (!user) return
+    if (!user) {
+      setProfileLoading(false)
+      return
+    }
+    setProfileLoading(true)
     try {
+      console.log('[Navbar] Loading user profile for:', user.id)
       const profile = await CommunityService.getCurrentUserProfile()
+      console.log('[Navbar] Profile loaded:', profile)
       setUserProfile(profile)
     } catch (error) {
-      console.error('Error loading user profile:', error)
+      console.error('[Navbar] Error loading user profile:', error)
+      // 프로필이 없어도 사용자 정보는 표시
+      setUserProfile(null)
+    } finally {
+      setProfileLoading(false)
     }
   }
 
@@ -122,7 +137,13 @@ export function Navbar() {
 
           {/* User Menu */}
           <div className="flex items-center space-x-2">
-            {user ? (
+            {authLoading || profileLoading ? (
+              // 로딩 중일 때 스피너 표시
+              <div className="flex items-center space-x-2 px-3 py-2">
+                <div className="w-5 h-5 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin"></div>
+                <span className="text-sm text-gray-500">로딩중...</span>
+              </div>
+            ) : user ? (
               <div className="relative">
                 <Button 
                   variant="ghost" 
@@ -141,7 +162,7 @@ export function Navbar() {
                       <User className="h-4 w-4 text-gray-600" />
                     )}
                   </div>
-                  <span className="hidden md:inline">{userProfile?.nickname || '사용자'}</span>
+                  <span className="hidden md:inline">{userProfile?.nickname || user.email?.split('@')[0] || '사용자'}</span>
                 </Button>
                 
                 {/* Simple dropdown menu */}
