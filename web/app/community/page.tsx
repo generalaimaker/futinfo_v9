@@ -531,7 +531,7 @@ export default function CommunityPage() {
 
               <TabsContent value="all" className="space-y-0">
                 
-                {mainTab === 'matchday' && liveMatches.length > 0 && (
+                {liveMatches.length > 0 && (
                   <Card className="mb-4 bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800">
                     <CardContent className="p-6">
                       <div className="flex items-center justify-between">
