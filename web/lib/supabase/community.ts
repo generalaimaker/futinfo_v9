@@ -125,6 +125,7 @@ export class CommunityService {
     limit = 20,
     category?: string
   ): Promise<PaginatedResponse<CommunityPost>> {
+    console.log('[CommunityService] getPosts called with boardId:', boardId)
     const supabase = this.getClient()
     let query = supabase
       .from('posts')
@@ -225,6 +226,8 @@ export class CommunityService {
       category: postData.category,
       author_id: profile.id
     }
+    
+    console.log('[CommunityService] Creating post with board_id:', dbData.board_id)
     
     if (postData.tags) dbData.tags = postData.tags
     // image_urls 컬럼이 없으므로 제외
