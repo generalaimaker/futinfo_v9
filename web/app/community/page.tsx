@@ -75,17 +75,20 @@ export default function CommunityPage() {
     loadLiveMatches()
   }, [])
 
-  const loadCommunityData = async () => {
+  const loadCommunityData = async (boardId?: string) => {
     try {
       setIsLoading(true)
       
-      // 인기 게시글 가져오기
-      const popular = await CommunityService.getPopularPosts({ limit: 5 })
-      setPopularPosts(popular)
+      // 인기 게시글 가져오기 (첫 로드시만)
+      if (!boardId) {
+        const popular = await CommunityService.getPopularPosts({ limit: 5 })
+        setPopularPosts(popular)
+      }
       
-      // 전체 게시글 가져오기
-      const allPostsResponse = await CommunityService.getPosts('all')
-      setPosts(allPostsResponse.data)
+      // 해당 게시판의 게시글 가져오기
+      const targetBoardId = boardId || (mainTab === 'myteam' ? `team_${userTeamId}` : 'all')
+      const postsResponse = await CommunityService.getPosts(targetBoardId)
+      setPosts(postsResponse.data)
       
     } catch (error) {
       console.error('Error loading community data:', error)
@@ -125,7 +128,10 @@ export default function CommunityPage() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 overflow-x-auto">
               <button
-                onClick={() => setMainTab('all')}
+                onClick={() => {
+                  setMainTab('all')
+                  loadCommunityData('all')
+                }}
                 className={cn(
                   "px-6 py-4 font-semibold border-b-2 transition-all whitespace-nowrap",
                   mainTab === 'all'
@@ -139,7 +145,10 @@ export default function CommunityPage() {
                 </span>
               </button>
               <button
-                onClick={() => setMainTab('myteam')}
+                onClick={() => {
+                  setMainTab('myteam')
+                  loadCommunityData(`team_${userTeamId}`)
+                }}
                 className={cn(
                   "px-6 py-4 font-semibold border-b-2 transition-all whitespace-nowrap",
                   mainTab === 'myteam'
