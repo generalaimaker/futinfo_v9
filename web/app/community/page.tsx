@@ -65,7 +65,7 @@ export default function CommunityPage() {
   const [liveMatches, setLiveMatches] = useState<any[]>([])
   const [searchQuery, setSearchQuery] = useState('')
   const [activeTab, setActiveTab] = useState('all')
-  const [mainTab, setMainTab] = useState<'all' | 'myteam' | 'rival' | 'matchday'>('all')
+  const [mainTab, setMainTab] = useState<'all' | 'myteam' | 'matchday'>('all')
   const [userFanLevel, setUserFanLevel] = useState<FanLevel>(FanLevel.NONE)
   const [userTeamId, setUserTeamId] = useState<number | null>(49) // 기본값 Chelsea
   const [rivalTeamId, setRivalTeamId] = useState<number | null>(47) // Tottenham as default rival
@@ -154,21 +154,13 @@ export default function CommunityPage() {
                 </span>
               </button>
               <button
-                onClick={() => setMainTab('rival')}
-                className={cn(
-                  "px-6 py-4 font-semibold border-b-2 transition-all whitespace-nowrap",
-                  mainTab === 'rival'
-                    ? "text-red-600 border-red-600"
-                    : "text-gray-600 border-transparent hover:text-gray-900"
-                )}
-              >
-                <span className="flex items-center gap-2">
-                  <Flame className="h-5 w-5" />
-                  라이벌
-                </span>
-              </button>
-              <button
-                onClick={() => setMainTab('matchday')}
+                onClick={() => {
+                  if (mainTab === 'matchday') {
+                    setMainTab('matchday')
+                  } else {
+                    router.push('/matchday')
+                  }
+                }}
                 className={cn(
                   "px-6 py-4 font-semibold border-b-2 transition-all whitespace-nowrap",
                   mainTab === 'matchday'
@@ -248,39 +240,6 @@ export default function CommunityPage() {
                   👑 VIP FAN
                 </Badge>
               )}
-            </div>
-          </div>
-        </div>
-      )}
-      
-      {mainTab === 'rival' && (
-        <div className="relative overflow-hidden bg-gradient-to-r from-red-600 via-orange-600 to-red-700 text-white">
-          <div className="absolute inset-0 bg-black/20" />
-          <div className="relative container mx-auto px-4 py-6">
-            <div className="text-center">
-              <h1 className="text-2xl lg:text-3xl font-bold mb-2">
-                🔥 라이벌 대결
-              </h1>
-              <p className="text-sm text-white/80">
-                Chelsea vs Tottenham - 건전한 경쟁이 시작됩니다
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-      
-      {mainTab === 'matchday' && (
-        <div className="relative overflow-hidden bg-gradient-to-r from-green-600 via-emerald-600 to-green-700 text-white">
-          <div className="absolute inset-0 bg-black/20" />
-          <div className="relative container mx-auto px-4 py-6">
-            <div className="text-center">
-              <h1 className="text-2xl lg:text-3xl font-bold mb-2 flex items-center justify-center gap-2">
-                ⚽ 매치데이 모드
-                {liveMatches.length > 0 && <span className="text-xs bg-red-500 px-2 py-1 rounded-full animate-pulse">LIVE</span>}
-              </h1>
-              <p className="text-sm text-white/80">
-                실시간 경기 토론과 응원
-              </p>
             </div>
           </div>
         </div>

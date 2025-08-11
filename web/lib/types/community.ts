@@ -1,6 +1,6 @@
 // Community types matching iOS CommunityModels.swift
 
-export type BoardType = 'all' | 'team' | 'rival' | 'matchday'
+export type BoardType = 'all' | 'team' | 'matchday'
 
 export interface CommunityBoard {
   id: string
