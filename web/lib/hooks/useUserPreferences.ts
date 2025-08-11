@@ -29,6 +29,9 @@ const DEFAULT_PREFERENCES: UserPreferences = {
   language: 'ko'
 }
 
+// 로딩 중 상태를 추적하는 전역 변수
+let isLoadingPreferences = false
+
 export function useUserPreferences() {
   const [preferences, setPreferences] = useState<UserPreferences>(DEFAULT_PREFERENCES)
   const [isLoading, setIsLoading] = useState(true)
@@ -53,6 +56,13 @@ export function useUserPreferences() {
   }, [])
 
   const loadPreferences = async () => {
+    // 이미 로딩 중이면 스킵
+    if (isLoadingPreferences) {
+      return
+    }
+    
+    isLoadingPreferences = true
+    
     try {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) {
@@ -62,6 +72,7 @@ export function useUserPreferences() {
           setPreferences(JSON.parse(savedPrefs))
         }
         setIsAuthenticated(false)
+        isLoadingPreferences = false
         return
       }
 
@@ -81,7 +92,7 @@ export function useUserPreferences() {
           language: data.language || 'ko'
         })
       } else if (!error) {
-        // 레코드가 없는 경우 기본값으로 새 레코드 생성
+        // 레코드가 없는 경우 기본값으로 새 레코드 생성 - upsert 사용으로 충돌 방지
         const defaultPrefs = {
           user_id: user.id,
           favorite_team_ids: [],
@@ -92,16 +103,29 @@ export function useUserPreferences() {
           updated_at: new Date().toISOString()
         }
         
-        await supabase
+        const { data: newData } = await supabase
           .from('user_preferences')
-          .insert(defaultPrefs)
+          .upsert(defaultPrefs, {
+            onConflict: 'user_id',
+            ignoreDuplicates: true
+          })
           .select()
           .maybeSingle()
+          
+        if (newData) {
+          setPreferences({
+            favoriteTeamIds: newData.favorite_team_ids || [],
+            favoriteLeagueIds: newData.favorite_league_ids || [],
+            notificationSettings: newData.notification_settings || DEFAULT_PREFERENCES.notificationSettings,
+            language: newData.language || 'ko'
+          })
+        }
       }
     } catch (error) {
       console.error('Error loading preferences:', error)
     } finally {
       setIsLoading(false)
+      isLoadingPreferences = false
     }
   }
 
