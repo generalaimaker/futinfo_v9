@@ -9,7 +9,7 @@ import {
   ArrowRight, Sparkles, Trophy, Zap, Star, Flame, Clock,
   ChevronRight, BarChart3, Hash, Plus, Search, Filter,
   Eye, ThumbsUp, Bookmark, Share2, MessagesSquare, Activity,
-  MoreHorizontal, Send, Repeat2
+  MoreHorizontal, Send, Repeat2, Globe
 } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'

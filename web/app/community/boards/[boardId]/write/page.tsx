@@ -15,6 +15,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { useSupabase } from '@/lib/supabase/provider'
 import { CommunityService } from '@/lib/supabase/community'
+import { PostVisibility } from '@/lib/types/community'
 import Image from 'next/image'
 
 export default function WritePage() {
@@ -73,7 +74,7 @@ export default function WritePage() {
         imageUrls: uploadedImages,
         userId: user.id,
         crossPost: shouldCrossPost,
-        visibility: privacy === 'team' ? 'team_only' : 'public'
+        visibility: privacy === 'team' ? PostVisibility.TEAM_ONLY : PostVisibility.PUBLIC
       }, supabase)
 
       // 게시판으로 리다이렉트
