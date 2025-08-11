@@ -354,7 +354,7 @@ export default function CommunityPage() {
                     className="w-full flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                   >
                     <div className="flex items-center gap-3">
-                      <span className="text-xl">🏴󐁧󐁢󐁥󐁮󐁧󐁿</span>
+                      <span className="text-xl">🏴󠁧󠁢󠁥󠁮󠁧󠁿</span>
                       <span className="font-medium">Premier League</span>
                     </div>
                     <ChevronRight className={cn(
@@ -452,7 +452,7 @@ export default function CommunityPage() {
                   </button>
                   {selectedLeague === 78 && (
                     <div className="p-2 space-y-1 border-t">
-                      {[157].map(teamId => {
+                      {[157, 165, 173].map(teamId => {
                         const team = popularTeams.find(t => t.id === teamId)
                         if (!team) return null
                         return (
@@ -478,10 +478,76 @@ export default function CommunityPage() {
                     </div>
                   )}
                 </div>
+
+                {/* Serie A */}
+                <div className="border rounded-lg overflow-hidden">
+                  <button
+                    onClick={() => setSelectedLeague(selectedLeague === 135 ? null : 135)}
+                    className="w-full flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="text-xl">🇮🇹</span>
+                      <span className="font-medium">Serie A</span>
+                    </div>
+                    <ChevronRight className={cn(
+                      "h-4 w-4 transition-transform",
+                      selectedLeague === 135 ? "rotate-90" : ""
+                    )} />
+                  </button>
+                  {selectedLeague === 135 && (
+                    <div className="p-2 space-y-1 border-t">
+                      {[489, 496, 492, 497].map(teamId => {
+                        const team = popularTeams.find(t => t.id === teamId)
+                        if (!team) return null
+                        return (
+                          <Link
+                            key={team.id}
+                            href={`/community/boards/team_${team.id}`}
+                            className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                          >
+                            <Image
+                              src={team.logo}
+                              alt={team.name}
+                              width={20}
+                              height={20}
+                              className="object-contain"
+                            />
+                            <span className="text-sm flex-1">{team.name}</span>
+                            <Badge variant="secondary" className="text-xs">
+                              {team.memberCount.toLocaleString()}
+                            </Badge>
+                          </Link>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                {/* Champions League */}
+                <div className="border rounded-lg overflow-hidden">
+                  <button
+                    onClick={() => setSelectedLeague(selectedLeague === 2 ? null : 2)}
+                    className="w-full flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="text-xl">⭐</span>
+                      <span className="font-medium">Champions League</span>
+                    </div>
+                    <ChevronRight className={cn(
+                      "h-4 w-4 transition-transform",
+                      selectedLeague === 2 ? "rotate-90" : ""
+                    )} />
+                  </button>
+                  {selectedLeague === 2 && (
+                    <div className="p-2 text-center text-sm text-gray-500">
+                      참가 팀들을 확인하려면 리그별 게시판을 방문하세요
+                    </div>
+                  )}
+                </div>
               </CardContent>
             </Card>
 
-            {/* 빠른 액션 버튼들 */}
+            {/* 빠른 시작 */}
             <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="text-lg flex items-center gap-2">
@@ -493,26 +559,32 @@ export default function CommunityPage() {
                 <Button 
                   className="w-full justify-start" 
                   variant="outline"
-                  onClick={() => router.push('/community/boards/all/write')}
+                  size="sm"
+                  onClick={() => router.push(`/community/boards/${mainTab === 'myteam' ? `team_${userTeamId}` : 'all'}/write`)}
                 >
                   <Plus className="h-4 w-4 mr-2" />
-                  첫 게시글 작성하기
+                  새 글 작성
                 </Button>
                 <Button 
                   className="w-full justify-start" 
                   variant="outline"
-                  onClick={() => router.push('/live')}
-                >
-                  <MessagesSquare className="h-4 w-4 mr-2" />
-                  실시간 채팅 참여
-                </Button>
-                <Button 
-                  className="w-full justify-start" 
-                  variant="outline"
-                  onClick={() => router.push('/predictions')}
+                  size="sm"
+                  onClick={() => {
+                    setMainTab('matchday')
+                    loadMatchdayData()
+                  }}
                 >
                   <Activity className="h-4 w-4 mr-2" />
-                  경기 예측하기
+                  매치데이
+                </Button>
+                <Button 
+                  className="w-full justify-start" 
+                  variant="outline"
+                  size="sm"
+                  onClick={() => router.push('/fixtures')}
+                >
+                  <Trophy className="h-4 w-4 mr-2" />
+                  경기 일정
                 </Button>
               </CardContent>
             </Card>
