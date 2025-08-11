@@ -117,13 +117,13 @@ export default function CommunityPage() {
       {/* Hero Section - 개선된 디자인 */}
       <div className="relative overflow-hidden bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 text-white">
         <div className="absolute inset-0 bg-black/20" />
-        <div className="relative container mx-auto px-4 py-12">
+        <div className="relative container mx-auto px-4 py-8 lg:py-12">
           <div className="flex flex-col lg:flex-row items-center justify-between gap-8">
             <div className="flex-1">
-              <h1 className="text-4xl lg:text-5xl font-bold mb-4 animate-fade-in">
+              <h1 className="text-3xl lg:text-4xl font-bold mb-3 animate-fadeInUp">
                 FutInfo 커뮤니티
               </h1>
-              <p className="text-xl text-white/90 mb-6">
+              <p className="text-lg text-white/90 mb-4">
                 전 세계 축구 팬들과 함께 열정을 나누세요
               </p>
               <div className="flex flex-wrap gap-4">
@@ -187,7 +187,7 @@ export default function CommunityPage() {
       <div className="container mx-auto px-4 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           
-          {/* 좌측 사이드바 - 리그/팀 필터 */}
+          {/* 좌측 사이드바 - 리그/팀 통합 네비게이션 */}
           <div className="lg:col-span-3 space-y-6">
             {/* 검색 바 */}
             <Card>
@@ -204,61 +204,182 @@ export default function CommunityPage() {
               </CardContent>
             </Card>
 
-            {/* 인기 리그 */}
+            {/* 리그 & 팀 아코디언 구조 */}
             <Card>
               <CardHeader className="pb-4">
                 <CardTitle className="text-lg flex items-center gap-2">
                   <Trophy className="h-5 w-5 text-yellow-500" />
-                  인기 리그
+                  리그 & 팀 게시판
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
-                {popularLeagues.map((league) => (
+                {/* Premier League */}
+                <div className="border rounded-lg overflow-hidden">
                   <button
-                    key={league.id}
-                    onClick={() => setSelectedLeague(league.id)}
-                    className={cn(
-                      "w-full flex items-center gap-3 p-3 rounded-lg transition-all",
-                      selectedLeague === league.id 
-                        ? "bg-blue-50 dark:bg-blue-900/30 text-blue-600" 
-                        : "hover:bg-gray-100 dark:hover:bg-gray-800"
-                    )}
+                    onClick={() => setSelectedLeague(selectedLeague === 39 ? null : 39)}
+                    className="w-full flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                   >
-                    <span className="text-xl">{league.icon}</span>
-                    <span className="font-medium">{league.name}</span>
+                    <div className="flex items-center gap-3">
+                      <span className="text-xl">🏴󐁧󐁢󐁥󐁮󐁧󐁿</span>
+                      <span className="font-medium">Premier League</span>
+                    </div>
+                    <ChevronRight className={cn(
+                      "h-4 w-4 transition-transform",
+                      selectedLeague === 39 ? "rotate-90" : ""
+                    )} />
                   </button>
-                ))}
+                  {selectedLeague === 39 && (
+                    <div className="p-2 space-y-1 border-t">
+                      {[49, 33, 40, 42, 50].map(teamId => {
+                        const team = popularTeams.find(t => t.id === teamId)
+                        if (!team) return null
+                        return (
+                          <Link
+                            key={team.id}
+                            href={`/community/boards/team_${team.id}`}
+                            className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                          >
+                            <Image
+                              src={team.logo}
+                              alt={team.name}
+                              width={20}
+                              height={20}
+                              className="object-contain"
+                            />
+                            <span className="text-sm flex-1">{team.name}</span>
+                            <Badge variant="secondary" className="text-xs">
+                              {team.memberCount.toLocaleString()}
+                            </Badge>
+                          </Link>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                {/* La Liga */}
+                <div className="border rounded-lg overflow-hidden">
+                  <button
+                    onClick={() => setSelectedLeague(selectedLeague === 140 ? null : 140)}
+                    className="w-full flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="text-xl">🇪🇸</span>
+                      <span className="font-medium">La Liga</span>
+                    </div>
+                    <ChevronRight className={cn(
+                      "h-4 w-4 transition-transform",
+                      selectedLeague === 140 ? "rotate-90" : ""
+                    )} />
+                  </button>
+                  {selectedLeague === 140 && (
+                    <div className="p-2 space-y-1 border-t">
+                      {[541, 529].map(teamId => {
+                        const team = popularTeams.find(t => t.id === teamId)
+                        if (!team) return null
+                        return (
+                          <Link
+                            key={team.id}
+                            href={`/community/boards/team_${team.id}`}
+                            className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                          >
+                            <Image
+                              src={team.logo}
+                              alt={team.name}
+                              width={20}
+                              height={20}
+                              className="object-contain"
+                            />
+                            <span className="text-sm flex-1">{team.name}</span>
+                            <Badge variant="secondary" className="text-xs">
+                              {team.memberCount.toLocaleString()}
+                            </Badge>
+                          </Link>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                {/* Bundesliga */}
+                <div className="border rounded-lg overflow-hidden">
+                  <button
+                    onClick={() => setSelectedLeague(selectedLeague === 78 ? null : 78)}
+                    className="w-full flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="text-xl">🇩🇪</span>
+                      <span className="font-medium">Bundesliga</span>
+                    </div>
+                    <ChevronRight className={cn(
+                      "h-4 w-4 transition-transform",
+                      selectedLeague === 78 ? "rotate-90" : ""
+                    )} />
+                  </button>
+                  {selectedLeague === 78 && (
+                    <div className="p-2 space-y-1 border-t">
+                      {[157].map(teamId => {
+                        const team = popularTeams.find(t => t.id === teamId)
+                        if (!team) return null
+                        return (
+                          <Link
+                            key={team.id}
+                            href={`/community/boards/team_${team.id}`}
+                            className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                          >
+                            <Image
+                              src={team.logo}
+                              alt={team.name}
+                              width={20}
+                              height={20}
+                              className="object-contain"
+                            />
+                            <span className="text-sm flex-1">{team.name}</span>
+                            <Badge variant="secondary" className="text-xs">
+                              {team.memberCount.toLocaleString()}
+                            </Badge>
+                          </Link>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
               </CardContent>
             </Card>
 
-            {/* 인기 팀 게시판 */}
+            {/* 빠른 액션 버튼들 */}
             <Card>
-              <CardHeader className="pb-4">
+              <CardHeader className="pb-3">
                 <CardTitle className="text-lg flex items-center gap-2">
-                  <Shield className="h-5 w-5 text-blue-500" />
-                  팀 게시판
+                  <Zap className="h-5 w-5 text-orange-500" />
+                  빠른 시작
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
-                {popularTeams.slice(0, 5).map((team) => (
-                  <Link
-                    key={team.id}
-                    href={`/community/boards/team_${team.id}`}
-                    className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                  >
-                    <Image
-                      src={team.logo}
-                      alt={team.name}
-                      width={24}
-                      height={24}
-                      className="object-contain"
-                    />
-                    <span className="font-medium flex-1">{team.name}</span>
-                    <Badge variant="secondary" className="text-xs">
-                      {team.memberCount.toLocaleString()}
-                    </Badge>
-                  </Link>
-                ))}
+                <Button 
+                  className="w-full justify-start" 
+                  variant="outline"
+                  onClick={() => router.push('/community/boards/all/write')}
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  첫 게시글 작성하기
+                </Button>
+                <Button 
+                  className="w-full justify-start" 
+                  variant="outline"
+                  onClick={() => router.push('/live')}
+                >
+                  <MessagesSquare className="h-4 w-4 mr-2" />
+                  실시간 채팅 참여
+                </Button>
+                <Button 
+                  className="w-full justify-start" 
+                  variant="outline"
+                  onClick={() => router.push('/predictions')}
+                >
+                  <Activity className="h-4 w-4 mr-2" />
+                  경기 예측하기
+                </Button>
               </CardContent>
             </Card>
           </div>
@@ -275,16 +396,39 @@ export default function CommunityPage() {
               </TabsList>
 
               <TabsContent value="all" className="space-y-0">
+                {/* 주요 CTA 섹션 */}
+                {posts.length === 0 && (
+                  <Card className="mb-6 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 border-blue-200 dark:border-blue-800">
+                    <CardContent className="p-6">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h3 className="text-lg font-bold mb-2">커뮤니티에 참여하세요!</h3>
+                          <p className="text-sm text-gray-600 dark:text-gray-400">
+                            첫 게시글을 작성하고 다른 팬들과 소통을 시작해보세요.
+                          </p>
+                        </div>
+                        <Button 
+                          onClick={() => router.push('/community/boards/all/write')}
+                          className="bg-blue-600 hover:bg-blue-700"
+                        >
+                          <Plus className="h-4 w-4 mr-2" />
+                          글쓰기
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+                
                 {posts.length > 0 ? (
                   posts.map((post) => (
-                    <article key={post.id} className="bg-white dark:bg-gray-900 border-b dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+                    <article key={post.id} className="bg-white dark:bg-gray-900 border-b dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-all hover-scale">
                       {/* 인스타그램 스타일 카드 */}
                       <div className="p-4">
                         {/* 헤더 - 프로필 & 더보기 */}
                         <div className="flex items-center justify-between mb-3">
-                          <Link href={`/profile/${post.author?.id}`} className="flex items-center gap-3">
+                          <Link href={`/profile/${post.author?.id}`} className="flex items-center gap-3 group">
                             <div className="relative">
-                              <div className="w-10 h-10 bg-gradient-to-br from-pink-500 via-red-500 to-yellow-500 rounded-full p-0.5">
+                              <div className="w-10 h-10 bg-gradient-to-br from-pink-500 via-red-500 to-yellow-500 rounded-full p-0.5 group-hover:scale-110 transition-transform">
                                 <div className="w-full h-full bg-white dark:bg-gray-900 rounded-full p-0.5">
                                   <div className="w-full h-full bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-sm">
                                     {post.author?.nickname?.charAt(0) || 'U'}
@@ -292,7 +436,7 @@ export default function CommunityPage() {
                                 </div>
                               </div>
                               {/* 온라인 상태 표시 */}
-                              <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white dark:border-gray-900" />
+                              <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white dark:border-gray-900 animate-pulse" />
                             </div>
                             <div>
                               <p className="font-semibold text-sm dark:text-white">
@@ -434,7 +578,7 @@ export default function CommunityPage() {
 
               <TabsContent value="hot" className="space-y-4">
                 {popularPosts.map((post, idx) => (
-                  <Card key={post.id} className="hover:shadow-lg transition-shadow cursor-pointer relative overflow-hidden">
+                  <Card key={post.id} className="hover:shadow-xl transition-all hover-scale cursor-pointer relative overflow-hidden border-2 hover:border-blue-200 dark:hover:border-blue-800">
                     {idx === 0 && (
                       <div className="absolute top-2 right-2">
                         <Badge className="bg-gradient-to-r from-yellow-400 to-orange-500">
@@ -490,8 +634,81 @@ export default function CommunityPage() {
             </Tabs>
           </div>
 
-          {/* 우측 사이드바 - 실시간 정보 */}
+          {/* 우측 사이드바 - 실시간 정보 & 활동 스트림 */}
           <div className="lg:col-span-3 space-y-6">
+            {/* 실시간 활동 스트림 */}
+            <Card className="border-purple-200 dark:border-purple-900">
+              <CardHeader className="pb-4">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <div className="relative">
+                    <Sparkles className="h-5 w-5 text-purple-500" />
+                    <span className="absolute -top-1 -right-1 w-2 h-2 bg-purple-500 rounded-full animate-pulse" />
+                  </div>
+                  실시간 활동
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {/* 실시간 댓글 */}
+                <div className="p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg hover:bg-purple-100 dark:hover:bg-purple-900/30 transition-colors cursor-pointer">
+                  <div className="flex items-start gap-2">
+                    <MessageSquare className="h-4 w-4 text-purple-500 mt-0.5" />
+                    <div className="flex-1">
+                      <p className="text-sm">
+                        <span className="font-semibold">김민수</span>님이 
+                        <span className="text-blue-600 dark:text-blue-400"> "손흥민 2골 폭발!"</span>에 댓글
+                      </p>
+                      <p className="text-xs text-gray-500 mt-1">방금 전</p>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* 새 게시글 */}
+                <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg hover:bg-green-100 dark:hover:bg-green-900/30 transition-colors cursor-pointer">
+                  <div className="flex items-start gap-2">
+                    <Plus className="h-4 w-4 text-green-500 mt-0.5" />
+                    <div className="flex-1">
+                      <p className="text-sm">
+                        <span className="font-semibold">박지성팬</span>님이 새 글 작성
+                      </p>
+                      <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                        "첼시 vs 맨유 프리뷰"
+                      </p>
+                      <p className="text-xs text-gray-500 mt-1">2분 전</p>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* 좋아요 활동 */}
+                <div className="p-3 bg-red-50 dark:bg-red-900/20 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors cursor-pointer">
+                  <div className="flex items-start gap-2">
+                    <Heart className="h-4 w-4 text-red-500 mt-0.5" />
+                    <div className="flex-1">
+                      <p className="text-sm">
+                        <span className="font-semibold">레알팬123</span>님 외 24명이 좋아요
+                      </p>
+                      <p className="text-xs text-gray-500 mt-1">5분 전</p>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* 팀 게시판 활동 */}
+                <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors cursor-pointer">
+                  <div className="flex items-start gap-2">
+                    <Shield className="h-4 w-4 text-blue-500 mt-0.5" />
+                    <div className="flex-1">
+                      <p className="text-sm">
+                        <span className="font-semibold">Chelsea</span> 게시판이 활발해요
+                      </p>
+                      <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                        15개의 새 게시글
+                      </p>
+                      <p className="text-xs text-gray-500 mt-1">10분 전</p>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            
             {/* 실시간 경기 */}
             {liveMatches.length > 0 && (
               <Card className="border-red-200 dark:border-red-900">
