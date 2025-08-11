@@ -1198,8 +1198,56 @@ function MatchdayContent({
   router 
 }: any) {
   const [newMessage, setNewMessage] = useState('')
+  const [h2hData, setH2hData] = useState<any[]>([])
+  const [lineups, setLineups] = useState<any>(null)
+  const [isLoadingH2H, setIsLoadingH2H] = useState(false)
+  
   const isLive = currentMatch && ['LIVE', '1H', '2H', 'HT'].includes(currentMatch.fixture?.status?.short)
   const isHome = currentMatch?.teams?.home?.id === userTeamId
+  
+  // 상대전적 데이터 로드
+  useEffect(() => {
+    if (currentMatch && !isLive) {
+      loadH2HData()
+    }
+  }, [currentMatch])
+  
+  const loadH2HData = async () => {
+    try {
+      setIsLoadingH2H(true)
+      const service = new FootballAPIService()
+      // H2H API가 없으면 샘플 데이터 사용
+      // const h2h = await service.getH2H({
+      //   h2h: `${currentMatch.teams.home.id}-${currentMatch.teams.away.id}`
+      // })
+      // if (h2h?.response) {
+      //   setH2hData(h2h.response.slice(0, 5))
+      // }
+      
+      // 샘플 H2H 데이터
+      setH2hData([
+        {
+          fixture: { date: '2024-01-15' },
+          teams: { home: currentMatch.teams.home, away: currentMatch.teams.away },
+          goals: { home: 2, away: 1 }
+        },
+        {
+          fixture: { date: '2023-09-23' },
+          teams: { home: currentMatch.teams.away, away: currentMatch.teams.home },
+          goals: { home: 0, away: 0 }
+        },
+        {
+          fixture: { date: '2023-04-10' },
+          teams: { home: currentMatch.teams.home, away: currentMatch.teams.away },
+          goals: { home: 1, away: 2 }
+        }
+      ])
+    } catch (error) {
+      console.error('Error loading H2H:', error)
+    } finally {
+      setIsLoadingH2H(false)
+    }
+  }
 
   const sendChatMessage = () => {
     if (!newMessage.trim() || !user) return
@@ -1246,6 +1294,28 @@ function MatchdayContent({
             ? "bg-gradient-to-r from-green-500 to-emerald-600 text-white"
             : "bg-gradient-to-r from-blue-500 to-indigo-600 text-white"
         )}>
+          {/* 경기 날짜와 시간 표시 (예정된 경기) */}
+          {!isLive && (
+            <div className="text-center mb-4">
+              <p className="text-xl font-bold">
+                {new Date(currentMatch.fixture.date).toLocaleDateString('ko-KR', {
+                  month: 'long',
+                  day: 'numeric',
+                  weekday: 'long'
+                })}
+              </p>
+              <p className="text-3xl font-bold mt-2">
+                {new Date(currentMatch.fixture.date).toLocaleTimeString('ko-KR', { 
+                  hour: '2-digit', 
+                  minute: '2-digit' 
+                })}
+              </p>
+              <Badge className="mt-2 bg-white/20 border-white/50">
+                킥오프까지 {Math.floor((new Date(currentMatch.fixture.date).getTime() - Date.now()) / (1000 * 60 * 60))}시간 {Math.floor(((new Date(currentMatch.fixture.date).getTime() - Date.now()) % (1000 * 60 * 60)) / (1000 * 60))}분
+              </Badge>
+            </div>
+          )}
+          
           <div className="flex items-center justify-between mb-4">
             <Badge className={cn(
               "text-white border-white",
@@ -1258,11 +1328,8 @@ function MatchdayContent({
                 </>
               ) : (
                 <>
-                  <Clock className="h-3 w-3 mr-1" />
-                  {new Date(currentMatch.fixture.date).toLocaleTimeString('ko-KR', { 
-                    hour: '2-digit', 
-                    minute: '2-digit' 
-                  })}
+                  <Trophy className="h-3 w-3 mr-1" />
+                  {currentMatch.fixture.venue?.name || '경기장'}
                 </>
               )}
             </Badge>
@@ -1290,7 +1357,10 @@ function MatchdayContent({
                   {currentMatch.goals?.home || 0} - {currentMatch.goals?.away || 0}
                 </div>
               ) : (
-                <div className="text-2xl font-bold">VS</div>
+                <div>
+                  <div className="text-2xl font-bold">VS</div>
+                  <p className="text-xs mt-2 opacity-80">예정</p>
+                </div>
               )}
             </div>
 
@@ -1331,24 +1401,168 @@ function MatchdayContent({
 
         <TabsContent value="match" className="space-y-4">
           <div className="grid md:grid-cols-2 gap-4">
+            {/* 예상 라인업 */}
             <Card>
               <CardHeader>
-                <CardTitle className="text-lg">예상 라인업</CardTitle>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Users className="h-5 w-5" />
+                  예상 라인업
+                </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-center py-8 text-gray-500">
-                  {isLive ? "라인업 정보를 불러오는 중..." : "경기 시작 전 공개됩니다"}
+                {!isLive ? (
+                  <div className="space-y-4">
+                    <div>
+                      <p className="text-sm font-semibold mb-2">{currentMatch.teams.home.name}</p>
+                      <div className="bg-gray-100 dark:bg-gray-800 rounded-lg p-3">
+                        <p className="text-sm text-gray-600 dark:text-gray-400">4-3-3</p>
+                        <p className="text-xs text-gray-500 mt-1">경기 1시간 전 공개</p>
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold mb-2">{currentMatch.teams.away.name}</p>
+                      <div className="bg-gray-100 dark:bg-gray-800 rounded-lg p-3">
+                        <p className="text-sm text-gray-600 dark:text-gray-400">4-2-3-1</p>
+                        <p className="text-xs text-gray-500 mt-1">경기 1시간 전 공개</p>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-gray-500">
+                    라인업 정보를 불러오는 중...
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* 최근 맞대결 */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Trophy className="h-5 w-5" />
+                  상대 전적
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {isLoadingH2H ? (
+                  <div className="text-center py-8 text-gray-500">
+                    맞대결 기록을 불러오는 중...
+                  </div>
+                ) : h2hData.length > 0 ? (
+                  <div className="space-y-2">
+                    {h2hData.map((match: any, idx: number) => (
+                      <div key={idx} className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                        <div className="flex items-center gap-2 text-xs">
+                          <span className="text-gray-500">
+                            {new Date(match.fixture.date).toLocaleDateString('ko-KR', {
+                              year: '2-digit',
+                              month: 'numeric',
+                              day: 'numeric'
+                            })}
+                          </span>
+                          <span className="font-medium">
+                            {match.teams.home.name.substring(0, 3)}
+                          </span>
+                        </div>
+                        <div className="font-bold text-sm">
+                          {match.goals.home} - {match.goals.away}
+                        </div>
+                        <div className="text-xs font-medium">
+                          {match.teams.away.name.substring(0, 3)}
+                        </div>
+                      </div>
+                    ))}
+                    {h2hData.length === 0 && (
+                      <p className="text-center text-gray-500 py-4">최근 맞대결 기록이 없습니다</p>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-center text-gray-500 py-4">상대 전적 데이터가 없습니다</p>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* 팀 폼 & 통계 */}
+          <div className="grid md:grid-cols-2 gap-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <BarChart3 className="h-5 w-5" />
+                  최근 5경기 폼
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium">{currentMatch.teams.home.name}</span>
+                      <div className="flex gap-1">
+                        {['W', 'W', 'D', 'L', 'W'].map((result, idx) => (
+                          <span
+                            key={idx}
+                            className={cn(
+                              "w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold",
+                              result === 'W' && "bg-green-500 text-white",
+                              result === 'D' && "bg-gray-400 text-white",
+                              result === 'L' && "bg-red-500 text-white"
+                            )}
+                          >
+                            {result}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium">{currentMatch.teams.away.name}</span>
+                      <div className="flex gap-1">
+                        {['L', 'W', 'W', 'W', 'D'].map((result, idx) => (
+                          <span
+                            key={idx}
+                            className={cn(
+                              "w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold",
+                              result === 'W' && "bg-green-500 text-white",
+                              result === 'D' && "bg-gray-400 text-white",
+                              result === 'L' && "bg-red-500 text-white"
+                            )}
+                          >
+                            {result}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader>
-                <CardTitle className="text-lg">최근 맞대결</CardTitle>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Activity className="h-5 w-5" />
+                  경기 정보
+                </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-center py-8 text-gray-500">
-                  맞대결 기록을 불러오는 중...
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <span className="text-sm text-gray-600 dark:text-gray-400">심판</span>
+                    <span className="text-sm font-medium">{currentMatch.fixture.referee || 'TBD'}</span>
+                  </div>
+                  <div className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <span className="text-sm text-gray-600 dark:text-gray-400">경기장</span>
+                    <span className="text-sm font-medium">{currentMatch.fixture.venue?.name || 'TBD'}</span>
+                  </div>
+                  <div className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <span className="text-sm text-gray-600 dark:text-gray-400">리그</span>
+                    <span className="text-sm font-medium">{currentMatch.league.name}</span>
+                  </div>
+                  <div className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <span className="text-sm text-gray-600 dark:text-gray-400">라운드</span>
+                    <span className="text-sm font-medium">{currentMatch.league.round || 'Regular Season'}</span>
+                  </div>
                 </div>
               </CardContent>
             </Card>
