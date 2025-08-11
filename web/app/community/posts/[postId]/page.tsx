@@ -21,7 +21,7 @@ export default function PostDetailPage() {
   const params = useParams()
   const router = useRouter()
   const postId = params.postId as string
-  const { user } = useSupabase()
+  const { user, supabase } = useSupabase()
   
   const [post, setPost] = useState<CommunityPost | null>(null)
   const [comments, setComments] = useState<CommunityComment[]>([])
@@ -66,7 +66,7 @@ export default function PostDetailPage() {
       const newComment = await CommunityService.createComment({
         postId,
         content: commentContent.trim()
-      })
+      }, supabase)
       setComments([...comments, newComment])
       setCommentContent('')
     } catch (err) {

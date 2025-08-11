@@ -18,7 +18,7 @@ export default function WritePage() {
   const router = useRouter()
   const params = useParams()
   const boardId = params.boardId as string
-  const { user } = useSupabase()
+  const { user, supabase } = useSupabase()
   
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
@@ -61,7 +61,7 @@ export default function WritePage() {
         tags: tags.length > 0 ? tags : undefined,
         category: 'general',
         imageUrls: []
-      })
+      }, supabase)
 
       console.log('Post created successfully:', newPost)
 

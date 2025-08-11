@@ -175,8 +175,8 @@ export class CommunityService {
     return data ? this.transformPost(data) : null
   }
 
-  static async createPost(postData: CreatePostData): Promise<CommunityPost> {
-    const supabase = this.getClient()
+  static async createPost(postData: CreatePostData, customClient?: any): Promise<CommunityPost> {
+    const supabase = customClient || this.getClient()
     
     // 먼저 세션 확인
     const { data: { session }, error: sessionError } = await supabase.auth.getSession()
@@ -187,14 +187,20 @@ export class CommunityService {
       throw new Error(`Session error: ${sessionError.message}`)
     }
     
-    if (!session) {
-      console.error('[CommunityService] No session found')
-      throw new Error('No active session found')
-    }
+    let user = session?.user
     
-    // 세션이 있으면 user 정보 사용
-    const user = session.user
-    console.log('[CommunityService] User from session:', user.id)
+    if (!user) {
+      console.error('[CommunityService] No session found, trying getUser')
+      // getUser를 fallback으로 시도
+      const { data: { user: fallbackUser } } = await supabase.auth.getUser()
+      if (!fallbackUser) {
+        throw new Error('No active session found')
+      }
+      console.log('[CommunityService] Using fallback user from getUser:', fallbackUser.id)
+      user = fallbackUser
+    } else {
+      console.log('[CommunityService] User from session:', user.id)
+    }
 
     // Get the user's profile to use the correct profile ID
     const { data: profile } = await supabase
@@ -278,8 +284,8 @@ export class CommunityService {
     return data?.map(this.transformComment) || []
   }
 
-  static async createComment(commentData: CreateCommentData): Promise<CommunityComment> {
-    const supabase = this.getClient()
+  static async createComment(commentData: CreateCommentData, customClient?: any): Promise<CommunityComment> {
+    const supabase = customClient || this.getClient()
     
     // 먼저 세션 확인
     const { data: { session }, error: sessionError } = await supabase.auth.getSession()
@@ -290,14 +296,20 @@ export class CommunityService {
       throw new Error(`Session error: ${sessionError.message}`)
     }
     
-    if (!session) {
-      console.error('[CommunityService] No session found')
-      throw new Error('No active session found')
-    }
+    let user = session?.user
     
-    // 세션이 있으면 user 정보 사용
-    const user = session.user
-    console.log('[CommunityService] User from session:', user.id)
+    if (!user) {
+      console.error('[CommunityService] No session found, trying getUser')
+      // getUser를 fallback으로 시도
+      const { data: { user: fallbackUser } } = await supabase.auth.getUser()
+      if (!fallbackUser) {
+        throw new Error('No active session found')
+      }
+      console.log('[CommunityService] Using fallback user from getUser:', fallbackUser.id)
+      user = fallbackUser
+    } else {
+      console.log('[CommunityService] User from session:', user.id)
+    }
 
     // Get the user's profile to use the correct profile ID
     const { data: profile } = await supabase
