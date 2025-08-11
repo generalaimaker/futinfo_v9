@@ -227,7 +227,8 @@ export class CommunityService {
     }
     
     if (postData.tags) dbData.tags = postData.tags
-    if (postData.imageUrls) dbData.image_urls = postData.imageUrls
+    // image_urls 컬럼이 없으므로 제외
+    // if (postData.imageUrls) dbData.image_urls = postData.imageUrls
     
     const { data, error } = await supabase
       .from('posts')
