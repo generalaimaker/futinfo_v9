@@ -1285,101 +1285,180 @@ function MatchdayContent({
   }
 
   return (
-    <div className="container mx-auto px-4 py-6">
-      {/* 경기 정보 카드 */}
-      <Card className="mb-6 overflow-hidden">
-        <div className={cn(
-          "p-6",
-          isLive 
-            ? "bg-gradient-to-r from-green-500 to-emerald-600 text-white"
-            : "bg-gradient-to-r from-blue-500 to-indigo-600 text-white"
-        )}>
-          {/* 경기 날짜와 시간 표시 (예정된 경기) */}
-          {!isLive && (
-            <div className="text-center mb-4">
-              <p className="text-xl font-bold">
-                {new Date(currentMatch.fixture.date).toLocaleDateString('ko-KR', {
-                  month: 'long',
-                  day: 'numeric',
-                  weekday: 'long'
-                })}
-              </p>
-              <p className="text-3xl font-bold mt-2">
-                {new Date(currentMatch.fixture.date).toLocaleTimeString('ko-KR', { 
-                  hour: '2-digit', 
-                  minute: '2-digit' 
-                })}
-              </p>
-              <Badge className="mt-2 bg-white/20 border-white/50">
-                킥오프까지 {Math.floor((new Date(currentMatch.fixture.date).getTime() - Date.now()) / (1000 * 60 * 60))}시간 {Math.floor(((new Date(currentMatch.fixture.date).getTime() - Date.now()) % (1000 * 60 * 60)) / (1000 * 60))}분
-              </Badge>
+    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white dark:from-gray-900 dark:to-gray-800">
+      <div className="container mx-auto px-4 py-6">
+        {/* 경기 정보 메인 카드 */}
+        <Card className="mb-6 overflow-hidden shadow-2xl border-0">
+          <div className={cn(
+            "relative overflow-hidden",
+            isLive 
+              ? "bg-gradient-to-br from-green-600 via-emerald-600 to-teal-700"
+              : "bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-600"
+          )}>
+            {/* 배경 패턴 */}
+            <div className="absolute inset-0 opacity-10">
+              <div className="absolute -top-24 -right-24 w-96 h-96 bg-white rounded-full" />
+              <div className="absolute -bottom-24 -left-24 w-96 h-96 bg-white rounded-full" />
             </div>
-          )}
-          
-          <div className="flex items-center justify-between mb-4">
-            <Badge className={cn(
-              "text-white border-white",
-              isLive && "bg-red-500 animate-pulse"
-            )}>
-              {isLive ? (
-                <>
-                  <Activity className="h-3 w-3 mr-1" />
-                  LIVE {currentMatch.fixture.status.elapsed}'
-                </>
-              ) : (
-                <>
-                  <Trophy className="h-3 w-3 mr-1" />
-                  {currentMatch.fixture.venue?.name || '경기장'}
-                </>
-              )}
-            </Badge>
-            <span className="text-sm opacity-80">{currentMatch.league.name}</span>
-          </div>
+            
+            {/* 콘텐츠 */}
+            <div className="relative p-8">
+              {/* 리그 및 경기장 정보 */}
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <div className="px-4 py-2 bg-white/20 backdrop-blur-sm rounded-full">
+                    <span className="text-white font-medium text-sm">
+                      {currentMatch.league.name}
+                    </span>
+                  </div>
+                  {currentMatch.league.round && (
+                    <div className="px-3 py-1 bg-white/10 backdrop-blur-sm rounded-full">
+                      <span className="text-white/90 text-xs">
+                        {currentMatch.league.round}
+                      </span>
+                    </div>
+                  )}
+                </div>
+                {currentMatch.fixture.venue?.name && (
+                  <div className="flex items-center gap-2 text-white/90">
+                    <Trophy className="h-4 w-4" />
+                    <span className="text-sm">{currentMatch.fixture.venue.name}</span>
+                  </div>
+                )}
+              </div>
 
-          <div className="grid grid-cols-3 items-center gap-4">
-            <div className="text-center">
-              <Image
-                src={currentMatch.teams.home.logo}
-                alt={currentMatch.teams.home.name}
-                width={60}
-                height={60}
-                className="mx-auto mb-2"
-              />
-              <p className={cn("font-semibold", isHome && "text-yellow-300")}>
-                {currentMatch.teams.home.name}
-              </p>
-              {isHome && <Badge className="mt-1 bg-yellow-500 text-black text-xs">우리팀</Badge>}
-            </div>
-
-            <div className="text-center">
-              {isLive ? (
-                <div className="text-3xl font-bold">
-                  {currentMatch.goals?.home || 0} - {currentMatch.goals?.away || 0}
+              {/* 경기 시간 정보 - 크고 명확하게 */}
+              {!isLive ? (
+                <div className="text-center mb-8">
+                  <div className="inline-flex flex-col items-center p-6 bg-white/10 backdrop-blur-sm rounded-2xl">
+                    <p className="text-white/90 text-sm font-medium mb-2">
+                      {new Date(currentMatch.fixture.date).toLocaleDateString('ko-KR', {
+                        month: 'long',
+                        day: 'numeric',
+                        weekday: 'long'
+                      })}
+                    </p>
+                    <p className="text-5xl font-bold text-white mb-3">
+                      {new Date(currentMatch.fixture.date).toLocaleTimeString('ko-KR', { 
+                        hour: '2-digit', 
+                        minute: '2-digit' 
+                      })}
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <Clock className="h-4 w-4 text-white/80" />
+                      <span className="text-white/90 text-sm">
+                        킥오프까지 {Math.floor((new Date(currentMatch.fixture.date).getTime() - Date.now()) / (1000 * 60 * 60))}시간 {Math.floor(((new Date(currentMatch.fixture.date).getTime() - Date.now()) % (1000 * 60 * 60)) / (1000 * 60))}분
+                      </span>
+                    </div>
+                  </div>
                 </div>
               ) : (
-                <div>
-                  <div className="text-2xl font-bold">VS</div>
-                  <p className="text-xs mt-2 opacity-80">예정</p>
+                <div className="text-center mb-6">
+                  <Badge className="bg-red-500 text-white px-4 py-2 text-lg animate-pulse">
+                    <Activity className="h-5 w-5 mr-2 inline" />
+                    LIVE {currentMatch.fixture.status.elapsed}'
+                  </Badge>
+                </div>
+              )}
+
+              {/* 팀 정보 - 크고 시각적으로 */}
+              <div className="grid grid-cols-3 items-center gap-8">
+                {/* 홈팀 */}
+                <div className="text-center">
+                  <div className="relative inline-block mb-4">
+                    <div className="absolute inset-0 bg-white/20 rounded-full blur-xl" />
+                    <Image
+                      src={currentMatch.teams.home.logo}
+                      alt={currentMatch.teams.home.name}
+                      width={100}
+                      height={100}
+                      className="relative bg-white rounded-full p-3 shadow-xl"
+                    />
+                    {isHome && (
+                      <div className="absolute -bottom-2 left-1/2 -translate-x-1/2">
+                        <Badge className="bg-yellow-400 text-black font-bold px-3 py-1">
+                          ⭐ OUR TEAM
+                        </Badge>
+                      </div>
+                    )}
+                  </div>
+                  <h3 className="text-xl font-bold text-white mb-1">
+                    {currentMatch.teams.home.name}
+                  </h3>
+                  <p className="text-white/70 text-sm">HOME</p>
+                </div>
+
+                {/* 스코어 / VS */}
+                <div className="text-center">
+                  {isLive ? (
+                    <div className="bg-black/20 backdrop-blur-sm rounded-2xl p-4">
+                      <div className="text-5xl font-bold text-white">
+                        {currentMatch.goals?.home || 0}
+                        <span className="mx-3 text-white/50">:</span>
+                        {currentMatch.goals?.away || 0}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="relative">
+                      <div className="text-4xl font-bold text-white/90">VS</div>
+                      <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 whitespace-nowrap">
+                        <span className="text-xs text-white/60 bg-white/10 px-3 py-1 rounded-full">
+                          ⚽ 경기 예정
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* 어웨이팀 */}
+                <div className="text-center">
+                  <div className="relative inline-block mb-4">
+                    <div className="absolute inset-0 bg-white/20 rounded-full blur-xl" />
+                    <Image
+                      src={currentMatch.teams.away.logo}
+                      alt={currentMatch.teams.away.name}
+                      width={100}
+                      height={100}
+                      className="relative bg-white rounded-full p-3 shadow-xl"
+                    />
+                    {!isHome && (
+                      <div className="absolute -bottom-2 left-1/2 -translate-x-1/2">
+                        <Badge className="bg-yellow-400 text-black font-bold px-3 py-1">
+                          ⭐ OUR TEAM
+                        </Badge>
+                      </div>
+                    )}
+                  </div>
+                  <h3 className="text-xl font-bold text-white mb-1">
+                    {currentMatch.teams.away.name}
+                  </h3>
+                  <p className="text-white/70 text-sm">AWAY</p>
+                </div>
+              </div>
+
+              {/* 경기 이벤트 (LIVE일 때) */}
+              {isLive && currentMatch.events && currentMatch.events.length > 0 && (
+                <div className="mt-6 p-4 bg-black/20 backdrop-blur-sm rounded-xl">
+                  <p className="text-white/90 text-sm font-semibold mb-3">🔥 주요 이벤트</p>
+                  <div className="space-y-2">
+                    {currentMatch.events.slice(-3).map((event: any, idx: number) => (
+                      <div key={idx} className="flex items-center gap-3 text-white/80">
+                        <span className="text-xs bg-white/20 px-2 py-1 rounded">
+                          {event.time.elapsed}'
+                        </span>
+                        <span className="text-sm">
+                          {event.type === 'Goal' && '⚽'}
+                          {event.type === 'Card' && '📋'}
+                          {event.player.name}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
-
-            <div className="text-center">
-              <Image
-                src={currentMatch.teams.away.logo}
-                alt={currentMatch.teams.away.name}
-                width={60}
-                height={60}
-                className="mx-auto mb-2"
-              />
-              <p className={cn("font-semibold", !isHome && "text-yellow-300")}>
-                {currentMatch.teams.away.name}
-              </p>
-              {!isHome && <Badge className="mt-1 bg-yellow-500 text-black text-xs">우리팀</Badge>}
-            </div>
           </div>
-        </div>
-      </Card>
+        </Card>
 
       {/* 매치데이 탭 */}
       <Tabs value={matchdayTab} onValueChange={(v) => setMatchdayTab(v as any)}>
@@ -1402,82 +1481,167 @@ function MatchdayContent({
         <TabsContent value="match" className="space-y-4">
           <div className="grid md:grid-cols-2 gap-4">
             {/* 예상 라인업 */}
-            <Card>
-              <CardHeader>
+            <Card className="border-0 shadow-lg">
+              <CardHeader className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white">
                 <CardTitle className="text-lg flex items-center gap-2">
                   <Users className="h-5 w-5" />
                   예상 라인업
                 </CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="p-4">
                 {!isLive ? (
                   <div className="space-y-4">
-                    <div>
-                      <p className="text-sm font-semibold mb-2">{currentMatch.teams.home.name}</p>
-                      <div className="bg-gray-100 dark:bg-gray-800 rounded-lg p-3">
-                        <p className="text-sm text-gray-600 dark:text-gray-400">4-3-3</p>
-                        <p className="text-xs text-gray-500 mt-1">경기 1시간 전 공개</p>
+                    {/* 홈팀 */}
+                    <div className="border rounded-lg p-3 bg-gradient-to-r from-blue-50 to-transparent dark:from-blue-900/20">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Image
+                          src={currentMatch.teams.home.logo}
+                          alt={currentMatch.teams.home.name}
+                          width={24}
+                          height={24}
+                        />
+                        <p className="font-semibold">{currentMatch.teams.home.name}</p>
                       </div>
+                      <div className="bg-white dark:bg-gray-800 rounded-lg p-3">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-lg font-bold text-blue-600 dark:text-blue-400">4-3-3</span>
+                          <Badge variant="outline" className="text-xs">
+                            포메이션
+                          </Badge>
+                        </div>
+                        <div className="text-xs text-gray-500 space-y-1">
+                          <p>• 공격적인 전술 예상</p>
+                          <p>• 측면 공격 중심</p>
+                        </div>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-2 text-center">
+                        🕒 경기 1시간 전 공개
+                      </p>
                     </div>
-                    <div>
-                      <p className="text-sm font-semibold mb-2">{currentMatch.teams.away.name}</p>
-                      <div className="bg-gray-100 dark:bg-gray-800 rounded-lg p-3">
-                        <p className="text-sm text-gray-600 dark:text-gray-400">4-2-3-1</p>
-                        <p className="text-xs text-gray-500 mt-1">경기 1시간 전 공개</p>
+                    
+                    {/* 어웨이팀 */}
+                    <div className="border rounded-lg p-3 bg-gradient-to-r from-red-50 to-transparent dark:from-red-900/20">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Image
+                          src={currentMatch.teams.away.logo}
+                          alt={currentMatch.teams.away.name}
+                          width={24}
+                          height={24}
+                        />
+                        <p className="font-semibold">{currentMatch.teams.away.name}</p>
                       </div>
+                      <div className="bg-white dark:bg-gray-800 rounded-lg p-3">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-lg font-bold text-red-600 dark:text-red-400">4-2-3-1</span>
+                          <Badge variant="outline" className="text-xs">
+                            포메이션
+                          </Badge>
+                        </div>
+                        <div className="text-xs text-gray-500 space-y-1">
+                          <p>• 수비 중심 전술</p>
+                          <p>• 역습 위주 전략</p>
+                        </div>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-2 text-center">
+                        🕒 경기 1시간 전 공개
+                      </p>
                     </div>
                   </div>
                 ) : (
-                  <div className="text-center py-8 text-gray-500">
-                    라인업 정보를 불러오는 중...
+                  <div className="text-center py-8">
+                    <div className="animate-pulse">
+                      <Users className="h-12 w-12 text-gray-300 mx-auto mb-2" />
+                      <p className="text-gray-500">라인업 정보를 불러오는 중...</p>
+                    </div>
                   </div>
                 )}
               </CardContent>
             </Card>
 
             {/* 최근 맞대결 */}
-            <Card>
-              <CardHeader>
+            <Card className="border-0 shadow-lg">
+              <CardHeader className="bg-gradient-to-r from-purple-500 to-pink-500 text-white">
                 <CardTitle className="text-lg flex items-center gap-2">
                   <Trophy className="h-5 w-5" />
-                  상대 전적
+                  상대 전적 (H2H)
                 </CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="p-4">
                 {isLoadingH2H ? (
-                  <div className="text-center py-8 text-gray-500">
-                    맞대결 기록을 불러오는 중...
+                  <div className="text-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500 mx-auto mb-2" />
+                    <p className="text-gray-500">맞대결 기록을 불러오는 중...</p>
                   </div>
                 ) : h2hData.length > 0 ? (
                   <div className="space-y-2">
-                    {h2hData.map((match: any, idx: number) => (
-                      <div key={idx} className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                        <div className="flex items-center gap-2 text-xs">
-                          <span className="text-gray-500">
-                            {new Date(match.fixture.date).toLocaleDateString('ko-KR', {
-                              year: '2-digit',
-                              month: 'numeric',
-                              day: 'numeric'
-                            })}
-                          </span>
-                          <span className="font-medium">
-                            {match.teams.home.name.substring(0, 3)}
-                          </span>
+                    {h2hData.map((match: any, idx: number) => {
+                      const homeWin = match.goals.home > match.goals.away
+                      const awayWin = match.goals.away > match.goals.home
+                      const draw = match.goals.home === match.goals.away
+                      
+                      return (
+                        <div key={idx} className="relative overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700">
+                          <div className="flex items-center justify-between p-3 bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-700">
+                            <div className="flex items-center gap-3">
+                              <span className="text-xs text-gray-500">
+                                {new Date(match.fixture.date).toLocaleDateString('ko-KR', {
+                                  year: 'numeric',
+                                  month: 'short',
+                                  day: 'numeric'
+                                })}
+                              </span>
+                            </div>
+                            
+                            <div className="flex items-center gap-4">
+                              <div className="flex items-center gap-2">
+                                <Image
+                                  src={match.teams.home.logo}
+                                  alt={match.teams.home.name}
+                                  width={20}
+                                  height={20}
+                                />
+                                <span className={cn(
+                                  "text-sm font-medium",
+                                  homeWin && "text-green-600 dark:text-green-400"
+                                )}>
+                                  {match.teams.home.name.substring(0, 3)}
+                                </span>
+                              </div>
+                              
+                              <div className={cn(
+                                "px-3 py-1 rounded-lg font-bold",
+                                draw && "bg-gray-200 dark:bg-gray-600",
+                                homeWin && "bg-green-100 dark:bg-green-900",
+                                awayWin && "bg-red-100 dark:bg-red-900"
+                              )}>
+                                {match.goals.home} - {match.goals.away}
+                              </div>
+                              
+                              <div className="flex items-center gap-2">
+                                <span className={cn(
+                                  "text-sm font-medium",
+                                  awayWin && "text-green-600 dark:text-green-400"
+                                )}>
+                                  {match.teams.away.name.substring(0, 3)}
+                                </span>
+                                <Image
+                                  src={match.teams.away.logo}
+                                  alt={match.teams.away.name}
+                                  width={20}
+                                  height={20}
+                                />
+                              </div>
+                            </div>
+                          </div>
                         </div>
-                        <div className="font-bold text-sm">
-                          {match.goals.home} - {match.goals.away}
-                        </div>
-                        <div className="text-xs font-medium">
-                          {match.teams.away.name.substring(0, 3)}
-                        </div>
-                      </div>
-                    ))}
-                    {h2hData.length === 0 && (
-                      <p className="text-center text-gray-500 py-4">최근 맞대결 기록이 없습니다</p>
-                    )}
+                      )
+                    })}
                   </div>
                 ) : (
-                  <p className="text-center text-gray-500 py-4">상대 전적 데이터가 없습니다</p>
+                  <div className="text-center py-8">
+                    <Trophy className="h-12 w-12 text-gray-300 mx-auto mb-2" />
+                    <p className="text-gray-500">상대 전적 데이터가 없습니다</p>
+                  </div>
                 )}
               </CardContent>
             </Card>
@@ -1485,83 +1649,138 @@ function MatchdayContent({
 
           {/* 팀 폼 & 통계 */}
           <div className="grid md:grid-cols-2 gap-4">
-            <Card>
-              <CardHeader>
+            <Card className="border-0 shadow-lg overflow-hidden">
+              <CardHeader className="bg-gradient-to-r from-green-500 to-emerald-500 text-white">
                 <CardTitle className="text-lg flex items-center gap-2">
-                  <BarChart3 className="h-5 w-5" />
+                  <TrendingUp className="h-5 w-5" />
                   최근 5경기 폼
                 </CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-medium">{currentMatch.teams.home.name}</span>
-                      <div className="flex gap-1">
-                        {['W', 'W', 'D', 'L', 'W'].map((result, idx) => (
-                          <span
-                            key={idx}
-                            className={cn(
-                              "w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold",
-                              result === 'W' && "bg-green-500 text-white",
-                              result === 'D' && "bg-gray-400 text-white",
-                              result === 'L' && "bg-red-500 text-white"
-                            )}
-                          >
-                            {result}
-                          </span>
-                        ))}
+              <CardContent className="p-4">
+                <div className="space-y-4">
+                  {/* 홈팀 폼 */}
+                  <div className="p-3 bg-gradient-to-r from-blue-50 to-transparent dark:from-blue-900/10 rounded-lg">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <Image
+                          src={currentMatch.teams.home.logo}
+                          alt={currentMatch.teams.home.name}
+                          width={24}
+                          height={24}
+                        />
+                        <span className="font-medium">{currentMatch.teams.home.name}</span>
                       </div>
+                      <Badge className="bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">
+                        HOME
+                      </Badge>
                     </div>
+                    <div className="flex gap-1.5">
+                      {['W', 'W', 'D', 'L', 'W'].map((result, idx) => (
+                        <div
+                          key={idx}
+                          className={cn(
+                            "flex-1 h-8 rounded-lg flex items-center justify-center font-bold text-sm shadow-sm",
+                            result === 'W' && "bg-gradient-to-b from-green-400 to-green-500 text-white",
+                            result === 'D' && "bg-gradient-to-b from-gray-300 to-gray-400 text-white",
+                            result === 'L' && "bg-gradient-to-b from-red-400 to-red-500 text-white"
+                          )}
+                        >
+                          {result}
+                        </div>
+                      ))}
+                    </div>
+                    <p className="text-xs text-gray-500 mt-2">승률 60%</p>
                   </div>
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-medium">{currentMatch.teams.away.name}</span>
-                      <div className="flex gap-1">
-                        {['L', 'W', 'W', 'W', 'D'].map((result, idx) => (
-                          <span
-                            key={idx}
-                            className={cn(
-                              "w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold",
-                              result === 'W' && "bg-green-500 text-white",
-                              result === 'D' && "bg-gray-400 text-white",
-                              result === 'L' && "bg-red-500 text-white"
-                            )}
-                          >
-                            {result}
-                          </span>
-                        ))}
+                  
+                  {/* 어웨이팀 폼 */}
+                  <div className="p-3 bg-gradient-to-r from-red-50 to-transparent dark:from-red-900/10 rounded-lg">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <Image
+                          src={currentMatch.teams.away.logo}
+                          alt={currentMatch.teams.away.name}
+                          width={24}
+                          height={24}
+                        />
+                        <span className="font-medium">{currentMatch.teams.away.name}</span>
                       </div>
+                      <Badge className="bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300">
+                        AWAY
+                      </Badge>
                     </div>
+                    <div className="flex gap-1.5">
+                      {['L', 'W', 'W', 'W', 'D'].map((result, idx) => (
+                        <div
+                          key={idx}
+                          className={cn(
+                            "flex-1 h-8 rounded-lg flex items-center justify-center font-bold text-sm shadow-sm",
+                            result === 'W' && "bg-gradient-to-b from-green-400 to-green-500 text-white",
+                            result === 'D' && "bg-gradient-to-b from-gray-300 to-gray-400 text-white",
+                            result === 'L' && "bg-gradient-to-b from-red-400 to-red-500 text-white"
+                          )}
+                        >
+                          {result}
+                        </div>
+                      ))}
+                    </div>
+                    <p className="text-xs text-gray-500 mt-2">승률 60%</p>
                   </div>
                 </div>
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader>
+            <Card className="border-0 shadow-lg overflow-hidden">
+              <CardHeader className="bg-gradient-to-r from-orange-500 to-red-500 text-white">
                 <CardTitle className="text-lg flex items-center gap-2">
                   <Activity className="h-5 w-5" />
                   경기 정보
                 </CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                    <span className="text-sm text-gray-600 dark:text-gray-400">심판</span>
-                    <span className="text-sm font-medium">{currentMatch.fixture.referee || 'TBD'}</span>
+              <CardContent className="p-4">
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between p-3 bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-700 rounded-lg">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 bg-black rounded-full flex items-center justify-center">
+                        <span className="text-white text-xs">⚑</span>
+                      </div>
+                      <span className="text-sm font-medium">심판</span>
+                    </div>
+                    <span className="text-sm font-bold">{currentMatch.fixture.referee || 'TBD'}</span>
                   </div>
-                  <div className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                    <span className="text-sm text-gray-600 dark:text-gray-400">경기장</span>
-                    <span className="text-sm font-medium">{currentMatch.fixture.venue?.name || 'TBD'}</span>
+                  
+                  <div className="flex items-center justify-between p-3 bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-700 rounded-lg">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 bg-green-600 rounded-full flex items-center justify-center">
+                        <Trophy className="h-4 w-4 text-white" />
+                      </div>
+                      <span className="text-sm font-medium">경기장</span>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-bold">{currentMatch.fixture.venue?.name || 'TBD'}</p>
+                      {currentMatch.fixture.venue?.city && (
+                        <p className="text-xs text-gray-500">{currentMatch.fixture.venue.city}</p>
+                      )}
+                    </div>
                   </div>
-                  <div className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                    <span className="text-sm text-gray-600 dark:text-gray-400">리그</span>
-                    <span className="text-sm font-medium">{currentMatch.league.name}</span>
+                  
+                  <div className="flex items-center justify-between p-3 bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-700 rounded-lg">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 bg-purple-600 rounded-full flex items-center justify-center">
+                        <Star className="h-4 w-4 text-white" />
+                      </div>
+                      <span className="text-sm font-medium">리그</span>
+                    </div>
+                    <span className="text-sm font-bold">{currentMatch.league.name}</span>
                   </div>
-                  <div className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                    <span className="text-sm text-gray-600 dark:text-gray-400">라운드</span>
-                    <span className="text-sm font-medium">{currentMatch.league.round || 'Regular Season'}</span>
+                  
+                  <div className="flex items-center justify-between p-3 bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-700 rounded-lg">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
+                        <span className="text-white text-xs font-bold">R</span>
+                      </div>
+                      <span className="text-sm font-medium">라운드</span>
+                    </div>
+                    <span className="text-sm font-bold">{currentMatch.league.round || 'Regular Season'}</span>
                   </div>
                 </div>
               </CardContent>
@@ -1704,6 +1923,7 @@ function MatchdayContent({
           </Card>
         </TabsContent>
       </Tabs>
+      </div>
     </div>
   )
 }
