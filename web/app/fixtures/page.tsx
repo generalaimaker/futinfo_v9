@@ -467,7 +467,7 @@ export default function FotMobStyleFixturesPage() {
                 {/* 리그별 섹션 */}
                 {sortedLeagues
                   .filter(([leagueId]) => 
-                    viewMode === 'byTime' || [39, 140, 135, 78, 61, 2, 3, 848].includes(parseInt(leagueId))
+                    viewMode === 'onTv' ? [39, 140, 135, 78, 61, 2, 3, 848].includes(parseInt(leagueId)) : true
                   )
                   .map(([leagueId, data]) => (
                     <LeagueSection
