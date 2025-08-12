@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import Image from 'next/image'
 import { 
   Trophy, Users, Clock, MapPin, AlertCircle, 
@@ -8,7 +8,7 @@ import {
   ChevronRight, Star, Zap, ArrowUp, ArrowDown,
   RefreshCw, Share2, Bell, Heart, MessageCircle
 } from 'lucide-react'
-import { Card } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
@@ -20,6 +20,7 @@ import { ToastNotification, useToastNotification } from '@/components/ui/toast-n
 import { EnhancedStatistics } from './enhanced-statistics'
 import { useSwipeable } from 'react-swipeable'
 import { animated, useSpring } from '@react-spring/web'
+import { ResponsiveContainer, AreaChart, Area, CartesianGrid, XAxis, YAxis, Tooltip } from 'recharts'
 
 interface EnhancedMatchDetailImprovedProps {
   fixture: any
