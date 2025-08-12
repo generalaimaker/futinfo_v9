@@ -25,13 +25,13 @@ class FootballAPIService {
       this.supabase = getSupabaseClient()
     }
   }
-  private cache = new Map<string, { data: any; timestamp: number }>()
+  protected cache = new Map<string, { data: any; timestamp: number }>()
   private CACHE_DURATION = 5 * 60 * 1000 // 5분 캐시
   private lastRequestTime = 0
   private REQUEST_DELAY = 200 // 200ms delay between API requests
   
   // 캐시 헬퍼
-  private getCachedData<T>(key: string): T | null {
+  protected getCachedData<T>(key: string): T | null {
     const cached = this.cache.get(key)
     if (cached && Date.now() - cached.timestamp < this.CACHE_DURATION) {
       return cached.data as T
@@ -39,7 +39,7 @@ class FootballAPIService {
     return null
   }
   
-  private setCachedData(key: string, data: any): void {
+  protected setCachedData(key: string, data: any): void {
     this.cache.set(key, { data, timestamp: Date.now() })
   }
 
@@ -85,7 +85,7 @@ class FootballAPIService {
   }
 
   // 통합 API 호출
-  private async callUnifiedAPI<T>(endpoint: string, params: any): Promise<T> {
+  protected async callUnifiedAPI<T>(endpoint: string, params: any): Promise<T> {
     // Rate limiting - ensure minimum delay between requests
     const now = Date.now()
     const timeSinceLastRequest = now - this.lastRequestTime

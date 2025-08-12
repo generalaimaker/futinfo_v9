@@ -18,6 +18,7 @@ import { format } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import { ToastNotification, useToastNotification } from '@/components/ui/toast-notification'
 import { EnhancedStatistics } from './enhanced-statistics'
+import { EnhancedMatchInfo } from './enhanced-match-info'
 import { useSwipeable } from 'react-swipeable'
 import { animated, useSpring } from '@react-spring/web'
 import { ResponsiveContainer, AreaChart, Area, CartesianGrid, XAxis, YAxis, Tooltip } from 'recharts'
@@ -260,7 +261,7 @@ export function EnhancedMatchDetailImproved({
   isLive = false, 
   onRefresh 
 }: EnhancedMatchDetailImprovedProps) {
-  const [activeTab, setActiveTab] = useState('overview')
+  const [activeTab, setActiveTab] = useState(fixture?.fixture?.status?.short === 'NS' ? 'info' : 'overview')
   const { events, showToast, removeToast } = useToastNotification()
   const [lastEventCount, setLastEventCount] = useState(0)
   
@@ -435,12 +436,17 @@ export function EnhancedMatchDetailImproved({
       
       {/* 스와이프 가능한 탭 */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList ref={tabsRef} className="grid w-full grid-cols-4">
+        <TabsList ref={tabsRef} className="grid w-full grid-cols-5">
+          <TabsTrigger value="info">정보</TabsTrigger>
           <TabsTrigger value="overview">개요</TabsTrigger>
           <TabsTrigger value="statistics">통계</TabsTrigger>
           <TabsTrigger value="lineups">라인업</TabsTrigger>
           <TabsTrigger value="events">이벤트</TabsTrigger>
         </TabsList>
+        
+        <TabsContent value="info" className="mt-6">
+          <EnhancedMatchInfo fixture={fixture} />
+        </TabsContent>
         
         <TabsContent value="overview" className="space-y-6">
           {/* 모멘텀 그래프 */}
