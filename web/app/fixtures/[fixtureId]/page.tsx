@@ -6,6 +6,7 @@ import { useFixtureDetail } from '@/lib/supabase/football'
 import { isFinishedMatch } from '@/lib/types/football'
 import { useFixtureRealtime } from '@/hooks/useFixtureRealtime'
 import { EnhancedMatchDetail } from '@/components/fixtures/EnhancedMatchDetail'
+import { EnhancedMatchDetailImproved } from '@/components/fixtures/enhanced-match-detail-improved'
 import MatchHeader from '@/components/fixtures/match-header'
 import MatchTabs from '@/components/fixtures/match-tabs'
 import MatchSummary from '@/components/fixtures/match-summary'
@@ -130,6 +131,35 @@ export default function FixtureDetailPage() {
   
   // 개선된 UI 사용 여부 (토글 가능)
   const useEnhancedUI = true
+  const useImprovedUI = true // 최신 개선 버전 사용
+  
+  if (useImprovedUI) {
+    return (
+      <div className="min-h-screen lg:ml-64 p-4 lg:p-6">
+        <div className="max-w-7xl mx-auto space-y-6">
+          {/* 헤더 */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <Link href="/fixtures">
+                <Button variant="ghost">
+                  <ChevronLeft className="h-4 w-4 mr-2" />
+                  경기 목록
+                </Button>
+              </Link>
+              <h1 className="text-2xl font-bold">경기 상세</h1>
+            </div>
+          </div>
+          
+          {/* 최신 개선된 경기 상세 컴포넌트 */}
+          <EnhancedMatchDetailImproved 
+            fixture={fixture} 
+            isLive={isLive}
+            onRefresh={refetch}
+          />
+        </div>
+      </div>
+    )
+  }
   
   if (useEnhancedUI) {
     return (
