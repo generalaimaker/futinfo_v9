@@ -85,7 +85,8 @@
       "WebFetch(domain:uutmymaxkkytibuiiaax.supabase.co)",
       "mcp__Context7__resolve-library-id",
       "mcp__Context7__get-library-docs",
-      "Bash(vercel:*)"
+      "Bash(vercel:*)",
+      "mcp__brave-search__brave_web_search"
     ],
     "deny": []
   }

@@ -19,7 +19,7 @@ import {
   useHomeStats 
 } from '@/lib/hooks/useFootballData'
 import { useUserPreferences, usePersonalizedFixtures } from '@/lib/hooks/useUserPreferences'
-import { useNews } from '@/lib/supabase/news'
+import { usePopularNews } from '@/lib/supabase/cached-news'
 import { formatDistanceToNow } from 'date-fns'
 import { ko } from 'date-fns/locale'
 
@@ -407,7 +407,7 @@ export default function HomePage() {
   const { fixtures: todayFixtures, isLoading: fixturesLoading } = useTodayFixtures()
   const { fixtures: personalizedFixtures } = usePersonalizedFixtures()
   const { posts: popularPosts } = usePopularPosts()
-  const { data: newsData } = useNews({ category: 'all', minTrustScore: 7 })
+  const { data: popularNewsData } = usePopularNews(10)
   
   // 다양한 타입의 히어로 슬라이드 생성
   const heroSlides = useMemo(() => {
@@ -467,17 +467,17 @@ export default function HomePage() {
     }
     
     // 4. 주요 뉴스 (실제 뉴스 데이터 사용)
-    if (slides.length < 5 && newsData?.articles && newsData.articles.length > 0) {
+    if (slides.length < 5 && popularNewsData && popularNewsData.length > 0) {
       // 상위 3개 뉴스만 가져와서 필요한 형식으로 변환
-      const topNews = newsData.articles.slice(0, 3).map(article => ({
+      const topNews = popularNewsData.slice(0, 3).map((article: any) => ({
         id: article.id,
         title: article.title,
         description: article.description,
-        image: article.imageUrl || '/images/news-placeholder.jpg',
+        image: article.image_url || '/images/news-placeholder.jpg',
         category: article.category === 'transfer' ? '이적시장' : 
                   article.category === 'injury' ? '부상' : '뉴스',
         source: article.source,
-        publishedAt: article.publishedAt
+        publishedAt: article.published_at
       }))
       
       slides.push({
@@ -530,7 +530,7 @@ export default function HomePage() {
     return slides
       .sort((a, b) => b.priority - a.priority)
       .slice(0, 5)
-  }, [liveMatches, todayFixtures, personalizedFixtures, preferences, isAuthenticated, newsData])
+  }, [liveMatches, todayFixtures, personalizedFixtures, preferences, isAuthenticated, popularNewsData])
   
   // 하위 경기 목록을 위한 데이터
   const allMatches = [...liveMatches, ...todayFixtures]

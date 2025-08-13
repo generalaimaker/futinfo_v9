@@ -13,6 +13,7 @@ import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import { CommunityService } from '@/lib/supabase/community'
 import { useSupabase } from '@/lib/supabase/provider'
+import { LanguageSettings } from '@/components/settings/LanguageSettings'
 
 export default function SettingsPage() {
   const router = useRouter()
@@ -259,6 +260,9 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
 
+          {/* 언어 설정 */}
+          <LanguageSettings />
+
           {/* 모양 설정 */}
           <Card>
             <CardHeader>
@@ -275,16 +279,6 @@ export default function SettingsPage() {
                   checked={settings.appearance.darkMode}
                   onCheckedChange={(checked) => handleSettingChange('appearance', 'darkMode', checked)}
                 />
-              </div>
-              
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-medium">언어</p>
-                  <p className="text-sm text-gray-500">한국어</p>
-                </div>
-                <Button variant="ghost" size="sm">
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
               </div>
             </CardContent>
           </Card>

@@ -1,18 +1,20 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Flame, ArrowLeftRight, Activity, Radio, SlidersHorizontal, ExternalLink, Shield } from 'lucide-react'
+import { Flame, ArrowLeftRight, Activity, Radio, SlidersHorizontal, ExternalLink, Shield, Search } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { useNews, type NewsFilters } from '@/lib/supabase/news'
+import { usePersonalizedNews, type NewsFilters } from '@/lib/supabase/cached-news'
 import { formatDistanceToNow } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import { SimpleTransferFilter } from '@/components/news/SimpleTransferFilter'
+import { NewsSearchBar } from '@/components/news/NewsSearchBar'
 
 type NewsTab = 'major' | 'transfer' | 'injury'
 
 export default function NewsPage() {
   const [selectedTab, setSelectedTab] = useState<NewsTab>('major')
   const [showFilterSheet, setShowFilterSheet] = useState(false)
+  const [showSearch, setShowSearch] = useState(false)
   
   // 필터 상태
   const [filters, setFilters] = useState<NewsFilters>({
@@ -21,8 +23,8 @@ export default function NewsPage() {
     minTrustScore: 0
   })
   
-  // React Query로 뉴스 가져오기
-  const { data, isLoading, error, refetch, dataUpdatedAt } = useNews(filters)
+  // React Query로 뉴스 가져오기 (캐시된 뉴스 + 개인화)
+  const { data, isLoading, error, refetch, dataUpdatedAt } = usePersonalizedNews(filters)
 
   const tabs: { id: NewsTab; title: string; icon: React.ReactNode; color: string }[] = [
     { 
@@ -98,15 +100,23 @@ export default function NewsPage() {
                   <div className="flex items-center gap-2 mt-1">
                     <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
                     <span className="text-sm text-gray-500">
-                      업데이트: {formatDistanceToNow(new Date(dataUpdatedAt), { 
+                      {formatDistanceToNow(new Date(dataUpdatedAt), { 
                         addSuffix: true,
                         locale: ko 
-                      })}
+                      })} 업데이트 • 5분마다 자동 새로고침
                     </span>
                   </div>
                 )}
               </div>
               <div className="flex items-center gap-2">
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  onClick={() => setShowSearch(!showSearch)}
+                  title="뉴스 검색"
+                >
+                  <Search className="w-4 h-4" />
+                </Button>
                 <Button 
                   variant="ghost" 
                   size="sm"
@@ -129,6 +139,16 @@ export default function NewsPage() {
                 )}
               </div>
             </div>
+
+            {/* Search Bar */}
+            {showSearch && (
+              <div className="mt-4">
+                <NewsSearchBar 
+                  onSearch={(query) => console.log('Searching for:', query)}
+                  className="w-full"
+                />
+              </div>
+            )}
 
             {/* Tab Selector */}
             <div className="flex gap-2">
@@ -194,14 +214,21 @@ export default function NewsPage() {
                       <h3 className="text-lg font-semibold flex-1 hover:text-blue-600 transition-colors">
                         {article.title}
                       </h3>
-                      {article.trustScore >= 80 && (
-                        <div className="flex items-center gap-1 text-xs">
-                          <Shield className={`w-4 h-4 ${getTrustScoreColor(article.trustScore)}`} />
-                          <span className={getTrustScoreColor(article.trustScore)}>
-                            {article.trustScore}%
+                      <div className="flex items-center gap-2">
+                        {article.isTranslated && (
+                          <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full">
+                            번역됨
                           </span>
-                        </div>
-                      )}
+                        )}
+                        {article.trustScore >= 80 && (
+                          <div className="flex items-center gap-1 text-xs">
+                            <Shield className={`w-4 h-4 ${getTrustScoreColor(article.trustScore)}`} />
+                            <span className={getTrustScoreColor(article.trustScore)}>
+                              {article.trustScore}%
+                            </span>
+                          </div>
+                        )}
+                      </div>
                     </div>
                     {article.description && (
                       <p className="text-gray-600 text-sm mb-3 line-clamp-2">
