@@ -14,6 +14,8 @@ export interface UserPreferences {
     communityReplies: boolean
   }
   language: string
+  news_language: string
+  news_categories: string[]
 }
 
 const DEFAULT_PREFERENCES: UserPreferences = {
@@ -26,7 +28,9 @@ const DEFAULT_PREFERENCES: UserPreferences = {
     news: true,
     communityReplies: true
   },
-  language: 'ko'
+  language: 'ko',
+  news_language: 'ko',
+  news_categories: ['general', 'transfer', 'injury']
 }
 
 // 로딩 중 상태를 추적하는 전역 변수
@@ -89,7 +93,9 @@ export function useUserPreferences() {
           favoriteTeamIds: data.favorite_team_ids || [],
           favoriteLeagueIds: data.favorite_league_ids || [],
           notificationSettings: data.notification_settings || DEFAULT_PREFERENCES.notificationSettings,
-          language: data.language || 'ko'
+          language: data.language || 'ko',
+          news_language: data.news_language || 'ko',
+          news_categories: data.news_categories || ['general', 'transfer', 'injury']
         })
       } else if (!error) {
         // 레코드가 없는 경우 기본값으로 새 레코드 생성 - upsert 사용으로 충돌 방지
@@ -99,6 +105,8 @@ export function useUserPreferences() {
           favorite_league_ids: [],
           notification_settings: DEFAULT_PREFERENCES.notificationSettings,
           language: 'ko',
+          news_language: 'ko',
+          news_categories: ['general', 'transfer', 'injury'],
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         }
@@ -117,7 +125,9 @@ export function useUserPreferences() {
             favoriteTeamIds: newData.favorite_team_ids || [],
             favoriteLeagueIds: newData.favorite_league_ids || [],
             notificationSettings: newData.notification_settings || DEFAULT_PREFERENCES.notificationSettings,
-            language: newData.language || 'ko'
+            language: newData.language || 'ko',
+            news_language: newData.news_language || 'ko',
+            news_categories: newData.news_categories || ['general', 'transfer', 'injury']
           })
         }
       }
@@ -148,6 +158,8 @@ export function useUserPreferences() {
             favorite_league_ids: newPreferences.favoriteLeagueIds,
             notification_settings: newPreferences.notificationSettings,
             language: newPreferences.language,
+            news_language: newPreferences.news_language,
+            news_categories: newPreferences.news_categories,
             updated_at: new Date().toISOString()
           })
       } catch (error) {

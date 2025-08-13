@@ -143,11 +143,12 @@ async function fetchNewsFromDB(filters: NewsFilters = {}): Promise<{
 function getUserLanguage(): string {
   if (typeof window === 'undefined') return 'ko'
   
-  const settings = localStorage.getItem('language_settings')
-  if (settings) {
+  // user_preferences에서 news_language 가져오기
+  const preferences = localStorage.getItem('user_preferences')
+  if (preferences) {
     try {
-      const parsed = JSON.parse(settings)
-      return parsed.language || 'ko'
+      const parsed = JSON.parse(preferences)
+      return parsed.news_language || parsed.language || 'ko'
     } catch {
       return 'ko'
     }

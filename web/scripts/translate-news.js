@@ -10,7 +10,7 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
 
 // 월간 제한 및 문자 수 추적
 const MONTHLY_CHAR_LIMIT = 500000
-const BATCH_SIZE = 10 // 한 번에 번역할 기사 수
+const BATCH_SIZE = 50 // 한 번에 번역할 기사 수 (증가)
 
 // DeepL API로 텍스트 번역
 async function translateText(texts, targetLang = 'KO') {
