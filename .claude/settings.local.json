@@ -86,7 +86,8 @@
       "mcp__Context7__resolve-library-id",
       "mcp__Context7__get-library-docs",
       "Bash(vercel:*)",
-      "mcp__brave-search__brave_web_search"
+      "mcp__brave-search__brave_web_search",
+      "Bash(node:*)"
     ],
     "deny": []
   }
