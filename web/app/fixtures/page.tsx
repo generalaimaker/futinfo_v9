@@ -309,7 +309,7 @@ export default function ImprovedFixturesPage() {
   }, {})
   
   // 팔로우 팀/리그 필터링
-  const followedLeagueIds = preferences?.followedLeagueIds || []
+  const followedLeagueIds = preferences?.favoriteLeagueIds || []
   const favoriteTeamIds = preferences?.favoriteTeamIds || []
   
   // 리그 정렬 (우선순위 기반)
