@@ -343,54 +343,60 @@ function NewsSlide({ data }: { data: any }) {
         </div>
       </div>
 
-      {/* 뉴스 내용 */}
-      <div className="relative h-full flex items-center p-8 md:p-12">
-        <div className="max-w-4xl mx-auto">
-          {data.image && (
-            <div className="w-full h-48 mb-6 rounded-lg overflow-hidden">
-              <Image
-                src={data.image}
-                alt={data.title}
-                width={800}
-                height={400}
-                className="w-full h-full object-cover"
-              />
-            </div>
-          )}
-          
-          <Badge className="mb-3 bg-white/20 text-white border-0">
-            {data.category || '뉴스'}
-          </Badge>
-          
-          <h2 className="text-2xl md:text-4xl font-bold text-white mb-4">
-            {data.title}
-          </h2>
-          
-          <p className="text-lg text-white/80 mb-6 line-clamp-3">
-            {data.description}
-          </p>
-          
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4 text-sm text-white/60">
-              <span>{data.source}</span>
-              <span>•</span>
-              <span>
-                {formatDistanceToNow(new Date(data.publishedAt), {
-                  addSuffix: true,
-                  locale: ko
-                })}
-              </span>
-            </div>
+      {/* 뉴스 내용 - 패딩과 이미지 크기 조정 */}
+      <div className="relative h-full flex items-center p-6 md:p-8">
+        <div className="max-w-4xl mx-auto w-full">
+          <div className="flex flex-col md:flex-row gap-6 items-center">
+            {/* 이미지 영역 - 크기 축소 및 반응형 개선 */}
+            {data.image && (
+              <div className="w-full md:w-1/3 h-32 md:h-40 rounded-lg overflow-hidden flex-shrink-0">
+                <Image
+                  src={data.image}
+                  alt={data.title}
+                  width={400}
+                  height={300}
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            )}
             
-            <Link href={`/news/${data.id}`}>
-              <Button 
-                size="sm" 
-                className="bg-white/20 backdrop-blur hover:bg-white/30 text-white border-0"
-              >
-                자세히 보기
-                <ChevronRight className="ml-2 h-4 w-4" />
-              </Button>
-            </Link>
+            {/* 텍스트 영역 */}
+            <div className="flex-1">
+              <Badge className="mb-2 bg-white/20 text-white border-0">
+                {data.category || '뉴스'}
+              </Badge>
+              
+              <h2 className="text-xl md:text-2xl lg:text-3xl font-bold text-white mb-3 line-clamp-2">
+                {data.title}
+              </h2>
+              
+              <p className="text-sm md:text-base text-white/80 mb-4 line-clamp-2 md:line-clamp-3">
+                {data.description}
+              </p>
+              
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div className="flex items-center gap-3 text-xs md:text-sm text-white/60">
+                  <span>{data.source}</span>
+                  <span>•</span>
+                  <span>
+                    {formatDistanceToNow(new Date(data.publishedAt), {
+                      addSuffix: true,
+                      locale: ko
+                    })}
+                  </span>
+                </div>
+                
+                <Link href={`/news/${data.id}`}>
+                  <Button 
+                    size="sm" 
+                    className="bg-white/20 backdrop-blur hover:bg-white/30 text-white border-0"
+                  >
+                    자세히 보기
+                    <ChevronRight className="ml-2 h-4 w-4" />
+                  </Button>
+                </Link>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -529,22 +535,22 @@ function StatsSlide({ data }: { data: any }) {
         </div>
       </div>
 
-      {/* 순위 정보 */}
-      <div className="relative h-full flex items-center p-8 md:p-12">
-        <div className="max-w-5xl mx-auto w-full">
-          <h2 className="text-2xl md:text-3xl font-bold text-white mb-6">
+      {/* 순위 정보 - 패딩 및 간격 조정 */}
+      <div className="relative h-full flex items-center p-6 md:p-8">
+        <div className="max-w-4xl mx-auto w-full">
+          <h2 className="text-lg md:text-xl lg:text-2xl font-bold text-white mb-4">
             {data.league.name} 상위 5팀
           </h2>
           
-          <div className="space-y-3">
+          <div className="space-y-2">
             {data.standings.slice(0, 5).map((team: any, index: number) => (
               <div
                 key={team.team.id}
-                className="flex items-center justify-between bg-white/10 backdrop-blur rounded-lg p-4"
+                className="flex items-center justify-between bg-white/10 backdrop-blur rounded-lg p-2 md:p-3"
               >
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2 md:gap-3 flex-1">
                   <div className={cn(
-                    "w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm",
+                    "w-6 h-6 md:w-7 md:h-7 rounded-full flex items-center justify-center font-bold text-xs",
                     index === 0 && "bg-yellow-500 text-white",
                     index === 1 && "bg-gray-400 text-white",
                     index === 2 && "bg-orange-600 text-white",
@@ -555,32 +561,32 @@ function StatsSlide({ data }: { data: any }) {
                   <Image
                     src={team.team.logo}
                     alt={team.team.name}
-                    width={32}
-                    height={32}
-                    className="object-contain"
+                    width={24}
+                    height={24}
+                    className="object-contain w-6 h-6 md:w-7 md:h-7"
                   />
-                  <span className="text-white font-medium">{team.team.name}</span>
+                  <span className="text-white font-medium text-sm md:text-base truncate">{team.team.name}</span>
                 </div>
                 
-                <div className="flex items-center gap-6 text-white">
-                  <div className="text-center">
-                    <p className="text-xs text-white/60">경기</p>
-                    <p className="font-bold">{team.all.played}</p>
+                <div className="flex items-center gap-3 md:gap-5 text-white">
+                  <div className="text-center hidden sm:block">
+                    <p className="text-[10px] md:text-xs text-white/60">경기</p>
+                    <p className="font-bold text-xs md:text-sm">{team.all.played}</p>
                   </div>
                   <div className="text-center">
-                    <p className="text-xs text-white/60">승점</p>
-                    <p className="font-bold text-lg">{team.points}</p>
+                    <p className="text-[10px] md:text-xs text-white/60">승점</p>
+                    <p className="font-bold text-sm md:text-base">{team.points}</p>
                   </div>
                   <div className="text-center">
-                    <p className="text-xs text-white/60">득실</p>
-                    <p className="font-bold">{team.goalsDiff > 0 ? '+' : ''}{team.goalsDiff}</p>
+                    <p className="text-[10px] md:text-xs text-white/60">득실</p>
+                    <p className="font-bold text-xs md:text-sm">{team.goalsDiff > 0 ? '+' : ''}{team.goalsDiff}</p>
                   </div>
                 </div>
               </div>
             ))}
           </div>
           
-          <div className="mt-6 text-center">
+          <div className="mt-4 text-center">
             <Link href="/standings">
               <Button 
                 size="sm" 
