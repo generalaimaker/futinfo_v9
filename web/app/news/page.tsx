@@ -213,16 +213,16 @@ export default function NewsPage() {
                         {article.title}
                       </h3>
                       <div className="flex items-center gap-2">
-                        {article.isTranslated && (
+                        {article.translations && Object.keys(article.translations).length > 0 && (
                           <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full">
                             번역됨
                           </span>
                         )}
-                        {article.trustScore >= 80 && (
+                        {article.trust_score >= 80 && (
                           <div className="flex items-center gap-1 text-xs">
-                            <Shield className={`w-4 h-4 ${getTrustScoreColor(article.trustScore)}`} />
-                            <span className={getTrustScoreColor(article.trustScore)}>
-                              {article.trustScore}%
+                            <Shield className={`w-4 h-4 ${getTrustScoreColor(article.trust_score)}`} />
+                            <span className={getTrustScoreColor(article.trust_score)}>
+                              {article.trust_score}%
                             </span>
                           </div>
                         )}
@@ -237,7 +237,7 @@ export default function NewsPage() {
                       <span className="font-medium">{article.source}</span>
                       <span>•</span>
                       <span>
-                        {formatDistanceToNow(new Date(article.publishedAt), { 
+                        {article.published_at && formatDistanceToNow(new Date(article.published_at), { 
                           addSuffix: true,
                           locale: ko 
                         })}
@@ -245,9 +245,9 @@ export default function NewsPage() {
                       <ExternalLink className="w-3 h-3 ml-auto" />
                     </div>
                   </div>
-                  {article.imageUrl && (
+                  {article.image_url && (
                     <img 
-                      src={article.imageUrl} 
+                      src={article.image_url} 
                       alt={article.title}
                       className="w-24 h-24 object-cover rounded-lg ml-4"
                       onError={(e) => {
