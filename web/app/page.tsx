@@ -1,14 +1,12 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { 
   Calendar, Clock, TrendingUp, Users, 
-  ChevronRight, Circle, Zap, Trophy,
-  Star, AlertCircle, ArrowRight, RefreshCw,
-  Loader2, Sparkles, Shield, Activity,
-  Play, Info, ChevronLeft, ChevronDown
+  ChevronRight, Circle, Trophy, Star,
+  Activity, Loader2, Sparkles
 } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
