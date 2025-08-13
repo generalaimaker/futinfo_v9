@@ -19,6 +19,7 @@ import {
   useHomeStats 
 } from '@/lib/hooks/useFootballData'
 import { useUserPreferences, usePersonalizedFixtures } from '@/lib/hooks/useUserPreferences'
+import { useNews } from '@/lib/supabase/news'
 import { formatDistanceToNow } from 'date-fns'
 import { ko } from 'date-fns/locale'
 
@@ -406,6 +407,7 @@ export default function HomePage() {
   const { fixtures: todayFixtures, isLoading: fixturesLoading } = useTodayFixtures()
   const { fixtures: personalizedFixtures } = usePersonalizedFixtures()
   const { posts: popularPosts } = usePopularPosts()
+  const { data: newsData } = useNews({ category: 'all', minTrustScore: 7 })
   
   // 다양한 타입의 히어로 슬라이드 생성
   const heroSlides = useMemo(() => {
@@ -464,59 +466,25 @@ export default function HomePage() {
       })
     }
     
-    // 4. 주요 뉴스 (5개 뉴스 목록)
-    if (slides.length < 5) {
+    // 4. 주요 뉴스 (실제 뉴스 데이터 사용)
+    if (slides.length < 5 && newsData?.articles && newsData.articles.length > 0) {
+      // 상위 5개 뉴스만 가져와서 필요한 형식으로 변환
+      const topNews = newsData.articles.slice(0, 5).map(article => ({
+        id: article.id,
+        title: article.title,
+        description: article.description,
+        image: article.imageUrl || '/images/news-placeholder.jpg',
+        category: article.category === 'transfer' ? '이적시장' : 
+                  article.category === 'injury' ? '부상' : '뉴스',
+        source: article.source,
+        publishedAt: article.publishedAt
+      }))
+      
       slides.push({
         id: 'news-main',
         type: 'news',
         priority: 700,
-        data: [
-          {
-            id: '1',
-            title: '손흥민, 토트넘 복귀전에서 2골 1도움 맹활약',
-            description: '부상에서 복귀한 손흥민이 첼시전에서 환상적인 활약을 펼치며 팀의 4-1 대승을 이끌었다.',
-            image: 'https://resources.premierleague.com/photos/2024/01/15/spurs-son.jpg',
-            category: '프리미어리그',
-            source: 'Sky Sports',
-            publishedAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString()
-          },
-          {
-            id: '2',
-            title: '맨시티, 홀란드 연장 계약 협상 본격화',
-            description: '맨체스터 시티가 골잡이 홀란드와 2030년까지 연장 계약을 추진 중인 것으로 알려졌다.',
-            image: 'https://resources.premierleague.com/photos/2024/01/15/mancity-haaland.jpg',
-            category: '이적시장',
-            source: 'ESPN',
-            publishedAt: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString()
-          },
-          {
-            id: '3',
-            title: '레알 마드리드, 챔피언스리그 16강 대진 확정',
-            description: 'UEFA 챔피언스리그 16강 추첨에서 레알 마드리드가 라이프치히와 맞붙게 되었다.',
-            image: 'https://img.uefa.com/imgml/uefacom/ucl/2024/real-madrid.jpg',
-            category: '챔피언스리그',
-            source: 'UEFA',
-            publishedAt: new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString()
-          },
-          {
-            id: '4',
-            title: '바르셀로나, 겨울 이적시장 영입 자금 확보',
-            description: '재정난을 겪던 바르셀로나가 새로운 스폰서십 계약으로 영입 자금을 확보했다.',
-            image: 'https://fcbarcelona.com/photo-resources/2024/01/camp-nou.jpg',
-            category: '라리가',
-            source: 'Marca',
-            publishedAt: new Date(Date.now() - 8 * 60 * 60 * 1000).toISOString()
-          },
-          {
-            id: '5',
-            title: '김민재, 바이에른 뮌헨과 2024년 최고의 수비수 선정',
-            description: '김민재가 독일 축구 전문지가 선정한 2024년 분데스리가 최고의 수비수로 선정되었다.',
-            image: 'https://img.fcbayern.com/image/upload/kim-minjae-2024.jpg',
-            category: '분데스리가',
-            source: 'Kicker',
-            publishedAt: new Date(Date.now() - 10 * 60 * 60 * 1000).toISOString()
-          }
-        ]
+        data: topNews
       })
     }
     
@@ -562,7 +530,7 @@ export default function HomePage() {
     return slides
       .sort((a, b) => b.priority - a.priority)
       .slice(0, 5)
-  }, [liveMatches, todayFixtures, personalizedFixtures, preferences, isAuthenticated])
+  }, [liveMatches, todayFixtures, personalizedFixtures, preferences, isAuthenticated, newsData])
   
   // 하위 경기 목록을 위한 데이터
   const allMatches = [...liveMatches, ...todayFixtures]
