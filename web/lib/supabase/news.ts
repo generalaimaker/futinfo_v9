@@ -78,7 +78,7 @@ export async function fetchNews(
         )
         return {
           ...newsResponse,
-          articles: translatedArticles
+          articles: translatedArticles as NewsArticle[]
         }
       } catch (translationError) {
         console.error('Translation failed, returning original:', translationError)

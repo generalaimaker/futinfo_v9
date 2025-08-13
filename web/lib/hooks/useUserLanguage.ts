@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react'
-import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase/client'
 
 export type SupportedLanguage = 'ko' | 'en' | 'ja' | 'zh' | 'es'
@@ -15,9 +14,22 @@ const DEFAULT_SETTINGS: UserLanguageSettings = {
 }
 
 export function useUserLanguage() {
-  const { user } = useAuth()
+  const [user, setUser] = useState<any>(null)
   const [settings, setSettings] = useState<UserLanguageSettings>(DEFAULT_SETTINGS)
   const [isLoading, setIsLoading] = useState(true)
+
+  // Get user from Supabase auth
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      setUser(data?.user)
+    })
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null)
+    })
+
+    return () => subscription.unsubscribe()
+  }, [])
 
   // 사용자 언어 설정 불러오기
   useEffect(() => {

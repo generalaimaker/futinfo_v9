@@ -66,11 +66,9 @@ export function useBraveNewsSearch() {
   
   return useMutation({
     mutationFn: searchBraveNews,
-    onSuccess: (data) => {
+    onSuccess: (_data) => {
       // 검색 결과를 캐시에 추가
-      if (data.saveToDb) {
-        queryClient.invalidateQueries({ queryKey: ['news'] })
-      }
+      queryClient.invalidateQueries({ queryKey: ['news'] })
     }
   })
 }

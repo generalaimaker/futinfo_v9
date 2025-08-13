@@ -18,9 +18,7 @@ export default function NewsPage() {
   
   // 필터 상태
   const [filters, setFilters] = useState<NewsFilters>({
-    category: 'general',
-    onlyTier1: false,
-    minTrustScore: 0
+    category: 'general'
   })
   
   // React Query로 뉴스 가져오기 (캐시된 뉴스 + 개인화)
@@ -132,7 +130,7 @@ export default function NewsPage() {
                     onClick={() => setShowFilterSheet(!showFilterSheet)}
                   >
                     <SlidersHorizontal className="w-4 h-4" />
-                    {(filters.onlyTier1 || (filters.minTrustScore ?? 0) > 0) && (
+                    {(filters.onlyFeatured || filters.onlyBreaking) && (
                       <div className="w-2 h-2 bg-red-500 rounded-full absolute -top-1 -right-1" />
                     )}
                   </Button>
