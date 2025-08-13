@@ -331,6 +331,9 @@ function MatchSlide({ data }: { data: any }) {
 // 뉴스 슬라이드
 // ============================================
 function NewsSlide({ data }: { data: any }) {
+  // data가 배열이 아닌 경우 배열로 변환
+  const newsItems = Array.isArray(data) ? data : [data]
+  
   return (
     <div className="absolute inset-0">
       <div className="absolute inset-0 bg-gradient-to-br from-blue-900/90 via-slate-900/80 to-slate-800/70" />
@@ -343,60 +346,79 @@ function NewsSlide({ data }: { data: any }) {
         </div>
       </div>
 
-      {/* 뉴스 내용 - 패딩과 이미지 크기 조정 */}
+      {/* 뉴스 목록 */}
       <div className="relative h-full flex items-center p-6 md:p-8">
         <div className="max-w-4xl mx-auto w-full">
-          <div className="flex flex-col md:flex-row gap-6 items-center">
-            {/* 이미지 영역 - 크기 축소 및 반응형 개선 */}
-            {data.image && (
-              <div className="w-full md:w-1/3 h-32 md:h-40 rounded-lg overflow-hidden flex-shrink-0">
-                <Image
-                  src={data.image}
-                  alt={data.title}
-                  width={400}
-                  height={300}
-                  className="w-full h-full object-cover"
-                />
-              </div>
-            )}
-            
-            {/* 텍스트 영역 */}
-            <div className="flex-1">
-              <Badge className="mb-2 bg-white/20 text-white border-0">
-                {data.category || '뉴스'}
-              </Badge>
-              
-              <h2 className="text-xl md:text-2xl lg:text-3xl font-bold text-white mb-3 line-clamp-2">
-                {data.title}
-              </h2>
-              
-              <p className="text-sm md:text-base text-white/80 mb-4 line-clamp-2 md:line-clamp-3">
-                {data.description}
-              </p>
-              
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                <div className="flex items-center gap-3 text-xs md:text-sm text-white/60">
-                  <span>{data.source}</span>
-                  <span>•</span>
-                  <span>
-                    {formatDistanceToNow(new Date(data.publishedAt), {
-                      addSuffix: true,
-                      locale: ko
-                    })}
-                  </span>
+          <h2 className="text-lg md:text-xl lg:text-2xl font-bold text-white mb-4">
+            오늘의 주요 뉴스
+          </h2>
+          
+          <div className="space-y-2">
+            {newsItems.slice(0, 5).map((item: any, index: number) => (
+              <Link 
+                key={item.id || index} 
+                href={`/news/${item.id || index}`}
+                className="block"
+              >
+                <div className="bg-white/10 backdrop-blur rounded-lg p-3 hover:bg-white/20 transition-colors">
+                  <div className="flex gap-3">
+                    {/* 썸네일 이미지 */}
+                    {item.image && (
+                      <div className="w-16 h-16 md:w-20 md:h-20 rounded-md overflow-hidden flex-shrink-0">
+                        <Image
+                          src={item.image}
+                          alt={item.title}
+                          width={80}
+                          height={80}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                    )}
+                    
+                    {/* 뉴스 내용 */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-2">
+                        <h3 className="text-sm md:text-base font-semibold text-white line-clamp-1 flex-1">
+                          {item.title}
+                        </h3>
+                        {index === 0 && (
+                          <Badge variant="destructive" className="text-xs flex-shrink-0">
+                            NEW
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-xs md:text-sm text-white/70 line-clamp-1 mt-1">
+                        {item.description}
+                      </p>
+                      <div className="flex items-center gap-2 mt-2 text-xs text-white/50">
+                        <span>{item.category || '뉴스'}</span>
+                        <span>•</span>
+                        <span>{item.source}</span>
+                        <span>•</span>
+                        <span>
+                          {formatDistanceToNow(new Date(item.publishedAt), {
+                            addSuffix: true,
+                            locale: ko
+                          })}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                
-                <Link href={`/news/${data.id}`}>
-                  <Button 
-                    size="sm" 
-                    className="bg-white/20 backdrop-blur hover:bg-white/30 text-white border-0"
-                  >
-                    자세히 보기
-                    <ChevronRight className="ml-2 h-4 w-4" />
-                  </Button>
-                </Link>
-              </div>
-            </div>
+              </Link>
+            ))}
+          </div>
+          
+          <div className="mt-4 text-center">
+            <Link href="/news">
+              <Button 
+                size="sm" 
+                className="bg-white/20 backdrop-blur hover:bg-white/30 text-white border-0"
+              >
+                모든 뉴스 보기
+                <ChevronRight className="ml-2 h-4 w-4" />
+              </Button>
+            </Link>
           </div>
         </div>
       </div>
