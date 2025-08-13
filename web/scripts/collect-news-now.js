@@ -52,18 +52,24 @@ async function searchBraveNews(query) {
   }
 }
 
-function parseRelativeTime(timeStr) {
+function parsePublishDate(article) {
+  // page_age가 있으면 우선 사용 (실제 발행 시간)
+  if (article.page_age) {
+    // ISO 형식이 아닌 경우 변환
+    if (!article.page_age.includes('Z')) {
+      return new Date(article.page_age + 'Z').toISOString()
+    }
+    return new Date(article.page_age).toISOString()
+  }
+  
+  // age 필드 파싱 (상대 시간)
+  const timeStr = article.age
   if (!timeStr || typeof timeStr !== 'string') {
     return new Date().toISOString()
   }
   
-  // 이미 ISO 형식인 경우
-  if (timeStr.includes('T') && timeStr.includes('Z')) {
-    return timeStr
-  }
-  
   const now = new Date()
-  const match = timeStr.match(/(\d+)\s*(hour|day|minute|second)s?\s*ago/i)
+  const match = timeStr.match(/(\d+)\s*(hour|day|minute|second|week|month)s?\s*ago/i)
   
   if (match) {
     const [, amount, unit] = match
@@ -81,6 +87,12 @@ function parseRelativeTime(timeStr) {
         break
       case 'day':
         now.setDate(now.getDate() - value)
+        break
+      case 'week':
+        now.setDate(now.getDate() - (value * 7))
+        break
+      case 'month':
+        now.setMonth(now.getMonth() - value)
         break
     }
   }
@@ -138,7 +150,7 @@ async function collectNews() {
           url: article.url,
           source: article.meta_url?.hostname || article.meta?.site || 'Unknown',
           source_tier: calculateTrustScore(article) >= 80 ? 1 : 2,
-          published_at: parseRelativeTime(article.age || article.page_age),
+          published_at: parsePublishDate(article),
           image_url: article.thumbnail?.src || article.meta?.image,
           category: query.includes('transfer') ? 'transfer' : 'general',
           trust_score: calculateTrustScore(article),
