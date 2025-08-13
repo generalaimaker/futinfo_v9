@@ -346,68 +346,58 @@ function NewsSlide({ data }: { data: any }) {
         </div>
       </div>
 
-      {/* 뉴스 목록 - 3개만 표시, 이미지 제거 */}
-      <div className="relative h-full flex items-center p-6 md:p-8">
+      {/* 뉴스 목록 - 3개만 표시, 컴팩트 디자인 */}
+      <div className="relative h-full flex items-center p-4 md:p-6">
         <div className="max-w-4xl mx-auto w-full">
-          <h2 className="text-xl md:text-2xl lg:text-3xl font-bold text-white mb-6">
-            실시간 주요 뉴스
+          <h2 className="text-base md:text-lg font-bold text-white mb-3">
+            주요 뉴스
           </h2>
           
-          <div className="space-y-4">
+          <div className="space-y-2">
             {newsItems.slice(0, 3).map((item: any, index: number) => (
               <Link 
                 key={item.id || index} 
                 href={`/news/${item.id || index}`}
                 className="block group"
               >
-                <div className="bg-white/10 backdrop-blur rounded-xl p-4 md:p-5 hover:bg-white/20 transition-all hover:scale-[1.02]">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
-                        {index === 0 && (
-                          <Badge variant="destructive" className="text-xs">
-                            HOT
-                          </Badge>
-                        )}
-                        <Badge className="bg-white/20 text-white border-0 text-xs">
-                          {item.category || '뉴스'}
-                        </Badge>
-                        <span className="text-xs text-white/60">{item.source}</span>
-                      </div>
-                      
-                      <h3 className="text-base md:text-lg font-semibold text-white mb-2 line-clamp-2 group-hover:text-blue-300 transition-colors">
-                        {item.title}
-                      </h3>
-                      
-                      <p className="text-sm md:text-base text-white/70 line-clamp-2">
-                        {item.description}
-                      </p>
-                      
-                      {item.publishedAt && (
-                        <div className="mt-3 text-xs text-white/50">
-                          {formatDistanceToNow(new Date(item.publishedAt), {
-                            addSuffix: true,
-                            locale: ko
-                          })}
-                        </div>
-                      )}
-                    </div>
-                    
-                    <ChevronRight className="w-5 h-5 text-white/40 group-hover:text-white/70 transition-colors flex-shrink-0 mt-1" />
+                <div className="bg-white/10 backdrop-blur rounded-lg p-3 hover:bg-white/20 transition-all">
+                  <div className="flex items-center gap-2 mb-1">
+                    {index === 0 && (
+                      <Badge variant="destructive" className="text-[10px] px-1.5 py-0">
+                        HOT
+                      </Badge>
+                    )}
+                    <span className="text-[10px] text-white/50 uppercase">{item.source}</span>
+                    {item.publishedAt && (
+                      <span className="text-[10px] text-white/40">
+                        • {formatDistanceToNow(new Date(item.publishedAt), {
+                          addSuffix: true,
+                          locale: ko
+                        })}
+                      </span>
+                    )}
                   </div>
+                  
+                  <h3 className="text-sm md:text-base font-semibold text-white line-clamp-1 group-hover:text-blue-300 transition-colors">
+                    {item.title}
+                  </h3>
+                  
+                  <p className="text-xs text-white/60 line-clamp-1 mt-1">
+                    {item.description}
+                  </p>
                 </div>
               </Link>
             ))}
           </div>
           
-          <div className="mt-6 text-center">
+          <div className="mt-3 text-center">
             <Link href="/news">
               <Button 
                 size="sm" 
-                className="bg-white/20 backdrop-blur hover:bg-white/30 text-white border-0"
+                className="bg-white/20 backdrop-blur hover:bg-white/30 text-white border-0 h-7 text-xs px-3 py-1"
               >
                 모든 뉴스 보기
-                <ChevronRight className="ml-2 h-4 w-4" />
+                <ChevronRight className="ml-1 h-3 w-3" />
               </Button>
             </Link>
           </div>
