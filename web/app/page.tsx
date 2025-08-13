@@ -23,7 +23,7 @@ import { formatDistanceToNow } from 'date-fns'
 import { ko } from 'date-fns/locale'
 
 // 개선된 컴포넌트들
-import { HeroCarousel } from '@/components/home/HeroCarousel'
+import { EnhancedHeroCarousel, HeroSlide } from '@/components/home/EnhancedHeroCarousel'
 import { PersonalizedSection } from '@/components/home/PersonalizedSection'
 import { NewsSection } from '@/components/home/NewsSection'
 
@@ -405,28 +405,139 @@ export default function HomePage() {
   const { matches: liveMatches, isLoading: liveLoading } = useLiveMatches()
   const { fixtures: todayFixtures, isLoading: fixturesLoading } = useTodayFixtures()
   const { fixtures: personalizedFixtures } = usePersonalizedFixtures()
+  const { posts: popularPosts } = usePopularPosts()
   
-  // 모든 경기를 우선순위에 따라 정렬
-  const prioritizedMatches = useMemo(() => {
-    const allMatches = [...liveMatches, ...todayFixtures, ...personalizedFixtures]
+  // 다양한 타입의 히어로 슬라이드 생성
+  const heroSlides = useMemo(() => {
+    const slides: HeroSlide[] = []
     
-    // 중복 제거
-    const uniqueMatches = allMatches.filter((match, index, self) =>
-      index === self.findIndex((m) => m.fixture.id === match.fixture.id)
-    )
+    // 1. 실시간 경기 (최우선)
+    liveMatches.slice(0, 2).forEach(match => {
+      slides.push({
+        id: `live-${match.fixture.id}`,
+        type: 'match',
+        priority: 1000,
+        data: match
+      })
+    })
     
-    // 우선순위 계산 및 정렬
-    const matchesWithPriority = uniqueMatches.map(match => {
+    // 2. 개인화 콘텐츠 (로그인 사용자)
+    if (isAuthenticated && preferences.favoriteTeamIds.length > 0) {
+      // 관심 팀의 다음 경기
+      const favoriteTeamMatch = personalizedFixtures.find(f => 
+        preferences.favoriteTeamIds.includes(f.teams.home.id) ||
+        preferences.favoriteTeamIds.includes(f.teams.away.id)
+      )
+      
+      if (favoriteTeamMatch) {
+        // 팀 정보 슬라이드
+        slides.push({
+          id: `team-${favoriteTeamMatch.teams.home.id}`,
+          type: 'team',
+          priority: 900,
+          data: {
+            team: favoriteTeamMatch.teams.home,
+            league: favoriteTeamMatch.league,
+            nextMatch: {
+              opponent: favoriteTeamMatch.teams.away,
+              date: favoriteTeamMatch.fixture.date,
+              isHome: true
+            },
+            recentForm: 'WWDLW' // TODO: 실제 데이터로 교체
+          }
+        })
+      }
+    }
+    
+    // 3. 빅매치 경기
+    const bigMatch = todayFixtures.find(f => {
+      const { priority } = calculateMatchPriority(f)
+      return priority >= 700 // 빅매치나 라이벌전
+    })
+    
+    if (bigMatch && slides.length < 5) {
+      slides.push({
+        id: `bigmatch-${bigMatch.fixture.id}`,
+        type: 'match',
+        priority: 800,
+        data: bigMatch
+      })
+    }
+    
+    // 4. 주요 뉴스 (만약 있다면)
+    if (slides.length < 5) {
+      slides.push({
+        id: 'news-main',
+        type: 'news',
+        priority: 700,
+        data: {
+          id: '1',
+          title: '손흥민, 토트넘 복귀전에서 2골 1도움 맹활약',
+          description: '부상에서 복귀한 손흥민이 첼시전에서 환상적인 활약을 펼치며 팀의 4-1 대승을 이끌었다.',
+          image: 'https://resources.premierleague.com/photos/2024/01/15/spurs-son.jpg',
+          category: '프리미어리그',
+          source: 'Sky Sports',
+          publishedAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString()
+        }
+      })
+    }
+    
+    // 5. 리그 순위 통계
+    if (slides.length < 5) {
+      slides.push({
+        id: 'stats-premier',
+        type: 'stats',
+        priority: 600,
+        data: {
+          league: { id: 39, name: '프리미어 리그' },
+          standings: [
+            { team: { id: 40, name: '리버풀', logo: 'https://media.api-sports.io/football/teams/40.png' }, all: { played: 20 }, points: 45, goalsDiff: 28 },
+            { team: { id: 50, name: '맨체스터 시티', logo: 'https://media.api-sports.io/football/teams/50.png' }, all: { played: 20 }, points: 43, goalsDiff: 25 },
+            { team: { id: 42, name: '아스널', logo: 'https://media.api-sports.io/football/teams/42.png' }, all: { played: 20 }, points: 40, goalsDiff: 22 },
+            { team: { id: 47, name: '토트넘', logo: 'https://media.api-sports.io/football/teams/47.png' }, all: { played: 20 }, points: 39, goalsDiff: 18 },
+            { team: { id: 49, name: '첼시', logo: 'https://media.api-sports.io/football/teams/49.png' }, all: { played: 20 }, points: 35, goalsDiff: 15 }
+          ]
+        }
+      })
+    }
+    
+    // 6. 프로모션/앱 홍보
+    if (slides.length < 5 && !isAuthenticated) {
+      slides.push({
+        id: 'promo-app',
+        type: 'promotion',
+        priority: 500,
+        data: {
+          title: '모든 축구 정보를 한 곳에서',
+          description: '로그인하고 좋아하는 팀을 팔로우하여 개인화된 콘텐츠를 받아보세요',
+          buttonText: '지금 시작하기',
+          features: [
+            { icon: Activity, label: '실시간 경기' },
+            { icon: TrendingUp, label: '이적시장' },
+            { icon: Users, label: '커뮤니티' }
+          ]
+        }
+      })
+    }
+    
+    // 최대 5개로 제한하고 우선순위로 정렬
+    return slides
+      .sort((a, b) => b.priority - a.priority)
+      .slice(0, 5)
+  }, [liveMatches, todayFixtures, personalizedFixtures, preferences, isAuthenticated])
+  
+  // 하위 경기 목록을 위한 데이터
+  const allMatches = [...liveMatches, ...todayFixtures]
+  const uniqueMatches = allMatches.filter((match, index, self) =>
+    index === self.findIndex((m) => m.fixture.id === match.fixture.id)
+  )
+  const secondaryMatches = uniqueMatches
+    .map(match => {
       const { priority, reason } = calculateMatchPriority(match, isAuthenticated ? preferences : null)
       return { ...match, priority, reason }
     })
-    
-    return matchesWithPriority.sort((a, b) => b.priority - a.priority)
-  }, [liveMatches, todayFixtures, personalizedFixtures, preferences, isAuthenticated])
-
-  // 상위 5개는 캐러셀, 나머지는 리스트
-  const heroMatches = prioritizedMatches.slice(0, 5)
-  const secondaryMatches = prioritizedMatches.slice(5, 15)
+    .sort((a, b) => b.priority - a.priority)
+    .slice(5, 15)
 
   const hasPersonalizedContent = isAuthenticated && 
     (preferences.favoriteTeamIds.length > 0 || preferences.favoriteLeagueIds.length > 0)
@@ -435,11 +546,12 @@ export default function HomePage() {
     <div className="min-h-screen">
       <div className="max-w-7xl mx-auto px-4 py-6 space-y-6">
         
-        {/* Hero Carousel - 주요 경기 5개 */}
-        <HeroCarousel 
-          matches={heroMatches} 
+        {/* Enhanced Hero Carousel - 다양한 콘텐츠 5개 */}
+        <EnhancedHeroCarousel 
+          slides={heroSlides} 
           isLoading={liveLoading || fixturesLoading}
-          autoPlayInterval={7000}
+          autoPlayInterval={5000}
+          onSlideChange={(index) => console.log('현재 슬라이드:', index)}
         />
         
         {/* Secondary Matches - 캐러셀 아래 경기 목록 */}
