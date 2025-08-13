@@ -210,7 +210,7 @@ export default function NewsPage() {
                   <div className="flex-1">
                     <div className="flex items-start gap-3 mb-2">
                       <h3 className="text-lg font-semibold flex-1 hover:text-blue-600 transition-colors">
-                        {article.title}
+                        {article.translations?.ko?.title || article.title}
                       </h3>
                       <div className="flex items-center gap-2">
                         {article.translations && Object.keys(article.translations).length > 0 && (
@@ -228,9 +228,9 @@ export default function NewsPage() {
                         )}
                       </div>
                     </div>
-                    {article.description && (
+                    {(article.translations?.ko?.description || article.description) && (
                       <p className="text-gray-600 text-sm mb-3 line-clamp-2">
-                        {article.description}
+                        {article.translations?.ko?.description || article.description}
                       </p>
                     )}
                     <div className="flex items-center gap-4 text-sm text-gray-500">
