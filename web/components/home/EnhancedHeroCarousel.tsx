@@ -346,85 +346,68 @@ function NewsSlide({ data }: { data: any }) {
         </div>
       </div>
 
-      {/* 뉴스 목록 - 높이 조정 및 오버플로우 처리 */}
-      <div className="relative h-full flex flex-col justify-center p-4 md:p-6 lg:p-8">
+      {/* 뉴스 목록 - 3개만 표시, 이미지 제거 */}
+      <div className="relative h-full flex items-center p-6 md:p-8">
         <div className="max-w-4xl mx-auto w-full">
-          <h2 className="text-base md:text-lg font-bold text-white mb-3">
-            오늘의 TOP 뉴스
+          <h2 className="text-xl md:text-2xl lg:text-3xl font-bold text-white mb-6">
+            실시간 주요 뉴스
           </h2>
           
-          {/* 스크롤 영역 제한 */}
-          <div className="space-y-1.5 max-h-[240px] md:max-h-[280px] overflow-y-auto custom-scrollbar">
-            {newsItems.slice(0, 5).map((item: any, index: number) => (
+          <div className="space-y-4">
+            {newsItems.slice(0, 3).map((item: any, index: number) => (
               <Link 
                 key={item.id || index} 
                 href={`/news/${item.id || index}`}
-                className="block"
+                className="block group"
               >
-                <div className="bg-white/10 backdrop-blur rounded-lg p-2 md:p-2.5 hover:bg-white/20 transition-colors">
-                  <div className="flex gap-2 md:gap-3">
-                    {/* 썸네일 이미지 - 크기 축소 */}
-                    {item.image && (
-                      <div className="w-12 h-12 md:w-14 md:h-14 rounded overflow-hidden flex-shrink-0">
-                        <Image
-                          src={item.image}
-                          alt={item.title}
-                          width={56}
-                          height={56}
-                          className="w-full h-full object-cover"
-                          onError={(e) => {
-                            (e.target as HTMLImageElement).src = '/images/news-placeholder.jpg'
-                          }}
-                        />
-                      </div>
-                    )}
-                    
-                    {/* 뉴스 내용 - 간격 조정 */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between gap-2">
-                        <h3 className="text-xs md:text-sm font-semibold text-white line-clamp-1 flex-1">
-                          {item.title}
-                        </h3>
+                <div className="bg-white/10 backdrop-blur rounded-xl p-4 md:p-5 hover:bg-white/20 transition-all hover:scale-[1.02]">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-2">
                         {index === 0 && (
-                          <Badge variant="destructive" className="text-[10px] px-1.5 py-0 flex-shrink-0">
-                            NEW
+                          <Badge variant="destructive" className="text-xs">
+                            HOT
                           </Badge>
                         )}
+                        <Badge className="bg-white/20 text-white border-0 text-xs">
+                          {item.category || '뉴스'}
+                        </Badge>
+                        <span className="text-xs text-white/60">{item.source}</span>
                       </div>
-                      <p className="text-[10px] md:text-xs text-white/60 line-clamp-1 mt-0.5">
+                      
+                      <h3 className="text-base md:text-lg font-semibold text-white mb-2 line-clamp-2 group-hover:text-blue-300 transition-colors">
+                        {item.title}
+                      </h3>
+                      
+                      <p className="text-sm md:text-base text-white/70 line-clamp-2">
                         {item.description}
                       </p>
-                      <div className="flex items-center gap-2 mt-1 text-[10px] text-white/40">
-                        <span className="font-medium">{item.category || '뉴스'}</span>
-                        <span>•</span>
-                        <span>{item.source}</span>
-                        {item.publishedAt && (
-                          <>
-                            <span className="hidden sm:inline">•</span>
-                            <span className="hidden sm:inline">
-                              {formatDistanceToNow(new Date(item.publishedAt), {
-                                addSuffix: true,
-                                locale: ko
-                              })}
-                            </span>
-                          </>
-                        )}
-                      </div>
+                      
+                      {item.publishedAt && (
+                        <div className="mt-3 text-xs text-white/50">
+                          {formatDistanceToNow(new Date(item.publishedAt), {
+                            addSuffix: true,
+                            locale: ko
+                          })}
+                        </div>
+                      )}
                     </div>
+                    
+                    <ChevronRight className="w-5 h-5 text-white/40 group-hover:text-white/70 transition-colors flex-shrink-0 mt-1" />
                   </div>
                 </div>
               </Link>
             ))}
           </div>
           
-          <div className="mt-3 text-center">
+          <div className="mt-6 text-center">
             <Link href="/news">
               <Button 
                 size="sm" 
-                className="bg-white/20 backdrop-blur hover:bg-white/30 text-white border-0 h-7 text-xs"
+                className="bg-white/20 backdrop-blur hover:bg-white/30 text-white border-0"
               >
                 모든 뉴스 보기
-                <ChevronRight className="ml-1 h-3 w-3" />
+                <ChevronRight className="ml-2 h-4 w-4" />
               </Button>
             </Link>
           </div>

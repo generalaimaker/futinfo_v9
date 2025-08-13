@@ -468,8 +468,8 @@ export default function HomePage() {
     
     // 4. 주요 뉴스 (실제 뉴스 데이터 사용)
     if (slides.length < 5 && newsData?.articles && newsData.articles.length > 0) {
-      // 상위 5개 뉴스만 가져와서 필요한 형식으로 변환
-      const topNews = newsData.articles.slice(0, 5).map(article => ({
+      // 상위 3개 뉴스만 가져와서 필요한 형식으로 변환
+      const topNews = newsData.articles.slice(0, 3).map(article => ({
         id: article.id,
         title: article.title,
         description: article.description,
