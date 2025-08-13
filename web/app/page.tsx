@@ -6,7 +6,7 @@ import Image from 'next/image'
 import { 
   Calendar, Clock, TrendingUp, Users, 
   ChevronRight, Circle, Trophy, Star,
-  Activity, Loader2, Sparkles
+  Activity, Loader2, Sparkles, ArrowRight
 } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
