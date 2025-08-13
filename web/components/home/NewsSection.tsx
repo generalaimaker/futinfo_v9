@@ -174,10 +174,10 @@ export function NewsSection({ className }: NewsSectionProps) {
             <span className="text-sm font-medium">최신 뉴스 소스</span>
           </div>
           <div className="flex flex-wrap gap-2">
-            {[...new Set(articles.slice(0, 10).map((a: any) => a.source))]
+            {Array.from(new Set(articles.slice(0, 10).map((a: any) => a.source)))
               .filter(Boolean)
               .slice(0, 5)
-              .map((source) => (
+              .map((source: any) => (
                 <Badge key={source} variant="secondary" className="text-xs">
                   {source}
                 </Badge>
