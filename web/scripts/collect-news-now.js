@@ -90,19 +90,24 @@ function parseRelativeTime(timeStr) {
 
 function calculateTrustScore(article) {
   let score = 50
-  const source = article.meta?.site?.toLowerCase() || ''
+  const source = (article.meta_url?.hostname || article.meta?.site || '').toLowerCase()
   
   // 신뢰할 수 있는 소스
   const trustedSources = {
-    'bbc': 95,
-    'sky sports': 90,
-    'espn': 85,
-    'the athletic': 85,
-    'the guardian': 80,
-    'manchester evening news': 80,
+    'bbc.com': 95,
+    'bbc.co.uk': 95,
+    'skysports.com': 90,
+    'espn.com': 85,
+    'espn.co.uk': 85,
+    'theathletic.com': 85,
+    'theguardian.com': 80,
+    'manchestereveningnews.co.uk': 80,
     'goal.com': 75,
     'transfermarkt': 75,
-    'fabrizio romano': 90
+    'fabrizio romano': 90,
+    'reuters.com': 90,
+    'telegraph.co.uk': 80,
+    'independent.co.uk': 75
   }
   
   for (const [key, value] of Object.entries(trustedSources)) {
@@ -131,9 +136,9 @@ async function collectNews() {
           title: article.title?.substring(0, 500),
           description: article.description?.substring(0, 2000),
           url: article.url,
-          source: article.meta?.site || 'Unknown',
+          source: article.meta_url?.hostname || article.meta?.site || 'Unknown',
           source_tier: calculateTrustScore(article) >= 80 ? 1 : 2,
-          published_at: parseRelativeTime(article.age),
+          published_at: parseRelativeTime(article.age || article.page_age),
           image_url: article.thumbnail?.src || article.meta?.image,
           category: query.includes('transfer') ? 'transfer' : 'general',
           trust_score: calculateTrustScore(article),
