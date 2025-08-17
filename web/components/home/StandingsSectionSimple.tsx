@@ -18,7 +18,7 @@ const MAJOR_LEAGUES = [
     country: 'England',
     flag: '🏴󠁧󠁢󠁥󠁮󠁧󠁿',
     color: 'from-purple-600 to-indigo-600',
-    season: 2024
+    season: 2025
   },
   { 
     id: 140, 
@@ -26,7 +26,7 @@ const MAJOR_LEAGUES = [
     country: 'Spain',
     flag: '🇪🇸',
     color: 'from-orange-500 to-red-600',
-    season: 2024
+    season: 2025
   },
   { 
     id: 135, 
@@ -34,7 +34,7 @@ const MAJOR_LEAGUES = [
     country: 'Italy',
     flag: '🇮🇹',
     color: 'from-blue-500 to-blue-700',
-    season: 2024
+    season: 2025
   },
   { 
     id: 78, 
@@ -42,7 +42,7 @@ const MAJOR_LEAGUES = [
     country: 'Germany',
     flag: '🇩🇪',
     color: 'from-red-500 to-gray-700',
-    season: 2024
+    season: 2025
   },
   { 
     id: 61, 
@@ -50,7 +50,7 @@ const MAJOR_LEAGUES = [
     country: 'France',
     flag: '🇫🇷',
     color: 'from-blue-600 to-red-500',
-    season: 2024
+    season: 2025
   },
   { 
     id: 2, 
@@ -58,7 +58,7 @@ const MAJOR_LEAGUES = [
     country: 'Europe',
     flag: '⭐',
     color: 'from-indigo-600 to-purple-700',
-    season: 2024
+    season: 2025
   }
 ]
 

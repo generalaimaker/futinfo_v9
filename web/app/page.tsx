@@ -582,8 +582,8 @@ export default function HomePage() {
   const { posts: popularPosts } = usePopularPosts()
   const { data: popularNewsData } = usePopularNews(10)
   
-  // 프리미어리그 순위 데이터 가져오기
-  const { data: premierStandings } = useStandings({ league: 39, season: 2024 })
+  // 프리미어리그 순위 데이터 가져오기 (25-26 시즌)
+  const { data: premierStandings } = useStandings({ league: 39, season: 2025 })
   
   // 빅팀 판별 함수 (프리미어리그 빅6, 라리가 빅3 등)
   const isBigTeamMatch = (match: any) => {
