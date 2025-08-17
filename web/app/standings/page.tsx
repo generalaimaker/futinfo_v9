@@ -56,8 +56,9 @@ function StandingsContent() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-6">리그 순위</h1>
+    <div className="min-h-screen lg:ml-64">
+      <div className="container mx-auto px-4 py-8">
+        <h1 className="text-3xl font-bold mb-6">리그 순위</h1>
       
       {standings.length === 0 ? (
         <div className="text-center py-12">
@@ -110,6 +111,7 @@ function StandingsContent() {
           </table>
         </div>
       )}
+      </div>
     </div>
   )
 }

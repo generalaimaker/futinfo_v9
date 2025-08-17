@@ -838,7 +838,7 @@ export default function HomePage() {
     (preferences.favoriteTeamIds.length > 0 || preferences.favoriteLeagueIds.length > 0)
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen lg:ml-64">
       <div className="max-w-7xl mx-auto px-4 py-6 space-y-6">
         
         {/* Enhanced Hero Carousel - 다양한 콘텐츠 5개 */}
