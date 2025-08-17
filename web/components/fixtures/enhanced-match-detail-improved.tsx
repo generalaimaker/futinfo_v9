@@ -19,6 +19,10 @@ import { ko } from 'date-fns/locale'
 import { ToastNotification, useToastNotification } from '@/components/ui/toast-notification'
 import { EnhancedStatistics } from './enhanced-statistics'
 import { EnhancedMatchInfo } from './enhanced-match-info'
+import { LineupVisualization } from './lineup-visualization'
+import { EventsTimeline } from './events-timeline'
+import { H2HComponent } from './h2h-component'
+import { MatchDetailsInfo } from './match-details-info'
 import { useSwipeable } from 'react-swipeable'
 import { animated, useSpring } from '@react-spring/web'
 import { ResponsiveContainer, AreaChart, Area, CartesianGrid, XAxis, YAxis, Tooltip } from 'recharts'
@@ -267,7 +271,7 @@ export function EnhancedMatchDetailImproved({
   
   // 탭 리스트 참조
   const tabsRef = useRef<HTMLDivElement>(null)
-  const tabs = ['overview', 'statistics', 'lineups', 'events']
+  const tabs = ['info', 'overview', 'statistics', 'lineups', 'events', 'h2h']
   
   // 스와이프 제스처 설정
   const handlers = useSwipeable({
@@ -436,16 +440,17 @@ export function EnhancedMatchDetailImproved({
       
       {/* 스와이프 가능한 탭 */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList ref={tabsRef} className="grid w-full grid-cols-5">
+        <TabsList ref={tabsRef} className="grid w-full grid-cols-6">
           <TabsTrigger value="info">정보</TabsTrigger>
           <TabsTrigger value="overview">개요</TabsTrigger>
           <TabsTrigger value="statistics">통계</TabsTrigger>
           <TabsTrigger value="lineups">라인업</TabsTrigger>
           <TabsTrigger value="events">이벤트</TabsTrigger>
+          <TabsTrigger value="h2h">H2H</TabsTrigger>
         </TabsList>
         
         <TabsContent value="info" className="mt-6">
-          <EnhancedMatchInfo fixture={fixture} />
+          <MatchDetailsInfo fixture={fixture} />
         </TabsContent>
         
         <TabsContent value="overview" className="space-y-6">
@@ -517,21 +522,42 @@ export function EnhancedMatchDetailImproved({
         </TabsContent>
         
         <TabsContent value="lineups">
-          {/* 라인업 컨텐츠 */}
-          <Card>
-            <CardContent className="p-6">
-              <p className="text-center text-muted-foreground">라인업 시각화 구현 예정</p>
-            </CardContent>
-          </Card>
+          {fixture.lineups && fixture.lineups.length > 0 ? (
+            <LineupVisualization 
+              lineups={fixture.lineups} 
+              events={fixture.events}
+            />
+          ) : (
+            <Card>
+              <CardContent className="p-6">
+                <p className="text-center text-muted-foreground">라인업 정보가 없습니다.</p>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
         
         <TabsContent value="events">
-          {/* 이벤트 타임라인 */}
-          <Card>
-            <CardContent className="p-6">
-              <p className="text-center text-muted-foreground">이벤트 타임라인 구현 예정</p>
-            </CardContent>
-          </Card>
+          {fixture.events && fixture.events.length > 0 ? (
+            <EventsTimeline 
+              events={fixture.events}
+              homeTeam={fixture.teams.home}
+              awayTeam={fixture.teams.away}
+            />
+          ) : (
+            <Card>
+              <CardContent className="p-6">
+                <p className="text-center text-muted-foreground">경기 이벤트가 없습니다.</p>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+        
+        <TabsContent value="h2h">
+          <H2HComponent
+            homeTeam={fixture.teams.home}
+            awayTeam={fixture.teams.away}
+            currentFixture={fixture}
+          />
         </TabsContent>
       </Tabs>
     </div>

@@ -738,6 +738,26 @@ class FootballAPIService {
     }
   }
 
+  // H2H 상대전적 가져오기
+  async getH2H(team1: number, team2: number): Promise<any> {
+    const cacheKey = `h2h_${team1}_${team2}`
+    const cached = this.getCachedData<any>(cacheKey)
+    if (cached) return cached
+
+    try {
+      const data = await this.callEdgeFunction<any>('football-api', {
+        endpoint: 'fixtures/headtohead',
+        params: { h2h: `${team1}-${team2}` }
+      })
+      
+      this.setCachedData(cacheKey, data.response)
+      return data.response
+    } catch (error) {
+      console.error('Error fetching H2H:', error)
+      throw error
+    }
+  }
+
   // 경기 선수 통계
   async getFixturePlayers(fixtureId: number): Promise<any> {
     const cacheKey = `fixture_players_${fixtureId}`
