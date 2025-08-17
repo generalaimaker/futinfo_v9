@@ -14,7 +14,8 @@ export function useLiveMatches() {
         const service = new FootballAPIService()
         const data = await service.getLiveFixtures()
         if (data?.response) {
-          setMatches(data.response.slice(0, 5))
+          // 모든 라이브 경기를 가져옴 (홈페이지에서 필터링할 것)
+          setMatches(data.response)
         }
       } catch (err) {
         setError('라이브 경기를 불러올 수 없습니다')

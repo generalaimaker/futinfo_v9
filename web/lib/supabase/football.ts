@@ -193,26 +193,11 @@ class FootballAPIService {
       })
       
       if (data && data.response && Array.isArray(data.response)) {
-        // 주요 리그만 필터링
-        // 친선경기 디버깅
-        const friendlies = data.response.filter(fixture => fixture.league.id === 667)
-        if (friendlies.length > 0) {
-          console.log(`[FootballAPI] Found ${friendlies.length} club friendlies for ${formattedDate}`)
-        }
+        // 필터링 제거 - 홈페이지에서 빅팀 경기를 우선 표시할 것
+        console.log(`[FootballAPI] Got ${data.response.length} total fixtures for ${formattedDate}`)
         
-        const filteredFixtures = data.response.filter(fixture => 
-          MAIN_LEAGUES.includes(fixture.league.id)
-        )
-        
-        const filteredResponse: FixturesResponse = {
-          ...data,
-          results: filteredFixtures.length,
-          response: filteredFixtures
-        }
-        
-        console.log(`[FootballAPI] Got ${data.response.length} total fixtures, filtered to ${filteredFixtures.length} from main leagues (includes ${friendlies.length} friendlies)`)
-        // this.setCachedData(cacheKey, filteredResponse) // 캐시 임시 비활성화
-        return filteredResponse
+        // 모든 경기 반환 (필터링은 프론트엔드에서 처리)
+        return data
       }
       
       // 결과가 없으면 빈 응답 반환
