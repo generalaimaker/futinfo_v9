@@ -585,12 +585,21 @@ export default function HomePage() {
   const heroSlides = useMemo(() => {
     const slides: HeroSlide[] = []
     
-    // 1. 실시간 경기 (최우선)
-    liveMatches.slice(0, 2).forEach(match => {
+    // 1. 실시간 빅매치 (최우선) - 빅매치인 라이브 경기만 표시
+    const liveBigMatches = liveMatches
+      .map(match => ({
+        match,
+        ...calculateMatchPriority(match, isAuthenticated ? preferences : null)
+      }))
+      .filter(m => m.priority >= 700) // 빅매치 기준
+      .sort((a, b) => b.priority - a.priority)
+      .slice(0, 2)
+    
+    liveBigMatches.forEach(({ match }, index) => {
       slides.push({
         id: `live-${match.fixture.id}`,
         type: 'match',
-        priority: 1000,
+        priority: 1000 + index, // 라이브 빅매치 최우선
         data: match
       })
     })
