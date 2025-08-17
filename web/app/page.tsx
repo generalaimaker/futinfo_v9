@@ -18,6 +18,7 @@ import {
   usePopularPosts, 
   useHomeStats 
 } from '@/lib/hooks/useFootballData'
+import { useStandings } from '@/lib/supabase/football'
 import { useUserPreferences, usePersonalizedFixtures } from '@/lib/hooks/useUserPreferences'
 import { usePopularNews } from '@/lib/supabase/cached-news'
 import { formatDistanceToNow } from 'date-fns'
@@ -581,6 +582,9 @@ export default function HomePage() {
   const { posts: popularPosts } = usePopularPosts()
   const { data: popularNewsData } = usePopularNews(10)
   
+  // 프리미어리그 순위 데이터 가져오기
+  const { data: premierStandings } = useStandings({ league: 39, season: 2024 })
+  
   // 빅팀 판별 함수 (프리미어리그 빅6, 라리가 빅3 등)
   const isBigTeamMatch = (match: any) => {
     const homeId = match.teams.home.id
@@ -747,21 +751,16 @@ export default function HomePage() {
       })
     }
     
-    // 5. 리그 순위 통계
-    if (slides.length < 5) {
+    // 5. 리그 순위 통계 (실제 데이터 사용)
+    if (slides.length < 5 && premierStandings?.response?.[0]?.league?.standings?.[0]) {
+      const topTeams = premierStandings.response[0].league.standings[0].slice(0, 5)
       slides.push({
         id: 'stats-premier',
         type: 'stats',
         priority: 600,
         data: {
           league: { id: 39, name: '프리미어 리그' },
-          standings: [
-            { team: { id: 40, name: '리버풀', logo: 'https://media.api-sports.io/football/teams/40.png' }, all: { played: 20 }, points: 45, goalsDiff: 28 },
-            { team: { id: 50, name: '맨체스터 시티', logo: 'https://media.api-sports.io/football/teams/50.png' }, all: { played: 20 }, points: 43, goalsDiff: 25 },
-            { team: { id: 42, name: '아스널', logo: 'https://media.api-sports.io/football/teams/42.png' }, all: { played: 20 }, points: 40, goalsDiff: 22 },
-            { team: { id: 47, name: '토트넘', logo: 'https://media.api-sports.io/football/teams/47.png' }, all: { played: 20 }, points: 39, goalsDiff: 18 },
-            { team: { id: 49, name: '첼시', logo: 'https://media.api-sports.io/football/teams/49.png' }, all: { played: 20 }, points: 35, goalsDiff: 15 }
-          ]
+          standings: topTeams
         }
       })
     }
@@ -804,7 +803,7 @@ export default function HomePage() {
         return b.priority - a.priority
       })
       .slice(0, 5)
-  }, [liveMatches, todayFixtures, personalizedFixtures, preferences, isAuthenticated, popularNewsData, isBigTeamMatch])
+  }, [liveMatches, todayFixtures, personalizedFixtures, preferences, isAuthenticated, popularNewsData, premierStandings, isBigTeamMatch])
   
   // 하위 경기 목록을 위한 데이터 (빅팀 경기 우선)
   const allMatches = [...liveMatches, ...todayFixtures]
