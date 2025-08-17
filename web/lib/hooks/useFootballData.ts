@@ -14,8 +14,26 @@ export function useLiveMatches() {
         const service = new FootballAPIService()
         const data = await service.getLiveFixtures()
         if (data?.response) {
-          // 모든 라이브 경기를 가져옴 (홈페이지에서 필터링할 것)
-          setMatches(data.response)
+          // 유럽 5대 리그, MLS, K리그, 유럽 대회만 필터링
+          const ALLOWED_LEAGUES = [
+            39,  // Premier League
+            140, // La Liga
+            135, // Serie A
+            78,  // Bundesliga
+            61,  // Ligue 1
+            253, // MLS
+            292, // K League 1
+            293, // K League 2
+            2,   // Champions League
+            3,   // Europa League
+            848, // Conference League
+          ]
+          
+          const filteredMatches = data.response.filter((match: any) => 
+            ALLOWED_LEAGUES.includes(match.league.id)
+          )
+          
+          setMatches(filteredMatches)
         }
       } catch (err) {
         setError('라이브 경기를 불러올 수 없습니다')

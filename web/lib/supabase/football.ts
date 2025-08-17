@@ -193,11 +193,33 @@ class FootballAPIService {
       })
       
       if (data && data.response && Array.isArray(data.response)) {
-        // 필터링 제거 - 홈페이지에서 빅팀 경기를 우선 표시할 것
-        console.log(`[FootballAPI] Got ${data.response.length} total fixtures for ${formattedDate}`)
+        // 유럽 5대 리그, MLS, K리그, 유럽 대회만 필터링
+        const ALLOWED_LEAGUES = [
+          39,  // Premier League
+          140, // La Liga
+          135, // Serie A
+          78,  // Bundesliga
+          61,  // Ligue 1
+          253, // MLS
+          292, // K League 1
+          293, // K League 2
+          2,   // Champions League
+          3,   // Europa League
+          848, // Conference League
+        ]
         
-        // 모든 경기 반환 (필터링은 프론트엔드에서 처리)
-        return data
+        const filteredFixtures = data.response.filter(fixture => 
+          ALLOWED_LEAGUES.includes(fixture.league.id)
+        )
+        
+        const filteredResponse: FixturesResponse = {
+          ...data,
+          results: filteredFixtures.length,
+          response: filteredFixtures
+        }
+        
+        console.log(`[FootballAPI] Got ${data.response.length} total fixtures, filtered to ${filteredFixtures.length} (Premier, LaLiga, SerieA, Bundesliga, Ligue1, MLS, K-League only)`)
+        return filteredResponse
       }
       
       // 결과가 없으면 빈 응답 반환
