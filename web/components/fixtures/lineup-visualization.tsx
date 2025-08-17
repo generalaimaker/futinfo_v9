@@ -16,7 +16,14 @@ interface LineupVisualizationProps {
 
 // 포메이션에 따른 선수 포지션 계산
 function getPlayerPositions(formation: string) {
-  const positions: { [key: string]: { x: number; y: number }[] } = {
+  type PositionGroup = {
+    GK: { x: number; y: number }[]
+    DEF: { x: number; y: number }[]
+    MID: { x: number; y: number }[]
+    ATT: { x: number; y: number }[]
+  }
+  
+  const positions: { [key: string]: PositionGroup } = {
     '4-3-3': {
       GK: [{ x: 50, y: 95 }],
       DEF: [{ x: 20, y: 75 }, { x: 40, y: 80 }, { x: 60, y: 80 }, { x: 80, y: 75 }],

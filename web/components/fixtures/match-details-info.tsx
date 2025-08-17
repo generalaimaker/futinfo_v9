@@ -7,8 +7,8 @@ import { cn } from '@/lib/utils'
 import { format } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import { 
-  MapPin, Users, Whistle, Calendar, Clock, 
-  Thermometer, Wind, Droplets, Cloud, Eye
+  MapPin, Users, Calendar, Clock, 
+  Thermometer, Wind, Droplets, Cloud, Eye, Trophy, AlertCircle
 } from 'lucide-react'
 
 interface MatchDetailsInfoProps {
@@ -160,7 +160,7 @@ export function MatchDetailsInfo({ fixture }: MatchDetailsInfoProps) {
         <Card>
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2">
-              <Whistle className="w-5 h-5" />
+              <AlertCircle className="w-5 h-5" />
               심판
             </CardTitle>
           </CardHeader>
@@ -291,6 +291,3 @@ export function MatchDetailsInfo({ fixture }: MatchDetailsInfoProps) {
 
 // 기본 익스포트 추가
 export default MatchDetailsInfo
-
-// Trophy 아이콘 import 누락 수정
-import { Trophy } from 'lucide-react'
