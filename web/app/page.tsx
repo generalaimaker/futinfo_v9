@@ -581,28 +581,78 @@ export default function HomePage() {
   const { posts: popularPosts } = usePopularPosts()
   const { data: popularNewsData } = usePopularNews(10)
   
+  // 빅팀 판별 함수 (프리미어리그 빅6, 라리가 빅3 등)
+  const isBigTeamMatch = (match: any) => {
+    const homeId = match.teams.home.id
+    const awayId = match.teams.away.id
+    
+    // 프리미어리그 빅6
+    const premierBig6 = [33, 40, 50, 49, 42, 47]
+    // 라리가 빅3
+    const laLigaBig3 = [541, 529, 530]
+    // 세리에A 빅4
+    const serieABig4 = [496, 505, 489, 492]
+    // 분데스리가 빅2
+    const bundesligaBig2 = [157, 165]
+    // 리그1 빅2
+    const ligue1Big2 = [85, 81]
+    
+    const allBigTeams = [...premierBig6, ...laLigaBig3, ...serieABig4, ...bundesligaBig2, ...ligue1Big2]
+    
+    return allBigTeams.includes(homeId) || allBigTeams.includes(awayId)
+  }
+  
   // 다양한 타입의 히어로 슬라이드 생성
   const heroSlides = useMemo(() => {
     const slides: HeroSlide[] = []
     
-    // 1. 실시간 빅매치 (최우선) - 빅매치인 라이브 경기만 표시
+    // 1. 실시간 빅매치 (최우선) - 주요 팀의 라이브 경기만 표시
+    // 라이브 경기 중 빅팀 경기만 필터링
     const liveBigMatches = liveMatches
+      .filter(match => {
+        // 빅팀 경기인지 확인
+        if (!isBigTeamMatch(match)) return false
+        
+        // 실시간 상태인지 확인
+        const isLive = ['LIVE', '1H', '2H', 'HT'].includes(match.fixture?.status?.short)
+        return isLive
+      })
       .map(match => ({
         match,
         ...calculateMatchPriority(match, isAuthenticated ? preferences : null)
       }))
-      .filter(m => m.priority >= 700) // 빅매치 기준
       .sort((a, b) => b.priority - a.priority)
-      .slice(0, 2)
+      .slice(0, 3) // 상위 3개까지
     
-    liveBigMatches.forEach(({ match }, index) => {
-      slides.push({
-        id: `live-${match.fixture.id}`,
-        type: 'match',
-        priority: 1000 + index, // 라이브 빅매치 최우선
-        data: match
+    // 빅매치가 없으면 모든 라이브 경기 중 우선순위 높은 것 표시
+    if (liveBigMatches.length === 0 && liveMatches.length > 0) {
+      const topLiveMatches = liveMatches
+        .map(match => ({
+          match,
+          ...calculateMatchPriority(match, isAuthenticated ? preferences : null)
+        }))
+        .sort((a, b) => b.priority - a.priority)
+        .slice(0, 2)
+      
+      topLiveMatches.forEach(({ match }, index) => {
+        slides.push({
+          id: `live-${match.fixture.id}`,
+          type: 'match',
+          priority: 900 + index, // 일반 라이브 경기는 낮은 우선순위
+          data: match
+        })
       })
-    })
+    } else {
+      // 빅매치가 있으면 빅매치만 표시
+      liveBigMatches.forEach(({ match }, index) => {
+        slides.push({
+          id: `live-big-${match.fixture.id}`,
+          type: 'match',
+          priority: 1000 + (liveBigMatches.length - index), // 라이브 빅매치 최우선
+          data: match
+        })
+      })
+    }
     
     // 2. 개인화 콘텐츠 (로그인 사용자)
     if (isAuthenticated && preferences.favoriteTeamIds.length > 0) {
@@ -632,27 +682,48 @@ export default function HomePage() {
       }
     }
     
-    // 3. 빅매치 경기 (프리미어리그 빅6 우선)
-    const allMatches = [...todayFixtures]
-    const bigMatches = allMatches
+    // 3. 오늘의 빅매치 경기 (프리미어리그 빅6, 라리가 빅3 등 우선)
+    const todayBigTeamMatches = todayFixtures
+      .filter(match => isBigTeamMatch(match)) // 빅팀 경기만 필터링
       .map(f => ({
         fixture: f,
         ...calculateMatchPriority(f, isAuthenticated ? preferences : null)
       }))
-      .filter(m => m.priority >= 700) // 빅매치 기준
       .sort((a, b) => b.priority - a.priority) // 우선순위 순 정렬
     
-    // 상위 2개 빅매치를 슬라이드에 추가
-    bigMatches.slice(0, 2).forEach((match, index) => {
+    // 빅팀 경기를 슬라이드에 추가
+    todayBigTeamMatches.slice(0, 3).forEach((match, index) => {
       if (slides.length < 5) {
         slides.push({
           id: `bigmatch-${match.fixture.fixture.id}`,
           type: 'match',
-          priority: 800 + (bigMatches.length - index) * 10, // 더 높은 우선순위일수록 앞에
+          priority: 800 + (todayBigTeamMatches.length - index) * 10, // 더 높은 우선순위일수록 앞에
           data: match.fixture
         })
       }
     })
+    
+    // 빅팀 경기가 없으면 일반 경기 중 우선순위 높은 것 표시
+    if (todayBigTeamMatches.length === 0 && todayFixtures.length > 0) {
+      const topMatches = todayFixtures
+        .map(f => ({
+          fixture: f,
+          ...calculateMatchPriority(f, isAuthenticated ? preferences : null)
+        }))
+        .sort((a, b) => b.priority - a.priority)
+        .slice(0, 2)
+      
+      topMatches.forEach((match, index) => {
+        if (slides.length < 5) {
+          slides.push({
+            id: `match-${match.fixture.fixture.id}`,
+            type: 'match',
+            priority: 700 + index,
+            data: match.fixture
+          })
+        }
+      })
+    }
     
     // 4. 주요 뉴스 (실제 뉴스 데이터 사용)
     if (slides.length < 5 && popularNewsData && popularNewsData.length > 0) {
@@ -733,20 +804,36 @@ export default function HomePage() {
         return b.priority - a.priority
       })
       .slice(0, 5)
-  }, [liveMatches, todayFixtures, personalizedFixtures, preferences, isAuthenticated, popularNewsData])
+  }, [liveMatches, todayFixtures, personalizedFixtures, preferences, isAuthenticated, popularNewsData, isBigTeamMatch])
   
-  // 하위 경기 목록을 위한 데이터
+  // 하위 경기 목록을 위한 데이터 (빅팀 경기 우선)
   const allMatches = [...liveMatches, ...todayFixtures]
   const uniqueMatches = allMatches.filter((match, index, self) =>
     index === self.findIndex((m) => m.fixture.id === match.fixture.id)
   )
-  const secondaryMatches = uniqueMatches
+  
+  // 빅팀 경기와 일반 경기 분리
+  const bigTeamMatches = uniqueMatches.filter(match => isBigTeamMatch(match))
+  const otherMatches = uniqueMatches.filter(match => !isBigTeamMatch(match))
+  
+  // 각각 우선순위 계산 후 정렬
+  const sortedBigTeamMatches = bigTeamMatches
+    .map(match => {
+      const { priority, reason } = calculateMatchPriority(match, isAuthenticated ? preferences : null)
+      return { ...match, priority: priority + 500, reason } // 빅팀 보너스
+    })
+    .sort((a, b) => b.priority - a.priority)
+  
+  const sortedOtherMatches = otherMatches
     .map(match => {
       const { priority, reason } = calculateMatchPriority(match, isAuthenticated ? preferences : null)
       return { ...match, priority, reason }
     })
     .sort((a, b) => b.priority - a.priority)
-    .slice(5, 15)
+  
+  // 빅팀 경기를 먼저, 그 다음 일반 경기
+  const secondaryMatches = [...sortedBigTeamMatches, ...sortedOtherMatches]
+    .slice(5, 20) // 더 많은 경기 표시
 
   const hasPersonalizedContent = isAuthenticated && 
     (preferences.favoriteTeamIds.length > 0 || preferences.favoriteLeagueIds.length > 0)
