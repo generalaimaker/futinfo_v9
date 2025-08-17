@@ -831,9 +831,9 @@ export default function HomePage() {
     })
     .sort((a, b) => b.priority - a.priority)
   
-  // 빅팀 경기를 먼저, 그 다음 일반 경기
+  // 빅팀 경기를 먼저, 그 다음 일반 경기 (모든 경기 포함)
   const secondaryMatches = [...sortedBigTeamMatches, ...sortedOtherMatches]
-    .slice(5, 20) // 더 많은 경기 표시
+    .slice(0, 30) // 모든 경기 표시 (배너 경기도 포함)
 
   const hasPersonalizedContent = isAuthenticated && 
     (preferences.favoriteTeamIds.length > 0 || preferences.favoriteLeagueIds.length > 0)
@@ -852,7 +852,7 @@ export default function HomePage() {
         
         {/* Secondary Matches - 캐러셀 아래 경기 목록 */}
         {secondaryMatches.length > 0 && (
-          <SecondaryMatches matches={secondaryMatches} title="다른 경기" />
+          <SecondaryMatches matches={secondaryMatches} title="경기 목록" />
         )}
         
         {/* Quick Stats - 간단한 통계 */}
