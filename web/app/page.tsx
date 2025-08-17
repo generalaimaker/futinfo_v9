@@ -275,7 +275,7 @@ function SecondaryMatches({ matches, title = "주요 경기" }: { matches: any[]
   }, {} as Record<number, { league: any, matches: any[], priority: number }>)
 
   // 리그 우선순위로 정렬
-  const sortedGroups = Object.values(groupedMatches)
+  const sortedGroups = (Object.values(groupedMatches) as { league: any, matches: any[], priority: number }[])
     .sort((a, b) => {
       const leaguePriority = { 39: 1, 140: 2, 135: 3, 78: 4, 61: 5, 2: 0 }
       return (leaguePriority[a.league.id as keyof typeof leaguePriority] || 99) - 

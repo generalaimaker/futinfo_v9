@@ -193,7 +193,7 @@ function BigMatchCard({ fixture, type, priority }: BigMatchCardProps) {
 }
 
 export function BigMatchesSection() {
-  const { fixtures: liveMatches } = useLiveMatches()
+  const { matches: liveMatches } = useLiveMatches()
   const { fixtures: todayFixtures } = useTodayFixtures()
 
   // 빅매치 분류 및 우선순위 계산

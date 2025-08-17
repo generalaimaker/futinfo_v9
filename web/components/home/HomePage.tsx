@@ -7,6 +7,7 @@ import { MatchesSectionSimple } from './MatchesSectionSimple'
 import { NewsSectionSimple } from './NewsSectionSimple'
 import { StandingsSectionSimple } from './StandingsSectionSimple'
 import { CommunitySection } from './CommunitySection'
+import { BigMatchesSection } from './BigMatchesSection'
 import { useFixturesByDate } from '@/lib/supabase/football'
 import { FixturesResponse } from '@/lib/types/football'
 
@@ -49,6 +50,7 @@ export default function HomePage() {
   return (
     <main className="flex-1 pb-16 md:pb-0">
       <div className="container mx-auto p-4 space-y-6">
+        <BigMatchesSection />
         <MatchesSectionSimple />
         <StandingsSectionSimple />
         <NewsSectionSimple />
