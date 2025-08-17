@@ -28,6 +28,7 @@ import { ko } from 'date-fns/locale'
 import { EnhancedHeroCarousel, HeroSlide } from '@/components/home/EnhancedHeroCarousel'
 import { PersonalizedSection } from '@/components/home/PersonalizedSection'
 import { NewsSection } from '@/components/home/NewsSection'
+import { BigClubResults } from '@/components/home/BigClubResults'
 
 // 주요 팀 ID 및 우선순위 (높을수록 우선)
 const MAJOR_TEAMS = {
@@ -848,6 +849,9 @@ export default function HomePage() {
           autoPlayInterval={5000}
           onSlideChange={(index) => console.log('현재 슬라이드:', index)}
         />
+        
+        {/* 빅클럽 경기 결과 섹션 */}
+        <BigClubResults />
         
         {/* Secondary Matches - 캐러셀 아래 경기 목록 */}
         {secondaryMatches.length > 0 && (
