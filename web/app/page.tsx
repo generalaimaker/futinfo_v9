@@ -28,96 +28,165 @@ import { EnhancedHeroCarousel, HeroSlide } from '@/components/home/EnhancedHeroC
 import { PersonalizedSection } from '@/components/home/PersonalizedSection'
 import { NewsSection } from '@/components/home/NewsSection'
 
-// 주요 팀 ID (유럽 빅클럽)
+// 주요 팀 ID 및 우선순위 (높을수록 우선)
 const MAJOR_TEAMS = {
-  premier: [33, 40, 50, 49, 42, 47], // 맨유, 리버풀, 맨시티, 첼시, 아스널, 토트넘
-  laliga: [541, 529, 530], // 레알, 바르샤, 아틀레티코
-  seriea: [496, 505, 489], // 유벤투스, 인터, AC밀란
-  bundesliga: [157, 165], // 바이에른, 도르트문트
-  ligue1: [85], // PSG
+  // 프리미어리그 빅6 (최고 우선순위)
+  premier_big6: {
+    teams: [33, 40, 50, 49, 42, 47], // 맨유, 리버풀, 맨시티, 첼시, 아스널, 토트넘
+    priority: 100,
+    rivalries: [
+      [33, 40], // 맨유 vs 리버풀
+      [42, 47], // 아스널 vs 토트넘
+      [49, 42], // 첼시 vs 아스널
+      [49, 47], // 첼시 vs 토트넘
+    ]
+  },
+  // 라리가 주요 팀
+  laliga_top: {
+    teams: [541, 529, 530], // 레알, 바르샤, 아틀레티코
+    priority: 95,
+    rivalries: [
+      [541, 529], // 엘 클래시코
+      [541, 530], // 마드리드 더비
+    ]
+  },
+  // 세리에A 주요 팀
+  seriea_top: {
+    teams: [496, 505, 489, 492], // 유벤투스, 인터, AC밀란, 나폴리
+    priority: 90,
+    rivalries: [
+      [505, 489], // 밀라노 더비
+      [505, 496], // 인터 vs 유벤투스
+    ]
+  },
+  // 분데스리가 주요 팀
+  bundesliga_top: {
+    teams: [157, 165, 168], // 바이에른, 도르트문트, 레버쿠젠
+    priority: 85,
+    rivalries: [
+      [157, 165], // 데어 클래시커
+    ]
+  },
+  // 리그1 주요 팀
+  ligue1_top: {
+    teams: [85, 81, 91], // PSG, 마르세유, 모나코
+    priority: 80,
+    rivalries: [
+      [85, 81], // 클래시크
+    ]
+  }
 }
 
-const ALL_MAJOR_TEAMS = Object.values(MAJOR_TEAMS).flat()
+const ALL_MAJOR_TEAMS = Object.values(MAJOR_TEAMS).flatMap(group => group.teams)
+const ALL_RIVALRIES = Object.values(MAJOR_TEAMS).flatMap(group => group.rivalries || [])
 
 // ============================================
-// 경기 우선순위 계산 함수
+// 경기 우선순위 계산 함수 (강화된 버전)
 // ============================================
 function calculateMatchPriority(match: any, userPreferences?: any) {
   let priority = 0
   let reason = ''
+  const homeId = match.teams.home.id
+  const awayId = match.teams.away.id
 
   // 1. 실시간 경기 (최우선)
   if (['LIVE', '1H', '2H', 'HT'].includes(match.fixture?.status?.short)) {
-    priority += 1000
+    priority += 2000
     reason = '🔴 실시간 경기'
-    
-    // 실시간 + 빅매치
-    if (ALL_MAJOR_TEAMS.includes(match.teams.home.id) || ALL_MAJOR_TEAMS.includes(match.teams.away.id)) {
-      priority += 500
-      reason = '⚡ 실시간 빅매치'
-    }
   }
 
   // 2. 사용자 관심 팀 (로그인 시)
   if (userPreferences) {
-    const isFavoriteTeam = userPreferences.favoriteTeamIds?.includes(match.teams.home.id) ||
-                           userPreferences.favoriteTeamIds?.includes(match.teams.away.id)
+    const isFavoriteTeam = userPreferences.favoriteTeamIds?.includes(homeId) ||
+                           userPreferences.favoriteTeamIds?.includes(awayId)
     const isFavoriteLeague = userPreferences.favoriteLeagueIds?.includes(match.league.id)
     
     if (isFavoriteTeam) {
-      priority += 800
+      priority += 1500
       reason = reason || '⭐ 내 팀 경기'
     } else if (isFavoriteLeague) {
-      priority += 400
+      priority += 600
       reason = reason || '🏆 관심 리그'
     }
   }
 
-  // 3. 주요 대회
-  const majorCompetitions = [2, 3, 1] // 챔스, 유로파, 월드컵
-  if (majorCompetitions.includes(match.league.id)) {
-    priority += 600
-    reason = reason || '🏆 주요 대회'
-  }
-
-  // 4. 빅매치 (라이벌전)
-  const homeId = match.teams.home.id
-  const awayId = match.teams.away.id
-  const rivalries = [
-    [33, 40], // 맨유 vs 리버풀
-    [529, 541], // 바르샤 vs 레알
-    [505, 489], // 인터 vs AC밀란
-    [157, 165], // 바이에른 vs 도르트문트
-  ]
-  
-  if (rivalries.some(([t1, t2]) => 
+  // 3. 라이벌전 확인 (최고 우선순위)
+  const isRivalryMatch = ALL_RIVALRIES.some(([t1, t2]) => 
     (homeId === t1 && awayId === t2) || (homeId === t2 && awayId === t1)
-  )) {
-    priority += 700
+  )
+  if (isRivalryMatch) {
+    priority += 1200
     reason = reason || '🔥 라이벌전'
   }
 
-  // 5. 유럽 빅클럽 경기
-  if (ALL_MAJOR_TEAMS.includes(homeId) || ALL_MAJOR_TEAMS.includes(awayId)) {
-    priority += 300
-    reason = reason || '✨ 빅클럽 경기'
+  // 4. 팀별 우선순위 (프리미어리그 빅6 최우선)
+  let teamPriority = 0
+  for (const [groupName, group] of Object.entries(MAJOR_TEAMS)) {
+    const homeInGroup = group.teams.includes(homeId)
+    const awayInGroup = group.teams.includes(awayId)
+    
+    if (homeInGroup && awayInGroup) {
+      // 같은 그룹 내 경기 (예: 빅6 vs 빅6)
+      teamPriority = Math.max(teamPriority, group.priority + 200)
+      if (groupName === 'premier_big6') {
+        reason = reason || '⚡ 프리미어 빅6 매치'
+      }
+    } else if (homeInGroup || awayInGroup) {
+      // 한 팀만 해당 그룹
+      teamPriority = Math.max(teamPriority, group.priority)
+      if (groupName === 'premier_big6') {
+        reason = reason || '✨ 프리미어 빅6'
+      }
+    }
+  }
+  priority += teamPriority
+
+  // 5. 주요 대회
+  const competitionPriority: Record<number, number> = {
+    2: 800,    // Champions League
+    3: 700,    // Europa League
+    848: 600,  // Conference League
+    1: 900,    // World Cup
+    4: 850,    // Euro Championship
+  }
+  if (competitionPriority[match.league.id]) {
+    priority += competitionPriority[match.league.id]
+    reason = reason || '🏆 주요 대회'
   }
 
-  // 6. 주요 리그
-  const majorLeagues = [39, 140, 135, 78, 61] // EPL, 라리가, 세리에A, 분데스, 리그1
-  if (majorLeagues.includes(match.league.id)) {
-    priority += 200
+  // 6. 리그별 우선순위
+  const leaguePriority: Record<number, number> = {
+    39: 500,   // Premier League
+    140: 450,  // La Liga
+    135: 400,  // Serie A
+    78: 350,   // Bundesliga
+    61: 300,   // Ligue 1
+    292: 200,  // K League 1
+    293: 150,  // K League 2
+  }
+  if (leaguePriority[match.league.id]) {
+    priority += leaguePriority[match.league.id]
     reason = reason || '📍 주요 리그'
   }
 
-  // 7. 시간 임박도 (앞으로 2시간 이내)
+  // 7. 시간 임박도
   const matchTime = new Date(match.fixture.date).getTime()
   const now = Date.now()
   const hoursUntil = (matchTime - now) / (1000 * 60 * 60)
   
   if (hoursUntil > 0 && hoursUntil <= 2) {
-    priority += 100
+    priority += 150
     reason = reason || '⏰ 곧 시작'
+  } else if (hoursUntil > 0 && hoursUntil <= 6) {
+    priority += 50
+  }
+
+  // 8. 주말 프라임타임 보너스
+  const matchDate = new Date(match.fixture.date)
+  const isWeekend = matchDate.getDay() === 0 || matchDate.getDay() === 6
+  const hour = matchDate.getHours()
+  if (isWeekend && (hour >= 14 && hour <= 22)) {
+    priority += 100
   }
 
   return { priority, reason }
@@ -186,101 +255,204 @@ function QuickStats() {
 }
 
 // ============================================
-// Secondary Matches - 하위 경기 목록 (개선)
+// Secondary Matches - 주요 경기 목록 (대폭 개선)
 // ============================================
-function SecondaryMatches({ matches, title = "기타 경기" }: { matches: any[], title?: string }) {
+function SecondaryMatches({ matches, title = "주요 경기" }: { matches: any[], title?: string }) {
   if (matches.length === 0) return null
+
+  // 리그별로 그룹화
+  const groupedMatches = matches.reduce((acc, match) => {
+    const leagueId = match.league.id
+    if (!acc[leagueId]) {
+      acc[leagueId] = {
+        league: match.league,
+        matches: [],
+        priority: match.priority || 0
+      }
+    }
+    acc[leagueId].matches.push(match)
+    return acc
+  }, {} as Record<number, { league: any, matches: any[], priority: number }>)
+
+  // 리그 우선순위로 정렬
+  const sortedGroups = Object.values(groupedMatches)
+    .sort((a, b) => {
+      const leaguePriority = { 39: 1, 140: 2, 135: 3, 78: 4, 61: 5, 2: 0 }
+      return (leaguePriority[a.league.id as keyof typeof leaguePriority] || 99) - 
+             (leaguePriority[b.league.id as keyof typeof leaguePriority] || 99)
+    })
 
   return (
     <Card className="p-6">
-      <div className="flex items-center justify-between mb-4">
-        <h4 className="font-semibold text-lg">{title}</h4>
-        <Link href="/fixtures" className="text-sm text-primary hover:underline">
-          전체보기
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-2">
+          <Trophy className="w-5 h-5 text-yellow-500" />
+          <h4 className="font-semibold text-lg">{title}</h4>
+          <Badge variant="secondary" className="text-xs">
+            {matches.length}개 경기
+          </Badge>
+        </div>
+        <Link href="/fixtures" className="text-sm text-primary hover:underline flex items-center gap-1">
+          전체보기 <ChevronRight className="w-4 h-4" />
         </Link>
       </div>
       
-      <div className="space-y-3">
-        {matches.slice(0, 8).map((match) => {
-          const isLive = ['LIVE', '1H', '2H', 'HT'].includes(match.fixture?.status?.short)
-          const isFinished = match.fixture?.status?.short === 'FT'
-          
+      {/* 리그별 경기 표시 */}
+      <div className="space-y-6">
+        {sortedGroups.slice(0, 3).map(({ league, matches: leagueMatches }) => {
+          const getLeagueStyle = (leagueId: number) => {
+            const styles: Record<number, { bg: string, border: string, flag: string }> = {
+              39: { bg: 'bg-purple-50', border: 'border-purple-200', flag: '🏴󠁧󠁢󠁥󠁮󠁧󠁿' },
+              140: { bg: 'bg-orange-50', border: 'border-orange-200', flag: '🇪🇸' },
+              135: { bg: 'bg-blue-50', border: 'border-blue-200', flag: '🇮🇹' },
+              78: { bg: 'bg-red-50', border: 'border-red-200', flag: '🇩🇪' },
+              61: { bg: 'bg-blue-50', border: 'border-blue-200', flag: '🇫🇷' },
+              2: { bg: 'bg-indigo-50', border: 'border-indigo-200', flag: '⭐' },
+            }
+            return styles[leagueId] || { bg: 'bg-gray-50', border: 'border-gray-200', flag: '⚽' }
+          }
+
+          const style = getLeagueStyle(league.id)
+
           return (
-            <Link
-              key={match.fixture.id}
-              href={`/fixtures/${match.fixture.id}`}
-              className="block p-4 rounded-lg hover:bg-secondary/50 transition-all border border-border/50 hover:border-border"
-            >
-              <div className="flex items-center justify-center gap-4">
-                {/* 홈팀 */}
-                <div className="flex items-center gap-2 flex-1 justify-end">
-                  <span className="text-sm font-medium truncate max-w-[120px] text-right">
-                    {match.teams.home.name}
-                  </span>
-                  <Image
-                    src={match.teams.home.logo}
-                    alt=""
-                    width={28}
-                    height={28}
-                    className="object-contain"
-                  />
-                </div>
-                
-                {/* 점수 또는 시간 (중앙) */}
-                <div className="min-w-[100px] text-center">
-                  {isLive || isFinished ? (
-                    <div>
-                      <div className="text-xl font-bold">
-                        {match.goals?.home ?? 0} - {match.goals?.away ?? 0}
-                      </div>
-                      {isLive && (
-                        <Badge variant="destructive" className="text-xs px-2 py-0 animate-pulse mt-1">
-                          {match.fixture.status.elapsed}'
-                        </Badge>
-                      )}
-                      {isFinished && (
-                        <span className="text-xs text-muted-foreground">종료</span>
-                      )}
-                    </div>
-                  ) : (
-                    <div>
-                      <div className="text-base font-semibold">
-                        {new Date(match.fixture.date).toLocaleTimeString('ko-KR', {
-                          hour: '2-digit',
-                          minute: '2-digit'
-                        })}
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        {match.league.name}
-                      </div>
-                    </div>
-                  )}
-                </div>
-                
-                {/* 원정팀 */}
-                <div className="flex items-center gap-2 flex-1">
-                  <Image
-                    src={match.teams.away.logo}
-                    alt=""
-                    width={28}
-                    height={28}
-                    className="object-contain"
-                  />
-                  <span className="text-sm font-medium truncate max-w-[120px]">
-                    {match.teams.away.name}
-                  </span>
-                </div>
+            <div key={league.id}>
+              {/* 리그 헤더 */}
+              <div className={cn(
+                "flex items-center gap-2 p-3 rounded-t-lg border-b",
+                style.bg, style.border
+              )}>
+                <span className="text-lg">{style.flag}</span>
+                <span className="font-semibold text-sm">{league.name}</span>
+                <Badge variant="outline" className="text-xs">
+                  {leagueMatches.length}경기
+                </Badge>
               </div>
-              
-              {/* 우선순위 이유 표시 */}
-              {match.reason && (
-                <div className="mt-2 text-center">
-                  <Badge variant="secondary" className="text-xs">
-                    {match.reason}
-                  </Badge>
-                </div>
-              )}
-            </Link>
+
+              {/* 경기 목록 */}
+              <div className={cn("border-l border-r border-b rounded-b-lg", style.border)}>
+                {leagueMatches.slice(0, 4).map((match, index) => {
+                  const isLive = ['LIVE', '1H', '2H', 'HT'].includes(match.fixture?.status?.short)
+                  const isFinished = match.fixture?.status?.short === 'FT'
+                  const homeId = match.teams.home.id
+                  const awayId = match.teams.away.id
+                  
+                  // 빅6 팀 확인
+                  const premierBig6 = [33, 40, 50, 49, 42, 47]
+                  const isBig6Match = premierBig6.includes(homeId) || premierBig6.includes(awayId)
+                  
+                  // 라이벌전 확인
+                  const isRivalry = ALL_RIVALRIES.some(([t1, t2]) => 
+                    (homeId === t1 && awayId === t2) || (homeId === t2 && awayId === t1)
+                  )
+                  
+                  return (
+                    <Link
+                      key={match.fixture.id}
+                      href={`/fixtures/${match.fixture.id}`}
+                      className={cn(
+                        "block p-4 transition-all relative",
+                        index < leagueMatches.slice(0, 4).length - 1 && "border-b border-gray-100",
+                        isLive && "bg-red-50/50",
+                        isBig6Match && "bg-yellow-50/30",
+                        isRivalry && "bg-red-50/30",
+                        "hover:bg-white/80"
+                      )}
+                    >
+                      {/* 특별 경기 표시 */}
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex gap-1">
+                          {isLive && (
+                            <Badge variant="destructive" className="text-xs px-2 py-0 animate-pulse">
+                              LIVE
+                            </Badge>
+                          )}
+                          {isRivalry && (
+                            <Badge className="text-xs px-2 py-0 bg-red-100 text-red-700">
+                              🔥 라이벌전
+                            </Badge>
+                          )}
+                          {isBig6Match && league.id === 39 && (
+                            <Badge className="text-xs px-2 py-0 bg-purple-100 text-purple-700">
+                              ⚡ 빅6
+                            </Badge>
+                          )}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {match.priority ? `우선도: ${Math.round(match.priority)}` : ''}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-center gap-4">
+                        {/* 홈팀 */}
+                        <div className="flex items-center gap-2 flex-1 justify-end">
+                          <span className={cn(
+                            "text-sm font-medium truncate max-w-[120px] text-right",
+                            (isBig6Match || isRivalry) && "font-semibold"
+                          )}>
+                            {match.teams.home.name}
+                          </span>
+                          <Image
+                            src={match.teams.home.logo}
+                            alt=""
+                            width={28}
+                            height={28}
+                            className="object-contain"
+                          />
+                        </div>
+                        
+                        {/* 점수 또는 시간 */}
+                        <div className="min-w-[100px] text-center">
+                          {isLive || isFinished ? (
+                            <div>
+                              <div className="text-xl font-bold">
+                                {match.goals?.home ?? 0} - {match.goals?.away ?? 0}
+                              </div>
+                              {isLive && (
+                                <span className="text-xs text-red-600 font-medium">
+                                  {match.fixture.status.elapsed}'
+                                </span>
+                              )}
+                            </div>
+                          ) : (
+                            <div>
+                              <div className="text-base font-semibold">
+                                {new Date(match.fixture.date).toLocaleTimeString('ko-KR', {
+                                  hour: '2-digit',
+                                  minute: '2-digit'
+                                })}
+                              </div>
+                              <div className="text-xs text-muted-foreground">
+                                {new Date(match.fixture.date).toLocaleDateString('ko-KR', {
+                                  month: 'short',
+                                  day: 'numeric'
+                                })}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                        
+                        {/* 원정팀 */}
+                        <div className="flex items-center gap-2 flex-1">
+                          <Image
+                            src={match.teams.away.logo}
+                            alt=""
+                            width={28}
+                            height={28}
+                            className="object-contain"
+                          />
+                          <span className={cn(
+                            "text-sm font-medium truncate max-w-[120px]",
+                            (isBig6Match || isRivalry) && "font-semibold"
+                          )}>
+                            {match.teams.away.name}
+                          </span>
+                        </div>
+                      </div>
+                    </Link>
+                  )
+                })}
+              </div>
+            </div>
           )
         })}
       </div>
@@ -451,20 +623,27 @@ export default function HomePage() {
       }
     }
     
-    // 3. 빅매치 경기
-    const bigMatch = todayFixtures.find(f => {
-      const { priority } = calculateMatchPriority(f)
-      return priority >= 700 // 빅매치나 라이벌전
-    })
+    // 3. 빅매치 경기 (프리미어리그 빅6 우선)
+    const allMatches = [...todayFixtures]
+    const bigMatches = allMatches
+      .map(f => ({
+        fixture: f,
+        ...calculateMatchPriority(f, isAuthenticated ? preferences : null)
+      }))
+      .filter(m => m.priority >= 700) // 빅매치 기준
+      .sort((a, b) => b.priority - a.priority) // 우선순위 순 정렬
     
-    if (bigMatch && slides.length < 5) {
-      slides.push({
-        id: `bigmatch-${bigMatch.fixture.id}`,
-        type: 'match',
-        priority: 800,
-        data: bigMatch
-      })
-    }
+    // 상위 2개 빅매치를 슬라이드에 추가
+    bigMatches.slice(0, 2).forEach((match, index) => {
+      if (slides.length < 5) {
+        slides.push({
+          id: `bigmatch-${match.fixture.fixture.id}`,
+          type: 'match',
+          priority: 800 + (bigMatches.length - index) * 10, // 더 높은 우선순위일수록 앞에
+          data: match.fixture
+        })
+      }
+    })
     
     // 4. 주요 뉴스 (실제 뉴스 데이터 사용)
     if (slides.length < 5 && popularNewsData && popularNewsData.length > 0) {
@@ -526,9 +705,24 @@ export default function HomePage() {
       })
     }
     
-    // 최대 5개로 제한하고 우선순위로 정렬
+    // 최대 5개로 제한하고 우선순위로 정렬 (빅매치 우선)
     return slides
-      .sort((a, b) => b.priority - a.priority)
+      .sort((a, b) => {
+        // 실시간 경기가 가장 우선
+        if (a.priority >= 1000 && b.priority < 1000) return -1
+        if (b.priority >= 1000 && a.priority < 1000) return 1
+        
+        // 개인화 콘텐츠가 다음 우선
+        if (a.priority >= 900 && a.priority < 1000 && b.priority < 900) return -1
+        if (b.priority >= 900 && b.priority < 1000 && a.priority < 900) return 1
+        
+        // 빅매치가 다음 우선 (800~899)
+        if (a.priority >= 800 && a.priority < 900 && b.priority < 800) return -1
+        if (b.priority >= 800 && b.priority < 900 && a.priority < 800) return 1
+        
+        // 동일 범위 내에서는 높은 우선순위 순
+        return b.priority - a.priority
+      })
       .slice(0, 5)
   }, [liveMatches, todayFixtures, personalizedFixtures, preferences, isAuthenticated, popularNewsData])
   

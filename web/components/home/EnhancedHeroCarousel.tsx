@@ -208,6 +208,24 @@ export function EnhancedHeroCarousel({
 function MatchSlide({ data }: { data: any }) {
   const isLive = ['LIVE', '1H', '2H', 'HT'].includes(data.fixture?.status?.short)
   const isFinished = data.fixture?.status?.short === 'FT'
+  
+  // 빅매치 및 라이벌전 확인
+  const homeId = data.teams.home.id
+  const awayId = data.teams.away.id
+  const premierBig6 = [33, 40, 50, 49, 42, 47]
+  const isBig6Match = premierBig6.includes(homeId) || premierBig6.includes(awayId)
+  
+  const rivalries = [
+    [33, 40], // 맨유 vs 리버풀
+    [42, 47], // 아스널 vs 토트넘
+    [49, 42], // 첼시 vs 아스널
+    [49, 47], // 첼시 vs 토트넘
+    [541, 529], // 레알 vs 바르샤
+    [489, 505], // AC밀란 vs 인터
+  ]
+  const isRivalry = rivalries.some(([t1, t2]) => 
+    (homeId === t1 && awayId === t2) || (homeId === t2 && awayId === t1)
+  )
 
   return (
     <div className="absolute inset-0">
@@ -224,8 +242,18 @@ function MatchSlide({ data }: { data: any }) {
         </div>
       )}
 
-      {/* 리그 정보 */}
-      <div className="absolute top-4 right-4 z-20">
+      {/* 빅매치 표시 */}
+      <div className="absolute top-4 right-4 z-20 flex flex-col gap-2">
+        {isRivalry && (
+          <Badge className="bg-red-500/90 backdrop-blur text-white border-0">
+            🔥 라이벌전
+          </Badge>
+        )}
+        {isBig6Match && data.league.id === 39 && (
+          <Badge className="bg-purple-500/90 backdrop-blur text-white border-0">
+            ⚡ 프리미어 빅6
+          </Badge>
+        )}
         <Badge className="bg-black/50 backdrop-blur text-white border-0">
           {data.league.name}
         </Badge>
