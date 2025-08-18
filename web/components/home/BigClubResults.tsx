@@ -13,7 +13,7 @@ import { ko } from 'date-fns/locale'
 import footballAPIService from '@/lib/supabase/football'
 import { Trophy, ChevronRight, Calendar, Clock, Star } from 'lucide-react'
 
-// 빅클럽 정의
+// 빅클럽 정의 - 각 리그별 상위 4팀
 const BIG_CLUBS = {
   // 프리미어리그 빅6
   premier: {
@@ -27,42 +27,44 @@ const BIG_CLUBS = {
       { id: 47, name: 'Tottenham' }
     ]
   },
-  // 라리가 빅3
+  // 라리가 상위 4팀
   laliga: {
     name: 'La Liga',
     teams: [
       { id: 541, name: 'Real Madrid' },
       { id: 529, name: 'Barcelona' },
-      { id: 530, name: 'Atletico Madrid' }
+      { id: 530, name: 'Atletico Madrid' },
+      { id: 531, name: 'Sevilla' }
     ]
   },
-  // 분데스리가 상위 3팀
+  // 분데스리가 상위 4팀
   bundesliga: {
     name: 'Bundesliga',
     teams: [
       { id: 157, name: 'Bayern Munich' },
       { id: 165, name: 'Borussia Dortmund' },
-      { id: 168, name: 'Bayer Leverkusen' }
+      { id: 168, name: 'Bayer Leverkusen' },
+      { id: 173, name: 'RB Leipzig' }
     ]
   },
-  // 세리에A 상위 5팀
+  // 세리에A 상위 4팀
   seriea: {
     name: 'Serie A',
     teams: [
       { id: 496, name: 'Juventus' },
       { id: 505, name: 'Inter' },
       { id: 489, name: 'AC Milan' },
-      { id: 492, name: 'Napoli' },
-      { id: 497, name: 'Roma' }
+      { id: 492, name: 'Napoli' }
     ]
   },
-  // 리그1 PSG 등
+  // 리그1 상위 4팀
   ligue1: {
     name: 'Ligue 1',
     teams: [
       { id: 85, name: 'Paris Saint Germain' },
       { id: 81, name: 'Marseille' },
-      { id: 91, name: 'Monaco' }
+      { id: 91, name: 'Monaco' },
+      { id: 79, name: 'Lille' }
     ]
   }
 }

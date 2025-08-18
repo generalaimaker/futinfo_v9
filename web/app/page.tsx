@@ -44,16 +44,16 @@ const MAJOR_TEAMS = {
       [49, 47], // 첼시 vs 토트넘
     ]
   },
-  // 라리가 주요 팀
+  // 라리가 상위 4팀
   laliga_top: {
-    teams: [541, 529, 530], // 레알, 바르샤, 아틀레티코
+    teams: [541, 529, 530, 531], // 레알, 바르샤, 아틀레티코, 세비야
     priority: 95,
     rivalries: [
       [541, 529], // 엘 클래시코
       [541, 530], // 마드리드 더비
     ]
   },
-  // 세리에A 주요 팀
+  // 세리에A 상위 4팀
   seriea_top: {
     teams: [496, 505, 489, 492], // 유벤투스, 인터, AC밀란, 나폴리
     priority: 90,
@@ -62,17 +62,17 @@ const MAJOR_TEAMS = {
       [505, 496], // 인터 vs 유벤투스
     ]
   },
-  // 분데스리가 주요 팀
+  // 분데스리가 상위 4팀
   bundesliga_top: {
-    teams: [157, 165, 168], // 바이에른, 도르트문트, 레버쿠젠
+    teams: [157, 165, 168, 173], // 바이에른, 도르트문트, 레버쿠젠, 라이프치히
     priority: 85,
     rivalries: [
       [157, 165], // 데어 클래시커
     ]
   },
-  // 리그1 주요 팀
+  // 리그1 상위 4팀
   ligue1_top: {
-    teams: [85, 81, 91], // PSG, 마르세유, 모나코
+    teams: [85, 81, 91, 79], // PSG, 마르세유, 모나코, 릴
     priority: 80,
     rivalries: [
       [85, 81], // 클래시크
@@ -597,16 +597,16 @@ export default function HomePage() {
     
     // 프리미어리그 빅6
     const premierBig6 = [33, 40, 50, 49, 42, 47]
-    // 라리가 빅3
-    const laLigaBig3 = [541, 529, 530]
-    // 세리에A 빅4
+    // 라리가 상위 4팀
+    const laLigaBig4 = [541, 529, 530, 531]
+    // 세리에A 상위 4팀
     const serieABig4 = [496, 505, 489, 492]
-    // 분데스리가 빅2
-    const bundesligaBig2 = [157, 165]
-    // 리그1 빅2
-    const ligue1Big2 = [85, 81]
+    // 분데스리가 상위 4팀
+    const bundesligaBig4 = [157, 165, 168, 173]
+    // 리그1 상위 4팀
+    const ligue1Big4 = [85, 81, 91, 79]
     
-    const allBigTeams = [...premierBig6, ...laLigaBig3, ...serieABig4, ...bundesligaBig2, ...ligue1Big2]
+    const allBigTeams = [...premierBig6, ...laLigaBig4, ...serieABig4, ...bundesligaBig4, ...ligue1Big4]
     
     return allBigTeams.includes(homeId) || allBigTeams.includes(awayId)
   }
