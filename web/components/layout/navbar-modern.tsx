@@ -100,9 +100,9 @@ export function NavbarModern() {
             
             <Link href="/" className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-                <span className="text-white font-bold text-lg">F</span>
+                <span className="text-white font-bold text-lg">B</span>
               </div>
-              <span className="text-xl font-bold hidden sm:inline">FutInfo</span>
+              <span className="text-xl font-bold hidden sm:inline">Build Up</span>
             </Link>
           </div>
 
@@ -333,9 +333,9 @@ export function NavbarModern() {
             <div className="flex items-center justify-between mb-6">
               <Link href="/" className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-                  <span className="text-white font-bold text-lg">F</span>
+                  <span className="text-white font-bold text-lg">B</span>
                 </div>
-                <span className="text-xl font-bold">FutInfo</span>
+                <span className="text-xl font-bold">Build Up</span>
               </Link>
               <button
                 onClick={() => setSidebarOpen(false)}

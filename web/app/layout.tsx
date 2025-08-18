@@ -20,14 +20,14 @@ const notoSansKR = Noto_Sans_KR({
 
 export const metadata: Metadata = {
   title: {
-    default: 'FutInfo - 축구 커뮤니티',
-    template: '%s | FutInfo'
+    default: 'Build Up - 축구 커뮤니티',
+    template: '%s | Build Up'
   },
   description: '전 세계 축구 팬들이 모이는 곳. 실시간 경기 정보, 팀별 커뮤니티, 이적 소식까지 한번에!',
   keywords: ['축구', '커뮤니티', '프리미어리그', '라리가', '세리에A', '분데스리가', '리그1', '챔피언스리그'],
-  authors: [{ name: 'FutInfo Team' }],
-  creator: 'FutInfo',
-  publisher: 'FutInfo',
+  authors: [{ name: 'Build Up Team' }],
+  creator: 'Build Up',
+  publisher: 'Build Up',
   formatDetection: {
     email: false,
     address: false,
@@ -38,13 +38,13 @@ export const metadata: Metadata = {
     type: 'website',
     locale: 'ko_KR',
     url: '/',
-    title: 'FutInfo - 축구 커뮤니티',
+    title: 'Build Up - 축구 커뮤니티',
     description: '전 세계 축구 팬들이 모이는 곳',
-    siteName: 'FutInfo',
+    siteName: 'Build Up',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'FutInfo - 축구 커뮤니티',
+    title: 'Build Up - 축구 커뮤니티',
     description: '전 세계 축구 팬들이 모이는 곳',
   },
   viewport: {
