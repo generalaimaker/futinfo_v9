@@ -282,7 +282,9 @@ function IOSTabNavigation({ tabs, activeTab, onTabChange }: any) {
           {tabs.map((tab: any, index: number) => (
             <button
               key={tab.id}
-              ref={el => tabRefs.current[index] = el}
+              ref={el => {
+                tabRefs.current[index] = el
+              }}
               onClick={() => onTabChange(tab.id)}
               className={cn(
                 "flex-shrink-0 px-6 py-3 text-sm font-medium transition-colors relative",
