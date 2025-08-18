@@ -197,9 +197,17 @@ function PerformanceRadar({ homeStats, awayStats }: any) {
 }
 
 export function EnhancedStatistics({ statistics, homeTeam, awayTeam }: EnhancedStatisticsProps) {
-  // 통계 데이터 추출
-  const homeStats = statistics?.response?.[0]?.statistics?.find((s: any) => s.team.id === homeTeam.id)?.statistics || []
-  const awayStats = statistics?.response?.[0]?.statistics?.find((s: any) => s.team.id === awayTeam.id)?.statistics || []
+  // 통계 데이터 추출 - statistics가 배열로 직접 전달됨
+  console.log('[EnhancedStatistics] Raw statistics:', statistics)
+  console.log('[EnhancedStatistics] Type of statistics:', typeof statistics)
+  console.log('[EnhancedStatistics] Is Array?:', Array.isArray(statistics))
+  console.log('[EnhancedStatistics] First element:', statistics?.[0])
+  
+  const homeStats = statistics?.[0]?.statistics || []
+  const awayStats = statistics?.[1]?.statistics || []
+  
+  console.log('[EnhancedStatistics] Home stats:', homeStats)
+  console.log('[EnhancedStatistics] Away stats:', awayStats)
 
   // 통계를 객체로 변환
   const getStatObject = (stats: any[]) => {

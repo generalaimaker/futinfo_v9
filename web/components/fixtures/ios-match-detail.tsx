@@ -548,7 +548,7 @@ export function IOSMatchDetail({
             </motion.div>
           )}
           
-          {activeTab === 'stats' && fixture.statistics && (
+          {activeTab === 'stats' && (
             <motion.div
               key="stats"
               initial={{ opacity: 0, x: 20 }}
@@ -556,11 +556,17 @@ export function IOSMatchDetail({
               exit={{ opacity: 0, x: -20 }}
             >
               <IOSContentSection title="상세 통계" icon={BarChart3}>
-                <EnhancedStatistics
-                  statistics={fixture.statistics}
-                  homeTeam={fixture.teams.home}
-                  awayTeam={fixture.teams.away}
-                />
+                {fixture.statistics && fixture.statistics.length > 0 ? (
+                  <EnhancedStatistics
+                    statistics={fixture.statistics}
+                    homeTeam={fixture.teams.home}
+                    awayTeam={fixture.teams.away}
+                  />
+                ) : (
+                  <div className="text-center py-8 text-gray-500">
+                    통계 데이터가 없습니다.
+                  </div>
+                )}
               </IOSContentSection>
             </motion.div>
           )}

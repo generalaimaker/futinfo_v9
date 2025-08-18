@@ -600,12 +600,9 @@ class FootballAPIService {
     if (cached) return cached
 
     try {
-      const data = await this.callEdgeFunction<any>('football-api', {
-        endpoint: 'players/topassists',
-        params: {
-          league: leagueId,
-          season: season
-        }
+      const data = await this.callUnifiedAPI<any>('players/topassists', {
+        league: leagueId,
+        season: season
       })
       
       const topAssists = data.response as TopAssist[]
@@ -624,9 +621,8 @@ class FootballAPIService {
     if (cached) return cached
 
     try {
-      const data = await this.callEdgeFunction<any>('football-api', {
-        endpoint: 'teams',
-        params: { search: query }
+      const data = await this.callUnifiedAPI<any>('teams', {
+        search: query
       })
       
       this.setCachedData(cacheKey, data.response)
@@ -644,9 +640,8 @@ class FootballAPIService {
     if (cached) return cached
 
     try {
-      const data = await this.callEdgeFunction<any>('football-api', {
-        endpoint: 'players',
-        params: { search: query }
+      const data = await this.callUnifiedAPI<any>('players', {
+        search: query
       })
       
       this.setCachedData(cacheKey, data.response)
@@ -664,9 +659,8 @@ class FootballAPIService {
     if (cached) return cached
 
     try {
-      const data = await this.callEdgeFunction<any>('football-api', {
-        endpoint: 'fixtures',
-        params: { id: fixtureId }
+      const data = await this.callUnifiedAPI<any>('fixtures', {
+        id: fixtureId
       })
       
       const fixtureDetails = data.response[0]
@@ -685,9 +679,8 @@ class FootballAPIService {
     if (cached) return cached
 
     try {
-      const data = await this.callEdgeFunction<any>('football-api', {
-        endpoint: 'fixtures/lineups',
-        params: { fixture: fixtureId }
+      const data = await this.callUnifiedAPI<any>('fixtures/lineups', {
+        fixture: fixtureId
       })
       
       this.setCachedData(cacheKey, data.response)
@@ -705,9 +698,8 @@ class FootballAPIService {
     if (cached) return cached
 
     try {
-      const data = await this.callEdgeFunction<any>('football-api', {
-        endpoint: 'fixtures/statistics',
-        params: { fixture: fixtureId }
+      const data = await this.callUnifiedAPI<any>('fixtures/statistics', {
+        fixture: fixtureId
       })
       
       this.setCachedData(cacheKey, data.response)
@@ -725,9 +717,8 @@ class FootballAPIService {
     if (cached) return cached
 
     try {
-      const data = await this.callEdgeFunction<any>('football-api', {
-        endpoint: 'fixtures/events',
-        params: { fixture: fixtureId }
+      const data = await this.callUnifiedAPI<any>('fixtures/events', {
+        fixture: fixtureId
       })
       
       this.setCachedData(cacheKey, data.response)
@@ -745,9 +736,8 @@ class FootballAPIService {
     if (cached) return cached
 
     try {
-      const data = await this.callEdgeFunction<any>('football-api', {
-        endpoint: 'fixtures/headtohead',
-        params: { h2h: `${team1}-${team2}` }
+      const data = await this.callUnifiedAPI<any>('fixtures/headtohead', {
+        h2h: `${team1}-${team2}`
       })
       
       this.setCachedData(cacheKey, data.response)
@@ -765,9 +755,8 @@ class FootballAPIService {
     if (cached) return cached
 
     try {
-      const data = await this.callEdgeFunction<any>('football-api', {
-        endpoint: 'fixtures/players',
-        params: { fixture: fixtureId }
+      const data = await this.callUnifiedAPI<any>('fixtures/players', {
+        fixture: fixtureId
       })
       
       this.setCachedData(cacheKey, data.response)
@@ -1055,20 +1044,20 @@ export const useFixtureDetail = (
         footballAPIService.getFixturePlayers(fixtureId)
       ])
       
-      // 결과 병합
+      // 결과 병합 - response 배열만 추출
       const fixture = { ...fixtureData }
       
-      if (statistics.status === 'fulfilled' && statistics.value) {
-        fixture.statistics = statistics.value
+      if (statistics.status === 'fulfilled' && statistics.value?.response) {
+        fixture.statistics = statistics.value.response
       }
-      if (lineups.status === 'fulfilled' && lineups.value) {
-        fixture.lineups = lineups.value
+      if (lineups.status === 'fulfilled' && lineups.value?.response) {
+        fixture.lineups = lineups.value.response
       }
-      if (events.status === 'fulfilled' && events.value) {
-        fixture.events = events.value
+      if (events.status === 'fulfilled' && events.value?.response) {
+        fixture.events = events.value.response
       }
-      if (players.status === 'fulfilled' && players.value) {
-        fixture.players = players.value
+      if (players.status === 'fulfilled' && players.value?.response) {
+        fixture.players = players.value.response
       }
       
       return { 
