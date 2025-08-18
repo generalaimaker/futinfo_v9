@@ -471,24 +471,77 @@ export function IOSMatchDetail({
               {fixture.statistics && fixture.statistics.length > 0 && (
                 <IOSContentSection title="주요 통계" icon={BarChart3}>
                   <div className="space-y-4">
-                    {['Ball Possession', 'Total Shots', 'Shots on Goal', 'Corner Kicks', 'Offsides'].map(statType => {
-                      const homeStat = fixture.statistics[0].statistics.find((s: any) => s.type === statType)
-                      const awayStat = fixture.statistics[1].statistics.find((s: any) => s.type === statType)
+                    {(() => {
+                      // 통계 데이터 확인
+                      console.log('[IOSMatchDetail] Statistics data:', fixture.statistics)
                       
-                      if (!homeStat || !awayStat) return null
+                      // 모든 가능한 통계 타입
+                      const statTypes = [
+                        'Ball Possession',
+                        'Total Shots', 
+                        'Shots on Goal',
+                        'Shots off Goal',
+                        'Blocked Shots',
+                        'Shots insidebox',
+                        'Shots outsidebox',
+                        'Corner Kicks',
+                        'Offsides',
+                        'Fouls',
+                        'Yellow Cards',
+                        'Red Cards',
+                        'Goalkeeper Saves',
+                        'Total passes',
+                        'Passes accurate',
+                        'Passes %'
+                      ]
                       
-                      return (
+                      const availableStats = []
+                      
+                      for (const statType of statTypes) {
+                        const homeStat = fixture.statistics[0]?.statistics?.find((s: any) => s.type === statType)
+                        const awayStat = fixture.statistics[1]?.statistics?.find((s: any) => s.type === statType)
+                        
+                        if (homeStat && awayStat) {
+                          const homeValue = statType.includes('Possession') || statType.includes('%')
+                            ? (parseInt(String(homeStat.value)?.replace('%', '') || '0') || 0)
+                            : (parseInt(homeStat.value) || 0)
+                          const awayValue = statType.includes('Possession') || statType.includes('%')
+                            ? (parseInt(String(awayStat.value)?.replace('%', '') || '0') || 0)
+                            : (parseInt(awayStat.value) || 0)
+                          
+                          availableStats.push({
+                            type: statType,
+                            homeValue,
+                            awayValue,
+                            isPercentage: statType.includes('Possession') || statType.includes('%')
+                          })
+                        }
+                      }
+                      
+                      console.log('[IOSMatchDetail] Available stats:', availableStats)
+                      
+                      // 통계가 없는 경우
+                      if (availableStats.length === 0) {
+                        return (
+                          <div className="text-center py-8 text-gray-500">
+                            통계 데이터가 아직 준비되지 않았습니다.
+                          </div>
+                        )
+                      }
+                      
+                      // 최대 5개까지만 표시
+                      return availableStats.slice(0, 5).map(stat => (
                         <IOSStatBar
-                          key={statType}
-                          label={statType}
-                          homeValue={parseInt(homeStat.value) || 0}
-                          awayValue={parseInt(awayStat.value) || 0}
+                          key={stat.type}
+                          label={stat.type}
+                          homeValue={stat.homeValue}
+                          awayValue={stat.awayValue}
                           homeTeam={fixture.teams.home}
                           awayTeam={fixture.teams.away}
-                          isPercentage={statType === 'Ball Possession'}
+                          isPercentage={stat.isPercentage}
                         />
-                      )
-                    })}
+                      ))
+                    })()}
                   </div>
                 </IOSContentSection>
               )}
