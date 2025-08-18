@@ -106,23 +106,23 @@ function ShotsChart({ homeStats, awayStats }: any) {
   const data = [
     {
       category: '전체 슈팅',
-      홈: homeStats.shotsTotal || 0,
-      원정: awayStats.shotsTotal || 0
+      홈: parseInt(homeStats.shotstotal) || parseInt(homeStats.totalshots) || 0,
+      원정: parseInt(awayStats.shotstotal) || parseInt(awayStats.totalshots) || 0
     },
     {
       category: '유효 슈팅',
-      홈: homeStats.shotsOnTarget || 0,
-      원정: awayStats.shotsOnTarget || 0
+      홈: parseInt(homeStats.shotsontarget) || parseInt(homeStats.shotsongoal) || 0,
+      원정: parseInt(awayStats.shotsontarget) || parseInt(awayStats.shotsongoal) || 0
     },
     {
       category: '골대 벗어남',
-      홈: homeStats.shotsOffTarget || 0,
-      원정: awayStats.shotsOffTarget || 0
+      홈: parseInt(homeStats.shotsofftarget) || parseInt(homeStats.shotsoffgoal) || 0,
+      원정: parseInt(awayStats.shotsofftarget) || parseInt(awayStats.shotsoffgoal) || 0
     },
     {
       category: '차단됨',
-      홈: homeStats.shotsBlocked || 0,
-      원정: awayStats.shotsBlocked || 0
+      홈: parseInt(homeStats.shotsblocked) || parseInt(homeStats.blockedshots) || 0,
+      원정: parseInt(awayStats.shotsblocked) || parseInt(awayStats.blockedshots) || 0
     }
   ]
 
@@ -152,32 +152,32 @@ function PerformanceRadar({ homeStats, awayStats }: any) {
   const data = [
     {
       metric: '공격력',
-      홈: homeStats.shotsTotal || 0,
-      원정: awayStats.shotsTotal || 0,
+      홈: parseInt(homeStats.shotstotal) || parseInt(homeStats.totalshots) || 0,
+      원정: parseInt(awayStats.shotstotal) || parseInt(awayStats.totalshots) || 0,
       fullMark: 20
     },
     {
       metric: '정확도',
-      홈: homeStats.shotsOnTarget || 0,
-      원정: awayStats.shotsOnTarget || 0,
+      홈: parseInt(homeStats.shotsontarget) || parseInt(homeStats.shotsongoal) || 0,
+      원정: parseInt(awayStats.shotsontarget) || parseInt(awayStats.shotsongoal) || 0,
       fullMark: 10
     },
     {
       metric: '패스',
-      홈: Math.round((homeStats.passesAccurate / homeStats.passesTotal) * 100) || 0,
-      원정: Math.round((awayStats.passesAccurate / awayStats.passesTotal) * 100) || 0,
+      홈: parseInt(homeStats.passespercent) || parseInt(homeStats.passaccuracy) || 0,
+      원정: parseInt(awayStats.passespercent) || parseInt(awayStats.passaccuracy) || 0,
       fullMark: 100
     },
     {
-      metric: '수비',
-      홈: homeStats.tackles || 0,
-      원정: awayStats.tackles || 0,
-      fullMark: 30
+      metric: '코너킥',
+      홈: parseInt(homeStats.cornerkicks) || parseInt(homeStats.corners) || 0,
+      원정: parseInt(awayStats.cornerkicks) || parseInt(awayStats.corners) || 0,
+      fullMark: 15
     },
     {
       metric: '점유율',
-      홈: parseInt(homeStats.possession) || 0,
-      원정: parseInt(awayStats.possession) || 0,
+      홈: parseInt(homeStats.ballpossession) || parseInt(homeStats.possession) || 0,
+      원정: parseInt(awayStats.ballpossession) || parseInt(awayStats.possession) || 0,
       fullMark: 100
     }
   ]
@@ -213,9 +213,67 @@ export function EnhancedStatistics({ statistics, homeTeam, awayTeam }: EnhancedS
   const getStatObject = (stats: any[]) => {
     const obj: any = {}
     stats.forEach((stat: any) => {
-      const key = stat.type.toLowerCase().replace(/ /g, '')
+      // 원본 타입도 저장
+      const key = stat.type.toLowerCase().replace(/ /g, '').replace('%', 'percent')
       obj[key] = stat.value
+      
+      // 특별한 케이스 처리
+      if (stat.type === 'Ball Possession') {
+        obj.ballpossession = stat.value
+        obj.possession = parseInt(stat.value) || 0
+      }
+      if (stat.type === 'Total Shots') {
+        obj.shotstotal = stat.value
+        obj.totalshots = stat.value
+      }
+      if (stat.type === 'Shots on Goal') {
+        obj.shotsontarget = stat.value
+        obj.shotsongoal = stat.value
+      }
+      if (stat.type === 'Shots off Goal') {
+        obj.shotsofftarget = stat.value
+        obj.shotsoffgoal = stat.value
+      }
+      if (stat.type === 'Blocked Shots') {
+        obj.shotsblocked = stat.value
+        obj.blockedshots = stat.value
+      }
+      if (stat.type === 'Corner Kicks') {
+        obj.cornerkicks = stat.value
+        obj.corners = stat.value
+      }
+      if (stat.type === 'Offsides') {
+        obj.offsides = stat.value
+        obj.offside = stat.value
+      }
+      if (stat.type === 'Goalkeeper Saves') {
+        obj.goalkeepersaves = stat.value
+        obj.saves = stat.value
+      }
+      if (stat.type === 'Fouls') {
+        obj.fouls = stat.value
+      }
+      if (stat.type === 'Yellow Cards') {
+        obj.yellowcards = stat.value
+      }
+      if (stat.type === 'Red Cards') {
+        obj.redcards = stat.value
+      }
+      if (stat.type === 'Total passes') {
+        obj.totalpasses = stat.value
+        obj.passestotal = stat.value
+      }
+      if (stat.type === 'Passes accurate') {
+        obj.passesaccurate = stat.value
+        obj.passesaccuracy = stat.value
+      }
+      if (stat.type === 'Passes %') {
+        obj.passespercent = stat.value
+        obj.passaccuracy = stat.value
+      }
     })
+    
+    console.log('[EnhancedStatistics] Converted stat object:', obj)
     return obj
   }
 
@@ -271,7 +329,7 @@ export function EnhancedStatistics({ statistics, homeTeam, awayTeam }: EnhancedS
               <div>
                 <p className="text-xs text-muted-foreground">패스 정확도</p>
                 <p className="text-xl font-bold">
-                  {homeStatObj.passesaccuracy || 0} - {awayStatObj.passesaccuracy || 0}
+                  {homeStatObj.passespercent || homeStatObj.passaccuracy || 0} - {awayStatObj.passespercent || awayStatObj.passaccuracy || 0}
                 </p>
               </div>
             </div>
