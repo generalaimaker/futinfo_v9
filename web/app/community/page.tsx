@@ -130,11 +130,13 @@ export default function CommunityPage() {
   const [chatMessages, setChatMessages] = useState<any[]>([])
   const [matchdayTab, setMatchdayTab] = useState<'match' | 'board' | 'chat'>('match')
   const [isMatchdayLoading, setIsMatchdayLoading] = useState(true)
+  const [teamRankings, setTeamRankings] = useState<{ id: number; name: string; logo: string; memberCount: number; color: string }[]>([])
   
   useEffect(() => {
     loadUserProfile()
     loadCommunityData()
     loadLiveMatches()
+    loadTeamRankings()
     
     // 로그인하지 않은 상태에서 내 팀 탭이 선택되어 있으면 전체 탭으로 변경
     if (!user && mainTab === 'myteam') {
@@ -242,6 +244,36 @@ export default function CommunityPage() {
       }
     } catch (error) {
       console.error('Error loading live matches:', error)
+    }
+  }
+
+  const loadTeamRankings = async () => {
+    try {
+      // 인기 팀들의 ID 목록
+      const teamIds = popularTeams.slice(0, 10).map(team => team.id)
+      
+      // 실제 멤버 수 가져오기
+      const memberCounts = await CommunityService.getTeamMemberCounts(teamIds)
+      
+      // 멤버 수 맵 생성
+      const memberCountMap = new Map(
+        memberCounts.map(item => [item.teamId, item.memberCount])
+      )
+      
+      // 팀 데이터와 실제 멤버 수 결합
+      const rankedTeams = popularTeams
+        .slice(0, 10)
+        .map(team => ({
+          ...team,
+          memberCount: memberCountMap.get(team.id) || 0
+        }))
+        .sort((a, b) => b.memberCount - a.memberCount) // 멤버 수로 정렬
+      
+      setTeamRankings(rankedTeams)
+    } catch (error) {
+      console.error('Error loading team rankings:', error)
+      // 에러 시 기본 데이터 사용
+      setTeamRankings(popularTeams.slice(0, 10))
     }
   }
 
@@ -1185,35 +1217,49 @@ export default function CommunityPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                {popularTeams.map((team, idx) => (
-                  <Link
-                    key={team.id}
-                    href={`/community/boards/team_${team.id}`}
-                    className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                  >
-                    <div className={cn(
-                      "w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-sm",
-                      idx === 0 && "bg-yellow-500",
-                      idx === 1 && "bg-gray-400",
-                      idx === 2 && "bg-orange-600",
-                      idx > 2 && "bg-gray-600"
-                    )}>
-                      {idx + 1}
+                {teamRankings.length > 0 ? (
+                  teamRankings.map((team, idx) => (
+                    <Link
+                      key={team.id}
+                      href={`/community/boards/team_${team.id}`}
+                      className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                    >
+                      <div className={cn(
+                        "w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-sm",
+                        idx === 0 && "bg-yellow-500",
+                        idx === 1 && "bg-gray-400",
+                        idx === 2 && "bg-orange-600",
+                        idx > 2 && "bg-gray-600"
+                      )}>
+                        {idx + 1}
+                      </div>
+                      <Image
+                        src={team.logo}
+                        alt={team.name}
+                        width={24}
+                        height={24}
+                        className="object-contain"
+                      />
+                      <span className="font-medium flex-1">{team.name}</span>
+                      <div className="text-right">
+                        <div className="text-sm font-semibold">
+                          {team.memberCount > 0 ? team.memberCount.toLocaleString() : '-'}
+                        </div>
+                        <div className="text-xs text-gray-500">members</div>
+                      </div>
+                    </Link>
+                  ))
+                ) : (
+                  // 로딩 스켈레톤
+                  Array.from({ length: 5 }).map((_, idx) => (
+                    <div key={idx} className="flex items-center gap-3 p-2">
+                      <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-700 animate-pulse" />
+                      <div className="w-6 h-6 rounded bg-gray-200 dark:bg-gray-700 animate-pulse" />
+                      <div className="flex-1 h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+                      <div className="w-12 h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
                     </div>
-                    <Image
-                      src={team.logo}
-                      alt={team.name}
-                      width={24}
-                      height={24}
-                      className="object-contain"
-                    />
-                    <span className="font-medium flex-1">{team.name}</span>
-                    <div className="text-right">
-                      <div className="text-sm font-semibold">{team.memberCount.toLocaleString()}</div>
-                      <div className="text-xs text-gray-500">members</div>
-                    </div>
-                  </Link>
-                ))}
+                  ))
+                )}
               </CardContent>
             </Card>
 

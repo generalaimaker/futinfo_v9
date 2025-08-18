@@ -491,6 +491,42 @@ export class CommunityService {
     return this.transformProfile(data)
   }
 
+  // Get team member counts for ranking
+  static async getTeamMemberCounts(teamIds: number[]): Promise<{ teamId: number; memberCount: number }[]> {
+    const supabase = this.getClient()
+    
+    try {
+      // profiles 테이블에서 favorite_team_id별로 카운트
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('favorite_team_id')
+        .in('favorite_team_id', teamIds)
+        .not('favorite_team_id', 'is', null)
+      
+      if (error) throw error
+      
+      // 팀별 멤버 수 집계
+      const memberCounts = new Map<number, number>()
+      teamIds.forEach(id => memberCounts.set(id, 0))
+      
+      data?.forEach(profile => {
+        const teamId = profile.favorite_team_id
+        if (teamId) {
+          memberCounts.set(teamId, (memberCounts.get(teamId) || 0) + 1)
+        }
+      })
+      
+      // 결과 반환
+      return Array.from(memberCounts.entries()).map(([teamId, memberCount]) => ({
+        teamId,
+        memberCount
+      }))
+    } catch (error) {
+      console.error('Error getting team member counts:', error)
+      return teamIds.map(teamId => ({ teamId, memberCount: 0 }))
+    }
+  }
+
   // Realtime subscriptions
   static subscribeToBoard(boardId: string, callback: (payload: any) => void) {
     const supabase = this.getClient()
