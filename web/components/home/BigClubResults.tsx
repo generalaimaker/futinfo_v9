@@ -72,120 +72,108 @@ const ALL_BIG_CLUB_IDS = Object.values(BIG_CLUBS).flatMap(league =>
   league.teams.map(team => team.id)
 )
 
-// 경기 결과 카드 컴포넌트
+// 경기 결과 카드 컴포넌트 - 더 컴팩트한 디자인
 function MatchResultCard({ match, isBigMatch }: { match: any; isBigMatch: boolean }) {
   const isFinished = ['FT', 'AET', 'PEN'].includes(match.fixture.status.short)
   const isLive = ['1H', '2H', 'HT', 'ET', 'P', 'LIVE'].includes(match.fixture.status.short)
-  const isUpcoming = ['TBD', 'NS'].includes(match.fixture.status.short)
   
   const homeWin = match.teams.home.winner
   const awayWin = match.teams.away.winner
-  const isDraw = isFinished && !homeWin && !awayWin
   
   return (
     <Link
       href={`/fixtures/${match.fixture.id}`}
       className={cn(
-        "block p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-all",
-        isLive && "bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900",
-        isBigMatch && "ring-1 ring-yellow-400/50"
+        "block p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-all",
+        isLive && "bg-red-50 dark:bg-red-950/20 border-l-2 border-red-500",
+        isBigMatch && "bg-yellow-50 dark:bg-yellow-950/10"
       )}
     >
-      <div className="space-y-2">
-        {/* 리그 & 시간 */}
-        <div className="flex items-center justify-between text-xs">
-          <div className="flex items-center gap-2">
-            {match.league.logo && (
-              <Image
-                src={match.league.logo}
-                alt={match.league.name}
-                width={16}
-                height={16}
-                className="object-contain"
-              />
-            )}
-            <span className="text-gray-500">{match.league.name}</span>
-          </div>
-          <div className="flex items-center gap-2">
-            {isLive && (
-              <Badge variant="destructive" className="text-xs animate-pulse">
-                LIVE {match.fixture.status.elapsed}'
-              </Badge>
-            )}
-            {!isLive && (
-              <span className="text-gray-500">
-                {format(new Date(match.fixture.date), 'MM.dd HH:mm')}
+      <div className="flex items-center gap-3">
+        {/* 날짜/시간 */}
+        <div className="min-w-[50px] text-xs text-gray-500">
+          {isLive ? (
+            <Badge variant="destructive" className="text-[10px] px-1 py-0">
+              LIVE
+            </Badge>
+          ) : (
+            <div>
+              <div>{format(new Date(match.fixture.date), 'MM.dd')}</div>
+              <div className="text-[10px]">{format(new Date(match.fixture.date), 'HH:mm')}</div>
+            </div>
+          )}
+        </div>
+        
+        {/* 홈팀 */}
+        <div className="flex items-center gap-2 flex-1 justify-end">
+          <span className={cn(
+            "text-sm truncate",
+            homeWin && "font-semibold text-green-600 dark:text-green-400"
+          )}>
+            {match.teams.home.name}
+          </span>
+          <Image
+            src={match.teams.home.logo}
+            alt={match.teams.home.name}
+            width={20}
+            height={20}
+            className="object-contain"
+          />
+        </div>
+        
+        {/* 스코어 */}
+        <div className="min-w-[50px] text-center">
+          {isFinished || isLive ? (
+            <div className="flex items-center gap-1 justify-center">
+              <span className={cn(
+                "font-bold",
+                homeWin && "text-green-600"
+              )}>
+                {match.goals.home ?? 0}
               </span>
-            )}
-          </div>
+              <span className="text-xs text-gray-400">:</span>
+              <span className={cn(
+                "font-bold",
+                awayWin && "text-green-600"
+              )}>
+                {match.goals.away ?? 0}
+              </span>
+            </div>
+          ) : (
+            <span className="text-xs text-gray-400">VS</span>
+          )}
         </div>
         
-        {/* 팀 & 스코어 */}
-        <div className="flex items-center justify-between gap-3">
-          {/* 홈팀 */}
-          <div className="flex items-center gap-2 flex-1">
-            <Image
-              src={match.teams.home.logo}
-              alt={match.teams.home.name}
-              width={24}
-              height={24}
-              className="object-contain"
-            />
-            <span className={cn(
-              "text-sm font-medium truncate",
-              homeWin && "text-green-600 dark:text-green-400 font-semibold"
-            )}>
-              {match.teams.home.name}
-            </span>
-          </div>
-          
-          {/* 스코어 */}
-          <div className="text-center min-w-[60px]">
-            {isFinished || isLive ? (
-              <div className="flex items-center gap-2">
-                <span className={cn(
-                  "text-lg font-bold",
-                  homeWin && "text-green-600"
-                )}>
-                  {match.goals.home ?? 0}
-                </span>
-                <span className="text-gray-400">-</span>
-                <span className={cn(
-                  "text-lg font-bold",
-                  awayWin && "text-green-600"
-                )}>
-                  {match.goals.away ?? 0}
-                </span>
-              </div>
-            ) : (
-              <span className="text-sm text-gray-500">vs</span>
-            )}
-          </div>
-          
-          {/* 원정팀 */}
-          <div className="flex items-center gap-2 flex-1 justify-end">
-            <span className={cn(
-              "text-sm font-medium truncate",
-              awayWin && "text-green-600 dark:text-green-400 font-semibold"
-            )}>
-              {match.teams.away.name}
-            </span>
-            <Image
-              src={match.teams.away.logo}
-              alt={match.teams.away.name}
-              width={24}
-              height={24}
-              className="object-contain"
-            />
-          </div>
+        {/* 원정팀 */}
+        <div className="flex items-center gap-2 flex-1">
+          <Image
+            src={match.teams.away.logo}
+            alt={match.teams.away.name}
+            width={20}
+            height={20}
+            className="object-contain"
+          />
+          <span className={cn(
+            "text-sm truncate",
+            awayWin && "font-semibold text-green-600 dark:text-green-400"
+          )}>
+            {match.teams.away.name}
+          </span>
         </div>
         
-        {/* 추가 정보 (페널티, 연장 등) */}
-        {match.score.penalty.home !== null && (
-          <div className="text-center text-xs text-gray-500">
-            (PK {match.score.penalty.home} - {match.score.penalty.away})
-          </div>
-        )}
+        {/* 리그 표시 */}
+        <div className="min-w-[20px]">
+          {match.league.logo && (
+            <Image
+              src={match.league.logo}
+              alt={match.league.name}
+              width={16}
+              height={16}
+              className="object-contain opacity-50"
+              title={match.league.name}
+            />
+          )}
+        </div>
       </div>
     </Link>
   )
@@ -243,9 +231,9 @@ export function BigClubResults() {
     fetchBigClubMatches()
   }, [])
   
-  // 탭별 필터링
+  // 탭별 필터링 - 최대 10개만 표시
   const filteredMatches = useMemo(() => {
-    if (activeTab === 'all') return matches.slice(0, 20)
+    if (activeTab === 'all') return matches.slice(0, 10)
     
     const leagueTeams = BIG_CLUBS[activeTab as keyof typeof BIG_CLUBS]?.teams.map(t => t.id) || []
     return matches.filter(match => {
@@ -277,7 +265,7 @@ export function BigClubResults() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Trophy className="w-5 h-5" />
-            빅클럽 경기 결과
+            주요 경기 결과
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -301,7 +289,7 @@ export function BigClubResults() {
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center gap-2">
             <Trophy className="w-5 h-5" />
-            빅클럽 경기 결과
+            주요 경기 결과
           </CardTitle>
           <Link href="/fixtures">
             <Button variant="ghost" size="sm">
@@ -323,7 +311,7 @@ export function BigClubResults() {
           </TabsList>
           
           <TabsContent value={activeTab} className="mt-0">
-            <div className="space-y-2 max-h-[600px] overflow-y-auto">
+            <div className="space-y-1">
               {filteredMatches.length > 0 ? (
                 filteredMatches.map(match => (
                   <MatchResultCard
