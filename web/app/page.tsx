@@ -14,7 +14,8 @@ import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { 
   useLiveMatches, 
-  useTodayFixtures, 
+  useTodayFixtures,
+  useUpcomingBigMatches, 
   usePopularPosts, 
   useHomeStats 
 } from '@/lib/hooks/useFootballData'
@@ -579,12 +580,15 @@ export default function HomePage() {
   const { preferences, isAuthenticated } = useUserPreferences()
   const { matches: liveMatches, isLoading: liveLoading } = useLiveMatches()
   const { fixtures: todayFixtures, isLoading: fixturesLoading } = useTodayFixtures()
+  const { matches: upcomingBigMatches, isLoading: bigMatchesLoading } = useUpcomingBigMatches()
   const { fixtures: personalizedFixtures } = usePersonalizedFixtures()
   const { posts: popularPosts } = usePopularPosts()
   const { data: popularNewsData } = usePopularNews(10)
   
-  // 프리미어리그 순위 데이터 가져오기 (25-26 시즌)
+  // 여러 리그 순위 데이터 가져오기 (25-26 시즌)
   const { data: premierStandings } = useStandings({ league: 39, season: 2025 })
+  const { data: laLigaStandings } = useStandings({ league: 140, season: 2025 })
+  const { data: serieAStandings } = useStandings({ league: 135, season: 2025 })
   
   // 빅팀 판별 함수 (프리미어리그 빅6, 라리가 빅3 등)
   const isBigTeamMatch = (match: any) => {
@@ -627,7 +631,7 @@ export default function HomePage() {
         ...calculateMatchPriority(match, isAuthenticated ? preferences : null)
       }))
       .sort((a, b) => b.priority - a.priority)
-      .slice(0, 3) // 상위 3개까지
+      .slice(0, 2) // 상위 2개까지로 줄임
     
     // 빅매치가 없으면 모든 라이브 경기 중 우선순위 높은 것 표시
     if (liveBigMatches.length === 0 && liveMatches.length > 0) {
@@ -687,29 +691,48 @@ export default function HomePage() {
       }
     }
     
-    // 3. 오늘의 빅매치 경기 (프리미어리그 빅6, 라리가 빅3 등 우선)
-    const todayBigTeamMatches = todayFixtures
-      .filter(match => isBigTeamMatch(match)) // 빅팀 경기만 필터링
-      .map(f => ({
-        fixture: f,
-        ...calculateMatchPriority(f, isAuthenticated ? preferences : null)
-      }))
-      .sort((a, b) => b.priority - a.priority) // 우선순위 순 정렬
-    
-    // 빅팀 경기를 슬라이드에 추가
-    todayBigTeamMatches.slice(0, 3).forEach((match, index) => {
-      if (slides.length < 5) {
-        slides.push({
-          id: `bigmatch-${match.fixture.fixture.id}`,
-          type: 'match',
-          priority: 800 + (todayBigTeamMatches.length - index) * 10, // 더 높은 우선순위일수록 앞에
-          data: match.fixture
+    // 3. 예정된 빅매치 (7일간의 빅매치)
+    if (upcomingBigMatches && upcomingBigMatches.length > 0) {
+      // 라이벌전 찾기
+      const rivalryMatches = upcomingBigMatches.filter(match => {
+        const homeId = match.teams.home.id
+        const awayId = match.teams.away.id
+        return ALL_RIVALRIES.some(([t1, t2]) => 
+          (homeId === t1 && awayId === t2) || (homeId === t2 && awayId === t1)
+        )
+      })
+      
+      // 라이벌전이 있으면 최우선
+      if (rivalryMatches.length > 0) {
+        rivalryMatches.slice(0, 2).forEach((match, index) => {
+          slides.push({
+            id: `rivalry-${match.fixture.id}`,
+            type: 'match',
+            priority: 950 - index * 10,
+            data: match
+          })
         })
       }
-    })
+      
+      // 일반 빅매치 추가
+      const regularBigMatches = upcomingBigMatches
+        .filter(match => !rivalryMatches.includes(match))
+        .slice(0, 3)
+      
+      regularBigMatches.forEach((match, index) => {
+        if (slides.length < 5) {
+          slides.push({
+            id: `bigmatch-${match.fixture.id}`,
+            type: 'match',
+            priority: 850 - index * 10,
+            data: match
+          })
+        }
+      })
+    }
     
-    // 빅팀 경기가 없으면 일반 경기 중 우선순위 높은 것 표시
-    if (todayBigTeamMatches.length === 0 && todayFixtures.length > 0) {
+    // 빅매치가 적으면 오늘의 일반 경기 중 우선순위 높은 것 표시
+    if (slides.length < 3 && todayFixtures.length > 0) {
       const topMatches = todayFixtures
         .map(f => ({
           fixture: f,
@@ -752,18 +775,55 @@ export default function HomePage() {
       })
     }
     
-    // 5. 리그 순위 통계 (실제 데이터 사용)
-    if (slides.length < 5 && premierStandings?.response?.[0]?.league?.standings?.[0]) {
+    // 5. 리그 순위 통계 (여러 리그 순위)
+    const standingsSlides = []
+    
+    // 프리미어리그 순위
+    if (premierStandings?.response?.[0]?.league?.standings?.[0]) {
       const topTeams = premierStandings.response[0].league.standings[0].slice(0, 5)
-      slides.push({
+      standingsSlides.push({
         id: 'stats-premier',
         type: 'stats',
-        priority: 600,
+        priority: 650,
         data: {
-          league: { id: 39, name: '프리미어 리그' },
+          league: { id: 39, name: '프리미어 리그', logo: 'https://media.api-sports.io/football/leagues/39.png' },
           standings: topTeams
         }
       })
+    }
+    
+    // 라리가 순위
+    if (laLigaStandings?.response?.[0]?.league?.standings?.[0]) {
+      const topTeams = laLigaStandings.response[0].league.standings[0].slice(0, 5)
+      standingsSlides.push({
+        id: 'stats-laliga',
+        type: 'stats',
+        priority: 640,
+        data: {
+          league: { id: 140, name: '라 리가', logo: 'https://media.api-sports.io/football/leagues/140.png' },
+          standings: topTeams
+        }
+      })
+    }
+    
+    // 세리에A 순위
+    if (serieAStandings?.response?.[0]?.league?.standings?.[0]) {
+      const topTeams = serieAStandings.response[0].league.standings[0].slice(0, 5)
+      standingsSlides.push({
+        id: 'stats-seriea',
+        type: 'stats',
+        priority: 630,
+        data: {
+          league: { id: 135, name: '세리에 A', logo: 'https://media.api-sports.io/football/leagues/135.png' },
+          standings: topTeams
+        }
+      })
+    }
+    
+    // 순위 슬라이드 중 하나를 랜덤하게 선택하거나 순차적으로 추가
+    if (standingsSlides.length > 0 && slides.length < 5) {
+      // 가장 높은 우선순위의 순위 슬라이드 추가
+      slides.push(standingsSlides[0])
     }
     
     // 6. 프로모션/앱 홍보
@@ -785,14 +845,15 @@ export default function HomePage() {
       })
     }
     
-    // 최대 5개로 제한하고 우선순위로 정렬 (빅매치 우선)
+    // 최대 6개로 제한하고 우선순위로 정렬
+    // 우선순위: 라이브 빅매치(1000+) > 라이벌전(950) > 예정 빅매치(850) > 순위(650) > 뉴스(700) > 프로모션(500)
     return slides
       .sort((a, b) => {
         // 실시간 경기가 가장 우선
         if (a.priority >= 1000 && b.priority < 1000) return -1
         if (b.priority >= 1000 && a.priority < 1000) return 1
         
-        // 개인화 콘텐츠가 다음 우선
+        // 라이벌전/개인화 콘텐츠가 다음 우선
         if (a.priority >= 900 && a.priority < 1000 && b.priority < 900) return -1
         if (b.priority >= 900 && b.priority < 1000 && a.priority < 900) return 1
         
@@ -803,8 +864,9 @@ export default function HomePage() {
         // 동일 범위 내에서는 높은 우선순위 순
         return b.priority - a.priority
       })
-      .slice(0, 5)
-  }, [liveMatches, todayFixtures, personalizedFixtures, preferences, isAuthenticated, popularNewsData, premierStandings, isBigTeamMatch])
+      .slice(0, 6)
+  }, [liveMatches, todayFixtures, upcomingBigMatches, personalizedFixtures, preferences, isAuthenticated, 
+      popularNewsData, premierStandings, laLigaStandings, serieAStandings])
   
   // 하위 경기 목록을 위한 데이터 (빅팀 경기 우선)
   const allMatches = [...liveMatches, ...todayFixtures]
@@ -842,10 +904,10 @@ export default function HomePage() {
     <div className="min-h-screen lg:ml-64">
       <div className="max-w-7xl mx-auto px-4 py-6 space-y-6">
         
-        {/* Enhanced Hero Carousel - 다양한 콘텐츠 5개 */}
+        {/* Enhanced Hero Carousel - 다양한 콘텐츠 6개 */}
         <EnhancedHeroCarousel 
           slides={heroSlides} 
-          isLoading={liveLoading || fixturesLoading}
+          isLoading={liveLoading || fixturesLoading || bigMatchesLoading}
           autoPlayInterval={5000}
           onSlideChange={(index) => console.log('현재 슬라이드:', index)}
         />
