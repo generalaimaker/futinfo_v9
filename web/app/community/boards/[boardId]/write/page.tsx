@@ -227,7 +227,7 @@ export default function WritePage() {
   }
 
   return (
-    <div className="min-h-screen bg-black">
+    <div className="min-h-screen lg:ml-64 bg-black">
       {/* 인스타그램 스타일 헤더 */}
       <header className="bg-black border-b border-gray-800 sticky top-0 z-50">
         <div className="max-w-2xl mx-auto px-4 py-3">
