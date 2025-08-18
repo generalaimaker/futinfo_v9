@@ -41,7 +41,7 @@ function IOSHeader({ fixture, onBack, onShare, onFavorite }: any) {
   return (
     <motion.header 
       className={cn(
-        "fixed top-0 left-0 right-0 z-50 transition-all duration-300",
+        "fixed top-0 left-0 lg:left-64 right-0 z-50 transition-all duration-300",
         "bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl",
         scrolled && "shadow-sm border-b border-gray-200/50 dark:border-gray-800/50"
       )}
@@ -404,7 +404,7 @@ export function IOSMatchDetail({
   }
   
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
+    <div className="min-h-screen lg:ml-64 bg-gray-50 dark:bg-gray-950">
       {/* iOS 스타일 헤더 */}
       <IOSHeader 
         fixture={fixture}
