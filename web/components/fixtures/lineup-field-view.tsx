@@ -244,8 +244,7 @@ function PlayerOnField({
       className="absolute transform -translate-x-1/2 -translate-y-1/2 transition-all hover:scale-110 hover:z-50"
       style={{ 
         left: `${position.x}%`, 
-        top: `${position.y}%`,
-        opacity: isSubstituted ? 0.6 : 1
+        top: `${position.y}%`
       }}
     >
       <div className="relative group">
@@ -294,24 +293,20 @@ function PlayerOnField({
           {subOut && <span className="text-xs">↔️</span>}
         </div>
         
-        {/* 선수 이름 (호버 시 표시) */}
-        {showDetails && (
-          <>
-            <div className="absolute -bottom-5 left-1/2 transform -translate-x-1/2 whitespace-nowrap">
-              <p className="text-xs font-medium text-white bg-black/70 px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity">
-                {number} {playerName}
-              </p>
-            </div>
-            
-            {/* 교체 시간 */}
-            {subOut && (
-              <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2">
-                <p className="text-xs text-orange-400 font-bold bg-black/70 px-1 rounded">
-                  {subOut.time.elapsed}'
-                </p>
-              </div>
-            )}
-          </>
+        {/* 선수 이름 (항상 표시) */}
+        <div className="absolute -bottom-5 left-1/2 transform -translate-x-1/2 whitespace-nowrap">
+          <p className="text-xs font-medium text-white bg-black/70 px-1.5 py-0.5 rounded">
+            {playerName}
+          </p>
+        </div>
+        
+        {/* 교체 시간 */}
+        {subOut && (
+          <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2">
+            <p className="text-xs text-orange-400 font-bold bg-black/70 px-1 rounded">
+              {subOut.time.elapsed}'
+            </p>
+          </div>
         )}
       </div>
     </div>
