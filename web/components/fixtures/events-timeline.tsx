@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils'
 import { 
   Activity, Clock, Target, Square, ArrowUpDown, 
   UserMinus, AlertTriangle, Flag, Timer, Circle,
-  ArrowRight, ArrowLeft
+  ArrowRight, ArrowLeft, ArrowUp, ArrowDown
 } from 'lucide-react'
 
 interface EventsTimelineProps {
@@ -60,10 +60,15 @@ function ModernTimelineEvent({ event, isHome, homeTeam, awayTeam }: any) {
         {isHome && (
           <div className="text-right">
             {isSubstitution ? (
-              <div className="flex items-center justify-end gap-2">
-                <span className="text-sm text-green-600 font-medium">{playerIn}</span>
-                <ArrowRight className="w-4 h-4 text-gray-400" />
-                <span className="text-sm text-red-600 font-medium">{playerOut}</span>
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 justify-end">
+                  <ArrowDown className="w-4 h-4 text-green-600" />
+                  <span className="text-sm text-green-600 font-medium">{playerIn}</span>
+                </div>
+                <div className="flex items-center gap-2 justify-end">
+                  <ArrowUp className="w-4 h-4 text-red-600" />
+                  <span className="text-sm text-red-600 font-medium">{playerOut}</span>
+                </div>
               </div>
             ) : (
               <div>
@@ -101,10 +106,15 @@ function ModernTimelineEvent({ event, isHome, homeTeam, awayTeam }: any) {
         {!isHome && (
           <div className="text-left">
             {isSubstitution ? (
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-red-600 font-medium">{playerOut}</span>
-                <ArrowLeft className="w-4 h-4 text-gray-400" />
-                <span className="text-sm text-green-600 font-medium">{playerIn}</span>
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-green-600 font-medium">{playerIn}</span>
+                  <ArrowDown className="w-4 h-4 text-green-600" />
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-red-600 font-medium">{playerOut}</span>
+                  <ArrowUp className="w-4 h-4 text-red-600" />
+                </div>
               </div>
             ) : (
               <div>
