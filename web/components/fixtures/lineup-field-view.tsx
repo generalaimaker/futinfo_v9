@@ -417,7 +417,59 @@ function SoccerField({ homeTeam, awayTeam, events }: any) {
   const homeGroups = assignPositionsByFormation(homeTeam.startXI, homeTeam.formation)
   const awayGroups = assignPositionsByFormation(awayTeam.startXI, awayTeam.formation)
   
-  // 포지션이 없는 경우를 대비한 안전한 렌더링 함수
+  // 절반 필드에 선수 렌더링하는 함수
+  const renderPlayersInHalf = (groups: any, positions: any, isHome: boolean, substitutedIds: string[], half: 'top' | 'bottom') => {
+    const renderGroup = (groupName: string) => {
+      const players = groups[groupName] || []
+      const groupPositions = positions[groupName] || []
+      
+      return players.map((player: any, idx: number) => {
+        let position = groupPositions[idx] || {
+          x: 50 + (idx - Math.floor(players.length / 2)) * 20,
+          y: groupName === 'GK' ? 5 : 
+             groupName === 'DEF' ? 20 : 
+             groupName === 'MID' ? 40 : 60
+        }
+        
+        // 절반 필드에 맞게 y 좌표 조정
+        if (half === 'top') {
+          // 홈팀: 상단 절반 (0-50%)
+          position = {
+            x: position.x,
+            y: position.y * 0.5  // 0-50% 범위로 압축
+          }
+        } else {
+          // 원정팀: 하단 절반 (50-100%)
+          position = {
+            x: position.x,
+            y: 50 + (100 - position.y) * 0.5  // 50-100% 범위로 배치, 방향 반전
+          }
+        }
+        
+        return (
+          <PlayerOnField
+            key={`${isHome ? 'home' : 'away'}-${groupName.toLowerCase()}-${idx}`}
+            player={player}
+            position={position}
+            isHome={isHome}
+            events={events}
+            isSubstituted={substitutedIds.includes(player.player?.id)}
+          />
+        )
+      })
+    }
+    
+    return (
+      <>
+        {renderGroup('GK')}
+        {renderGroup('DEF')}
+        {renderGroup('MID')}
+        {renderGroup('ATT')}
+      </>
+    )
+  }
+  
+  // 포지션이 없는 경우를 대비한 안전한 렌더링 함수 (기존 함수 유지)
   const renderPlayers = (groups: any, positions: any, isHome: boolean, substitutedIds: string[], flipY: boolean = false) => {
     const renderGroup = (groupName: string) => {
       const players = groups[groupName] || []
@@ -535,53 +587,56 @@ function SoccerField({ homeTeam, awayTeam, events }: any) {
           <rect x="5" y="2" width="90" height="96" fill="none" stroke="white" strokeWidth="0.3" opacity="0.5" />
           
           {/* 센터 라인 */}
-          <line x1="5" y1="50" x2="95" y2="50" stroke="white" strokeWidth="0.3" opacity="0.5" />
+          <line x1="5" y1="50" x2="95" y2="50" stroke="white" strokeWidth="0.5" opacity="0.8" />
           
           {/* 센터 서클 */}
           <circle cx="50" cy="50" r="9" fill="none" stroke="white" strokeWidth="0.3" opacity="0.5" />
           <circle cx="50" cy="50" r="0.5" fill="white" opacity="0.5" />
           
-          {/* 상단 페널티 박스 */}
+          {/* 상단 페널티 박스 (홈팀) */}
           <rect x="30" y="2" width="40" height="16" fill="none" stroke="white" strokeWidth="0.3" opacity="0.5" />
           <rect x="40" y="2" width="20" height="8" fill="none" stroke="white" strokeWidth="0.3" opacity="0.5" />
           
-          {/* 하단 페널티 박스 */}
+          {/* 하단 페널티 박스 (원정팀) */}
           <rect x="30" y="82" width="40" height="16" fill="none" stroke="white" strokeWidth="0.3" opacity="0.5" />
           <rect x="40" y="90" width="20" height="8" fill="none" stroke="white" strokeWidth="0.3" opacity="0.5" />
         </svg>
         
-        {/* 홈팀 선수 배치 */}
-        {(selectedView === 'both' || selectedView === 'home') && 
-          renderPlayers(homeGroups, homePositions, true, homeSubstitutedIds, false)
-        }
+        {/* 팀 영역 구분 - 상단 절반 홈팀 */}
+        <div className="absolute top-0 left-0 right-0 h-1/2">
+          {(selectedView === 'both' || selectedView === 'home') && 
+            renderPlayersInHalf(homeGroups, homePositions, true, homeSubstitutedIds, 'top')
+          }
+        </div>
         
-        {/* 원정팀 선수 배치 */}
-        {(selectedView === 'both' || selectedView === 'away') && 
-          renderPlayers(awayGroups, awayPositions, false, awaySubstitutedIds, true)
-        }
+        {/* 팀 영역 구분 - 하단 절반 원정팀 */}
+        <div className="absolute bottom-0 left-0 right-0 h-1/2">
+          {(selectedView === 'both' || selectedView === 'away') && 
+            renderPlayersInHalf(awayGroups, awayPositions, false, awaySubstitutedIds, 'bottom')
+          }
+        </div>
         
         {/* 팀 정보 표시 */}
-        <div className="absolute top-2 left-2 right-2 flex justify-between">
+        <div className="absolute top-2 left-2 right-2 flex flex-col gap-1">
+          {/* 홈팀 정보 - 상단 */}
           <div className="flex items-center gap-2">
             <Badge className="bg-blue-600 text-white">
               홈 {homeTeam.formation}
             </Badge>
-            {selectedView === 'both' && (
-              <span className="text-xs text-white bg-black/50 px-2 py-1 rounded">
-                {homeTeam.team.name}
-              </span>
-            )}
+            <span className="text-xs text-white bg-black/50 px-2 py-1 rounded">
+              {homeTeam.team.name}
+            </span>
           </div>
-          <div className="flex items-center gap-2">
-            {selectedView === 'both' && (
-              <span className="text-xs text-white bg-black/50 px-2 py-1 rounded">
-                {awayTeam.team.name}
-              </span>
-            )}
-            <Badge className="bg-red-600 text-white">
-              원정 {awayTeam.formation}
-            </Badge>
-          </div>
+        </div>
+        
+        {/* 원정팀 정보 - 하단 */}
+        <div className="absolute bottom-2 left-2 right-2 flex items-center gap-2">
+          <Badge className="bg-red-600 text-white">
+            원정 {awayTeam.formation}
+          </Badge>
+          <span className="text-xs text-white bg-black/50 px-2 py-1 rounded">
+            {awayTeam.team.name}
+          </span>
         </div>
       </div>
       
