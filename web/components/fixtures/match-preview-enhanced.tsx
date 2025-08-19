@@ -14,7 +14,7 @@ import { FootballAPIService } from '@/lib/supabase/football'
 import { 
   Trophy, Calendar, MapPin, Users, Clock, TrendingUp, 
   AlertTriangle, Shield, Target, Activity, Info,
-  ChevronRight, Star, Zap, ArrowUp, ArrowDown
+  ChevronRight, Star, Zap, ArrowUp, ArrowDown, BarChart3
 } from 'lucide-react'
 
 interface MatchPreviewEnhancedProps {
@@ -681,10 +681,11 @@ export function MatchPreviewEnhanced({ fixture }: MatchPreviewEnhancedProps) {
       
       {/* 탭 네비게이션 */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="overview">개요</TabsTrigger>
-          <TabsTrigger value="stats">통계</TabsTrigger>
-          <TabsTrigger value="lineup">최근라인업</TabsTrigger>
+          <TabsTrigger value="lineup">라인업</TabsTrigger>
+          <TabsTrigger value="standings">순위</TabsTrigger>
+          <TabsTrigger value="h2h">상대전적</TabsTrigger>
           <TabsTrigger value="info">정보</TabsTrigger>
         </TabsList>
         
@@ -734,37 +735,34 @@ export function MatchPreviewEnhanced({ fixture }: MatchPreviewEnhancedProps) {
           </Card>
         </TabsContent>
         
-        {/* 통계 탭 */}
-        <TabsContent value="stats" className="space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">홈팀 통계</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <TeamStatsCard 
-                  teamId={fixture.teams.home.id}
-                  teamName={fixture.teams.home.name}
-                  season={fixture.league.season}
-                  leagueId={fixture.league.id}
-                />
-              </CardContent>
-            </Card>
-            
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">원정팀 통계</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <TeamStatsCard 
-                  teamId={fixture.teams.away.id}
-                  teamName={fixture.teams.away.name}
-                  season={fixture.league.season}
-                  leagueId={fixture.league.id}
-                />
-              </CardContent>
-            </Card>
-          </div>
+        {/* 순위 탭 */}
+        <TabsContent value="standings" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <BarChart3 className="w-5 h-5" />
+                리그 순위
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <LeagueStandings 
+                leagueId={fixture.league.id}
+                season={fixture.league.season}
+                homeTeamId={fixture.teams.home.id}
+                awayTeamId={fixture.teams.away.id}
+                homeTeamName={fixture.teams.home.name}
+                awayTeamName={fixture.teams.away.name}
+              />
+            </CardContent>
+          </Card>
+        </TabsContent>
+        
+        {/* 상대전적 탭 */}
+        <TabsContent value="h2h" className="space-y-6">
+          <H2HEnhanced 
+            homeTeam={fixture.teams.home}
+            awayTeam={fixture.teams.away}
+          />
         </TabsContent>
         
         {/* 최근 라인업 탭 */}
@@ -823,5 +821,7 @@ export function MatchPreviewEnhanced({ fixture }: MatchPreviewEnhancedProps) {
   )
 }
 
-// MatchDetailsInfo import 필요
+// 컴포넌트 imports
 import { MatchDetailsInfo } from './match-details-info'
+import { LeagueStandings } from './league-standings'
+import { H2HEnhanced } from './h2h-enhanced'

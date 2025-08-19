@@ -697,6 +697,53 @@ class FootballAPIService {
     }
   }
   
+  // 리그 순위 가져오기
+  async getLeagueStandings(leagueId: number, season?: number): Promise<any> {
+    try {
+      const currentSeason = season || new Date().getFullYear()
+      console.log('[FootballAPI] Fetching standings for league:', leagueId, 'season:', currentSeason)
+      
+      const data = await this.callUnifiedAPI<any>('standings', {
+        league: leagueId,
+        season: currentSeason
+      })
+      
+      console.log('[FootballAPI] Standings response:', data)
+      
+      if (data?.response && Array.isArray(data.response) && data.response.length > 0) {
+        return data.response[0].league.standings
+      }
+      
+      return []
+    } catch (error) {
+      console.error('[FootballAPI] Error fetching standings:', error)
+      return []
+    }
+  }
+
+  // 상대전적 가져오기
+  async getH2HFixtures(team1Id: number, team2Id: number, limit: number = 10): Promise<any> {
+    try {
+      console.log('[FootballAPI] Fetching H2H between teams:', team1Id, team2Id)
+      
+      const data = await this.callUnifiedAPI<any>('fixtures/headtohead', {
+        h2h: `${team1Id}-${team2Id}`,
+        last: limit
+      })
+      
+      console.log('[FootballAPI] H2H response:', data)
+      
+      if (data?.response && Array.isArray(data.response)) {
+        return data.response
+      }
+      
+      return []
+    } catch (error) {
+      console.error('[FootballAPI] Error fetching H2H:', error)
+      return []
+    }
+  }
+
   // 팀 부상 선수 정보 가져오기
   async getTeamInjuries(teamId: number): Promise<any> {
     try {
