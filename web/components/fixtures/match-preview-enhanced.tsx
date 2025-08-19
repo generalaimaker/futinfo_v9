@@ -468,50 +468,127 @@ function InjuriesCard({ teamId, teamName }: any) {
       try {
         const footballAPI = new FootballAPIService()
         const data = await footballAPI.getTeamInjuries(teamId)
-        if (Array.isArray(data)) {
-          setInjuries(data)
+        console.log('[InjuriesCard] Injuries data for', teamName, ':', data)
+        
+        if (Array.isArray(data) && data.length > 0) {
+          // response 형식에 따라 처리
+          const processedInjuries = data.map((item: any) => {
+            // API 응답 구조에 따라 조정
+            if (item.player) {
+              return {
+                name: item.player.name,
+                photo: item.player.photo,
+                type: item.player.type || '부상',
+                reason: item.player.reason || '부상',
+                position: item.player.position
+              }
+            }
+            return item
+          })
+          setInjuries(processedInjuries)
         }
       } catch (error) {
-        console.error('Error fetching injuries:', error)
+        console.error('[InjuriesCard] Error fetching injuries:', error)
       } finally {
         setLoading(false)
       }
     }
     
     fetchInjuries()
-  }, [teamId])
+  }, [teamId, teamName])
   
   if (loading) {
     return (
-      <div className="animate-pulse space-y-2">
-        <div className="h-4 bg-gray-200 rounded w-1/3" />
-        <div className="h-16 bg-gray-100 rounded" />
+      <div className="space-y-3">
+        <div className="flex items-center gap-2">
+          <Image
+            src={`https://media.api-sports.io/football/teams/${teamId}.png`}
+            alt={teamName}
+            width={24}
+            height={24}
+            className="object-contain"
+            onError={(e) => {
+              (e.target as HTMLImageElement).style.display = 'none'
+            }}
+          />
+          <h4 className="font-medium">{teamName}</h4>
+        </div>
+        <div className="animate-pulse space-y-2">
+          <div className="h-12 bg-gray-100 rounded" />
+          <div className="h-12 bg-gray-100 rounded" />
+        </div>
       </div>
     )
   }
   
   return (
     <div className="space-y-3">
-      <h4 className="font-medium text-sm flex items-center gap-2">
-        <AlertTriangle className="w-4 h-4 text-yellow-500" />
-        {teamName} 부상/결장
-      </h4>
+      <div className="flex items-center gap-2">
+        <Image
+          src={`https://media.api-sports.io/football/teams/${teamId}.png`}
+          alt={teamName}
+          width={24}
+          height={24}
+          className="object-contain"
+          onError={(e) => {
+            (e.target as HTMLImageElement).style.display = 'none'
+          }}
+        />
+        <h4 className="font-medium">{teamName}</h4>
+      </div>
       
       {injuries.length === 0 ? (
-        <p className="text-sm text-gray-500">부상 선수 없음</p>
+        <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+          <p className="text-sm text-green-700 flex items-center gap-2">
+            <Shield className="w-4 h-4" />
+            전 선수 출전 가능
+          </p>
+        </div>
       ) : (
         <div className="space-y-2">
-          {injuries.slice(0, 3).map((injury: any, idx: number) => (
-            <div key={idx} className="flex items-center justify-between p-2 bg-gray-50 rounded">
-              <div>
-                <p className="text-sm font-medium">{injury.player?.name}</p>
-                <p className="text-xs text-gray-500">{injury.player?.type}</p>
+          {injuries.slice(0, 5).map((injury: any, idx: number) => (
+            <div key={idx} className="flex items-center justify-between p-3 bg-red-50 border border-red-100 rounded-lg">
+              <div className="flex items-center gap-3">
+                {injury.photo && (
+                  <Image
+                    src={injury.photo}
+                    alt={injury.name}
+                    width={32}
+                    height={32}
+                    className="rounded-full object-cover"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).style.display = 'none'
+                    }}
+                  />
+                )}
+                <div>
+                  <p className="text-sm font-medium text-gray-900">{injury.name}</p>
+                  <p className="text-xs text-gray-500">
+                    {injury.position || '선수'}
+                  </p>
+                </div>
               </div>
-              <Badge variant="outline" className="text-xs">
-                {injury.player?.reason || '부상'}
-              </Badge>
+              <div className="text-right">
+                <Badge variant="destructive" className="text-xs">
+                  {injury.type === 'Doubtful' ? '출전 의심' :
+                   injury.type === 'Injured' ? '부상' :
+                   injury.type === 'Suspended' ? '출장 정지' :
+                   injury.type || '부상'}
+                </Badge>
+                {injury.reason && injury.reason !== injury.type && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    {injury.reason}
+                  </p>
+                )}
+              </div>
             </div>
           ))}
+          
+          {injuries.length > 5 && (
+            <p className="text-xs text-gray-500 text-center">
+              +{injuries.length - 5}명 추가 부상/결장
+            </p>
+          )}
         </div>
       )}
     </div>
@@ -672,6 +749,7 @@ export function MatchPreviewEnhanced({ fixture }: MatchPreviewEnhancedProps) {
         
         {/* 최근 라인업 탭 */}
         <TabsContent value="lineup" className="space-y-6">
+          {/* 라인업 카드 */}
           <Card>
             <CardHeader>
               <CardTitle className="text-lg flex items-center gap-2">
@@ -686,6 +764,28 @@ export function MatchPreviewEnhanced({ fixture }: MatchPreviewEnhancedProps) {
                   teamName={fixture.teams.home.name}
                 />
                 <LastMatchLineup 
+                  teamId={fixture.teams.away.id}
+                  teamName={fixture.teams.away.name}
+                />
+              </div>
+            </CardContent>
+          </Card>
+          
+          {/* 부상/결장 선수 카드 */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <AlertTriangle className="w-5 h-5 text-yellow-500" />
+                부상/결장 선수
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <InjuriesCard 
+                  teamId={fixture.teams.home.id}
+                  teamName={fixture.teams.home.name}
+                />
+                <InjuriesCard 
                   teamId={fixture.teams.away.id}
                   teamName={fixture.teams.away.name}
                 />

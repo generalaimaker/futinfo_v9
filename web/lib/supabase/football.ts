@@ -741,28 +741,38 @@ class FootballAPIService {
     if (cached) return cached
 
     try {
-      console.log('[FootballAPI] Fetching fixture with lineups for:', fixtureId)
+      console.log('[FootballAPI] Fetching lineups for fixture:', fixtureId)
       
-      // fixtures 엔드포인트를 사용하여 라인업 정보 포함된 경기 데이터 가져오기
-      const fixtureData = await this.callUnifiedAPI<any>('fixtures', {
-        id: fixtureId
+      // 새로운 Edge Function 호출
+      const supabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      )
+      
+      const { data, error } = await supabase.functions.invoke('get-fixture-lineups', {
+        body: { fixtureId }
       })
       
-      console.log('[FootballAPI] Fixture data received:', fixtureData?.response?.[0] ? 'Success' : 'Failed')
-      
-      if (fixtureData?.response?.[0]) {
-        const fixture = fixtureData.response[0]
+      if (error) {
+        console.error('[FootballAPI] Edge Function error:', error)
         
-        // lineups가 이미 포함되어 있으면 반환
-        if (fixture.lineups && Array.isArray(fixture.lineups)) {
-          console.log('[FootballAPI] Found lineups in fixture data:', fixture.lineups.length, 'teams')
-          this.setCachedData(cacheKey, fixture.lineups)
-          return fixture.lineups
+        // Fallback: fixtures 엔드포인트 시도
+        const fixtureData = await this.callUnifiedAPI<any>('fixtures', {
+          id: fixtureId
+        })
+        
+        if (fixtureData?.response?.[0]?.lineups) {
+          this.setCachedData(cacheKey, fixtureData.response[0].lineups)
+          return fixtureData.response[0].lineups
         }
-        
-        // lineups가 없으면 빈 배열
-        console.log('[FootballAPI] No lineups in fixture data')
         return []
+      }
+      
+      console.log('[FootballAPI] Lineups response:', data)
+      
+      if (data?.response && Array.isArray(data.response)) {
+        this.setCachedData(cacheKey, data.response)
+        return data.response
       }
       
       return []
