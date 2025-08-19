@@ -21,7 +21,7 @@ import { EnhancedStatistics } from './enhanced-statistics'
 import { EnhancedMatchInfo } from './enhanced-match-info'
 import { LineupVisualization } from './lineup-visualization'
 import { EventsTimeline } from './events-timeline'
-import { H2HComponent } from './h2h-component'
+import { H2HSimple } from './h2h-simple'
 import { MatchDetailsInfo } from './match-details-info'
 import { useSwipeable } from 'react-swipeable'
 import { animated, useSpring } from '@react-spring/web'
@@ -553,7 +553,7 @@ export function EnhancedMatchDetailImproved({
         </TabsContent>
         
         <TabsContent value="h2h">
-          <H2HComponent
+          <H2HSimple
             homeTeam={fixture.teams.home}
             awayTeam={fixture.teams.away}
             currentFixture={fixture}

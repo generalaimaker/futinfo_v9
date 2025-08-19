@@ -15,7 +15,7 @@ import { ko } from 'date-fns/locale'
 import { Button } from '@/components/ui/button'
 import { LineupFieldView } from './lineup-field-view'
 import { EventsTimeline } from './events-timeline'
-import { H2HComponent } from './h2h-component'
+import { H2HSimple } from './h2h-simple'
 import { EnhancedStatistics } from './enhanced-statistics'
 import { MatchDetailsInfo } from './match-details-info'
 
@@ -613,7 +613,7 @@ export function IOSMatchDetail({
               exit={{ opacity: 0, x: -20 }}
             >
               <IOSContentSection title="상대 전적" icon={Trophy}>
-                <H2HComponent
+                <H2HSimple
                   homeTeam={fixture.teams.home}
                   awayTeam={fixture.teams.away}
                   currentFixture={fixture}
