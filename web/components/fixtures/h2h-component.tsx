@@ -107,6 +107,22 @@ function H2HStats({ fixtures, homeTeamId, awayTeamId }: any) {
     let homeGoals = 0
     let awayGoals = 0
     
+    // fixtures가 배열이 아니면 기본값 반환
+    if (!fixtures || !Array.isArray(fixtures)) {
+      return {
+        homeWins: 0,
+        awayWins: 0,
+        draws: 0,
+        total: 0,
+        homeGoals: 0,
+        awayGoals: 0,
+        homeWinRate: 0,
+        awayWinRate: 0,
+        drawRate: 0,
+        avgGoalsPerMatch: 0
+      }
+    }
+    
     fixtures.forEach((fixture: any) => {
       const isHomeTeamHome = fixture.teams.home.id === homeTeamId
       
@@ -227,6 +243,11 @@ function H2HStats({ fixtures, homeTeamId, awayTeamId }: any) {
 // 최근 폼 분석
 function FormAnalysis({ fixtures, teamId }: any) {
   const recentForm = useMemo(() => {
+    // fixtures가 배열이 아니면 빈 배열 반환
+    if (!fixtures || !Array.isArray(fixtures)) {
+      return []
+    }
+    
     const recent = fixtures.slice(0, 5)
     const form: string[] = []
     
@@ -433,9 +454,9 @@ export function H2HComponent({ homeTeam, awayTeam, currentFixture }: H2HComponen
           </CardHeader>
           <CardContent>
             <FormAnalysis
-              fixtures={h2hData.filter((f: any) => 
-                f.teams.home.id === homeTeam.id || f.teams.away.id === homeTeam.id
-              )}
+              fixtures={Array.isArray(h2hData) ? h2hData.filter((f: any) => 
+                f?.teams?.home?.id === homeTeam.id || f?.teams?.away?.id === homeTeam.id
+              ) : []}
               teamId={homeTeam.id}
             />
           </CardContent>
@@ -456,9 +477,9 @@ export function H2HComponent({ homeTeam, awayTeam, currentFixture }: H2HComponen
           </CardHeader>
           <CardContent>
             <FormAnalysis
-              fixtures={h2hData.filter((f: any) => 
-                f.teams.home.id === awayTeam.id || f.teams.away.id === awayTeam.id
-              )}
+              fixtures={Array.isArray(h2hData) ? h2hData.filter((f: any) => 
+                f?.teams?.home?.id === awayTeam.id || f?.teams?.away?.id === awayTeam.id
+              ) : []}
               teamId={awayTeam.id}
             />
           </CardContent>
