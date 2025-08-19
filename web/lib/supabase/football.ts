@@ -1,4 +1,5 @@
 import { getSupabaseClient } from '@/lib/supabase/client-singleton'
+import { createClient } from '@supabase/supabase-js'
 import { 
   FixturesResponse, 
   LeaguesResponse, 
