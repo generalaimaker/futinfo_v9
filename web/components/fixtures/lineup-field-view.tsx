@@ -324,18 +324,26 @@ function SoccerField({ homeTeam, awayTeam, events }: any) {
   const awayGroups = assignPositionsByFormation(awayTeam.startXI, awayTeam.formation)
   
   // 포지션이 없는 경우를 대비한 안전한 렌더링 함수
-  const renderPlayers = (groups: any, positions: any, isHome: boolean, substitutedIds: string[]) => {
+  const renderPlayers = (groups: any, positions: any, isHome: boolean, substitutedIds: string[], flipY: boolean = false) => {
     const renderGroup = (groupName: string) => {
       const players = groups[groupName] || []
       const groupPositions = positions[groupName] || []
       
       return players.map((player: any, idx: number) => {
         // 포지션이 없는 경우 기본 위치 생성
-        const position = groupPositions[idx] || {
+        let position = groupPositions[idx] || {
           x: 50 + (idx - Math.floor(players.length / 2)) * 20,
           y: groupName === 'GK' ? 5 : 
              groupName === 'DEF' ? 20 : 
              groupName === 'MID' ? 40 : 60
+        }
+        
+        // 원정팀의 경우 y축 반전
+        if (flipY) {
+          position = {
+            x: position.x,
+            y: 100 - position.y
+          }
         }
         
         return (
@@ -450,22 +458,36 @@ function SoccerField({ homeTeam, awayTeam, events }: any) {
         
         {/* 홈팀 선수 배치 */}
         {(selectedView === 'both' || selectedView === 'home') && 
-          renderPlayers(homeGroups, homePositions, true, homeSubstitutedIds)
+          renderPlayers(homeGroups, homePositions, true, homeSubstitutedIds, false)
         }
         
         {/* 원정팀 선수 배치 */}
         {(selectedView === 'both' || selectedView === 'away') && 
-          renderPlayers(awayGroups, flippedAwayPositions, false, awaySubstitutedIds)
+          renderPlayers(awayGroups, awayPositions, false, awaySubstitutedIds, true)
         }
         
         {/* 팀 정보 표시 */}
         <div className="absolute top-2 left-2 right-2 flex justify-between">
-          <Badge className="bg-blue-600 text-white">
-            {homeTeam.formation}
-          </Badge>
-          <Badge className="bg-red-600 text-white">
-            {awayTeam.formation}
-          </Badge>
+          <div className="flex items-center gap-2">
+            <Badge className="bg-blue-600 text-white">
+              홈 {homeTeam.formation}
+            </Badge>
+            {selectedView === 'both' && (
+              <span className="text-xs text-white bg-black/50 px-2 py-1 rounded">
+                {homeTeam.team.name}
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            {selectedView === 'both' && (
+              <span className="text-xs text-white bg-black/50 px-2 py-1 rounded">
+                {awayTeam.team.name}
+              </span>
+            )}
+            <Badge className="bg-red-600 text-white">
+              원정 {awayTeam.formation}
+            </Badge>
+          </div>
         </div>
       </div>
       
