@@ -16,6 +16,7 @@ import {
   AlertTriangle, Shield, Target, Activity, Info,
   ChevronRight, Star, Zap, ArrowUp, ArrowDown, BarChart3
 } from 'lucide-react'
+import { arrangePlayersByPosition, normalizeFormation, PlayerPosition } from './lineup-utils'
 
 interface MatchPreviewEnhancedProps {
   fixture: any
@@ -244,12 +245,30 @@ function LastMatchLineup({ teamId, teamName }: any) {
                 if (teamLineup && teamLineup.startXI && Array.isArray(teamLineup.startXI) && teamLineup.startXI.length > 0) {
                   const fixtureDate = new Date(fixture.fixture.date)
                   setLastMatchDate(format(fixtureDate, 'M월 d일', { locale: ko }))
-                  setFormation(teamLineup.formation || '4-3-3')
-                  setLineup(teamLineup.startXI)
+                  
+                  // 포메이션 정규화
+                  const normalizedFormation = normalizeFormation(teamLineup.formation || '4-3-3')
+                  setFormation(normalizedFormation)
+                  
+                  // grid 정보 추가 (있는 경우)
+                  const lineupWithGrid = teamLineup.startXI.map((player: any) => {
+                    // grid 정보가 없으면 coach 정보에서 찾기
+                    const grid = player.player?.grid || player.grid || null
+                    return {
+                      ...player,
+                      player: {
+                        ...player.player,
+                        grid: grid
+                      }
+                    }
+                  })
+                  
+                  setLineup(lineupWithGrid)
                   console.log('[LastMatchLineup] Lineup set successfully:', {
-                    formation: teamLineup.formation,
-                    players: teamLineup.startXI.length,
-                    date: format(fixtureDate, 'yyyy-MM-dd')
+                    formation: normalizedFormation,
+                    players: lineupWithGrid.length,
+                    date: format(fixtureDate, 'yyyy-MM-dd'),
+                    hasGrid: lineupWithGrid.some((p: any) => p.player.grid)
                   })
                   setLoading(false)
                   return // 라인업을 찾았으면 종료
@@ -359,30 +378,42 @@ function LastMatchLineup({ teamId, teamName }: any) {
       <div className="bg-gradient-to-b from-green-600 to-green-500 rounded-lg p-4 aspect-[3/4] relative">
         {/* 포메이션에 따른 선수 배치 */}
         <div className="absolute inset-0 p-4">
-          {lineup.map((player: any, idx: number) => {
-            // 간단한 그리드 배치 (실제로는 포메이션에 따라 위치 계산 필요)
-            const positions = getFormationPositions(formation, idx)
-            return (
-              <div
-                key={idx}
-                className="absolute flex flex-col items-center"
-                style={{
-                  left: `${positions.x}%`,
-                  top: `${positions.y}%`,
-                  transform: 'translate(-50%, -50%)'
-                }}
-              >
-                <div className="bg-white rounded-full w-10 h-10 flex items-center justify-center shadow-lg border-2 border-gray-200">
-                  <span className="text-sm font-bold text-gray-900">
-                    {player.player.number || idx + 1}
-                  </span>
+          {(() => {
+            // 선수들을 포지션별로 정렬하고 위치 할당
+            const arrangedPlayers = arrangePlayersByPosition(lineup, formation)
+            console.log('[LastMatchLineup] Arranged players:', arrangedPlayers)
+            
+            return arrangedPlayers.map((player: any, idx: number) => {
+              const position = player.fieldPosition
+              
+              return (
+                <div
+                  key={idx}
+                  className="absolute flex flex-col items-center"
+                  style={{
+                    left: `${position.x}%`,
+                    top: `${position.y}%`,
+                    transform: 'translate(-50%, -50%)'
+                  }}
+                >
+                  <div className="bg-white rounded-full w-10 h-10 flex items-center justify-center shadow-lg border-2 border-gray-200">
+                    <span className="text-sm font-bold text-gray-900">
+                      {player.player.number || idx + 1}
+                    </span>
+                  </div>
+                  <p className="text-white text-xs mt-1.5 text-center font-semibold whitespace-nowrap drop-shadow-md">
+                    {player.player.name.split(' ').pop()}
+                  </p>
+                  {/* 디버그용: 포지션 표시 */}
+                  {player.player.pos && (
+                    <p className="text-white text-[10px] opacity-70">
+                      {player.player.pos}
+                    </p>
+                  )}
                 </div>
-                <p className="text-white text-xs mt-1.5 text-center font-semibold whitespace-nowrap drop-shadow-md">
-                  {player.player.name.split(' ').pop()}
-                </p>
-              </div>
-            )
-          })}
+              )
+            })
+          })()}
         </div>
       </div>
       
@@ -408,58 +439,6 @@ function LastMatchLineup({ teamId, teamName }: any) {
   )
 }
 
-// 포메이션에 따른 선수 위치 계산 함수
-function getFormationPositions(formation: string, index: number): { x: number, y: number } {
-  const positions: { [key: string]: Array<{ x: number, y: number }> } = {
-    '4-3-3': [
-      { x: 50, y: 90 }, // GK
-      { x: 20, y: 75 }, { x: 40, y: 75 }, { x: 60, y: 75 }, { x: 80, y: 75 }, // DF
-      { x: 30, y: 50 }, { x: 50, y: 50 }, { x: 70, y: 50 }, // MF
-      { x: 25, y: 25 }, { x: 50, y: 25 }, { x: 75, y: 25 } // FW
-    ],
-    '4-4-2': [
-      { x: 50, y: 90 }, // GK
-      { x: 20, y: 75 }, { x: 40, y: 75 }, { x: 60, y: 75 }, { x: 80, y: 75 }, // DF
-      { x: 20, y: 50 }, { x: 40, y: 50 }, { x: 60, y: 50 }, { x: 80, y: 50 }, // MF
-      { x: 35, y: 25 }, { x: 65, y: 25 } // FW
-    ],
-    '4-2-3-1': [
-      { x: 50, y: 90 }, // GK
-      { x: 20, y: 75 }, { x: 40, y: 75 }, { x: 60, y: 75 }, { x: 80, y: 75 }, // DF
-      { x: 35, y: 60 }, { x: 65, y: 60 }, // DM
-      { x: 20, y: 40 }, { x: 50, y: 40 }, { x: 80, y: 40 }, // AM
-      { x: 50, y: 20 } // FW
-    ],
-    '3-5-2': [
-      { x: 50, y: 90 }, // GK
-      { x: 30, y: 75 }, { x: 50, y: 75 }, { x: 70, y: 75 }, // DF
-      { x: 15, y: 50 }, { x: 35, y: 50 }, { x: 50, y: 50 }, { x: 65, y: 50 }, { x: 85, y: 50 }, // MF
-      { x: 35, y: 25 }, { x: 65, y: 25 } // FW
-    ],
-    '5-3-2': [
-      { x: 50, y: 90 }, // GK
-      { x: 15, y: 75 }, { x: 35, y: 75 }, { x: 50, y: 75 }, { x: 65, y: 75 }, { x: 85, y: 75 }, // DF
-      { x: 30, y: 50 }, { x: 50, y: 50 }, { x: 70, y: 50 }, // MF
-      { x: 35, y: 25 }, { x: 65, y: 25 } // FW
-    ],
-    '3-4-3': [
-      { x: 50, y: 90 }, // GK
-      { x: 30, y: 75 }, { x: 50, y: 75 }, { x: 70, y: 75 }, // DF
-      { x: 20, y: 50 }, { x: 40, y: 50 }, { x: 60, y: 50 }, { x: 80, y: 50 }, // MF
-      { x: 25, y: 25 }, { x: 50, y: 25 }, { x: 75, y: 25 } // FW
-    ]
-  }
-  
-  // 포메이션이 정의되어 있으면 사용, 없으면 기본 4-3-3
-  const formationPositions = positions[formation] || positions['4-3-3']
-  
-  // 인덱스가 범위를 벗어나면 기본 위치 반환
-  if (index >= formationPositions.length) {
-    return { x: 50, y: 50 }
-  }
-  
-  return formationPositions[index]
-}
 
 // 부상/결장 선수 정보
 function InjuriesCard({ teamId, teamName }: any) {

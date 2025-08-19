@@ -854,7 +854,7 @@ class FootballAPIService {
                     name: p.player.name,
                     number: p.statistics?.[0]?.games?.number || 0,
                     pos: p.statistics?.[0]?.games?.position,
-                    grid: p.statistics?.[0]?.games?.position === 'G' ? '1:1' : null
+                    grid: p.player?.grid || null  // grid 정보 포함
                   }
                 })) || []
               
