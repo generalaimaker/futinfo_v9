@@ -365,18 +365,19 @@ function LastMatchLineup({ teamId, teamName }: any) {
             return (
               <div
                 key={idx}
-                className="absolute transform -translate-x-1/2 -translate-y-1/2"
+                className="absolute flex flex-col items-center"
                 style={{
                   left: `${positions.x}%`,
-                  top: `${positions.y}%`
+                  top: `${positions.y}%`,
+                  transform: 'translate(-50%, -50%)'
                 }}
               >
-                <div className="bg-white rounded-full w-8 h-8 flex items-center justify-center shadow-lg">
-                  <span className="text-xs font-bold text-gray-800">
-                    {player.player.number}
+                <div className="bg-white rounded-full w-10 h-10 flex items-center justify-center shadow-lg border-2 border-gray-200">
+                  <span className="text-sm font-bold text-gray-900">
+                    {player.player.number || idx + 1}
                   </span>
                 </div>
-                <p className="text-white text-xs mt-1 text-center font-medium whitespace-nowrap">
+                <p className="text-white text-xs mt-1.5 text-center font-semibold whitespace-nowrap drop-shadow-md">
                   {player.player.name.split(' ').pop()}
                 </p>
               </div>
