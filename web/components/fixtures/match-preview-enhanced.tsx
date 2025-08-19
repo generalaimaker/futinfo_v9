@@ -759,9 +759,10 @@ export function MatchPreviewEnhanced({ fixture }: MatchPreviewEnhancedProps) {
         
         {/* 상대전적 탭 */}
         <TabsContent value="h2h" className="space-y-6">
-          <H2HEnhanced 
+          <H2HSimple 
             homeTeam={fixture.teams.home}
             awayTeam={fixture.teams.away}
+            currentFixture={fixture}
           />
         </TabsContent>
         
@@ -824,4 +825,4 @@ export function MatchPreviewEnhanced({ fixture }: MatchPreviewEnhancedProps) {
 // 컴포넌트 imports
 import { MatchDetailsInfo } from './match-details-info'
 import { LeagueStandings } from './league-standings'
-import { H2HEnhanced } from './h2h-enhanced'
+import { H2HSimple } from './h2h-simple'
