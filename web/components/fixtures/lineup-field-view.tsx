@@ -15,120 +15,120 @@ interface LineupFieldViewProps {
   players?: any[]
 }
 
-// 포메이션별 포지션 좌표 정의 (백분율) - 홈팀은 상반부 사용 (5-45%), 원정팀은 하반부 사용 (55-95%)
+// 포메이션별 포지션 좌표 정의 (백분율) - 홈팀은 상반부 사용 (5-48%), 원정팀은 하반부 사용 (52-95%)
 const FORMATION_POSITIONS: { [key: string]: { [key: string]: Array<{ x: number; y: number }> } } = {
   '3-4-2-1': {
-    GK: [{ x: 50, y: 10 }],
+    GK: [{ x: 50, y: 8 }],
     DEF: [
-      { x: 25, y: 18 },
-      { x: 50, y: 16 },
-      { x: 75, y: 18 }
+      { x: 25, y: 20 },
+      { x: 50, y: 18 },
+      { x: 75, y: 20 }
     ],
     MID: [
-      { x: 15, y: 26 },
-      { x: 38, y: 24 },
-      { x: 62, y: 24 },
-      { x: 85, y: 26 },
-      { x: 35, y: 32 },
-      { x: 65, y: 32 }
+      { x: 15, y: 30 },
+      { x: 38, y: 28 },
+      { x: 62, y: 28 },
+      { x: 85, y: 30 },
+      { x: 35, y: 38 },
+      { x: 65, y: 38 }
     ],
     ATT: [
-      { x: 50, y: 40 }
+      { x: 50, y: 46 }
     ]
   },
   '4-3-3': {
-    GK: [{ x: 50, y: 10 }],
+    GK: [{ x: 50, y: 8 }],
     DEF: [
-      { x: 18, y: 18 },
-      { x: 39, y: 16 },
-      { x: 61, y: 16 },
-      { x: 82, y: 18 }
+      { x: 18, y: 20 },
+      { x: 39, y: 18 },
+      { x: 61, y: 18 },
+      { x: 82, y: 20 }
     ],
     MID: [
-      { x: 28, y: 26 },
-      { x: 50, y: 28 },
-      { x: 72, y: 26 }
+      { x: 28, y: 32 },
+      { x: 50, y: 30 },
+      { x: 72, y: 32 }
     ],
     ATT: [
-      { x: 25, y: 36 },
-      { x: 50, y: 40 },
-      { x: 75, y: 36 }
+      { x: 25, y: 42 },
+      { x: 50, y: 46 },
+      { x: 75, y: 42 }
     ]
   },
   '4-4-2': {
-    GK: [{ x: 50, y: 10 }],
+    GK: [{ x: 50, y: 8 }],
     DEF: [
-      { x: 18, y: 18 },
-      { x: 39, y: 16 },
-      { x: 61, y: 16 },
-      { x: 82, y: 18 }
+      { x: 18, y: 20 },
+      { x: 39, y: 18 },
+      { x: 61, y: 18 },
+      { x: 82, y: 20 }
     ],
     MID: [
-      { x: 12, y: 28 },
-      { x: 37, y: 26 },
-      { x: 63, y: 26 },
-      { x: 88, y: 28 }
+      { x: 12, y: 32 },
+      { x: 37, y: 30 },
+      { x: 63, y: 30 },
+      { x: 88, y: 32 }
     ],
     ATT: [
-      { x: 38, y: 38 },
-      { x: 62, y: 38 }
+      { x: 38, y: 44 },
+      { x: 62, y: 44 }
     ]
   },
   '4-2-3-1': {
-    GK: [{ x: 50, y: 10 }],
+    GK: [{ x: 50, y: 8 }],
     DEF: [
-      { x: 18, y: 18 },
-      { x: 39, y: 16 },
-      { x: 61, y: 16 },
-      { x: 82, y: 18 }
+      { x: 18, y: 20 },
+      { x: 39, y: 18 },
+      { x: 61, y: 18 },
+      { x: 82, y: 20 }
     ],
     MID: [
-      { x: 35, y: 24 },
-      { x: 65, y: 24 },
-      { x: 25, y: 32 },
-      { x: 50, y: 30 },
-      { x: 75, y: 32 }
+      { x: 35, y: 28 },
+      { x: 65, y: 28 },
+      { x: 25, y: 38 },
+      { x: 50, y: 36 },
+      { x: 75, y: 38 }
     ],
     ATT: [
-      { x: 50, y: 40 }
+      { x: 50, y: 46 }
     ]
   },
   '3-5-2': {
-    GK: [{ x: 50, y: 10 }],
+    GK: [{ x: 50, y: 8 }],
     DEF: [
-      { x: 28, y: 18 },
-      { x: 50, y: 16 },
-      { x: 72, y: 18 }
+      { x: 28, y: 20 },
+      { x: 50, y: 18 },
+      { x: 72, y: 20 }
     ],
     MID: [
-      { x: 12, y: 28 },
-      { x: 32, y: 24 },
-      { x: 50, y: 26 },
-      { x: 68, y: 24 },
-      { x: 88, y: 28 }
+      { x: 12, y: 32 },
+      { x: 32, y: 28 },
+      { x: 50, y: 30 },
+      { x: 68, y: 28 },
+      { x: 88, y: 32 }
     ],
     ATT: [
-      { x: 38, y: 38 },
-      { x: 62, y: 38 }
+      { x: 38, y: 44 },
+      { x: 62, y: 44 }
     ]
   },
   '5-3-2': {
-    GK: [{ x: 50, y: 10 }],
+    GK: [{ x: 50, y: 8 }],
     DEF: [
-      { x: 12, y: 18 },
-      { x: 31, y: 16 },
-      { x: 50, y: 15 },
-      { x: 69, y: 16 },
-      { x: 88, y: 18 }
+      { x: 12, y: 20 },
+      { x: 31, y: 18 },
+      { x: 50, y: 17 },
+      { x: 69, y: 18 },
+      { x: 88, y: 20 }
     ],
     MID: [
-      { x: 28, y: 28 },
-      { x: 50, y: 26 },
-      { x: 72, y: 28 }
+      { x: 28, y: 32 },
+      { x: 50, y: 30 },
+      { x: 72, y: 32 }
     ],
     ATT: [
-      { x: 38, y: 38 },
-      { x: 62, y: 38 }
+      { x: 38, y: 44 },
+      { x: 62, y: 44 }
     ]
   }
 }
@@ -241,13 +241,11 @@ function PlayerOnField({
   
   return (
     <div
-      className={cn(
-        "absolute transform -translate-x-1/2 -translate-y-1/2 transition-all hover:scale-110 hover:z-50",
-        isSubstituted && "opacity-60"
-      )}
+      className="absolute transform -translate-x-1/2 -translate-y-1/2 transition-all hover:scale-110 hover:z-50"
       style={{ 
         left: `${position.x}%`, 
-        top: `${position.y}%` 
+        top: `${position.y}%`,
+        opacity: isSubstituted ? 0.6 : 1
       }}
     >
       <div className="relative group">
@@ -426,16 +424,16 @@ function SoccerField({ homeTeam, awayTeam, events }: any) {
       return players.map((player: any, idx: number) => {
         let position = groupPositions[idx] || {
           x: 50 + (idx - Math.floor(players.length / 2)) * 20,
-          y: groupName === 'GK' ? 10 : 
-             groupName === 'DEF' ? 18 : 
-             groupName === 'MID' ? 28 : 38
+          y: groupName === 'GK' ? 8 : 
+             groupName === 'DEF' ? 20 : 
+             groupName === 'MID' ? 32 : 44
         }
         
-        // 홈팀은 상반부 (y: 10-40)
-        // 원정팀은 하반부 (y: 60-90) - y축 반전하고 하반부로 이동
+        // 홈팀은 상반부 (y: 8-46)
+        // 원정팀은 하반부 (y: 54-92) - y축 반전하고 하반부로 이동
         if (!isHome) {
           // 원정팀: 상반부 좌표를 반전시켜 하반부로 매핑
-          // GK(10) -> 90, DEF(18) -> 82, MID(28) -> 72, ATT(40) -> 60
+          // GK(8) -> 92, DEF(20) -> 80, MID(32) -> 68, ATT(44) -> 56
           position = {
             x: position.x,
             y: 100 - position.y
@@ -562,7 +560,7 @@ function SoccerField({ homeTeam, awayTeam, events }: any) {
       </div>
       
       {/* 축구장 */}
-      <div className="relative aspect-[3/4] max-h-[600px] bg-gradient-to-b from-green-600 via-green-500 to-green-600 rounded-lg overflow-hidden shadow-2xl">
+      <div className="relative aspect-[2/3] min-h-[700px] bg-gradient-to-b from-green-600 via-green-500 to-green-600 rounded-lg overflow-hidden shadow-2xl">
         {/* 잔디 패턴 */}
         <div className="absolute inset-0">
           {[...Array(10)].map((_, i) => (
