@@ -1,5 +1,4 @@
 import { getSupabaseClient } from '@/lib/supabase/client-singleton'
-import { createClient } from '@supabase/supabase-js'
 import { 
   FixturesResponse, 
   LeaguesResponse, 
@@ -744,38 +743,66 @@ class FootballAPIService {
     try {
       console.log('[FootballAPI] Fetching lineups for fixture:', fixtureId)
       
-      // 새로운 Edge Function 호출
-      const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-      )
-      
-      const { data, error } = await supabase.functions.invoke('get-fixture-lineups', {
-        body: { fixtureId }
-      })
-      
-      if (error) {
-        console.error('[FootballAPI] Edge Function error:', error)
-        
-        // Fallback: fixtures 엔드포인트 시도
-        const fixtureData = await this.callUnifiedAPI<any>('fixtures', {
-          id: fixtureId
+      // fixtures/lineups 엔드포인트 직접 호출
+      try {
+        const lineupData = await this.callUnifiedAPI<any>('fixtures/lineups', {
+          fixture: fixtureId
         })
         
-        if (fixtureData?.response?.[0]?.lineups) {
-          this.setCachedData(cacheKey, fixtureData.response[0].lineups)
-          return fixtureData.response[0].lineups
+        console.log('[FootballAPI] Lineups API response:', lineupData)
+        
+        if (lineupData?.response && Array.isArray(lineupData.response)) {
+          this.setCachedData(cacheKey, lineupData.response)
+          return lineupData.response
         }
-        return []
+      } catch (lineupError) {
+        console.log('[FootballAPI] Lineups endpoint not available, trying fixtures endpoint')
       }
       
-      console.log('[FootballAPI] Lineups response:', data)
+      // Fallback: fixtures 엔드포인트에서 라인업 추출
+      const fixtureData = await this.callUnifiedAPI<any>('fixtures', {
+        id: fixtureId
+      })
       
-      if (data?.response && Array.isArray(data.response)) {
-        this.setCachedData(cacheKey, data.response)
-        return data.response
+      console.log('[FootballAPI] Fixture data received, checking for lineups')
+      
+      if (fixtureData?.response?.[0]) {
+        const fixture = fixtureData.response[0]
+        
+        // lineups 필드 확인
+        if (fixture.lineups && Array.isArray(fixture.lineups)) {
+          console.log('[FootballAPI] Found lineups in fixture:', fixture.lineups.length, 'teams')
+          this.setCachedData(cacheKey, fixture.lineups)
+          return fixture.lineups
+        }
+        
+        // players 필드에서 라인업 추출 시도
+        if (fixture.players && Array.isArray(fixture.players)) {
+          console.log('[FootballAPI] Extracting lineups from players data')
+          const lineups = fixture.players.map((team: any) => ({
+            team: team.team,
+            formation: null,
+            startXI: team.players
+              ?.filter((p: any) => p.statistics?.[0]?.games?.position !== 'S')
+              ?.slice(0, 11)
+              ?.map((p: any) => ({
+                player: {
+                  id: p.player.id,
+                  name: p.player.name,
+                  number: p.statistics?.[0]?.games?.number || 0,
+                  pos: p.statistics?.[0]?.games?.position
+                }
+              })) || []
+          }))
+          
+          if (lineups.length > 0 && lineups[0].startXI.length > 0) {
+            this.setCachedData(cacheKey, lineups)
+            return lineups
+          }
+        }
       }
       
+      console.log('[FootballAPI] No lineup data available')
       return []
     } catch (error) {
       console.error('[FootballAPI] Error fetching fixture lineups:', error)
