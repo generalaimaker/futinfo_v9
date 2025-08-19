@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Trophy } from 'lucide-react'
-import { footballAPIService } from '@/lib/supabase/football'
+import { FootballAPIService } from '@/lib/supabase/football'
 import { format } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import { cn } from '@/lib/utils'
@@ -33,6 +33,7 @@ export function H2HSimple({ homeTeam, awayTeam, currentFixture }: H2HSimpleProps
       try {
         setLoading(true)
         setError(null)
+        const footballAPIService = new FootballAPIService()
         const data = await footballAPIService.getH2H(homeTeam.id, awayTeam.id)
         console.log('[H2HSimple] H2H data received:', data)
         
