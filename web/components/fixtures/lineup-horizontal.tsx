@@ -179,16 +179,134 @@ function PlayerCard({ player, events = [], isHome, positionLabel }: any) {
   )
 }
 
-// 포지션 그룹 컴포넌트
-function PositionGroup({ players, label, events, isHome, bgColor }: any) {
+// 포지션 그룹 컴포넌트 - 포메이션에 맞게 선수 배치
+function PositionGroup({ players, label, events, isHome, bgColor, formation }: any) {
   if (players.length === 0) return null
   
+  // 포메이션에 따른 선수 배치 스타일 결정
+  const getPlayerArrangement = () => {
+    const playerCount = players.length
+    
+    // 골키퍼는 항상 중앙에 하나
+    if (label === 'GK') {
+      return 'flex flex-col items-center justify-center'
+    }
+    
+    // 포메이션별 배치
+    switch(playerCount) {
+      case 1:
+        return 'flex flex-col items-center justify-center'
+      case 2:
+        return 'flex flex-col justify-around py-4'
+      case 3:
+        // 3명일 때: 1-1-1 수직 배치 또는 삼각형
+        return 'flex flex-col justify-around py-2'
+      case 4:
+        // 4명일 때: 2-2 배치
+        return 'grid grid-rows-2 grid-cols-2 gap-1 py-2'
+      case 5:
+        // 5명일 때: 2-1-2 배치
+        return 'flex flex-col justify-around py-2'
+      default:
+        return 'flex flex-col gap-1'
+    }
+  }
+  
+  // 특수 배치가 필요한 경우 (3명 또는 5명)
+  const renderSpecialArrangement = () => {
+    if (players.length === 3) {
+      // 3명: 위-중간-아래
+      return (
+        <div className="flex flex-col justify-between h-full py-4">
+          <PlayerCard
+            player={players[0]}
+            events={events}
+            isHome={isHome}
+            positionLabel={`${label} 1`}
+          />
+          <PlayerCard
+            player={players[1]}
+            events={events}
+            isHome={isHome}
+            positionLabel={`${label} 2`}
+          />
+          <PlayerCard
+            player={players[2]}
+            events={events}
+            isHome={isHome}
+            positionLabel={`${label} 3`}
+          />
+        </div>
+      )
+    }
+    
+    if (players.length === 5) {
+      // 5명: 2-1-2 배치
+      return (
+        <div className="flex flex-col justify-between h-full py-2 gap-1">
+          <div className="flex justify-around">
+            <PlayerCard
+              player={players[0]}
+              events={events}
+              isHome={isHome}
+              positionLabel={`${label} 1`}
+            />
+            <PlayerCard
+              player={players[1]}
+              events={events}
+              isHome={isHome}
+              positionLabel={`${label} 2`}
+            />
+          </div>
+          <div className="flex justify-center">
+            <PlayerCard
+              player={players[2]}
+              events={events}
+              isHome={isHome}
+              positionLabel={`${label} 3`}
+            />
+          </div>
+          <div className="flex justify-around">
+            <PlayerCard
+              player={players[3]}
+              events={events}
+              isHome={isHome}
+              positionLabel={`${label} 4`}
+            />
+            <PlayerCard
+              player={players[4]}
+              events={events}
+              isHome={isHome}
+              positionLabel={`${label} 5`}
+            />
+          </div>
+        </div>
+      )
+    }
+    
+    return null
+  }
+  
+  const specialArrangement = renderSpecialArrangement()
+  if (specialArrangement) {
+    return (
+      <div className={cn("flex flex-col min-w-[120px]", bgColor)}>
+        <div className="text-xs font-bold text-center text-gray-600 dark:text-gray-400 mb-2 px-2">
+          {label}
+        </div>
+        <div className="flex-1">
+          {specialArrangement}
+        </div>
+      </div>
+    )
+  }
+  
   return (
-    <div className={cn("flex flex-col", bgColor)}>
+    <div className={cn("flex flex-col min-w-[120px]", bgColor)}>
       <div className="text-xs font-bold text-center text-gray-600 dark:text-gray-400 mb-2 px-2">
         {label}
       </div>
-      <div className="flex flex-col gap-1">
+      <div className={cn("flex-1", getPlayerArrangement())}>
         {players.map((player: any, idx: number) => (
           <PlayerCard
             key={idx}
@@ -326,8 +444,8 @@ export function LineupHorizontal({ lineups, events = [], players = [] }: LineupH
               {/* 배경 그라데이션 */}
               <div className="absolute inset-0 bg-gradient-to-r from-blue-50 via-green-50 to-red-50 dark:from-blue-950/20 dark:via-green-950/20 dark:to-red-950/20" />
               
-              {/* 라인업 컨테이너 */}
-              <div className="relative flex overflow-x-auto">
+              {/* 라인업 컨테이너 - 높이 설정 */}
+              <div className="relative flex overflow-x-auto min-h-[400px]">
                 {/* 홈팀 (왼쪽부터) */}
                 <div className="flex border-r-2 border-gray-300 dark:border-gray-700">
                   {/* 홈팀 공격수 */}
@@ -337,6 +455,7 @@ export function LineupHorizontal({ lineups, events = [], players = [] }: LineupH
                     events={events}
                     isHome={true}
                     bgColor="bg-blue-50/50 dark:bg-blue-950/20"
+                    formation={homeTeam.formation}
                   />
                   
                   {/* 홈팀 미드필더 */}
@@ -346,6 +465,7 @@ export function LineupHorizontal({ lineups, events = [], players = [] }: LineupH
                     events={events}
                     isHome={true}
                     bgColor="bg-blue-50/30 dark:bg-blue-950/10"
+                    formation={homeTeam.formation}
                   />
                   
                   {/* 홈팀 수비수 */}
@@ -355,6 +475,7 @@ export function LineupHorizontal({ lineups, events = [], players = [] }: LineupH
                     events={events}
                     isHome={true}
                     bgColor="bg-blue-50/20 dark:bg-blue-950/10"
+                    formation={homeTeam.formation}
                   />
                   
                   {/* 홈팀 골키퍼 */}
@@ -364,6 +485,7 @@ export function LineupHorizontal({ lineups, events = [], players = [] }: LineupH
                     events={events}
                     isHome={true}
                     bgColor="bg-blue-50/10 dark:bg-blue-950/5"
+                    formation={homeTeam.formation}
                   />
                 </div>
                 
@@ -381,6 +503,7 @@ export function LineupHorizontal({ lineups, events = [], players = [] }: LineupH
                     events={events}
                     isHome={false}
                     bgColor="bg-red-50/10 dark:bg-red-950/5"
+                    formation={awayTeam.formation}
                   />
                   
                   {/* 원정팀 수비수 */}
@@ -390,6 +513,7 @@ export function LineupHorizontal({ lineups, events = [], players = [] }: LineupH
                     events={events}
                     isHome={false}
                     bgColor="bg-red-50/20 dark:bg-red-950/10"
+                    formation={awayTeam.formation}
                   />
                   
                   {/* 원정팀 미드필더 */}
@@ -399,6 +523,7 @@ export function LineupHorizontal({ lineups, events = [], players = [] }: LineupH
                     events={events}
                     isHome={false}
                     bgColor="bg-red-50/30 dark:bg-red-950/10"
+                    formation={awayTeam.formation}
                   />
                   
                   {/* 원정팀 공격수 */}
@@ -408,6 +533,7 @@ export function LineupHorizontal({ lineups, events = [], players = [] }: LineupH
                     events={events}
                     isHome={false}
                     bgColor="bg-red-50/50 dark:bg-red-950/20"
+                    formation={awayTeam.formation}
                   />
                 </div>
               </div>
