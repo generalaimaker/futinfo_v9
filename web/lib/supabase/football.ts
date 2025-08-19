@@ -711,20 +711,47 @@ class FootballAPIService {
 
   // 경기 라인업
   async getFixtureLineups(fixtureId: number): Promise<any> {
-    const cacheKey = `fixture_lineups_${fixtureId}`
-    const cached = this.getCachedData<any>(cacheKey)
-    if (cached) return cached
+    // 캐시 일시적으로 비활성화 (디버깅용)
+    // const cacheKey = `fixture_lineups_${fixtureId}`
+    // const cached = this.getCachedData<any>(cacheKey)
+    // if (cached) return cached
 
     try {
-      const data = await this.callUnifiedAPI<any>('fixtures/lineups', {
+      console.log('[FootballAPI] Fetching lineups for fixture:', fixtureId)
+      
+      // lineups 엔드포인트 직접 호출
+      const data = await this.callUnifiedAPI<any>('lineups', {
         fixture: fixtureId
       })
       
-      this.setCachedData(cacheKey, data.response)
-      return data.response
+      console.log('[FootballAPI] Lineups response:', data)
+      
+      if (data && data.response) {
+        // this.setCachedData(cacheKey, data.response)
+        return data.response
+      }
+      
+      // response가 없으면 빈 배열 반환
+      return []
     } catch (error) {
-      console.error('Error fetching fixture lineups:', error)
-      throw error
+      console.error('[FootballAPI] Error fetching fixture lineups:', error)
+      
+      // 에러시 fixtures 엔드포인트에서 라인업 정보 가져오기 시도
+      try {
+        console.log('[FootballAPI] Trying alternative: fixtures endpoint with lineups')
+        const fixtureData = await this.callUnifiedAPI<any>('fixtures', {
+          id: fixtureId
+        })
+        
+        if (fixtureData?.response?.[0]?.lineups) {
+          console.log('[FootballAPI] Found lineups in fixture data')
+          return fixtureData.response[0].lineups
+        }
+      } catch (altError) {
+        console.error('[FootballAPI] Alternative method also failed:', altError)
+      }
+      
+      return []
     }
   }
 
