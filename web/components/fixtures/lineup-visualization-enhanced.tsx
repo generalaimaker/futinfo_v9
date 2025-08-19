@@ -77,14 +77,24 @@ function groupPlayersByPosition(players: any[]) {
     ATT: []
   }
   
+  console.log('[LineupVisualization] Grouping players:', players)
+  
   players.forEach(player => {
-    const pos = player.statistics?.[0]?.games?.position || ''
-    if (pos === 'G') groups.GK.push(player)
-    else if (pos === 'D') groups.DEF.push(player)
-    else if (pos === 'M') groups.MID.push(player)
-    else if (pos === 'F') groups.ATT.push(player)
+    // player가 중첩된 구조일 수 있음 (예: {player: {...}})
+    const actualPlayer = player.player ? player : player
+    const pos = actualPlayer.statistics?.[0]?.games?.position || 
+                actualPlayer.position || 
+                actualPlayer.pos || ''
+    
+    console.log('[LineupVisualization] Player position:', actualPlayer.player?.name || actualPlayer.name, '→', pos)
+    
+    if (pos === 'G' || pos === 'Goalkeeper') groups.GK.push(actualPlayer)
+    else if (pos === 'D' || pos === 'Defender') groups.DEF.push(actualPlayer)
+    else if (pos === 'M' || pos === 'Midfielder') groups.MID.push(actualPlayer)
+    else if (pos === 'F' || pos === 'Forward' || pos === 'Attacker') groups.ATT.push(actualPlayer)
   })
   
+  console.log('[LineupVisualization] Grouped players:', groups)
   return groups
 }
 
@@ -244,8 +254,16 @@ function EnhancedPlayerCard({ player, position, isHome, events = [], isSubstitut
 
 // 향상된 축구장 컴포넌트
 function EnhancedSoccerField({ team, formation, players, events, isHome }: any) {
+  console.log('[EnhancedSoccerField] Team:', team)
+  console.log('[EnhancedSoccerField] Formation:', formation)
+  console.log('[EnhancedSoccerField] Players:', players)
+  console.log('[EnhancedSoccerField] IsHome:', isHome)
+  
   const positions = getPlayerPositions(formation)
   const groupedPlayers = groupPlayersByPosition(players)
+  
+  console.log('[EnhancedSoccerField] Positions:', positions)
+  console.log('[EnhancedSoccerField] Grouped Players:', groupedPlayers)
   
   // 교체된 선수 ID 목록
   const substitutedPlayerIds = events
@@ -416,6 +434,10 @@ function EnhancedSubstitutesList({ substitutes, team, events }: any) {
 export function LineupVisualizationEnhanced({ lineups, events = [], players = [] }: LineupVisualizationEnhancedProps) {
   const [viewMode, setViewMode] = useState<'field' | 'list'>('field')
   
+  console.log('[LineupVisualizationEnhanced] Lineups:', lineups)
+  console.log('[LineupVisualizationEnhanced] Events:', events)
+  console.log('[LineupVisualizationEnhanced] Players:', players)
+  
   if (!lineups || lineups.length === 0) {
     return (
       <Card>
@@ -428,6 +450,9 @@ export function LineupVisualizationEnhanced({ lineups, events = [], players = []
   
   const homeTeam = lineups[0]
   const awayTeam = lineups[1]
+  
+  console.log('[LineupVisualizationEnhanced] Home Team:', homeTeam)
+  console.log('[LineupVisualizationEnhanced] Away Team:', awayTeam)
   
   return (
     <div className="space-y-6">
@@ -481,7 +506,7 @@ export function LineupVisualizationEnhanced({ lineups, events = [], players = []
                     <EnhancedSoccerField
                       team={homeTeam.team}
                       formation={homeTeam.formation}
-                      players={homeTeam.startXI.map((p: any) => p)}
+                      players={homeTeam.startXI}
                       events={events}
                       isHome={true}
                     />
@@ -513,7 +538,7 @@ export function LineupVisualizationEnhanced({ lineups, events = [], players = []
                     <EnhancedSoccerField
                       team={awayTeam.team}
                       formation={awayTeam.formation}
-                      players={awayTeam.startXI.map((p: any) => p)}
+                      players={awayTeam.startXI}
                       events={events}
                       isHome={false}
                     />
