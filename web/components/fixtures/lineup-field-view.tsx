@@ -323,6 +323,44 @@ function SoccerField({ homeTeam, awayTeam, events }: any) {
   const homeGroups = assignPositionsByFormation(homeTeam.startXI, homeTeam.formation)
   const awayGroups = assignPositionsByFormation(awayTeam.startXI, awayTeam.formation)
   
+  // 포지션이 없는 경우를 대비한 안전한 렌더링 함수
+  const renderPlayers = (groups: any, positions: any, isHome: boolean, substitutedIds: string[]) => {
+    const renderGroup = (groupName: string) => {
+      const players = groups[groupName] || []
+      const groupPositions = positions[groupName] || []
+      
+      return players.map((player: any, idx: number) => {
+        // 포지션이 없는 경우 기본 위치 생성
+        const position = groupPositions[idx] || {
+          x: 50 + (idx - Math.floor(players.length / 2)) * 20,
+          y: groupName === 'GK' ? 5 : 
+             groupName === 'DEF' ? 20 : 
+             groupName === 'MID' ? 40 : 60
+        }
+        
+        return (
+          <PlayerOnField
+            key={`${isHome ? 'home' : 'away'}-${groupName.toLowerCase()}-${idx}`}
+            player={player}
+            position={position}
+            isHome={isHome}
+            events={events}
+            isSubstituted={substitutedIds.includes(player.player?.id)}
+          />
+        )
+      })
+    }
+    
+    return (
+      <>
+        {renderGroup('GK')}
+        {renderGroup('DEF')}
+        {renderGroup('MID')}
+        {renderGroup('ATT')}
+      </>
+    )
+  }
+  
   // 원정팀 포지션을 반대로 변환 (y축 반전)
   const flipPositions = (positions: any) => {
     const flipped: any = {}
@@ -411,96 +449,14 @@ function SoccerField({ homeTeam, awayTeam, events }: any) {
         </svg>
         
         {/* 홈팀 선수 배치 */}
-        {(selectedView === 'both' || selectedView === 'home') && (
-          <>
-            {homeGroups.GK.map((player, idx) => (
-              <PlayerOnField
-                key={`home-gk-${idx}`}
-                player={player}
-                position={homePositions.GK[idx]}
-                isHome={true}
-                events={events}
-                isSubstituted={homeSubstitutedIds.includes(player.player?.id)}
-              />
-            ))}
-            {homeGroups.DEF.map((player, idx) => (
-              <PlayerOnField
-                key={`home-def-${idx}`}
-                player={player}
-                position={homePositions.DEF[idx]}
-                isHome={true}
-                events={events}
-                isSubstituted={homeSubstitutedIds.includes(player.player?.id)}
-              />
-            ))}
-            {homeGroups.MID.map((player, idx) => (
-              <PlayerOnField
-                key={`home-mid-${idx}`}
-                player={player}
-                position={homePositions.MID[idx]}
-                isHome={true}
-                events={events}
-                isSubstituted={homeSubstitutedIds.includes(player.player?.id)}
-              />
-            ))}
-            {homeGroups.ATT.map((player, idx) => (
-              <PlayerOnField
-                key={`home-att-${idx}`}
-                player={player}
-                position={homePositions.ATT[idx]}
-                isHome={true}
-                events={events}
-                isSubstituted={homeSubstitutedIds.includes(player.player?.id)}
-              />
-            ))}
-          </>
-        )}
+        {(selectedView === 'both' || selectedView === 'home') && 
+          renderPlayers(homeGroups, homePositions, true, homeSubstitutedIds)
+        }
         
         {/* 원정팀 선수 배치 */}
-        {(selectedView === 'both' || selectedView === 'away') && (
-          <>
-            {awayGroups.GK.map((player, idx) => (
-              <PlayerOnField
-                key={`away-gk-${idx}`}
-                player={player}
-                position={flippedAwayPositions.GK[idx]}
-                isHome={false}
-                events={events}
-                isSubstituted={awaySubstitutedIds.includes(player.player?.id)}
-              />
-            ))}
-            {awayGroups.DEF.map((player, idx) => (
-              <PlayerOnField
-                key={`away-def-${idx}`}
-                player={player}
-                position={flippedAwayPositions.DEF[idx]}
-                isHome={false}
-                events={events}
-                isSubstituted={awaySubstitutedIds.includes(player.player?.id)}
-              />
-            ))}
-            {awayGroups.MID.map((player, idx) => (
-              <PlayerOnField
-                key={`away-mid-${idx}`}
-                player={player}
-                position={flippedAwayPositions.MID[idx]}
-                isHome={false}
-                events={events}
-                isSubstituted={awaySubstitutedIds.includes(player.player?.id)}
-              />
-            ))}
-            {awayGroups.ATT.map((player, idx) => (
-              <PlayerOnField
-                key={`away-att-${idx}`}
-                player={player}
-                position={flippedAwayPositions.ATT[idx]}
-                isHome={false}
-                events={events}
-                isSubstituted={awaySubstitutedIds.includes(player.player?.id)}
-              />
-            ))}
-          </>
-        )}
+        {(selectedView === 'both' || selectedView === 'away') && 
+          renderPlayers(awayGroups, flippedAwayPositions, false, awaySubstitutedIds)
+        }
         
         {/* 팀 정보 표시 */}
         <div className="absolute top-2 left-2 right-2 flex justify-between">
