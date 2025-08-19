@@ -661,8 +661,35 @@ class FootballAPIService {
         last: limit
       })
       
-      if (data?.response) {
-        return data.response
+      if (data?.response && Array.isArray(data.response)) {
+        // 각 경기에 대해 라인업 정보도 가져오기
+        const fixturesWithLineups = await Promise.all(
+          data.response.map(async (fixture: any) => {
+            // 경기가 이미 끝난 경우에만 라인업 가져오기
+            if (['FT', 'AET', 'PEN'].includes(fixture.fixture.status.short)) {
+              try {
+                // 먼저 상세 정보에서 라인업 확인
+                const detailData = await this.getFixtureDetails(fixture.fixture.id)
+                if (detailData?.lineups && detailData.lineups.length > 0) {
+                  console.log('[FootballAPI] Found lineups in fixture details for:', fixture.fixture.id)
+                  return { ...fixture, lineups: detailData.lineups }
+                }
+                
+                // 없으면 별도 라인업 API 호출
+                const lineups = await this.getFixtureLineups(fixture.fixture.id)
+                if (lineups && lineups.length > 0) {
+                  console.log('[FootballAPI] Found lineups via separate API for:', fixture.fixture.id)
+                  return { ...fixture, lineups }
+                }
+              } catch (error) {
+                console.log('[FootballAPI] Could not fetch lineups for fixture:', fixture.fixture.id)
+              }
+            }
+            return fixture
+          })
+        )
+        
+        return fixturesWithLineups
       }
       
       return []

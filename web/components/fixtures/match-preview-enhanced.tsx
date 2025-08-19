@@ -224,8 +224,25 @@ function LastMatchLineup({ teamId, teamName }: any) {
         
         if (recentFixtures && recentFixtures.length > 0) {
           const lastFixture = recentFixtures[0]
+          console.log('[LastMatchLineup] Last fixture data:', lastFixture)
+          console.log('[LastMatchLineup] Last fixture lineups:', lastFixture.lineups)
+          
           const fixtureDate = new Date(lastFixture.fixture.date)
           setLastMatchDate(format(fixtureDate, 'M월 d일', { locale: ko }))
+          
+          // 먼저 이미 라인업 데이터가 있는지 확인
+          if (lastFixture.lineups && Array.isArray(lastFixture.lineups) && lastFixture.lineups.length > 0) {
+            console.log('[LastMatchLineup] Lineups already in fixture data')
+            const teamLineup = lastFixture.lineups.find((l: any) => l.team.id === teamId)
+            
+            if (teamLineup && teamLineup.startXI) {
+              setFormation(teamLineup.formation || '4-3-3')
+              setLineup(teamLineup.startXI)
+              console.log('[LastMatchLineup] Using existing lineup data')
+              setLoading(false)
+              return
+            }
+          }
           
           // 2. 먼저 별도 라인업 API 호출 시도
           try {
