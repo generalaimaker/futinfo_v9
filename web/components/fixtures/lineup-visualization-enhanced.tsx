@@ -68,8 +68,81 @@ function getPlayerPositions(formation: string) {
   return positions[normalizedFormation] || defaultFormation
 }
 
-// 포지션별 그룹화
-function groupPlayersByPosition(players: any[]) {
+// 포메이션 문자열을 기반으로 포지션 할당
+function assignPositionsByFormation(players: any[], formation: string) {
+  const groups: { [key: string]: any[] } = {
+    GK: [],
+    DEF: [],
+    MID: [],
+    ATT: []
+  }
+  
+  console.log('[LineupVisualization] Assigning positions for formation:', formation)
+  console.log('[LineupVisualization] Players to assign:', players)
+  
+  // 포메이션 파싱 (예: "4-3-3", "3-4-2-1", "4-4-2" 등)
+  const formationParts = formation.split('-').map(Number)
+  let playerIndex = 0
+  
+  // 첫 번째 선수는 항상 골키퍼
+  if (players[playerIndex]) {
+    groups.GK.push(players[playerIndex])
+    playerIndex++
+  }
+  
+  // 수비수
+  const defCount = formationParts[0] || 0
+  for (let i = 0; i < defCount && playerIndex < players.length; i++) {
+    groups.DEF.push(players[playerIndex])
+    playerIndex++
+  }
+  
+  // 미드필더 (포메이션에 따라 다르게 처리)
+  if (formationParts.length === 3) {
+    // 4-4-2, 4-3-3 등 3파트 포메이션
+    const midCount = formationParts[1] || 0
+    for (let i = 0; i < midCount && playerIndex < players.length; i++) {
+      groups.MID.push(players[playerIndex])
+      playerIndex++
+    }
+    
+    // 공격수
+    const attCount = formationParts[2] || 0
+    for (let i = 0; i < attCount && playerIndex < players.length; i++) {
+      groups.ATT.push(players[playerIndex])
+      playerIndex++
+    }
+  } else if (formationParts.length === 4) {
+    // 4-2-3-1, 3-4-2-1 등 4파트 포메이션
+    const mid1Count = formationParts[1] || 0
+    const mid2Count = formationParts[2] || 0
+    
+    // 수비형 미드필더
+    for (let i = 0; i < mid1Count && playerIndex < players.length; i++) {
+      groups.MID.push(players[playerIndex])
+      playerIndex++
+    }
+    
+    // 공격형 미드필더 (또는 두 번째 미드필더 라인)
+    for (let i = 0; i < mid2Count && playerIndex < players.length; i++) {
+      groups.MID.push(players[playerIndex])
+      playerIndex++
+    }
+    
+    // 공격수
+    const attCount = formationParts[3] || 0
+    for (let i = 0; i < attCount && playerIndex < players.length; i++) {
+      groups.ATT.push(players[playerIndex])
+      playerIndex++
+    }
+  }
+  
+  console.log('[LineupVisualization] Assigned groups:', groups)
+  return groups
+}
+
+// 포지션별 그룹화 (포지션 정보가 있으면 사용, 없으면 포메이션 기반)
+function groupPlayersByPosition(players: any[], formation?: string) {
   const groups: { [key: string]: any[] } = {
     GK: [],
     DEF: [],
@@ -79,20 +152,32 @@ function groupPlayersByPosition(players: any[]) {
   
   console.log('[LineupVisualization] Grouping players:', players)
   
-  players.forEach(player => {
-    // player가 중첩된 구조일 수 있음 (예: {player: {...}})
-    const actualPlayer = player.player ? player : player
-    const pos = actualPlayer.statistics?.[0]?.games?.position || 
-                actualPlayer.position || 
-                actualPlayer.pos || ''
+  // 먼저 포지션 정보가 있는지 확인
+  let hasPositionInfo = false
+  
+  players.forEach((playerData, index) => {
+    console.log(`[LineupVisualization] Player ${index}:`, playerData)
     
-    console.log('[LineupVisualization] Player position:', actualPlayer.player?.name || actualPlayer.name, '→', pos)
+    const pos = playerData.statistics?.[0]?.games?.position || 
+                playerData.position ||
+                playerData.pos || ''
     
-    if (pos === 'G' || pos === 'Goalkeeper') groups.GK.push(actualPlayer)
-    else if (pos === 'D' || pos === 'Defender') groups.DEF.push(actualPlayer)
-    else if (pos === 'M' || pos === 'Midfielder') groups.MID.push(actualPlayer)
-    else if (pos === 'F' || pos === 'Forward' || pos === 'Attacker') groups.ATT.push(actualPlayer)
+    if (pos) {
+      hasPositionInfo = true
+      const actualPlayer = playerData.player ? playerData : playerData
+      
+      if (pos === 'G' || pos === 'Goalkeeper') groups.GK.push(actualPlayer)
+      else if (pos === 'D' || pos === 'Defender') groups.DEF.push(actualPlayer)
+      else if (pos === 'M' || pos === 'Midfielder') groups.MID.push(actualPlayer)
+      else if (pos === 'F' || pos === 'Forward' || pos === 'Attacker') groups.ATT.push(actualPlayer)
+    }
   })
+  
+  // 포지션 정보가 없으면 포메이션 기반으로 할당
+  if (!hasPositionInfo && formation) {
+    console.log('[LineupVisualization] No position info found, using formation-based assignment')
+    return assignPositionsByFormation(players, formation)
+  }
   
   console.log('[LineupVisualization] Grouped players:', groups)
   return groups
@@ -100,18 +185,21 @@ function groupPlayersByPosition(players: any[]) {
 
 // 향상된 선수 카드 컴포넌트 (FOTMOB 스타일)
 function EnhancedPlayerCard({ player, position, isHome, events = [], isSubstituted }: any) {
-  const number = player.statistics?.[0]?.games?.number || player.number || '-'
+  // player 데이터 구조 처리
+  const playerInfo = player.player || player
+  const number = player.statistics?.[0]?.games?.number || player.number || playerInfo.number || '-'
   const rating = player.statistics?.[0]?.games?.rating || null
-  const playerName = player.player.name.split(' ').pop() // 성만 표시
+  const playerName = playerInfo.name ? playerInfo.name.split(' ').pop() : 'Unknown' // 성만 표시
   
   // 이벤트 정보
-  const goals = events.filter((e: any) => e.type === 'Goal' && e.player?.id === player.player.id).length
-  const assists = events.filter((e: any) => e.type === 'Goal' && e.assist?.id === player.player.id).length
-  const cards = events.filter((e: any) => e.type === 'Card' && e.player?.id === player.player.id)
+  const playerId = playerInfo.id || player.player?.id
+  const goals = playerId ? events.filter((e: any) => e.type === 'Goal' && e.player?.id === playerId).length : 0
+  const assists = playerId ? events.filter((e: any) => e.type === 'Goal' && e.assist?.id === playerId).length : 0
+  const cards = playerId ? events.filter((e: any) => e.type === 'Card' && e.player?.id === playerId) : []
   const yellowCards = cards.filter((c: any) => c.detail === 'Yellow Card').length
   const redCards = cards.filter((c: any) => c.detail === 'Red Card').length
-  const subIn = events.find((e: any) => e.type === 'subst' && e.assist?.id === player.player.id)
-  const subOut = events.find((e: any) => e.type === 'subst' && e.player?.id === player.player.id)
+  const subIn = playerId ? events.find((e: any) => e.type === 'subst' && e.assist?.id === playerId) : null
+  const subOut = playerId ? events.find((e: any) => e.type === 'subst' && e.player?.id === playerId) : null
   
   // 평점에 따른 색상 및 스타일
   const getRatingStyle = (rating: number) => {
@@ -150,11 +238,11 @@ function EnhancedPlayerCard({ player, position, isHome, events = [], isSubstitut
         
         {/* 선수 사진/번호 */}
         <div className="relative">
-          {player.player.photo ? (
+          {playerInfo.photo ? (
             <div className="relative">
               <Image
-                src={player.player.photo}
-                alt={player.player.name}
+                src={playerInfo.photo}
+                alt={playerInfo.name || 'Player'}
                 width={48}
                 height={48}
                 className={cn(
@@ -229,7 +317,7 @@ function EnhancedPlayerCard({ player, position, isHome, events = [], isSubstitut
           "opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity",
           "z-50"
         )}>
-          <p className="font-bold text-sm">{player.player.name}</p>
+          <p className="font-bold text-sm">{playerInfo.name || 'Unknown'}</p>
           <div className="flex items-center justify-between mt-1">
             <span className="text-xs text-gray-500">
               {player.statistics?.[0]?.games?.position} • #{number}
@@ -260,7 +348,7 @@ function EnhancedSoccerField({ team, formation, players, events, isHome }: any) 
   console.log('[EnhancedSoccerField] IsHome:', isHome)
   
   const positions = getPlayerPositions(formation)
-  const groupedPlayers = groupPlayersByPosition(players)
+  const groupedPlayers = groupPlayersByPosition(players, formation)
   
   console.log('[EnhancedSoccerField] Positions:', positions)
   console.log('[EnhancedSoccerField] Grouped Players:', groupedPlayers)
