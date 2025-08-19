@@ -69,7 +69,7 @@ serve(async (req) => {
         apiPath = '/fixtures/statistics'
         break
       case 'fixtures/h2h':
-        apiPath = '/fixtures/h2h'
+        apiPath = '/fixtures/headtohead'
         break
       case 'fixtures/lineups':
         apiPath = '/fixtures/lineups'
