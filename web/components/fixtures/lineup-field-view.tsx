@@ -18,117 +18,117 @@ interface LineupFieldViewProps {
 // 포메이션별 포지션 좌표 정의 (백분율)
 const FORMATION_POSITIONS: { [key: string]: { [key: string]: Array<{ x: number; y: number }> } } = {
   '3-4-2-1': {
-    GK: [{ x: 50, y: 5 }],
+    GK: [{ x: 50, y: 8 }],
     DEF: [
-      { x: 25, y: 20 },
-      { x: 50, y: 18 },
-      { x: 75, y: 20 }
+      { x: 25, y: 25 },
+      { x: 50, y: 22 },
+      { x: 75, y: 25 }
     ],
     MID: [
-      { x: 10, y: 40 },
-      { x: 35, y: 35 },
-      { x: 65, y: 35 },
-      { x: 90, y: 40 },
-      { x: 35, y: 55 },
-      { x: 65, y: 55 }
+      { x: 15, y: 42 },
+      { x: 38, y: 40 },
+      { x: 62, y: 40 },
+      { x: 85, y: 42 },
+      { x: 35, y: 58 },
+      { x: 65, y: 58 }
     ],
     ATT: [
-      { x: 50, y: 75 }
+      { x: 50, y: 78 }
     ]
   },
   '4-3-3': {
-    GK: [{ x: 50, y: 5 }],
+    GK: [{ x: 50, y: 8 }],
     DEF: [
-      { x: 15, y: 20 },
-      { x: 38, y: 18 },
-      { x: 62, y: 18 },
-      { x: 85, y: 20 }
+      { x: 18, y: 25 },
+      { x: 39, y: 22 },
+      { x: 61, y: 22 },
+      { x: 82, y: 25 }
     ],
     MID: [
-      { x: 25, y: 40 },
-      { x: 50, y: 35 },
-      { x: 75, y: 40 }
+      { x: 28, y: 45 },
+      { x: 50, y: 42 },
+      { x: 72, y: 45 }
     ],
     ATT: [
-      { x: 20, y: 70 },
-      { x: 50, y: 75 },
-      { x: 80, y: 70 }
+      { x: 25, y: 72 },
+      { x: 50, y: 78 },
+      { x: 75, y: 72 }
     ]
   },
   '4-4-2': {
-    GK: [{ x: 50, y: 5 }],
+    GK: [{ x: 50, y: 8 }],
     DEF: [
-      { x: 15, y: 20 },
-      { x: 38, y: 18 },
-      { x: 62, y: 18 },
-      { x: 85, y: 20 }
+      { x: 18, y: 25 },
+      { x: 39, y: 22 },
+      { x: 61, y: 22 },
+      { x: 82, y: 25 }
     ],
     MID: [
-      { x: 10, y: 40 },
-      { x: 35, y: 38 },
-      { x: 65, y: 38 },
-      { x: 90, y: 40 }
+      { x: 12, y: 47 },
+      { x: 37, y: 44 },
+      { x: 63, y: 44 },
+      { x: 88, y: 47 }
     ],
     ATT: [
-      { x: 35, y: 70 },
-      { x: 65, y: 70 }
+      { x: 38, y: 72 },
+      { x: 62, y: 72 }
     ]
   },
   '4-2-3-1': {
-    GK: [{ x: 50, y: 5 }],
+    GK: [{ x: 50, y: 8 }],
     DEF: [
-      { x: 15, y: 20 },
-      { x: 38, y: 18 },
-      { x: 62, y: 18 },
-      { x: 85, y: 20 }
+      { x: 18, y: 25 },
+      { x: 39, y: 22 },
+      { x: 61, y: 22 },
+      { x: 82, y: 25 }
     ],
     MID: [
-      { x: 35, y: 35 },
-      { x: 65, y: 35 },
-      { x: 20, y: 55 },
-      { x: 50, y: 58 },
-      { x: 80, y: 55 }
+      { x: 35, y: 38 },
+      { x: 65, y: 38 },
+      { x: 25, y: 58 },
+      { x: 50, y: 60 },
+      { x: 75, y: 58 }
     ],
     ATT: [
-      { x: 50, y: 80 }
+      { x: 50, y: 78 }
     ]
   },
   '3-5-2': {
-    GK: [{ x: 50, y: 5 }],
+    GK: [{ x: 50, y: 8 }],
     DEF: [
-      { x: 25, y: 18 },
-      { x: 50, y: 15 },
-      { x: 75, y: 18 }
+      { x: 28, y: 24 },
+      { x: 50, y: 20 },
+      { x: 72, y: 24 }
     ],
     MID: [
-      { x: 10, y: 40 },
-      { x: 30, y: 35 },
-      { x: 50, y: 38 },
-      { x: 70, y: 35 },
-      { x: 90, y: 40 }
+      { x: 12, y: 47 },
+      { x: 32, y: 42 },
+      { x: 50, y: 44 },
+      { x: 68, y: 42 },
+      { x: 88, y: 47 }
     ],
     ATT: [
-      { x: 35, y: 70 },
-      { x: 65, y: 70 }
+      { x: 38, y: 72 },
+      { x: 62, y: 72 }
     ]
   },
   '5-3-2': {
-    GK: [{ x: 50, y: 5 }],
+    GK: [{ x: 50, y: 8 }],
     DEF: [
-      { x: 10, y: 20 },
-      { x: 30, y: 18 },
-      { x: 50, y: 15 },
-      { x: 70, y: 18 },
-      { x: 90, y: 20 }
+      { x: 12, y: 25 },
+      { x: 31, y: 22 },
+      { x: 50, y: 20 },
+      { x: 69, y: 22 },
+      { x: 88, y: 25 }
     ],
     MID: [
-      { x: 25, y: 40 },
-      { x: 50, y: 38 },
-      { x: 75, y: 40 }
+      { x: 28, y: 45 },
+      { x: 50, y: 42 },
+      { x: 72, y: 45 }
     ],
     ATT: [
-      { x: 35, y: 70 },
-      { x: 65, y: 70 }
+      { x: 38, y: 72 },
+      { x: 62, y: 72 }
     ]
   }
 }
@@ -417,8 +417,8 @@ function SoccerField({ homeTeam, awayTeam, events }: any) {
   const homeGroups = assignPositionsByFormation(homeTeam.startXI, homeTeam.formation)
   const awayGroups = assignPositionsByFormation(awayTeam.startXI, awayTeam.formation)
   
-  // 절반 필드에 선수 렌더링하는 함수
-  const renderPlayersInHalf = (groups: any, positions: any, isHome: boolean, substitutedIds: string[], half: 'top' | 'bottom') => {
+  // 전체 필드에 팀 렌더링하는 함수 (양팀이 마주보는 형태)
+  const renderTeamOnField = (groups: any, positions: any, isHome: boolean, substitutedIds: string[]) => {
     const renderGroup = (groupName: string) => {
       const players = groups[groupName] || []
       const groupPositions = positions[groupName] || []
@@ -431,18 +431,12 @@ function SoccerField({ homeTeam, awayTeam, events }: any) {
              groupName === 'MID' ? 40 : 60
         }
         
-        // 절반 필드에 맞게 y 좌표 조정
-        if (half === 'top') {
-          // 홈팀: 상단 절반 (0-50%)
+        // 홈팀은 위에서 아래로 (GK가 위, ATT가 아래)
+        // 원정팀은 아래에서 위로 (GK가 아래, ATT가 위) - y축 반전
+        if (!isHome) {
           position = {
             x: position.x,
-            y: position.y * 0.5  // 0-50% 범위로 압축
-          }
-        } else {
-          // 원정팀: 하단 절반 (50-100%)
-          position = {
-            x: position.x,
-            y: 50 + (100 - position.y) * 0.5  // 50-100% 범위로 배치, 방향 반전
+            y: 100 - position.y
           }
         }
         
@@ -602,19 +596,15 @@ function SoccerField({ homeTeam, awayTeam, events }: any) {
           <rect x="40" y="90" width="20" height="8" fill="none" stroke="white" strokeWidth="0.3" opacity="0.5" />
         </svg>
         
-        {/* 팀 영역 구분 - 상단 절반 홈팀 */}
-        <div className="absolute top-0 left-0 right-0 h-1/2">
-          {(selectedView === 'both' || selectedView === 'home') && 
-            renderPlayersInHalf(homeGroups, homePositions, true, homeSubstitutedIds, 'top')
-          }
-        </div>
+        {/* 홈팀 선수 배치 - 전체 필드 사용 */}
+        {(selectedView === 'both' || selectedView === 'home') && 
+          renderTeamOnField(homeGroups, homePositions, true, homeSubstitutedIds)
+        }
         
-        {/* 팀 영역 구분 - 하단 절반 원정팀 */}
-        <div className="absolute bottom-0 left-0 right-0 h-1/2">
-          {(selectedView === 'both' || selectedView === 'away') && 
-            renderPlayersInHalf(awayGroups, awayPositions, false, awaySubstitutedIds, 'bottom')
-          }
-        </div>
+        {/* 원정팀 선수 배치 - 전체 필드 사용 (반대 방향) */}
+        {(selectedView === 'both' || selectedView === 'away') && 
+          renderTeamOnField(awayGroups, awayPositions, false, awaySubstitutedIds)
+        }
         
         {/* 팀 정보 표시 */}
         <div className="absolute top-2 left-2 right-2 flex flex-col gap-1">
