@@ -20,20 +20,20 @@ const FORMATION_POSITIONS: { [key: string]: { [key: string]: Array<{ x: number; 
   '3-4-2-1': {
     GK: [{ x: 50, y: 5 }],
     DEF: [
-      { x: 20, y: 20 },
+      { x: 25, y: 20 },
       { x: 50, y: 18 },
-      { x: 80, y: 20 }
+      { x: 75, y: 20 }
     ],
     MID: [
       { x: 10, y: 40 },
-      { x: 35, y: 38 },
-      { x: 65, y: 38 },
-      { x: 90, y: 40 }
+      { x: 35, y: 35 },
+      { x: 65, y: 35 },
+      { x: 90, y: 40 },
+      { x: 35, y: 55 },
+      { x: 65, y: 55 }
     ],
     ATT: [
-      { x: 35, y: 60 },
-      { x: 65, y: 60 },
-      { x: 50, y: 80 }
+      { x: 50, y: 75 }
     ]
   },
   '4-3-3': {
@@ -142,6 +142,9 @@ function assignPositionsByFormation(players: any[], formation: string) {
     ATT: []
   }
   
+  console.log('[LineupFieldView] Assigning positions for formation:', formation)
+  console.log('[LineupFieldView] Players to assign:', players.length, 'players')
+  
   const formationParts = formation.split('-').map(Number)
   let playerIndex = 0
   
@@ -158,8 +161,9 @@ function assignPositionsByFormation(players: any[], formation: string) {
     playerIndex++
   }
   
-  // 미드필더
+  // 미드필더와 공격수 처리
   if (formationParts.length === 3) {
+    // 3파트 포메이션 (예: 4-3-3, 4-4-2)
     const midCount = formationParts[1] || 0
     for (let i = 0; i < midCount && playerIndex < players.length; i++) {
       groups.MID.push(players[playerIndex])
@@ -173,21 +177,31 @@ function assignPositionsByFormation(players: any[], formation: string) {
       playerIndex++
     }
   } else if (formationParts.length === 4) {
-    // 4파트 포메이션 (예: 4-2-3-1)
+    // 4파트 포메이션 (예: 3-4-2-1, 4-2-3-1)
     const mid1Count = formationParts[1] || 0
     const mid2Count = formationParts[2] || 0
     
-    for (let i = 0; i < mid1Count + mid2Count && playerIndex < players.length; i++) {
+    // 모든 미드필더를 MID 그룹에 추가
+    const totalMidCount = mid1Count + mid2Count
+    for (let i = 0; i < totalMidCount && playerIndex < players.length; i++) {
       groups.MID.push(players[playerIndex])
       playerIndex++
     }
     
+    // 공격수
     const attCount = formationParts[3] || 0
     for (let i = 0; i < attCount && playerIndex < players.length; i++) {
       groups.ATT.push(players[playerIndex])
       playerIndex++
     }
   }
+  
+  console.log('[LineupFieldView] Assigned groups:', {
+    GK: groups.GK.length,
+    DEF: groups.DEF.length,
+    MID: groups.MID.length,
+    ATT: groups.ATT.length
+  })
   
   return groups
 }
@@ -313,7 +327,87 @@ function SoccerField({ homeTeam, awayTeam, events }: any) {
   // 포메이션 포지션 가져오기
   const getPositions = (formation: string) => {
     const normalizedFormation = formation.replace(/\s/g, '')
-    return FORMATION_POSITIONS[normalizedFormation] || FORMATION_POSITIONS['4-4-2']
+    
+    // 포메이션이 정의되어 있으면 사용
+    if (FORMATION_POSITIONS[normalizedFormation]) {
+      return FORMATION_POSITIONS[normalizedFormation]
+    }
+    
+    // 정의되지 않은 포메이션의 경우 동적으로 생성
+    const parts = normalizedFormation.split('-').map(Number)
+    const positions: any = {
+      GK: [{ x: 50, y: 5 }],
+      DEF: [],
+      MID: [],
+      ATT: []
+    }
+    
+    // 수비수 위치
+    const defCount = parts[0] || 0
+    for (let i = 0; i < defCount; i++) {
+      const spacing = 70 / (defCount + 1)
+      positions.DEF.push({
+        x: 15 + spacing * (i + 1),
+        y: 20
+      })
+    }
+    
+    // 미드필더 위치
+    if (parts.length === 3) {
+      const midCount = parts[1] || 0
+      for (let i = 0; i < midCount; i++) {
+        const spacing = 80 / (midCount + 1)
+        positions.MID.push({
+          x: 10 + spacing * (i + 1),
+          y: 40
+        })
+      }
+      
+      // 공격수 위치
+      const attCount = parts[2] || 0
+      for (let i = 0; i < attCount; i++) {
+        const spacing = 60 / (attCount + 1)
+        positions.ATT.push({
+          x: 20 + spacing * (i + 1),
+          y: 70
+        })
+      }
+    } else if (parts.length === 4) {
+      // 4파트 포메이션
+      const mid1Count = parts[1] || 0
+      const mid2Count = parts[2] || 0
+      const totalMid = mid1Count + mid2Count
+      
+      // 수비형 미드필더
+      for (let i = 0; i < mid1Count; i++) {
+        const spacing = 60 / (mid1Count + 1)
+        positions.MID.push({
+          x: 20 + spacing * (i + 1),
+          y: 35
+        })
+      }
+      
+      // 공격형 미드필더
+      for (let i = 0; i < mid2Count; i++) {
+        const spacing = 60 / (mid2Count + 1)
+        positions.MID.push({
+          x: 20 + spacing * (i + 1),
+          y: 55
+        })
+      }
+      
+      // 공격수 위치
+      const attCount = parts[3] || 0
+      for (let i = 0; i < attCount; i++) {
+        const spacing = 40 / (attCount + 1)
+        positions.ATT.push({
+          x: 30 + spacing * (i + 1),
+          y: 75
+        })
+      }
+    }
+    
+    return positions
   }
   
   // 홈팀과 원정팀 포지션 및 선수 그룹화
