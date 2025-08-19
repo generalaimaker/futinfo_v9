@@ -286,7 +286,15 @@ export function H2HComponent({ homeTeam, awayTeam, currentFixture }: H2HComponen
       try {
         setLoading(true)
         const data = await footballAPIService.getH2H(homeTeam.id, awayTeam.id)
-        setH2HData(data)
+        console.log('[H2HComponent] H2H data received:', data)
+        
+        // data가 배열인지 확인하고, 아니면 빈 배열로 설정
+        if (Array.isArray(data)) {
+          setH2HData(data)
+        } else {
+          console.error('[H2HComponent] H2H data is not an array:', data)
+          setH2HData([])
+        }
       } catch (err) {
         console.error('Error fetching H2H:', err)
         setError('상대전적을 불러올 수 없습니다.')
@@ -327,6 +335,7 @@ export function H2HComponent({ homeTeam, awayTeam, currentFixture }: H2HComponen
   
   // 장소별 경기 필터링
   const filteredFixtures = useMemo(() => {
+    if (!h2hData || !Array.isArray(h2hData)) return []
     if (viewMode === 'all') return h2hData
     
     return h2hData.filter((fixture: any) => {
@@ -334,7 +343,7 @@ export function H2HComponent({ homeTeam, awayTeam, currentFixture }: H2HComponen
       if (viewMode === 'home') return isHomeTeamHome
       return !isHomeTeamHome
     })
-  }, [h2hData, viewMode, homeTeam.id])
+  }, [h2hData, viewMode, homeTeam?.id])
   
   return (
     <div className="space-y-6">
