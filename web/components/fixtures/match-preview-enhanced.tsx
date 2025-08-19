@@ -251,14 +251,19 @@ function LastMatchLineup({ teamId, teamName }: any) {
                   setFormation(normalizedFormation)
                   
                   // grid 정보 추가 (있는 경우)
-                  const lineupWithGrid = teamLineup.startXI.map((player: any) => {
-                    // grid 정보가 없으면 coach 정보에서 찾기
+                  const lineupWithGrid = teamLineup.startXI.map((player: any, idx: number) => {
+                    // grid 정보가 있는지 확인
                     const grid = player.player?.grid || player.grid || null
+                    const pos = player.player?.pos || null
+                    
+                    console.log(`[LastMatchLineup] Player ${idx}: ${player.player?.name}, grid: ${grid}, pos: ${pos}`)
+                    
                     return {
                       ...player,
                       player: {
                         ...player.player,
-                        grid: grid
+                        grid: grid,
+                        pos: pos
                       }
                     }
                   })

@@ -171,50 +171,54 @@ export function arrangePlayersByPosition(
 ): Array<PlayerPosition & { fieldPosition: { x: number, y: number } }> {
   if (!players || players.length === 0) return []
   
-  // 포지션별로 선수 그룹화
-  const grouped: { [key: string]: PlayerPosition[] } = {
-    G: [],
-    D: [],
-    M: [],
-    F: []
-  }
-  
-  players.forEach(player => {
-    const pos = player.player.pos?.toUpperCase() || ''
-    if (pos.includes('G')) grouped.G.push(player)
-    else if (pos.includes('D') || pos.includes('B')) grouped.D.push(player)
-    else if (pos.includes('M')) grouped.M.push(player)
-    else if (pos.includes('F') || pos.includes('W') || pos.includes('S')) grouped.F.push(player)
-    else grouped.M.push(player) // 기본값은 미드필더
-  })
+  console.log('[arrangePlayersByPosition] Input players:', players)
+  console.log('[arrangePlayersByPosition] Formation:', formation)
   
   const result: Array<PlayerPosition & { fieldPosition: { x: number, y: number } }> = []
   
-  // 각 포지션별로 위치 할당
-  let defIndex = 0, midIndex = 0, fwdIndex = 0
+  // 포지션별 인덱스 추적을 위한 객체
+  const positionIndices: { [key: string]: number } = {
+    D: 0,
+    M: 0,
+    F: 0
+  }
   
-  players.forEach(player => {
+  players.forEach((player, index) => {
     let fieldPosition: { x: number, y: number }
     
     // 1. Grid 정보가 있으면 우선 사용
     if (player.player.grid) {
+      console.log(`[arrangePlayersByPosition] Player ${player.player.name} has grid: ${player.player.grid}`)
       fieldPosition = gridToFieldPosition(player.player.grid)
     } 
     // 2. Grid가 없으면 포지션 기반 위치 계산
     else {
       const pos = player.player.pos?.toUpperCase() || ''
-      if (pos.includes('G')) {
+      console.log(`[arrangePlayersByPosition] Player ${player.player.name} position: ${pos}`)
+      
+      if (pos === 'G' || pos.includes('G')) {
         fieldPosition = { x: 50, y: 90 }
-      } else if (pos.includes('D') || pos.includes('B')) {
-        fieldPosition = positionToFieldPosition(pos, defIndex++, formation)
-      } else if (pos.includes('M')) {
-        fieldPosition = positionToFieldPosition(pos, midIndex++, formation)
-      } else if (pos.includes('F') || pos.includes('W') || pos.includes('S')) {
-        fieldPosition = positionToFieldPosition(pos, fwdIndex++, formation)
+      } else if (pos === 'D' || pos.includes('D') || pos.includes('B')) {
+        fieldPosition = positionToFieldPosition('D', positionIndices.D++, formation)
+      } else if (pos === 'M' || pos.includes('M')) {
+        fieldPosition = positionToFieldPosition('M', positionIndices.M++, formation)
+      } else if (pos === 'F' || pos.includes('F') || pos.includes('W') || pos.includes('S')) {
+        fieldPosition = positionToFieldPosition('F', positionIndices.F++, formation)
       } else {
-        fieldPosition = positionToFieldPosition(pos, midIndex++, formation)
+        // 포지션이 없는 경우 인덱스 기반으로 추론
+        if (index === 0) {
+          fieldPosition = { x: 50, y: 90 } // 첫 번째는 골키퍼
+        } else if (index <= 4) {
+          fieldPosition = positionToFieldPosition('D', positionIndices.D++, formation)
+        } else if (index <= 7) {
+          fieldPosition = positionToFieldPosition('M', positionIndices.M++, formation)
+        } else {
+          fieldPosition = positionToFieldPosition('F', positionIndices.F++, formation)
+        }
       }
     }
+    
+    console.log(`[arrangePlayersByPosition] ${player.player.name} -> x:${fieldPosition.x}, y:${fieldPosition.y}`)
     
     result.push({
       ...player,
