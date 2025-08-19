@@ -700,17 +700,67 @@ class FootballAPIService {
   // 팀 부상 선수 정보 가져오기
   async getTeamInjuries(teamId: number): Promise<any> {
     try {
+      console.log('[FootballAPI] Fetching injuries for team:', teamId)
+      
+      // injuries 엔드포인트 호출 (현재 시즌)
+      const currentSeason = new Date().getFullYear()
       const data = await this.callUnifiedAPI<any>('injuries', {
-        team: teamId
+        team: teamId,
+        season: currentSeason
       })
       
-      if (data?.response) {
-        return data.response
+      console.log('[FootballAPI] Injuries response:', data)
+      
+      if (data?.response && Array.isArray(data.response)) {
+        // 현재 부상 중인 선수만 필터링 (최근 데이터)
+        const currentDate = new Date()
+        const activeInjuries = data.response.filter((injury: any) => {
+          // fixture.date가 없거나 현재 날짜에 가까운 부상만 포함
+          if (!injury.fixture?.date) return true
+          
+          const injuryDate = new Date(injury.fixture.date)
+          const daysDiff = Math.floor((currentDate.getTime() - injuryDate.getTime()) / (1000 * 60 * 60 * 24))
+          
+          // 최근 30일 이내의 부상 정보만 표시
+          return daysDiff <= 30
+        })
+        
+        console.log('[FootballAPI] Active injuries found:', activeInjuries.length)
+        return activeInjuries
       }
       
       return []
     } catch (error) {
       console.error('[FootballAPI] Error fetching team injuries:', error)
+      
+      // 대체 방법: 팀 스쿼드에서 부상 정보 확인
+      try {
+        console.log('[FootballAPI] Trying alternative: squad endpoint')
+        const squadData = await this.callUnifiedAPI<any>('players/squads', {
+          team: teamId
+        })
+        
+        if (squadData?.response?.[0]?.players) {
+          const injuredPlayers = squadData.response[0].players
+            .filter((player: any) => player.injured === true)
+            .map((player: any) => ({
+              player: {
+                id: player.id,
+                name: player.name,
+                photo: player.photo,
+                type: 'Injured',
+                reason: 'Injury',
+                position: player.position
+              }
+            }))
+          
+          console.log('[FootballAPI] Injured players from squad:', injuredPlayers.length)
+          return injuredPlayers
+        }
+      } catch (squadError) {
+        console.error('[FootballAPI] Squad endpoint also failed:', squadError)
+      }
+      
       return []
     }
   }

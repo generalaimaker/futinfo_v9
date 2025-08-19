@@ -468,7 +468,7 @@ function InjuriesCard({ teamId, teamName }: any) {
       try {
         const footballAPI = new FootballAPIService()
         const data = await footballAPI.getTeamInjuries(teamId)
-        console.log('[InjuriesCard] Injuries data for', teamName, ':', data)
+        console.log('[InjuriesCard] Raw injuries data for', teamName, ':', data)
         
         if (Array.isArray(data) && data.length > 0) {
           // response 형식에 따라 처리
@@ -476,16 +476,36 @@ function InjuriesCard({ teamId, teamName }: any) {
             // API 응답 구조에 따라 조정
             if (item.player) {
               return {
+                id: item.player.id,
                 name: item.player.name,
                 photo: item.player.photo,
-                type: item.player.type || '부상',
-                reason: item.player.reason || '부상',
-                position: item.player.position
+                type: item.player.type || 'Injured',
+                reason: item.player.reason || 'Unknown',
+                position: item.player.position || 'Player',
+                fixture: item.fixture
               }
             }
-            return item
+            // 다른 형식의 데이터 처리
+            return {
+              id: item.id || Math.random(),
+              name: item.name || 'Unknown Player',
+              photo: item.photo || null,
+              type: item.type || 'Injured',
+              reason: item.reason || 'Unknown',
+              position: item.position || 'Player',
+              fixture: item.fixture
+            }
           })
-          setInjuries(processedInjuries)
+          
+          // 중복 제거
+          const uniqueInjuries = processedInjuries.filter((injury, index, self) =>
+            index === self.findIndex((i) => i.name === injury.name)
+          )
+          
+          console.log('[InjuriesCard] Processed injuries:', uniqueInjuries)
+          setInjuries(uniqueInjuries)
+        } else {
+          console.log('[InjuriesCard] No injuries found for team:', teamId)
         }
       } catch (error) {
         console.error('[InjuriesCard] Error fetching injuries:', error)
