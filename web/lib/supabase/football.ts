@@ -653,6 +653,43 @@ class FootballAPIService {
   }
 
   // 경기 상세 정보
+  // 팀의 최근 경기 가져오기
+  async getTeamFixtures(teamId: number, limit: number = 5): Promise<any> {
+    try {
+      const data = await this.callUnifiedAPI<any>('fixtures', {
+        team: teamId,
+        last: limit
+      })
+      
+      if (data?.response) {
+        return data.response
+      }
+      
+      return []
+    } catch (error) {
+      console.error('[FootballAPI] Error fetching team fixtures:', error)
+      return []
+    }
+  }
+  
+  // 팀 부상 선수 정보 가져오기
+  async getTeamInjuries(teamId: number): Promise<any> {
+    try {
+      const data = await this.callUnifiedAPI<any>('injuries', {
+        team: teamId
+      })
+      
+      if (data?.response) {
+        return data.response
+      }
+      
+      return []
+    } catch (error) {
+      console.error('[FootballAPI] Error fetching team injuries:', error)
+      return []
+    }
+  }
+  
   async getFixtureDetails(fixtureId: number): Promise<any> {
     const cacheKey = `fixture_details_${fixtureId}`
     const cached = this.getCachedData<any>(cacheKey)

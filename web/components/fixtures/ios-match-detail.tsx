@@ -18,6 +18,7 @@ import { EventsTimeline } from './events-timeline'
 import { H2HSimple } from './h2h-simple'
 import { EnhancedStatistics } from './enhanced-statistics'
 import { MatchDetailsInfo } from './match-details-info'
+import { MatchPreviewEnhanced } from './match-preview-enhanced'
 
 interface IOSMatchDetailProps {
   fixture: any
@@ -401,6 +402,24 @@ export function IOSMatchDetail({
         url: window.location.href
       })
     }
+  }
+  
+  // 경기 예정인 경우 개선된 프리뷰 컴포넌트 사용
+  if (isUpcoming) {
+    return (
+      <div className="min-h-screen lg:ml-64 bg-gray-50 dark:bg-gray-950">
+        <IOSHeader 
+          fixture={fixture}
+          onBack={onBack || (() => window.history.back())}
+          onShare={handleShare}
+          onFavorite={() => setIsFavorite(!isFavorite)}
+        />
+        
+        <div className="px-4 py-6">
+          <MatchPreviewEnhanced fixture={fixture} />
+        </div>
+      </div>
+    )
   }
   
   return (
