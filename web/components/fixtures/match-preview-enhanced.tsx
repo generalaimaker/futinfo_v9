@@ -128,7 +128,7 @@ function RecentForm({ teamId, teamName, teamLogo }: any) {
 }
 
 // 팀 통계 카드
-function TeamStatsCard({ teamId, teamName }: any) {
+function TeamStatsCard({ teamId, teamName, season, leagueId }: any) {
   const [stats, setStats] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   
@@ -136,7 +136,10 @@ function TeamStatsCard({ teamId, teamName }: any) {
     const fetchStats = async () => {
       try {
         const footballAPI = new FootballAPIService()
-        const data = await footballAPI.getTeamStatistics(teamId)
+        const currentSeason = season || new Date().getFullYear()
+        // 리그 ID가 없으면 Premier League를 기본값으로 사용
+        const defaultLeagueId = leagueId || 39
+        const data = await footballAPI.getTeamStatistics(teamId, currentSeason, defaultLeagueId)
         setStats(data)
       } catch (error) {
         console.error('Error fetching team statistics:', error)
@@ -146,7 +149,7 @@ function TeamStatsCard({ teamId, teamName }: any) {
     }
     
     fetchStats()
-  }, [teamId])
+  }, [teamId, season, leagueId])
   
   if (loading) {
     return (
@@ -419,6 +422,8 @@ export function MatchPreviewEnhanced({ fixture }: MatchPreviewEnhancedProps) {
                 <TeamStatsCard 
                   teamId={fixture.teams.home.id}
                   teamName={fixture.teams.home.name}
+                  season={fixture.league.season}
+                  leagueId={fixture.league.id}
                 />
               </CardContent>
             </Card>
@@ -431,6 +436,8 @@ export function MatchPreviewEnhanced({ fixture }: MatchPreviewEnhancedProps) {
                 <TeamStatsCard 
                   teamId={fixture.teams.away.id}
                   teamName={fixture.teams.away.name}
+                  season={fixture.league.season}
+                  leagueId={fixture.league.id}
                 />
               </CardContent>
             </Card>
