@@ -63,7 +63,7 @@ function ModernTimelineEvent({ event, isHome, homeTeam, awayTeam }: any) {
               <div className="flex items-center justify-end gap-2">
                 <span className="text-sm text-green-600 font-medium">{playerIn}</span>
                 <ArrowRight className="w-4 h-4 text-gray-400" />
-                <span className="text-sm text-red-600 font-medium line-through">{playerOut}</span>
+                <span className="text-sm text-red-600 font-medium">{playerOut}</span>
               </div>
             ) : (
               <div>
@@ -102,7 +102,7 @@ function ModernTimelineEvent({ event, isHome, homeTeam, awayTeam }: any) {
           <div className="text-left">
             {isSubstitution ? (
               <div className="flex items-center gap-2">
-                <span className="text-sm text-red-600 font-medium line-through">{playerOut}</span>
+                <span className="text-sm text-red-600 font-medium">{playerOut}</span>
                 <ArrowLeft className="w-4 h-4 text-gray-400" />
                 <span className="text-sm text-green-600 font-medium">{playerIn}</span>
               </div>

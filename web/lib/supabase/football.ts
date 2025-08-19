@@ -736,7 +736,7 @@ class FootballAPIService {
     if (cached) return cached
 
     try {
-      const data = await this.callUnifiedAPI<any>('fixtures/headtohead', {
+      const data = await this.callUnifiedAPI<any>('fixtures/h2h', {
         h2h: `${team1}-${team2}`
       })
       
