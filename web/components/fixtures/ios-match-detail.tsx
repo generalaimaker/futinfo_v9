@@ -13,7 +13,7 @@ import { cn } from '@/lib/utils'
 import { format } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import { Button } from '@/components/ui/button'
-import { LineupHorizontal } from './lineup-horizontal'
+import { LineupFieldView } from './lineup-field-view'
 import { EventsTimeline } from './events-timeline'
 import { H2HComponent } from './h2h-component'
 import { EnhancedStatistics } from './enhanced-statistics'
@@ -579,7 +579,7 @@ export function IOSMatchDetail({
               exit={{ opacity: 0, x: -20 }}
             >
               <IOSContentSection title="라인업" icon={Users}>
-                <LineupHorizontal
+                <LineupFieldView
                   lineups={fixture.lineups}
                   events={fixture.events}
                   players={fixture.players}
