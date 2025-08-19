@@ -818,11 +818,85 @@ class FootballAPIService {
     if (cached) return cached
 
     try {
+      // fixtures 엔드포인트로 전체 정보 가져오기
       const data = await this.callUnifiedAPI<any>('fixtures', {
         id: fixtureId
       })
       
+      if (!data?.response?.[0]) {
+        throw new Error('No fixture data found')
+      }
+      
       const fixtureDetails = data.response[0]
+      
+      // 라인업이 없으면 players 엔드포인트도 시도
+      if (!fixtureDetails.lineups || fixtureDetails.lineups.length === 0) {
+        try {
+          console.log('[FootballAPI] No lineups in fixture, trying players endpoint')
+          const playersData = await this.callUnifiedAPI<any>('fixtures/players', {
+            fixture: fixtureId
+          })
+          
+          if (playersData?.response && Array.isArray(playersData.response)) {
+            fixtureDetails.players = playersData.response
+            
+            // players 데이터에서 라인업 구성
+            const lineups = playersData.response.map((team: any) => {
+              const startingXI = team.players
+                ?.filter((p: any) => 
+                  p.statistics?.[0]?.games?.position && 
+                  p.statistics?.[0]?.games?.position !== 'S' &&
+                  p.statistics?.[0]?.games?.minutes > 0
+                )
+                .map((p: any) => ({
+                  player: {
+                    id: p.player.id,
+                    name: p.player.name,
+                    number: p.statistics?.[0]?.games?.number || 0,
+                    pos: p.statistics?.[0]?.games?.position,
+                    grid: p.statistics?.[0]?.games?.position === 'G' ? '1:1' : null
+                  }
+                })) || []
+              
+              // 포메이션 추론
+              let formation = '4-3-3'
+              if (startingXI.length === 11) {
+                const defenders = startingXI.filter((p: any) => p.player.pos === 'D').length
+                const midfielders = startingXI.filter((p: any) => p.player.pos === 'M').length
+                const forwards = startingXI.filter((p: any) => p.player.pos === 'F').length
+                
+                if (defenders && midfielders && forwards) {
+                  formation = `${defenders}-${midfielders}-${forwards}`
+                }
+              }
+              
+              return {
+                team: team.team,
+                formation: formation,
+                startXI: startingXI,
+                substitutes: team.players
+                  ?.filter((p: any) => p.statistics?.[0]?.games?.position === 'S')
+                  .map((p: any) => ({
+                    player: {
+                      id: p.player.id,
+                      name: p.player.name,
+                      number: p.statistics?.[0]?.games?.number || 0,
+                      pos: 'S'
+                    }
+                  })) || []
+              }
+            })
+            
+            if (lineups.length > 0 && lineups.some((l: any) => l.startXI.length > 0)) {
+              fixtureDetails.lineups = lineups
+              console.log('[FootballAPI] Lineups extracted from players data')
+            }
+          }
+        } catch (playersError) {
+          console.log('[FootballAPI] Could not fetch players data:', playersError)
+        }
+      }
+      
       this.setCachedData(cacheKey, fixtureDetails)
       return fixtureDetails
     } catch (error) {

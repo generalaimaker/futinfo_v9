@@ -218,94 +218,96 @@ function LastMatchLineup({ teamId, teamName }: any) {
       try {
         const footballAPI = new FootballAPIService()
         
-        // 1. 팀의 가장 최근 경기 가져오기
-        const recentFixtures = await footballAPI.getTeamFixtures(teamId, 1)
+        // 1. 팀의 가장 최근 완료된 경기들 가져오기 (더 많이 가져와서 라인업 있는 것 찾기)
+        const recentFixtures = await footballAPI.getTeamFixtures(teamId, 5)
         console.log('[LastMatchLineup] Recent fixtures:', recentFixtures)
         
         if (recentFixtures && recentFixtures.length > 0) {
-          const lastFixture = recentFixtures[0]
-          console.log('[LastMatchLineup] Last fixture data:', lastFixture)
-          console.log('[LastMatchLineup] Last fixture lineups:', lastFixture.lineups)
-          
-          const fixtureDate = new Date(lastFixture.fixture.date)
-          setLastMatchDate(format(fixtureDate, 'M월 d일', { locale: ko }))
-          
-          // 먼저 이미 라인업 데이터가 있는지 확인
-          if (lastFixture.lineups && Array.isArray(lastFixture.lineups) && lastFixture.lineups.length > 0) {
-            console.log('[LastMatchLineup] Lineups already in fixture data')
-            const teamLineup = lastFixture.lineups.find((l: any) => l.team.id === teamId)
-            
-            if (teamLineup && teamLineup.startXI) {
-              setFormation(teamLineup.formation || '4-3-3')
-              setLineup(teamLineup.startXI)
-              console.log('[LastMatchLineup] Using existing lineup data')
-              setLoading(false)
-              return
+          // 완료된 경기 중에서 라인업이 있는 첫 번째 경기 찾기
+          for (const fixture of recentFixtures) {
+            // 경기가 완료된 경우만 체크
+            if (!['FT', 'AET', 'PEN'].includes(fixture.fixture?.status?.short)) {
+              continue
             }
-          }
-          
-          // 2. 먼저 별도 라인업 API 호출 시도
-          try {
-            console.log('[LastMatchLineup] Fetching lineups for fixture:', lastFixture.fixture.id)
-            const lineupData = await footballAPI.getFixtureLineups(lastFixture.fixture.id)
-            console.log('[LastMatchLineup] Lineup API response:', lineupData)
             
-            if (lineupData && Array.isArray(lineupData) && lineupData.length > 0) {
-              const teamLineup = lineupData.find((l: any) => l.team.id === teamId)
-              console.log('[LastMatchLineup] Team lineup found:', teamLineup)
-              
-              if (teamLineup && teamLineup.startXI && Array.isArray(teamLineup.startXI)) {
-                setFormation(teamLineup.formation || '4-3-3')
-                setLineup(teamLineup.startXI)
-                console.log('[LastMatchLineup] Lineup set successfully:', {
-                  formation: teamLineup.formation,
-                  players: teamLineup.startXI.length
-                })
-              } else {
-                console.log('[LastMatchLineup] No valid lineup in API response for team:', teamId)
-              }
-            } else {
-              console.log('[LastMatchLineup] Empty or invalid lineup response')
-              
-              // 3. 라인업이 없으면 경기 상세 정보에서 찾기 (폴백)
-              try {
-                const fixtureDetails = await footballAPI.getFixtureDetails(lastFixture.fixture.id)
-                console.log('[LastMatchLineup] Trying fixture details as fallback:', fixtureDetails)
-                
-                if (fixtureDetails?.lineups && Array.isArray(fixtureDetails.lineups) && fixtureDetails.lineups.length > 0) {
-                  const teamLineup = fixtureDetails.lineups.find(
-                    (l: any) => l.team.id === teamId
-                  )
-                  
-                  if (teamLineup && teamLineup.startXI) {
-                    setFormation(teamLineup.formation || '4-3-3')
-                    setLineup(teamLineup.startXI)
-                    console.log('[LastMatchLineup] Found lineup in fixture details')
-                  }
-                } else {
-                  console.log('[LastMatchLineup] No lineup data available for this match')
-                }
-              } catch (detailError) {
-                console.error('[LastMatchLineup] Error fetching fixture details:', detailError)
-              }
-            }
-          } catch (lineupError) {
-            console.error('[LastMatchLineup] Error fetching lineup:', lineupError)
+            console.log('[LastMatchLineup] Checking fixture:', fixture.fixture.id)
             
-            // 에러 발생시에도 fixture details 시도
+            // fixtures 엔드포인트로 상세 정보 가져오기 (라인업 포함)
             try {
-              const fixtureDetails = await footballAPI.getFixtureDetails(lastFixture.fixture.id)
-              if (fixtureDetails?.lineups && fixtureDetails.lineups.length > 0) {
+              const fixtureDetails = await footballAPI.getFixtureDetails(fixture.fixture.id)
+              console.log('[LastMatchLineup] Fixture details:', fixtureDetails)
+              
+              if (fixtureDetails?.lineups && Array.isArray(fixtureDetails.lineups) && fixtureDetails.lineups.length > 0) {
                 const teamLineup = fixtureDetails.lineups.find((l: any) => l.team.id === teamId)
-                if (teamLineup?.startXI) {
+                console.log('[LastMatchLineup] Team lineup found:', teamLineup)
+                
+                if (teamLineup && teamLineup.startXI && Array.isArray(teamLineup.startXI) && teamLineup.startXI.length > 0) {
+                  const fixtureDate = new Date(fixture.fixture.date)
+                  setLastMatchDate(format(fixtureDate, 'M월 d일', { locale: ko }))
                   setFormation(teamLineup.formation || '4-3-3')
                   setLineup(teamLineup.startXI)
+                  console.log('[LastMatchLineup] Lineup set successfully:', {
+                    formation: teamLineup.formation,
+                    players: teamLineup.startXI.length,
+                    date: format(fixtureDate, 'yyyy-MM-dd')
+                  })
+                  setLoading(false)
+                  return // 라인업을 찾았으면 종료
                 }
               }
-            } catch (fallbackError) {
-              console.error('[LastMatchLineup] Fallback also failed:', fallbackError)
+              
+              // players 데이터에서 라인업 추출 시도
+              if (fixtureDetails?.players && Array.isArray(fixtureDetails.players) && fixtureDetails.players.length > 0) {
+                const teamPlayers = fixtureDetails.players.find((p: any) => p.team.id === teamId)
+                console.log('[LastMatchLineup] Team players found:', teamPlayers)
+                
+                if (teamPlayers?.players) {
+                  // 선발 선수만 필터링 (grid가 있는 선수들)
+                  const startingXI = teamPlayers.players
+                    .filter((p: any) => p.statistics?.[0]?.games?.position && p.statistics?.[0]?.games?.position !== 'S')
+                    .map((p: any) => ({
+                      player: {
+                        id: p.player.id,
+                        name: p.player.name,
+                        number: p.statistics?.[0]?.games?.number || 0,
+                        pos: p.statistics?.[0]?.games?.position
+                      }
+                    }))
+                  
+                  if (startingXI.length > 0) {
+                    const fixtureDate = new Date(fixture.fixture.date)
+                    setLastMatchDate(format(fixtureDate, 'M월 d일', { locale: ko }))
+                    
+                    // 포메이션 추론 (GK 제외한 필드 플레이어 수로)
+                    const fieldPlayers = startingXI.filter((p: any) => p.player.pos !== 'G').length
+                    let inferredFormation = '4-3-3' // 기본값
+                    if (fieldPlayers === 10) {
+                      const defenders = startingXI.filter((p: any) => p.player.pos === 'D').length
+                      const midfielders = startingXI.filter((p: any) => p.player.pos === 'M').length
+                      const forwards = startingXI.filter((p: any) => p.player.pos === 'F').length
+                      
+                      if (defenders && midfielders && forwards) {
+                        inferredFormation = `${defenders}-${midfielders}-${forwards}`
+                      }
+                    }
+                    
+                    setFormation(inferredFormation)
+                    setLineup(startingXI)
+                    console.log('[LastMatchLineup] Lineup extracted from players data:', {
+                      formation: inferredFormation,
+                      players: startingXI.length
+                    })
+                    setLoading(false)
+                    return
+                  }
+                }
+              }
+            } catch (error) {
+              console.error('[LastMatchLineup] Error fetching fixture details:', error)
             }
           }
+          
+          console.log('[LastMatchLineup] No lineup data found in recent fixtures')
         } else {
           console.log('[LastMatchLineup] No recent fixtures found for team:', teamId)
         }
