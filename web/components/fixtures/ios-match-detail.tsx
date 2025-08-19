@@ -13,7 +13,7 @@ import { cn } from '@/lib/utils'
 import { format } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import { Button } from '@/components/ui/button'
-import { LineupVisualization } from './lineup-visualization'
+import { LineupVisualizationEnhanced } from './lineup-visualization-enhanced'
 import { EventsTimeline } from './events-timeline'
 import { H2HComponent } from './h2h-component'
 import { EnhancedStatistics } from './enhanced-statistics'
@@ -579,9 +579,10 @@ export function IOSMatchDetail({
               exit={{ opacity: 0, x: -20 }}
             >
               <IOSContentSection title="라인업" icon={Users}>
-                <LineupVisualization
+                <LineupVisualizationEnhanced
                   lineups={fixture.lineups}
                   events={fixture.events}
+                  players={fixture.players}
                 />
               </IOSContentSection>
             </motion.div>
