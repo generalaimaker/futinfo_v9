@@ -206,8 +206,77 @@ function TeamStatsCard({ teamId, teamName, season, leagueId }: any) {
   )
 }
 
-// 예상 라인업 컴포넌트
-function PredictedLineup({ teamId, teamName, formation }: any) {
+// 최근 경기 라인업 컴포넌트
+function LastMatchLineup({ teamId, teamName }: any) {
+  const [lineup, setLineup] = useState<any>(null)
+  const [formation, setFormation] = useState<string>('')
+  const [loading, setLoading] = useState(true)
+  const [lastMatchDate, setLastMatchDate] = useState<string>('')
+  
+  useEffect(() => {
+    const fetchLastLineup = async () => {
+      try {
+        const footballAPI = new FootballAPIService()
+        
+        // 1. 팀의 가장 최근 경기 가져오기
+        const recentFixtures = await footballAPI.getTeamFixtures(teamId, 1)
+        
+        if (recentFixtures && recentFixtures.length > 0) {
+          const lastFixture = recentFixtures[0]
+          const fixtureDate = new Date(lastFixture.fixture.date)
+          setLastMatchDate(format(fixtureDate, 'M월 d일', { locale: ko }))
+          
+          // 2. 해당 경기의 상세 정보(라인업 포함) 가져오기
+          const fixtureDetails = await footballAPI.getFixtureDetails(lastFixture.fixture.id)
+          
+          if (fixtureDetails?.lineups) {
+            // 해당 팀의 라인업 찾기
+            const teamLineup = fixtureDetails.lineups.find(
+              (l: any) => l.team.id === teamId
+            )
+            
+            if (teamLineup) {
+              setFormation(teamLineup.formation)
+              // 선발 선수만 필터링
+              const startingXI = teamLineup.startXI
+              setLineup(startingXI)
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching last lineup:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+    
+    fetchLastLineup()
+  }, [teamId])
+  
+  if (loading) {
+    return (
+      <div className="space-y-3">
+        <div className="animate-pulse">
+          <div className="h-4 bg-gray-200 rounded w-1/3 mb-3" />
+          <div className="bg-gray-100 rounded-lg aspect-[3/4]" />
+        </div>
+      </div>
+    )
+  }
+  
+  if (!lineup || lineup.length === 0) {
+    return (
+      <div className="space-y-3">
+        <h4 className="font-medium text-sm">{teamName}</h4>
+        <div className="bg-gray-100 rounded-lg p-4 aspect-[3/4] flex items-center justify-center">
+          <p className="text-gray-500 text-sm text-center">
+            최근 경기 라인업 정보를 가져올 수 없습니다
+          </p>
+        </div>
+      </div>
+    )
+  }
+  
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
@@ -220,16 +289,107 @@ function PredictedLineup({ teamId, teamName, formation }: any) {
       </div>
       
       <div className="bg-gradient-to-b from-green-600 to-green-500 rounded-lg p-4 aspect-[3/4] relative">
-        <div className="absolute inset-0 flex items-center justify-center">
-          <p className="text-white/50 text-sm">예상 라인업 준비 중</p>
+        {/* 포메이션에 따른 선수 배치 */}
+        <div className="absolute inset-0 p-4">
+          {lineup.map((player: any, idx: number) => {
+            // 간단한 그리드 배치 (실제로는 포메이션에 따라 위치 계산 필요)
+            const positions = getFormationPositions(formation, idx)
+            return (
+              <div
+                key={idx}
+                className="absolute transform -translate-x-1/2 -translate-y-1/2"
+                style={{
+                  left: `${positions.x}%`,
+                  top: `${positions.y}%`
+                }}
+              >
+                <div className="bg-white rounded-full w-8 h-8 flex items-center justify-center shadow-lg">
+                  <span className="text-xs font-bold text-gray-800">
+                    {player.player.number}
+                  </span>
+                </div>
+                <p className="text-white text-xs mt-1 text-center font-medium whitespace-nowrap">
+                  {player.player.name.split(' ').pop()}
+                </p>
+              </div>
+            )
+          })}
         </div>
       </div>
       
       <div className="text-xs text-gray-500 text-center">
-        * 예상 라인업은 경기 1시간 전에 업데이트됩니다
+        * {lastMatchDate} 경기 선발 라인업
+      </div>
+      
+      {/* 선발 선수 리스트 */}
+      <div className="bg-gray-50 rounded-lg p-3">
+        <h5 className="text-xs font-medium text-gray-600 mb-2">선발 명단</h5>
+        <div className="grid grid-cols-2 gap-1">
+          {lineup.map((player: any, idx: number) => (
+            <div key={idx} className="flex items-center gap-2 text-xs">
+              <span className="font-medium text-gray-500">
+                {player.player.number}
+              </span>
+              <span className="text-gray-700">{player.player.name}</span>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   )
+}
+
+// 포메이션에 따른 선수 위치 계산 함수
+function getFormationPositions(formation: string, index: number): { x: number, y: number } {
+  const positions: { [key: string]: Array<{ x: number, y: number }> } = {
+    '4-3-3': [
+      { x: 50, y: 90 }, // GK
+      { x: 20, y: 75 }, { x: 40, y: 75 }, { x: 60, y: 75 }, { x: 80, y: 75 }, // DF
+      { x: 30, y: 50 }, { x: 50, y: 50 }, { x: 70, y: 50 }, // MF
+      { x: 25, y: 25 }, { x: 50, y: 25 }, { x: 75, y: 25 } // FW
+    ],
+    '4-4-2': [
+      { x: 50, y: 90 }, // GK
+      { x: 20, y: 75 }, { x: 40, y: 75 }, { x: 60, y: 75 }, { x: 80, y: 75 }, // DF
+      { x: 20, y: 50 }, { x: 40, y: 50 }, { x: 60, y: 50 }, { x: 80, y: 50 }, // MF
+      { x: 35, y: 25 }, { x: 65, y: 25 } // FW
+    ],
+    '4-2-3-1': [
+      { x: 50, y: 90 }, // GK
+      { x: 20, y: 75 }, { x: 40, y: 75 }, { x: 60, y: 75 }, { x: 80, y: 75 }, // DF
+      { x: 35, y: 60 }, { x: 65, y: 60 }, // DM
+      { x: 20, y: 40 }, { x: 50, y: 40 }, { x: 80, y: 40 }, // AM
+      { x: 50, y: 20 } // FW
+    ],
+    '3-5-2': [
+      { x: 50, y: 90 }, // GK
+      { x: 30, y: 75 }, { x: 50, y: 75 }, { x: 70, y: 75 }, // DF
+      { x: 15, y: 50 }, { x: 35, y: 50 }, { x: 50, y: 50 }, { x: 65, y: 50 }, { x: 85, y: 50 }, // MF
+      { x: 35, y: 25 }, { x: 65, y: 25 } // FW
+    ],
+    '5-3-2': [
+      { x: 50, y: 90 }, // GK
+      { x: 15, y: 75 }, { x: 35, y: 75 }, { x: 50, y: 75 }, { x: 65, y: 75 }, { x: 85, y: 75 }, // DF
+      { x: 30, y: 50 }, { x: 50, y: 50 }, { x: 70, y: 50 }, // MF
+      { x: 35, y: 25 }, { x: 65, y: 25 } // FW
+    ],
+    '3-4-3': [
+      { x: 50, y: 90 }, // GK
+      { x: 30, y: 75 }, { x: 50, y: 75 }, { x: 70, y: 75 }, // DF
+      { x: 20, y: 50 }, { x: 40, y: 50 }, { x: 60, y: 50 }, { x: 80, y: 50 }, // MF
+      { x: 25, y: 25 }, { x: 50, y: 25 }, { x: 75, y: 25 } // FW
+    ]
+  }
+  
+  // 포메이션이 정의되어 있으면 사용, 없으면 기본 4-3-3
+  const formationPositions = positions[formation] || positions['4-3-3']
+  
+  // 인덱스가 범위를 벗어나면 기본 위치 반환
+  if (index >= formationPositions.length) {
+    return { x: 50, y: 50 }
+  }
+  
+  return formationPositions[index]
 }
 
 // 부상/결장 선수 정보
@@ -361,7 +521,7 @@ export function MatchPreviewEnhanced({ fixture }: MatchPreviewEnhancedProps) {
         <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="overview">개요</TabsTrigger>
           <TabsTrigger value="stats">통계</TabsTrigger>
-          <TabsTrigger value="lineup">예상라인업</TabsTrigger>
+          <TabsTrigger value="lineup">최근라인업</TabsTrigger>
           <TabsTrigger value="info">정보</TabsTrigger>
         </TabsList>
         
@@ -444,26 +604,24 @@ export function MatchPreviewEnhanced({ fixture }: MatchPreviewEnhancedProps) {
           </div>
         </TabsContent>
         
-        {/* 예상 라인업 탭 */}
+        {/* 최근 라인업 탭 */}
         <TabsContent value="lineup" className="space-y-6">
           <Card>
             <CardHeader>
               <CardTitle className="text-lg flex items-center gap-2">
                 <Users className="w-5 h-5" />
-                예상 라인업
+                최근 경기 라인업
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <PredictedLineup 
+                <LastMatchLineup 
                   teamId={fixture.teams.home.id}
                   teamName={fixture.teams.home.name}
-                  formation={fixture.lineups?.[0]?.formation}
                 />
-                <PredictedLineup 
+                <LastMatchLineup 
                   teamId={fixture.teams.away.id}
                   teamName={fixture.teams.away.name}
-                  formation={fixture.lineups?.[1]?.formation}
                 />
               </div>
             </CardContent>
