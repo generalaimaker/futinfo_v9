@@ -240,7 +240,7 @@ function LastMatchLineup({ teamId, teamName }: any) {
               
               if (fixtureDetails?.lineups && Array.isArray(fixtureDetails.lineups) && fixtureDetails.lineups.length > 0) {
                 const teamLineup = fixtureDetails.lineups.find((l: any) => l.team.id === teamId)
-                console.log('[LastMatchLineup] Team lineup found:', teamLineup)
+                console.log('[LastMatchLineup] Full team lineup data:', JSON.stringify(teamLineup, null, 2))
                 
                 if (teamLineup && teamLineup.startXI && Array.isArray(teamLineup.startXI) && teamLineup.startXI.length > 0) {
                   const fixtureDate = new Date(fixture.fixture.date)
@@ -250,31 +250,33 @@ function LastMatchLineup({ teamId, teamName }: any) {
                   const normalizedFormation = normalizeFormation(teamLineup.formation || '4-3-3')
                   setFormation(normalizedFormation)
                   
-                  // grid 정보 추가 (있는 경우)
-                  const lineupWithGrid = teamLineup.startXI.map((player: any, idx: number) => {
-                    // grid 정보가 있는지 확인
-                    const grid = player.player?.grid || player.grid || null
-                    const pos = player.player?.pos || null
+                  // startXI 구조 확인 및 정리
+                  const lineupWithPositions = teamLineup.startXI.map((playerData: any, idx: number) => {
+                    // API 응답 구조에 따라 데이터 추출
+                    let player = playerData.player || playerData
+                    let grid = player.grid || playerData.grid || null
+                    let pos = player.pos || playerData.position || null
                     
-                    console.log(`[LastMatchLineup] Player ${idx}: ${player.player?.name}, grid: ${grid}, pos: ${pos}`)
+                    // 첫 번째 선수는 항상 골키퍼
+                    if (idx === 0 && !pos) {
+                      pos = 'G'
+                    }
+                    
+                    console.log(`[LastMatchLineup] Player ${idx}: ${player.name}, grid: ${grid}, pos: ${pos}`)
                     
                     return {
-                      ...player,
                       player: {
-                        ...player.player,
+                        id: player.id,
+                        name: player.name,
+                        number: player.number || idx + 1,
                         grid: grid,
                         pos: pos
                       }
                     }
                   })
                   
-                  setLineup(lineupWithGrid)
-                  console.log('[LastMatchLineup] Lineup set successfully:', {
-                    formation: normalizedFormation,
-                    players: lineupWithGrid.length,
-                    date: format(fixtureDate, 'yyyy-MM-dd'),
-                    hasGrid: lineupWithGrid.some((p: any) => p.player.grid)
-                  })
+                  setLineup(lineupWithPositions)
+                  console.log('[LastMatchLineup] Processed lineup:', lineupWithPositions)
                   setLoading(false)
                   return // 라인업을 찾았으면 종료
                 }
