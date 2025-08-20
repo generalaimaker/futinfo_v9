@@ -23,7 +23,7 @@ export function parseGridPosition(grid: string): { row: number, col: number } | 
 }
 
 // Grid 위치를 필드 좌표로 변환
-export function gridToFieldPosition(grid: string, maxRows: number = 7): { x: number, y: number } {
+export function gridToFieldPosition(grid: string): { x: number, y: number } {
   const parsed = parseGridPosition(grid)
   
   if (!parsed) {
@@ -32,40 +32,34 @@ export function gridToFieldPosition(grid: string, maxRows: number = 7): { x: num
   
   const { row, col } = parsed
   
-  // x 위치 계산 (1-5 또는 1-11 columns)
+  // x 위치 계산 (1-11 columns, 왼쪽에서 오른쪽으로)
   let x = 50
-  if (col <= 5) {
-    // 5칸 그리드 시스템
-    const xPositions5: { [key: number]: number } = {
-      1: 15,  // 왼쪽 사이드
-      2: 35,  // 왼쪽 중앙
-      3: 50,  // 중앙
-      4: 65,  // 오른쪽 중앙
-      5: 85   // 오른쪽 사이드
-    }
-    x = xPositions5[col] || 50
-  } else {
-    // 11칸 그리드 시스템 (더 세밀한 위치)
-    x = 10 + (col - 1) * 8 // 10%에서 90%까지 균등 분포
+  if (col <= 11) {
+    // 11칸 그리드 시스템
+    // col 1 = 가장 왼쪽(10%), col 11 = 가장 오른쪽(90%)
+    x = 5 + (col - 1) * 9 // 5%에서 95%까지 분포
   }
   
   // y 위치 계산 (row를 필드 위치로 변환)
-  // row가 클수록 공격진에 가까움 (일반적인 그리드와 반대)
-  const yPositions: { [key: number]: number } = {
-    1: 90,  // GK
-    2: 75,  // DF line (back)
-    3: 70,  // DF line (center back)
-    4: 55,  // DM/CM (defensive mid)
-    5: 45,  // CM/AM (central mid)
-    6: 35,  // AM/Winger (attacking mid)
-    7: 25,  // FW/ST (forward)
-    8: 20,  // ST (striker)
-    9: 15,  // Very forward
-    10: 10, // Most forward
-    11: 5   // Extreme forward
-  }
+  // API-Football 그리드: row 1 = 골키퍼, row 숫자가 클수록 앞쪽(공격)
+  let y = 50
   
-  const y = yPositions[row] || (90 - (row - 1) * 8) // 폴백: row가 클수록 앞쪽
+  // 일반적인 축구 필드 그리드 (1-7 rows)
+  if (row <= 7) {
+    const yPositions: { [key: number]: number } = {
+      1: 90,  // 골키퍼 (가장 뒤)
+      2: 75,  // 수비수 라인
+      3: 60,  // 수비형 미드필더
+      4: 50,  // 중앙 미드필더
+      5: 40,  // 공격형 미드필더
+      6: 30,  // 공격수 라인
+      7: 20   // 최전방 (FW)
+    }
+    y = yPositions[row] || 50
+  } else {
+    // 더 많은 row가 있는 경우
+    y = 90 - ((row - 1) * 10) // 역순으로 균등 분포
+  }
   
   return { x, y }
 }
@@ -186,64 +180,119 @@ export function arrangePlayersByPosition(
   console.log('[arrangePlayersByPosition] Formation:', formation)
   
   const result: Array<PlayerPosition & { fieldPosition: { x: number, y: number } }> = []
-  const usedPositions = new Set<string>() // 중복 위치 방지
   
-  // 포메이션 파싱
-  const formationParts = formation.split('-').map(n => parseInt(n) || 0)
-  const [defenders = 4, midfielders = 3, forwards = 3] = formationParts
+  // Grid 정보가 있는 선수가 하나라도 있는지 확인
+  const hasGridInfo = players.some(p => p.player.grid)
+  console.log('[arrangePlayersByPosition] Has grid info:', hasGridInfo)
   
-  // 포지션별 선수 분류
-  const byPosition: { [key: string]: PlayerPosition[] } = {
-    G: [],
-    D: [],
-    M: [],
-    F: []
-  }
-  
-  players.forEach((player, idx) => {
-    const pos = player.player.pos?.toUpperCase() || ''
-    if (pos.includes('G') || idx === 0) {
-      byPosition.G.push(player)
-    } else if (pos.includes('D') || pos.includes('B')) {
-      byPosition.D.push(player)
-    } else if (pos.includes('M')) {
-      byPosition.M.push(player)
-    } else if (pos.includes('F') || pos.includes('W') || pos.includes('S')) {
-      byPosition.F.push(player)
-    } else {
-      // 포지션이 없으면 인덱스로 추론
-      if (idx <= defenders) byPosition.D.push(player)
-      else if (idx <= defenders + midfielders) byPosition.M.push(player)
-      else byPosition.F.push(player)
+  if (hasGridInfo) {
+    // Grid 정보가 있으면 grid 기반으로 배치
+    players.forEach(player => {
+      let fieldPosition: { x: number, y: number }
+      
+      if (player.player.grid) {
+        fieldPosition = gridToFieldPosition(player.player.grid)
+        console.log(`[arrangePlayersByPosition] ${player.player.name} using grid ${player.player.grid} -> x:${fieldPosition.x}, y:${fieldPosition.y}`)
+      } else {
+        // Grid가 없는 선수는 기본 위치
+        fieldPosition = { x: 50, y: 50 }
+      }
+      
+      result.push({ ...player, fieldPosition })
+    })
+  } else {
+    // Grid 정보가 없으면 포지션/인덱스 기반으로 배치
+    const formationParts = formation.split('-').map(n => parseInt(n) || 0)
+    const [defenders = 4, midfielders = 3, forwards = 3] = formationParts
+    
+    // 포지션별 선수 분류
+    const byPosition: { [key: string]: PlayerPosition[] } = {
+      G: [],
+      D: [],
+      M: [],
+      F: []
     }
-  })
-  
-  // 골키퍼 배치
-  byPosition.G.forEach(player => {
-    const position = { x: 50, y: 90 }
-    result.push({ ...player, fieldPosition: position })
-  })
-  
-  // 수비수 배치
-  const defPositions = getDefenderPositions(defenders)
-  byPosition.D.forEach((player, idx) => {
-    const position = defPositions[idx] || { x: 50, y: 75 }
-    result.push({ ...player, fieldPosition: position })
-  })
-  
-  // 미드필더 배치
-  const midPositions = getMidfielderPositions(midfielders, formation)
-  byPosition.M.forEach((player, idx) => {
-    const position = midPositions[idx] || { x: 50, y: 50 }
-    result.push({ ...player, fieldPosition: position })
-  })
-  
-  // 공격수 배치
-  const fwdPositions = getForwardPositions(forwards)
-  byPosition.F.forEach((player, idx) => {
-    const position = fwdPositions[idx] || { x: 50, y: 25 }
-    result.push({ ...player, fieldPosition: position })
-  })
+    
+    // 포지션 정보가 있는지 확인
+    const hasPositionInfo = players.some(p => p.player.pos)
+    console.log('[arrangePlayersByPosition] Has position info:', hasPositionInfo)
+    
+    if (hasPositionInfo) {
+      // 포지션 정보로 분류
+      players.forEach((player, idx) => {
+        const pos = player.player.pos?.toUpperCase() || ''
+        if (pos.includes('G') || (idx === 0 && !pos)) {
+          byPosition.G.push(player)
+        } else if (pos.includes('D') || pos.includes('B')) {
+          byPosition.D.push(player)
+        } else if (pos.includes('M')) {
+          byPosition.M.push(player)
+        } else if (pos.includes('F') || pos.includes('W') || pos.includes('S')) {
+          byPosition.F.push(player)
+        } else {
+          // 포지션이 명확하지 않으면 미드필더로 분류
+          byPosition.M.push(player)
+        }
+      })
+    } else {
+      // 포지션 정보가 없으면 인덱스로 추론
+      players.forEach((player, idx) => {
+        if (idx === 0) {
+          byPosition.G.push(player)
+        } else if (idx >= 1 && idx <= defenders) {
+          byPosition.D.push(player)
+        } else if (idx > defenders && idx <= defenders + midfielders) {
+          byPosition.M.push(player)
+        } else if (idx > defenders + midfielders) {
+          byPosition.F.push(player)
+        }
+      })
+    }
+    
+    console.log('[arrangePlayersByPosition] Grouped by position:', {
+      G: byPosition.G.length,
+      D: byPosition.D.length,
+      M: byPosition.M.length,
+      F: byPosition.F.length
+    })
+    
+    // 골키퍼 배치
+    byPosition.G.forEach(player => {
+      const position = { x: 50, y: 90 }
+      console.log(`[arrangePlayersByPosition] GK ${player.player.name} -> x:${position.x}, y:${position.y}`)
+      result.push({ ...player, fieldPosition: position })
+    })
+    
+    // 수비수 배치
+    const defCount = byPosition.D.length > 0 ? byPosition.D.length : defenders
+    const defPositions = getDefenderPositions(defCount)
+    console.log(`[arrangePlayersByPosition] Defender positions (${defCount}):`, defPositions)
+    byPosition.D.forEach((player, idx) => {
+      const position = defPositions[idx] || { x: 50, y: 75 }
+      console.log(`[arrangePlayersByPosition] DEF ${player.player.name} -> x:${position.x}, y:${position.y}`)
+      result.push({ ...player, fieldPosition: position })
+    })
+    
+    // 미드필더 배치
+    const midCount = byPosition.M.length > 0 ? byPosition.M.length : midfielders
+    const midPositions = getMidfielderPositions(midCount, formation)
+    console.log(`[arrangePlayersByPosition] Midfielder positions (${midCount}):`, midPositions)
+    byPosition.M.forEach((player, idx) => {
+      const position = midPositions[idx] || { x: 50, y: 50 }
+      console.log(`[arrangePlayersByPosition] MID ${player.player.name} -> x:${position.x}, y:${position.y}`)
+      result.push({ ...player, fieldPosition: position })
+    })
+    
+    // 공격수 배치
+    const fwdCount = byPosition.F.length > 0 ? byPosition.F.length : forwards
+    const fwdPositions = getForwardPositions(fwdCount)
+    console.log(`[arrangePlayersByPosition] Forward positions (${fwdCount}):`, fwdPositions)
+    byPosition.F.forEach((player, idx) => {
+      const position = fwdPositions[idx] || { x: 50, y: 25 }
+      console.log(`[arrangePlayersByPosition] FWD ${player.player.name} -> x:${position.x}, y:${position.y}`)
+      result.push({ ...player, fieldPosition: position })
+    })
+  }
   
   return result
 }
@@ -274,7 +323,7 @@ function getDefenderPositions(count: number): Array<{ x: number, y: number }> {
       ]
     default:
       return Array(count).fill(null).map((_, i) => ({
-        x: 15 + (i * 70 / (count - 1)),
+        x: 10 + (i * 80 / Math.max(1, count - 1)),
         y: 75
       }))
   }
@@ -322,7 +371,7 @@ function getMidfielderPositions(count: number, formation: string): Array<{ x: nu
       ]
     default:
       return Array(count).fill(null).map((_, i) => ({
-        x: 15 + (i * 70 / (count - 1)),
+        x: 10 + (i * 80 / Math.max(1, count - 1)),
         y: 50
       }))
   }
@@ -346,7 +395,7 @@ function getForwardPositions(count: number): Array<{ x: number, y: number }> {
       ]
     default:
       return Array(count).fill(null).map((_, i) => ({
-        x: 20 + (i * 60 / (count - 1)),
+        x: 20 + (i * 60 / Math.max(1, count - 1)),
         y: 25
       }))
   }
