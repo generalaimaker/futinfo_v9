@@ -32,34 +32,44 @@ export function gridToFieldPosition(grid: string): { x: number, y: number } {
   
   const { row, col } = parsed
   
-  // x 위치 계산 (1-11 columns, 왼쪽에서 오른쪽으로)
+  // x 위치 계산 (columns, 왼쪽에서 오른쪽으로)
   let x = 50
-  if (col <= 11) {
-    // 11칸 그리드 시스템
-    // col 1 = 가장 왼쪽(10%), col 11 = 가장 오른쪽(90%)
-    x = 5 + (col - 1) * 9 // 5%에서 95%까지 분포
+  
+  // 로그를 보니 대부분 1-4 컬럼을 사용 (포메이션별로 다름)
+  // 4-3-3은 보통 col 1-3을 사용
+  // 동적으로 처리하되, 균등 분배
+  if (col === 1) {
+    x = 15  // 왼쪽
+  } else if (col === 2) {
+    x = 38  // 중앙-왼쪽
+  } else if (col === 3) {
+    x = 62  // 중앙-오른쪽
+  } else if (col === 4) {
+    x = 85  // 오른쪽
+  } else if (col === 5) {
+    x = 50  // 정중앙 (드물게 사용)
+  } else {
+    // 예외 처리
+    x = 10 + ((col - 1) * 80 / Math.max(4, col))
   }
   
   // y 위치 계산 (row를 필드 위치로 변환)
   // API-Football 그리드: row 1 = 골키퍼, row 숫자가 클수록 앞쪽(공격)
   let y = 50
   
-  // 일반적인 축구 필드 그리드 (1-7 rows)
-  if (row <= 7) {
-    const yPositions: { [key: number]: number } = {
-      1: 90,  // 골키퍼 (가장 뒤)
-      2: 75,  // 수비수 라인
-      3: 60,  // 수비형 미드필더
-      4: 50,  // 중앙 미드필더
-      5: 40,  // 공격형 미드필더
-      6: 30,  // 공격수 라인
-      7: 20   // 최전방 (FW)
-    }
-    y = yPositions[row] || 50
-  } else {
-    // 더 많은 row가 있는 경우
-    y = 90 - ((row - 1) * 10) // 역순으로 균등 분포
+  // 포메이션에 따라 다른 y 위치 적용
+  // 대부분의 포메이션은 4-5개의 row를 사용
+  const yPositions: { [key: number]: number } = {
+    1: 90,  // 골키퍼 (가장 뒤)
+    2: 72,  // 수비수 라인
+    3: 50,  // 미드필더 라인
+    4: 28,  // 공격수 라인
+    5: 20,  // 최전방 (추가 공격수)
+    6: 15,  // 매우 공격적 위치
+    7: 10   // 극단적 전방
   }
+  
+  y = yPositions[row] || (90 - ((row - 1) * 20))
   
   return { x, y }
 }
@@ -191,11 +201,13 @@ export function arrangePlayersByPosition(
       let fieldPosition: { x: number, y: number }
       
       if (player.player.grid) {
+        const parsed = parseGridPosition(player.player.grid)
         fieldPosition = gridToFieldPosition(player.player.grid)
-        console.log(`[arrangePlayersByPosition] ${player.player.name} using grid ${player.player.grid} -> x:${fieldPosition.x}, y:${fieldPosition.y}`)
+        console.log(`[arrangePlayersByPosition] ${player.player.name} grid:${player.player.grid} (row:${parsed?.row}, col:${parsed?.col}) -> x:${fieldPosition.x.toFixed(1)}, y:${fieldPosition.y.toFixed(1)}`)
       } else {
         // Grid가 없는 선수는 기본 위치
         fieldPosition = { x: 50, y: 50 }
+        console.log(`[arrangePlayersByPosition] ${player.player.name} NO GRID -> default position`)
       }
       
       result.push({ ...player, fieldPosition })

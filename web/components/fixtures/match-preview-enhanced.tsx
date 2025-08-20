@@ -220,14 +220,16 @@ function LastMatchLineup({ teamId, teamName }: any) {
         const footballAPI = new FootballAPIService()
         
         // 1. 팀의 가장 최근 완료된 경기들 가져오기 (더 많이 가져와서 라인업 있는 것 찾기)
-        const recentFixtures = await footballAPI.getTeamFixtures(teamId, 5)
+        const recentFixtures = await footballAPI.getTeamFixtures(teamId, 10)
         console.log('[LastMatchLineup] Recent fixtures:', recentFixtures)
         
         if (recentFixtures && recentFixtures.length > 0) {
           // 완료된 경기 중에서 라인업이 있는 첫 번째 경기 찾기
           for (const fixture of recentFixtures) {
-            // 경기가 완료된 경우만 체크
-            if (!['FT', 'AET', 'PEN'].includes(fixture.fixture?.status?.short)) {
+            // 경기가 완료된 경우만 체크 (FT, AET, PEN 등)
+            const status = fixture.fixture?.status?.short
+            if (!status || !['FT', 'AET', 'PEN', 'SUSP', 'AWD', 'WO'].includes(status)) {
+              console.log(`[LastMatchLineup] Skipping fixture ${fixture.fixture?.id} with status: ${status}`)
               continue
             }
             
