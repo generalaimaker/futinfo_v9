@@ -222,7 +222,6 @@ export function useHomeStats() {
     const loadStats = async () => {
       try {
         const service = new FootballAPIService()
-        const communityService = new CommunityService()
         
         // 오늘의 경기 수 (친선경기 포함)
         const todayData = await service.getFixturesByDate(new Date())

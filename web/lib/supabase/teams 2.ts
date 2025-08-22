@@ -163,9 +163,9 @@ class TeamCommunityService {
         .select('id')
         .eq('post_id', postId)
         .eq('user_id', user.id)
-        .single()
+        .single();
 
-      (post as any).is_liked = !!like
+      (post as any).is_liked = !!like;
     }
 
     return post

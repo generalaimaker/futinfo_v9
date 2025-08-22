@@ -1068,7 +1068,7 @@ class FootballAPIService {
   private async cacheTeamLineups(fixture: any): Promise<void> {
     if (!fixture.lineups || !Array.isArray(fixture.lineups)) return
     
-    const client = createClientComponentClient()
+    const client = getSupabaseClient()
     
     for (const teamLineup of fixture.lineups) {
       if (!teamLineup.team || !teamLineup.startXI) continue
@@ -1114,7 +1114,7 @@ class FootballAPIService {
   
   // 캐시된 최근 라인업 가져오기
   async getCachedRecentLineup(teamId: number): Promise<any> {
-    const client = createClientComponentClient()
+    const client = getSupabaseClient()
     
     try {
       const { data, error } = await client
