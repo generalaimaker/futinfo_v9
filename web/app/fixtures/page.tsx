@@ -95,7 +95,9 @@ function ModernMatchCard({ fixture }: { fixture: any }) {
   return (
     <Link href={`/fixtures/${fixture.fixture.id}`}>
       <div className={cn(
-        "flex items-center justify-between px-4 py-4 hover:bg-gray-50/50 dark:hover:bg-gray-800/30 transition-all cursor-pointer relative",
+        "flex items-center justify-between px-4 py-4 transition-all cursor-pointer relative",
+        "hover:bg-gradient-to-r hover:from-blue-50/50 hover:to-purple-50/50 dark:hover:from-blue-950/20 dark:hover:to-purple-950/20",
+        "hover:scale-[1.01] hover:px-5",
         isFavoriteMatch && "bg-gradient-to-r from-yellow-50/30 via-transparent to-transparent dark:from-yellow-900/10"
       )}>
         {/* 즐겨찾기 인디케이터 */}
@@ -103,93 +105,91 @@ function ModernMatchCard({ fixture }: { fixture: any }) {
           <div className="absolute left-0 top-0 bottom-0 w-1 bg-yellow-500" />
         )}
         
-        {/* 홈팀 */}
-        <div className="flex items-center gap-3 flex-1 min-w-0">
-          <div className="text-right flex-1 min-w-0">
-            <p className={cn(
-              "text-sm font-medium truncate",
-              isFinished && fixture.teams.home.winner && "text-gray-900 dark:text-white",
-              isFinished && !fixture.teams.home.winner && "text-gray-400 dark:text-gray-500",
-              !isFinished && "text-gray-700 dark:text-gray-300"
-            )}>
-              {fixture.teams.home.name}
-            </p>
+        {/* 홈팀 - 오른쪽 정렬 */}
+        <div className="flex items-center gap-2 flex-1 min-w-0 justify-end">
+          <p className={cn(
+            "text-sm font-medium truncate",
+            isFinished && fixture.teams.home.winner && "text-gray-900 dark:text-white font-semibold",
+            isFinished && !fixture.teams.home.winner && "text-gray-400 dark:text-gray-500",
+            !isFinished && "text-gray-700 dark:text-gray-300"
+          )}>
+            {fixture.teams.home.name}
+          </p>
+          <div className="w-9 h-9 flex-shrink-0 overflow-hidden">
+            <Image
+              src={fixture.teams.home.logo}
+              alt={fixture.teams.home.name}
+              width={36}
+              height={36}
+              className="w-full h-full object-contain"
+            />
           </div>
-          <Image
-            src={fixture.teams.home.logo}
-            alt={fixture.teams.home.name}
-            width={28}
-            height={28}
-            className="object-contain"
-          />
         </div>
         
-        {/* 시간/스코어 */}
-        <div className="px-4 min-w-[80px]">
+        {/* 시간/스코어 - 중앙 */}
+        <div className="px-3 min-w-[75px]">
           {isLive ? (
-            <div className="text-center">
+            <div className="bg-green-50 dark:bg-green-900/20 rounded-xl px-3 py-1 border border-green-200/50 dark:border-green-700/30">
               <div className="flex items-center justify-center gap-2">
-                <span className="text-lg font-semibold text-gray-900 dark:text-white">
+                <span className="text-lg font-bold text-green-600 dark:text-green-400">
                   {fixture.goals.home ?? 0}
                 </span>
                 <div className="flex flex-col items-center">
-                  <span className="text-xs font-bold text-green-600 dark:text-green-400 animate-pulse">
+                  <span className="text-[10px] font-bold text-green-600 dark:text-green-400 animate-pulse">
                     {fixture.fixture.status.elapsed}'
                   </span>
                 </div>
-                <span className="text-lg font-semibold text-gray-900 dark:text-white">
+                <span className="text-lg font-bold text-green-600 dark:text-green-400">
                   {fixture.goals.away ?? 0}
                 </span>
               </div>
             </div>
           ) : isFinished ? (
-            <div className="text-center">
+            <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl px-3 py-1 border border-gray-200/50 dark:border-gray-700/50">
               <div className="flex items-center justify-center gap-2">
                 <span className={cn(
-                  "text-lg font-semibold",
-                  fixture.teams.home.winner && "text-gray-900 dark:text-white",
-                  !fixture.teams.home.winner && "text-gray-400 dark:text-gray-500"
+                  "text-lg font-bold",
+                  fixture.teams.home.winner ? "text-gray-900 dark:text-white" : "text-gray-400 dark:text-gray-500"
                 )}>
                   {fixture.goals.home ?? 0}
                 </span>
-                <span className="text-gray-400 dark:text-gray-600">:</span>
+                <span className="text-xs text-gray-400">:</span>
                 <span className={cn(
-                  "text-lg font-semibold",
-                  fixture.teams.away.winner && "text-gray-900 dark:text-white",
-                  !fixture.teams.away.winner && "text-gray-400 dark:text-gray-500"
+                  "text-lg font-bold",
+                  fixture.teams.away.winner ? "text-gray-900 dark:text-white" : "text-gray-400 dark:text-gray-500"
                 )}>
                   {fixture.goals.away ?? 0}
                 </span>
               </div>
             </div>
           ) : (
-            <div className="text-center">
-              <p className="text-sm font-medium text-gray-600 dark:text-gray-400 whitespace-pre-line">
+            <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl px-3 py-1.5 border border-gray-200/50 dark:border-gray-700/50">
+              <p className="text-sm font-medium text-gray-600 dark:text-gray-400 text-center whitespace-nowrap">
                 {time}
               </p>
             </div>
           )}
         </div>
         
-        {/* 원정팀 */}
-        <div className="flex items-center gap-3 flex-1 min-w-0">
-          <Image
-            src={fixture.teams.away.logo}
-            alt={fixture.teams.away.name}
-            width={28}
-            height={28}
-            className="object-contain"
-          />
-          <div className="text-left flex-1 min-w-0">
-            <p className={cn(
-              "text-sm font-medium truncate",
-              isFinished && fixture.teams.away.winner && "text-gray-900 dark:text-white",
-              isFinished && !fixture.teams.away.winner && "text-gray-400 dark:text-gray-500",
-              !isFinished && "text-gray-700 dark:text-gray-300"
-            )}>
-              {fixture.teams.away.name}
-            </p>
+        {/* 원정팀 - 왼쪽 정렬 */}
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          <div className="w-9 h-9 flex-shrink-0 overflow-hidden">
+            <Image
+              src={fixture.teams.away.logo}
+              alt={fixture.teams.away.name}
+              width={36}
+              height={36}
+              className="w-full h-full object-contain"
+            />
           </div>
+          <p className={cn(
+            "text-sm font-medium truncate",
+            isFinished && fixture.teams.away.winner && "text-gray-900 dark:text-white font-semibold",
+            isFinished && !fixture.teams.away.winner && "text-gray-400 dark:text-gray-500",
+            !isFinished && "text-gray-700 dark:text-gray-300"
+          )}>
+            {fixture.teams.away.name}
+          </p>
         </div>
       </div>
     </Link>
@@ -210,31 +210,43 @@ function AppleStyleLeagueGroup({
 }) {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded)
   const leagueInfo = LEAGUE_INFO[leagueId]
+  const liveCount = fixtures.filter(f => isLiveMatch(f.fixture.status.short)).length
   
   return (
-    <div className="mb-6">
-      {/* 리그 헤더 */}
+    <div className="mb-6 bg-white/60 dark:bg-gray-800/30 rounded-2xl border border-gray-200/50 dark:border-gray-700/30 shadow-sm hover:shadow-md transition-shadow overflow-hidden">
+      {/* 리그 헤더 - 카드 내부 헤더 */}
       <button
         onClick={() => setIsExpanded(!isExpanded)}
-        className="w-full flex items-center gap-3 px-4 py-2 hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors rounded-lg"
+        className="w-full flex items-center gap-3 px-5 py-4 bg-gradient-to-r from-gray-50/90 to-gray-100/90 dark:from-gray-800/90 dark:to-gray-750/90 backdrop-blur-sm border-b border-gray-200/30 dark:border-gray-700/30 hover:from-gray-100/90 hover:to-gray-150/90 dark:hover:from-gray-750/90 dark:hover:to-gray-700/90 transition-all"
       >
-        <div className="w-6 h-6 flex items-center justify-center">
+        <div className="w-8 h-8 flex items-center justify-center bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200/50 dark:border-gray-700/50">
           <span className="text-lg">{leagueInfo?.flag || '⚽'}</span>
         </div>
         <div className="flex-1 text-left">
-          <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
-            {leagueInfo?.country || 'World'} - {leagueName}
-          </h3>
+          <div className="flex items-center gap-2">
+            <h3 className="text-base font-bold text-gray-900 dark:text-white">
+              {leagueInfo?.country || 'World'} - {leagueName}
+            </h3>
+            <span className="px-2 py-0.5 text-xs font-semibold bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-full">
+              {fixtures.length}경기
+            </span>
+            {liveCount > 0 && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-full">
+                <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" />
+                {liveCount} LIVE
+              </span>
+            )}
+          </div>
         </div>
         <ChevronDown className={cn(
-          "w-4 h-4 text-gray-400 transition-transform",
+          "w-5 h-5 text-gray-400 transition-transform",
           !isExpanded && "-rotate-90"
         )} />
       </button>
       
-      {/* 경기 목록 */}
+      {/* 경기 목록 - 카드 내부 컨텐츠 */}
       {isExpanded && (
-        <div className="mt-2 bg-white dark:bg-gray-800/50 rounded-2xl overflow-hidden shadow-sm">
+        <div className="bg-gradient-to-b from-gray-50/50 to-white/50 dark:from-gray-800/20 dark:to-gray-800/10">
           <div className="divide-y divide-gray-100 dark:divide-gray-700/50">
             {fixtures.map((fixture) => (
               <ModernMatchCard key={fixture.fixture.id} fixture={fixture} />
@@ -252,26 +264,41 @@ function FollowingSection({ fixtures }: { fixtures: any[] }) {
   
   if (fixtures.length === 0) return null
   
+  const liveCount = fixtures.filter(f => isLiveMatch(f.fixture.status.short)).length
+  
   return (
-    <div className="mb-6">
+    <div className="mb-6 bg-gradient-to-r from-yellow-50/60 to-orange-50/60 dark:from-yellow-900/20 dark:to-orange-900/20 rounded-2xl border border-yellow-200/50 dark:border-yellow-700/30 shadow-sm hover:shadow-md transition-shadow overflow-hidden">
       <button
         onClick={() => setIsExpanded(!isExpanded)}
-        className="w-full flex items-center gap-3 px-4 py-2 hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors rounded-lg"
+        className="w-full flex items-center gap-3 px-5 py-4 bg-gradient-to-r from-yellow-50/90 to-orange-50/90 dark:from-gray-800/90 dark:to-gray-750/90 backdrop-blur-sm border-b border-yellow-200/30 dark:border-yellow-700/30 hover:from-yellow-100/90 hover:to-orange-100/90 dark:hover:from-gray-750/90 dark:hover:to-gray-700/90 transition-all"
       >
-        <Star className="w-5 h-5 text-yellow-500 fill-yellow-500" />
+        <div className="w-8 h-8 flex items-center justify-center bg-gradient-to-br from-yellow-400 to-orange-500 rounded-lg shadow-sm">
+          <Star className="w-5 h-5 text-white fill-white" />
+        </div>
         <div className="flex-1 text-left">
-          <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
-            Following
-          </h3>
+          <div className="flex items-center gap-2">
+            <h3 className="text-base font-bold text-gray-900 dark:text-white">
+              팔로잉 팀 경기
+            </h3>
+            <span className="px-2 py-0.5 text-xs font-semibold bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 rounded-full">
+              {fixtures.length}경기
+            </span>
+            {liveCount > 0 && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-full">
+                <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" />
+                {liveCount} LIVE
+              </span>
+            )}
+          </div>
         </div>
         <ChevronDown className={cn(
-          "w-4 h-4 text-gray-400 transition-transform",
+          "w-5 h-5 text-gray-400 transition-transform",
           !isExpanded && "-rotate-90"
         )} />
       </button>
       
       {isExpanded && (
-        <div className="mt-2 bg-white dark:bg-gray-800/50 rounded-2xl overflow-hidden shadow-sm">
+        <div className="bg-gradient-to-b from-yellow-50/30 to-white/50 dark:from-gray-800/20 dark:to-gray-800/10">
           <div className="divide-y divide-gray-100 dark:divide-gray-700/50">
             {fixtures.map((fixture: any) => (
               <ModernMatchCard key={fixture.fixture.id} fixture={fixture} />
@@ -405,7 +432,7 @@ export default function AppleStyleFixturesPage() {
       {/* 헤더 */}
       <div className="sticky top-0 z-10 bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl border-b border-gray-200 dark:border-gray-800">
         {/* 날짜 네비게이션 */}
-        <div className="flex items-center justify-between px-4 py-3">
+        <div className="flex items-center justify-center gap-2 px-4 py-3">
           <button
             onClick={() => changeDate(-1)}
             className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
@@ -415,7 +442,7 @@ export default function AppleStyleFixturesPage() {
           
           <button 
             onClick={() => setSelectedDate(new Date())}
-            className="font-semibold text-base text-gray-900 dark:text-white"
+            className="font-semibold text-base text-gray-900 dark:text-white px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors min-w-[200px]"
           >
             {formatDateHeader(selectedDate)}
             <ChevronDown className="w-4 h-4 inline-block ml-1 text-gray-400" />

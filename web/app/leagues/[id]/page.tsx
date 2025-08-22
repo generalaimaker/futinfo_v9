@@ -110,13 +110,43 @@ export default function LeaguePage() {
     )
   })
 
+  // 라운드 정렬 - 숫자 기준으로 오름차순
   const rounds = Object.keys(fixturesByRound).sort((a, b) => {
     const aNum = parseInt(a.match(/\d+/)?.[0] || '0')
     const bNum = parseInt(b.match(/\d+/)?.[0] || '0')
-    return bNum - aNum
+    return aNum - bNum // 오름차순으로 변경 (1라운드부터)
   })
 
-  const currentRound = rounds[0] || null
+  // 현재 시점 기준으로 진행 중이거나 다음 라운드 찾기
+  const now = new Date()
+  let currentRound = null
+  
+  // 각 라운드를 순회하면서 현재 진행 중이거나 앞으로 예정된 라운드 찾기
+  for (const round of rounds) {
+    const roundFixtures = fixturesByRound[round]
+    
+    // 라운드의 모든 경기가 종료되지 않았으면 현재 라운드
+    const hasUnfinishedMatch = roundFixtures.some((fixture: any) => {
+      const matchDate = new Date(fixture.fixture.date)
+      const status = fixture.fixture.status.short
+      
+      // 아직 시작 안 함 또는 진행 중
+      return status === 'NS' || status === 'TBD' || 
+             ['1H', '2H', 'HT', 'ET', 'P', 'LIVE'].includes(status) ||
+             matchDate > now
+    })
+    
+    if (hasUnfinishedMatch) {
+      currentRound = round
+      break
+    }
+  }
+  
+  // 모든 라운드가 종료된 경우 마지막 라운드 표시
+  if (!currentRound && rounds.length > 0) {
+    currentRound = rounds[rounds.length - 1]
+  }
+  
   const displayRound = selectedRound || currentRound
 
   if (isLoading) {
@@ -460,17 +490,30 @@ export default function LeaguePage() {
                 {/* Round Selector */}
                 <Card className="dark-card p-4">
                   <div className="flex items-center gap-2 overflow-x-auto">
-                    {rounds.map((round) => (
-                  <Button
-                    key={round}
-                    variant={displayRound === round ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setSelectedRound(round)}
-                    className="whitespace-nowrap"
-                  >
-                    {round}
-                  </Button>
-                ))}
+                    {rounds.map((round) => {
+                      const isCurrentRound = round === currentRound && !selectedRound
+                      const isSelectedRound = round === displayRound
+                      
+                      return (
+                        <Button
+                          key={round}
+                          variant={isSelectedRound ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => setSelectedRound(round)}
+                          className={cn(
+                            "whitespace-nowrap relative",
+                            isCurrentRound && !isSelectedRound && "border-primary"
+                          )}
+                        >
+                          {round}
+                          {isCurrentRound && !selectedRound && (
+                            <Badge className="absolute -top-2 -right-2 text-[10px] px-1 py-0 h-4" variant="destructive">
+                              현재
+                            </Badge>
+                          )}
+                        </Button>
+                      )
+                    })}
               </div>
             </Card>
 

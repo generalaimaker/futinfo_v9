@@ -35,22 +35,47 @@ export function gridToFieldPosition(grid: string): { x: number, y: number } {
   // x 위치 계산 (columns, 왼쪽에서 오른쪽으로)
   let x = 50
   
-  // 로그를 보니 대부분 1-4 컬럼을 사용 (포메이션별로 다름)
-  // 4-3-3은 보통 col 1-3을 사용
-  // 동적으로 처리하되, 균등 분배
-  if (col === 1) {
-    x = 15  // 왼쪽
-  } else if (col === 2) {
-    x = 38  // 중앙-왼쪽
-  } else if (col === 3) {
-    x = 62  // 중앙-오른쪽
-  } else if (col === 4) {
-    x = 85  // 오른쪽
-  } else if (col === 5) {
-    x = 50  // 정중앙 (드물게 사용)
+  // row별로 다른 x 위치 전략 적용
+  // API-Football의 grid는 col 1이 왼쪽, col이 클수록 오른쪽
+  if (row === 1) {
+    // 골키퍼는 항상 중앙
+    x = 50
+  } else if (row === 2) {
+    // 수비수 라인 (3-5명)
+    if (col === 1) x = 20      // 왼쪽
+    else if (col === 2) x = 40 // 중왼쪽
+    else if (col === 3) x = 60 // 중오른쪽
+    else if (col === 4) x = 80 // 오른쪽
+    else if (col === 5) x = 90 // 극우측 (5백 포메이션)
+    else x = 50
+  } else if (row === 3) {
+    // 미드필더 라인
+    if (col === 1) x = 15      // 왼쪽
+    else if (col === 2) x = 35 // 중왼쪽
+    else if (col === 3) x = 50 // 중앙
+    else if (col === 4) x = 65 // 중오른쪽
+    else if (col === 5) x = 85 // 오른쪽
+    else x = 50
+  } else if (row === 4) {
+    // 공격형 미드필더/세컨드 스트라이커 라인
+    if (col === 1) x = 20      // 왼쪽
+    else if (col === 2) x = 40 // 중왼쪽
+    else if (col === 3) x = 50 // 중앙
+    else if (col === 4) x = 60 // 중오른쪽
+    else if (col === 5) x = 80 // 오른쪽
+    else x = 50
+  } else if (row === 5) {
+    // 최전방 공격수 라인
+    if (col === 1) x = 35      // 왼쪽 스트라이커
+    else if (col === 2) x = 65 // 오른쪽 스트라이커
+    else if (col === 3) x = 50 // 중앙 스트라이커
+    else x = 50
+  } else if (row === 6 || row === 7) {
+    // 매우 공격적 위치 (드물게 사용)
+    x = 30 + ((col - 1) * 40 / Math.max(2, col))
   } else {
-    // 예외 처리
-    x = 10 + ((col - 1) * 80 / Math.max(4, col))
+    // 기타 row
+    x = 20 + ((col - 1) * 60 / Math.max(3, col))
   }
   
   // y 위치 계산 (row를 필드 위치로 변환)
@@ -61,15 +86,15 @@ export function gridToFieldPosition(grid: string): { x: number, y: number } {
   // 대부분의 포메이션은 4-5개의 row를 사용
   const yPositions: { [key: number]: number } = {
     1: 90,  // 골키퍼 (가장 뒤)
-    2: 72,  // 수비수 라인
-    3: 50,  // 미드필더 라인
-    4: 28,  // 공격수 라인
-    5: 20,  // 최전방 (추가 공격수)
+    2: 75,  // 수비수 라인
+    3: 55,  // 수비형/중앙 미드필더 라인
+    4: 35,  // 공격형 미드필더 라인
+    5: 20,  // 최전방 공격수
     6: 15,  // 매우 공격적 위치
     7: 10   // 극단적 전방
   }
   
-  y = yPositions[row] || (90 - ((row - 1) * 20))
+  y = yPositions[row] || (90 - ((row - 1) * 15))
   
   return { x, y }
 }
@@ -182,12 +207,14 @@ export function positionToFieldPosition(position: string, index: number, formati
 // 선수 배열을 포지션별로 정렬하고 위치 할당
 export function arrangePlayersByPosition(
   players: PlayerPosition[], 
-  formation: string
+  formation: string,
+  isHomeTeam: boolean = true
 ): Array<PlayerPosition & { fieldPosition: { x: number, y: number } }> {
   if (!players || players.length === 0) return []
   
   console.log('[arrangePlayersByPosition] Input players:', players)
   console.log('[arrangePlayersByPosition] Formation:', formation)
+  console.log('[arrangePlayersByPosition] Is home team:', isHomeTeam)
   
   const result: Array<PlayerPosition & { fieldPosition: { x: number, y: number } }> = []
   
@@ -203,6 +230,12 @@ export function arrangePlayersByPosition(
       if (player.player.grid) {
         const parsed = parseGridPosition(player.player.grid)
         fieldPosition = gridToFieldPosition(player.player.grid)
+        
+        // 원정팀인 경우 x 좌표 반전
+        if (!isHomeTeam) {
+          fieldPosition.x = 100 - fieldPosition.x
+        }
+        
         console.log(`[arrangePlayersByPosition] ${player.player.name} grid:${player.player.grid} (row:${parsed?.row}, col:${parsed?.col}) -> x:${fieldPosition.x.toFixed(1)}, y:${fieldPosition.y.toFixed(1)}`)
       } else {
         // Grid가 없는 선수는 기본 위치
@@ -270,7 +303,11 @@ export function arrangePlayersByPosition(
     
     // 골키퍼 배치
     byPosition.G.forEach(player => {
-      const position = { x: 50, y: 90 }
+      let position = { x: 50, y: 90 }
+      // 원정팀인 경우 x 좌표 반전
+      if (!isHomeTeam) {
+        position.x = 100 - position.x
+      }
       console.log(`[arrangePlayersByPosition] GK ${player.player.name} -> x:${position.x}, y:${position.y}`)
       result.push({ ...player, fieldPosition: position })
     })
@@ -280,7 +317,11 @@ export function arrangePlayersByPosition(
     const defPositions = getDefenderPositions(defCount)
     console.log(`[arrangePlayersByPosition] Defender positions (${defCount}):`, defPositions)
     byPosition.D.forEach((player, idx) => {
-      const position = defPositions[idx] || { x: 50, y: 75 }
+      let position = defPositions[idx] || { x: 50, y: 75 }
+      // 원정팀인 경우 x 좌표 반전
+      if (!isHomeTeam) {
+        position = { ...position, x: 100 - position.x }
+      }
       console.log(`[arrangePlayersByPosition] DEF ${player.player.name} -> x:${position.x}, y:${position.y}`)
       result.push({ ...player, fieldPosition: position })
     })
@@ -290,7 +331,11 @@ export function arrangePlayersByPosition(
     const midPositions = getMidfielderPositions(midCount, formation)
     console.log(`[arrangePlayersByPosition] Midfielder positions (${midCount}):`, midPositions)
     byPosition.M.forEach((player, idx) => {
-      const position = midPositions[idx] || { x: 50, y: 50 }
+      let position = midPositions[idx] || { x: 50, y: 50 }
+      // 원정팀인 경우 x 좌표 반전
+      if (!isHomeTeam) {
+        position = { ...position, x: 100 - position.x }
+      }
       console.log(`[arrangePlayersByPosition] MID ${player.player.name} -> x:${position.x}, y:${position.y}`)
       result.push({ ...player, fieldPosition: position })
     })
@@ -300,7 +345,11 @@ export function arrangePlayersByPosition(
     const fwdPositions = getForwardPositions(fwdCount)
     console.log(`[arrangePlayersByPosition] Forward positions (${fwdCount}):`, fwdPositions)
     byPosition.F.forEach((player, idx) => {
-      const position = fwdPositions[idx] || { x: 50, y: 25 }
+      let position = fwdPositions[idx] || { x: 50, y: 25 }
+      // 원정팀인 경우 x 좌표 반전
+      if (!isHomeTeam) {
+        position = { ...position, x: 100 - position.x }
+      }
       console.log(`[arrangePlayersByPosition] FWD ${player.player.name} -> x:${position.x}, y:${position.y}`)
       result.push({ ...player, fieldPosition: position })
     })
@@ -309,48 +358,48 @@ export function arrangePlayersByPosition(
   return result
 }
 
-// 수비수 위치 계산
+// 수비수 위치 계산 (grid 없는 경우만 사용)
 function getDefenderPositions(count: number): Array<{ x: number, y: number }> {
   switch(count) {
     case 3:
       return [
-        { x: 25, y: 75 },  // LCB
+        { x: 30, y: 75 },  // LCB
         { x: 50, y: 75 },  // CB
-        { x: 75, y: 75 }   // RCB
+        { x: 70, y: 75 }   // RCB
       ]
     case 4:
       return [
-        { x: 15, y: 75 },  // LB
-        { x: 38, y: 75 },  // LCB
-        { x: 62, y: 75 },  // RCB
-        { x: 85, y: 75 }   // RB
+        { x: 20, y: 75 },  // LB
+        { x: 40, y: 75 },  // LCB
+        { x: 60, y: 75 },  // RCB
+        { x: 80, y: 75 }   // RB
       ]
     case 5:
       return [
-        { x: 10, y: 75 },  // LWB
-        { x: 30, y: 75 },  // LCB
+        { x: 15, y: 75 },  // LWB
+        { x: 32, y: 75 },  // LCB
         { x: 50, y: 75 },  // CB
-        { x: 70, y: 75 },  // RCB
-        { x: 90, y: 75 }   // RWB
+        { x: 68, y: 75 },  // RCB
+        { x: 85, y: 75 }   // RWB
       ]
     default:
       return Array(count).fill(null).map((_, i) => ({
-        x: 10 + (i * 80 / Math.max(1, count - 1)),
+        x: 15 + (i * 70 / Math.max(1, count - 1)),
         y: 75
       }))
   }
 }
 
-// 미드필더 위치 계산
+// 미드필더 위치 계산 (grid 없는 경우만 사용) 
 function getMidfielderPositions(count: number, formation: string): Array<{ x: number, y: number }> {
   // 4-2-3-1 같은 특수 포메이션 처리
-  if (formation === '4-2-3-1') {
+  if (formation === '4-2-3-1' && count === 5) {
     return [
       { x: 35, y: 60 },  // LDM
       { x: 65, y: 60 },  // RDM
-      { x: 20, y: 40 },  // LAM
-      { x: 50, y: 40 },  // CAM
-      { x: 80, y: 40 }   // RAM
+      { x: 20, y: 35 },  // LAM
+      { x: 50, y: 35 },  // CAM
+      { x: 80, y: 35 }   // RAM
     ]
   }
   
@@ -362,34 +411,34 @@ function getMidfielderPositions(count: number, formation: string): Array<{ x: nu
       ]
     case 3:
       return [
-        { x: 25, y: 50 },  // LCM
+        { x: 30, y: 50 },  // LCM
         { x: 50, y: 50 },  // CM
-        { x: 75, y: 50 }   // RCM
+        { x: 70, y: 50 }   // RCM
       ]
     case 4:
       return [
-        { x: 15, y: 50 },  // LM
-        { x: 38, y: 50 },  // LCM
-        { x: 62, y: 50 },  // RCM
-        { x: 85, y: 50 }   // RM
+        { x: 20, y: 50 },  // LM
+        { x: 40, y: 50 },  // LCM
+        { x: 60, y: 50 },  // RCM
+        { x: 80, y: 50 }   // RM
       ]
     case 5:
       return [
-        { x: 10, y: 50 },  // LWM
-        { x: 30, y: 50 },  // LCM
+        { x: 15, y: 50 },  // LWM
+        { x: 32, y: 50 },  // LCM
         { x: 50, y: 50 },  // CM
-        { x: 70, y: 50 },  // RCM
-        { x: 90, y: 50 }   // RWM
+        { x: 68, y: 50 },  // RCM
+        { x: 85, y: 50 }   // RWM
       ]
     default:
       return Array(count).fill(null).map((_, i) => ({
-        x: 10 + (i * 80 / Math.max(1, count - 1)),
+        x: 15 + (i * 70 / Math.max(1, count - 1)),
         y: 50
       }))
   }
 }
 
-// 공격수 위치 계산
+// 공격수 위치 계산 (grid 없는 경우만 사용)
 function getForwardPositions(count: number): Array<{ x: number, y: number }> {
   switch(count) {
     case 1:
@@ -401,13 +450,13 @@ function getForwardPositions(count: number): Array<{ x: number, y: number }> {
       ]
     case 3:
       return [
-        { x: 20, y: 25 },  // LW
+        { x: 25, y: 25 },  // LW
         { x: 50, y: 20 },  // ST
-        { x: 80, y: 25 }   // RW
+        { x: 75, y: 25 }   // RW
       ]
     default:
       return Array(count).fill(null).map((_, i) => ({
-        x: 20 + (i * 60 / Math.max(1, count - 1)),
+        x: 25 + (i * 50 / Math.max(1, count - 1)),
         y: 25
       }))
   }
@@ -419,7 +468,8 @@ export function normalizeFormation(formation: string): string {
   const validFormations = [
     '4-3-3', '4-4-2', '4-2-3-1', '3-5-2', '5-3-2', '3-4-3',
     '4-1-4-1', '4-3-2-1', '4-1-2-1-2', '3-4-1-2', '5-4-1',
-    '4-2-2-2', '4-3-1-2', '4-5-1', '3-4-2-1'
+    '4-2-2-2', '4-3-1-2', '4-5-1', '3-4-2-1', '4-2-4', '4-1-3-2',
+    '3-4-2-1', '3-5-1-1', '4-4-1-1', '5-2-3', '5-2-2-1'
   ]
   
   // 입력 정규화 (공백 제거, 대시 통일)
@@ -431,5 +481,6 @@ export function normalizeFormation(formation: string): string {
   }
   
   // 기본값
+  console.warn(`[normalizeFormation] Unknown formation: ${formation}, using default 4-3-3`)
   return '4-3-3'
 }

@@ -11,13 +11,15 @@ import { cn } from '@/lib/utils'
 import { format } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import footballAPIService from '@/lib/supabase/football'
-import { Trophy, ChevronRight, Calendar, Clock, Star } from 'lucide-react'
+import { Trophy, ChevronRight, Calendar, Clock, Star, Zap } from 'lucide-react'
+import { motion, AnimatePresence } from 'framer-motion'
 
 // 빅클럽 정의 - 각 리그별 상위 4팀
 const BIG_CLUBS = {
   // 프리미어리그 빅6
   premier: {
     name: 'Premier League',
+    logo: 'https://media.api-sports.io/football/leagues/39.png',
     teams: [
       { id: 33, name: 'Manchester United' },
       { id: 40, name: 'Liverpool' },
@@ -30,6 +32,7 @@ const BIG_CLUBS = {
   // 라리가 상위 4팀
   laliga: {
     name: 'La Liga',
+    logo: 'https://media.api-sports.io/football/leagues/140.png',
     teams: [
       { id: 541, name: 'Real Madrid' },
       { id: 529, name: 'Barcelona' },
@@ -40,6 +43,7 @@ const BIG_CLUBS = {
   // 분데스리가 상위 4팀
   bundesliga: {
     name: 'Bundesliga',
+    logo: 'https://media.api-sports.io/football/leagues/78.png',
     teams: [
       { id: 157, name: 'Bayern Munich' },
       { id: 165, name: 'Borussia Dortmund' },
@@ -50,6 +54,7 @@ const BIG_CLUBS = {
   // 세리에A 상위 4팀
   seriea: {
     name: 'Serie A',
+    logo: 'https://media.api-sports.io/football/leagues/135.png',
     teams: [
       { id: 496, name: 'Juventus' },
       { id: 505, name: 'Inter' },
@@ -60,6 +65,7 @@ const BIG_CLUBS = {
   // 리그1 상위 4팀
   ligue1: {
     name: 'Ligue 1',
+    logo: 'https://media.api-sports.io/football/leagues/61.png',
     teams: [
       { id: 85, name: 'Paris Saint Germain' },
       { id: 81, name: 'Marseille' },
@@ -74,110 +80,132 @@ const ALL_BIG_CLUB_IDS = Object.values(BIG_CLUBS).flatMap(league =>
   league.teams.map(team => team.id)
 )
 
-// 경기 결과 카드 컴포넌트 - 더 컴팩트한 디자인
-function MatchResultCard({ match, isBigMatch }: { match: any; isBigMatch: boolean }) {
-  const isFinished = ['FT', 'AET', 'PEN'].includes(match.fixture.status.short)
-  const isLive = ['1H', '2H', 'HT', 'ET', 'P', 'LIVE'].includes(match.fixture.status.short)
-  
+// 경기 결과 카드 컴포넌트 - Apple 스타일
+function MatchResultCard({ match, isBigMatch, index }: { match: any; isBigMatch: boolean; index: number }) {
   const homeWin = match.teams.home.winner
   const awayWin = match.teams.away.winner
   
   return (
-    <Link
-      href={`/fixtures/${match.fixture.id}`}
-      className={cn(
-        "block p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-all",
-        isLive && "bg-red-50 dark:bg-red-950/20 border-l-2 border-red-500",
-        isBigMatch && "bg-yellow-50 dark:bg-yellow-950/10"
-      )}
+    <motion.div
+      initial={{ opacity: 0, x: -20 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ delay: index * 0.03, duration: 0.3 }}
     >
-      <div className="flex items-center gap-3">
-        {/* 날짜/시간 */}
-        <div className="min-w-[50px] text-xs text-gray-500">
-          {isLive ? (
-            <Badge variant="destructive" className="text-[10px] px-1 py-0">
-              LIVE
-            </Badge>
-          ) : (
-            <div>
-              <div>{format(new Date(match.fixture.date), 'MM.dd')}</div>
-              <div className="text-[10px]">{format(new Date(match.fixture.date), 'HH:mm')}</div>
+      <Link
+        href={`/fixtures/${match.fixture.id}`}
+        className="block"
+      >
+        <div className={cn(
+          "group relative p-3.5 rounded-2xl transition-all duration-300",
+          "bg-white/80 dark:bg-gray-800/40 backdrop-blur-xl",
+          "border border-gray-200/50 dark:border-gray-700/30",
+          "hover:bg-gradient-to-r hover:from-orange-50/50 hover:to-red-50/50 dark:hover:from-orange-950/20 dark:hover:to-red-950/20",
+          "hover:shadow-xl hover:shadow-orange-200/40 dark:hover:shadow-orange-900/20",
+          "hover:border-orange-300/50 dark:hover:border-orange-700/30",
+          "hover:-translate-y-1 hover:scale-[1.02]",
+          isBigMatch && "bg-gradient-to-r from-yellow-50/90 via-white/80 to-yellow-50/90 dark:from-yellow-950/20 dark:via-gray-800/40 dark:to-yellow-950/20",
+          isBigMatch && "border-yellow-400/30 dark:border-yellow-600/30"
+        )}>
+          {isBigMatch && (
+            <div className="absolute -top-1.5 -right-1.5">
+              <div className="relative">
+                <div className="absolute inset-0 bg-yellow-500 blur opacity-60 animate-pulse" />
+                <div className="relative p-1 rounded-full bg-gradient-to-r from-yellow-400 to-orange-500">
+                  <Star className="w-3 h-3 text-white fill-white" />
+                </div>
+              </div>
             </div>
           )}
-        </div>
-        
-        {/* 홈팀 */}
-        <div className="flex items-center gap-2 flex-1 justify-end">
-          <span className={cn(
-            "text-sm truncate",
-            homeWin && "font-semibold text-green-600 dark:text-green-400"
-          )}>
-            {match.teams.home.name}
-          </span>
-          <Image
-            src={match.teams.home.logo}
-            alt={match.teams.home.name}
-            width={20}
-            height={20}
-            className="object-contain"
-          />
-        </div>
-        
-        {/* 스코어 */}
-        <div className="min-w-[50px] text-center">
-          {isFinished || isLive ? (
-            <div className="flex items-center gap-1 justify-center">
+          
+          <div className="flex items-center gap-3">
+            {/* 날짜 */}
+            <div className="min-w-[55px] px-2.5 py-1.5 rounded-xl bg-gray-50 dark:bg-gray-800/80 border border-gray-200/50 dark:border-gray-700/50">
+              <div className="text-xs font-semibold text-gray-700 dark:text-gray-300">
+                {format(new Date(match.fixture.date), 'MM.dd')}
+              </div>
+              <div className="text-[10px] text-gray-500 dark:text-gray-400">종료</div>
+            </div>
+            
+            {/* 홈팀 */}
+            <div className="flex items-center gap-2.5 flex-1 justify-end">
               <span className={cn(
-                "font-bold",
-                homeWin && "text-green-600"
+                "text-sm font-medium truncate transition-colors",
+                "group-hover:text-primary",
+                homeWin && "font-bold text-green-600 dark:text-green-400"
               )}>
-                {match.goals.home ?? 0}
+                {match.teams.home.name}
               </span>
-              <span className="text-xs text-gray-400">:</span>
+              <div className="relative w-9 h-9 overflow-hidden">
+                <Image
+                  src={match.teams.home.logo}
+                  alt={match.teams.home.name}
+                  width={36}
+                  height={36}
+                  className="w-full h-full object-contain"
+                />
+              </div>
+            </div>
+            
+            {/* 스코어 */}
+            <div className="min-w-[70px]">
+              <div className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-800/80 dark:to-gray-700/80 rounded-xl px-3 py-1.5 border border-gray-200/50 dark:border-gray-700/50">
+                <div className="flex items-center gap-2 justify-center">
+                  <span className={cn(
+                    "text-lg font-bold",
+                    homeWin ? "text-green-600 dark:text-green-400" : "text-gray-600 dark:text-gray-400"
+                  )}>
+                    {match.goals.home ?? 0}
+                  </span>
+                  <span className="text-xs text-gray-400">:</span>
+                  <span className={cn(
+                    "text-lg font-bold",
+                    awayWin ? "text-green-600 dark:text-green-400" : "text-gray-600 dark:text-gray-400"
+                  )}>
+                    {match.goals.away ?? 0}
+                  </span>
+                </div>
+              </div>
+            </div>
+            
+            {/* 원정팀 */}
+            <div className="flex items-center gap-2.5 flex-1">
+              <div className="relative w-9 h-9 overflow-hidden">
+                <Image
+                  src={match.teams.away.logo}
+                  alt={match.teams.away.name}
+                  width={36}
+                  height={36}
+                  className="w-full h-full object-contain"
+                />
+              </div>
               <span className={cn(
-                "font-bold",
-                awayWin && "text-green-600"
+                "text-sm font-medium truncate transition-colors",
+                "group-hover:text-primary",
+                awayWin && "font-bold text-green-600 dark:text-green-400"
               )}>
-                {match.goals.away ?? 0}
+                {match.teams.away.name}
               </span>
             </div>
-          ) : (
-            <span className="text-xs text-gray-400">VS</span>
-          )}
+            
+            {/* 리그 표시 */}
+            <div className="min-w-[24px]">
+              {match.league.logo && (
+                <div className="w-6 h-6 overflow-hidden">
+                  <Image
+                    src={match.league.logo}
+                    alt={match.league.name}
+                    width={24}
+                    height={24}
+                    className="w-full h-full object-contain opacity-70 group-hover:opacity-100 transition-opacity"
+                    title={match.league.name}
+                  />
+                </div>
+              )}
+            </div>
+          </div>
         </div>
-        
-        {/* 원정팀 */}
-        <div className="flex items-center gap-2 flex-1">
-          <Image
-            src={match.teams.away.logo}
-            alt={match.teams.away.name}
-            width={20}
-            height={20}
-            className="object-contain"
-          />
-          <span className={cn(
-            "text-sm truncate",
-            awayWin && "font-semibold text-green-600 dark:text-green-400"
-          )}>
-            {match.teams.away.name}
-          </span>
-        </div>
-        
-        {/* 리그 표시 */}
-        <div className="min-w-[20px]">
-          {match.league.logo && (
-            <Image
-              src={match.league.logo}
-              alt={match.league.name}
-              width={16}
-              height={16}
-              className="object-contain opacity-50"
-              title={match.league.name}
-            />
-          )}
-        </div>
-      </div>
-    </Link>
+      </Link>
+    </motion.div>
   )
 }
 
@@ -210,11 +238,16 @@ export function BigClubResults() {
         const results = await Promise.all(promises)
         const allMatches = results.flat()
         
-        // 빅클럽 경기만 필터링
+        // 빅클럽 경기만 필터링 + 완료된 경기만 (FT, AET, PEN)
         const bigClubMatches = allMatches.filter(match => {
           const homeId = match.teams.home.id
           const awayId = match.teams.away.id
-          return ALL_BIG_CLUB_IDS.includes(homeId) || ALL_BIG_CLUB_IDS.includes(awayId)
+          const status = match.fixture?.status?.short
+          
+          // 완료된 경기만 포함 (FT: Full Time, AET: After Extra Time, PEN: Penalty)
+          const isFinished = ['FT', 'AET', 'PEN'].includes(status)
+          
+          return isFinished && (ALL_BIG_CLUB_IDS.includes(homeId) || ALL_BIG_CLUB_IDS.includes(awayId))
         })
         
         // 최신순 정렬
@@ -263,20 +296,32 @@ export function BigClubResults() {
   
   if (loading) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Trophy className="w-5 h-5" />
-            주요 경기 결과
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="animate-pulse space-y-3">
-            {[1, 2, 3].map(i => (
-              <div key={i} className="h-20 bg-gray-100 rounded-lg" />
-            ))}
-          </div>
-        </CardContent>
+      <Card className="relative overflow-hidden border-0 rounded-3xl shadow-2xl">
+        <div className="absolute inset-0 bg-gradient-to-br from-orange-50 via-white to-red-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800 opacity-50" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-orange-100/20 via-transparent to-transparent dark:from-orange-900/10" />
+        
+        <div className="relative">
+          <CardHeader className="pb-4">
+            <CardTitle className="flex items-center gap-3">
+              <div className="relative">
+                <div className="absolute inset-0 bg-gradient-to-br from-orange-500 to-red-600 blur-xl opacity-40" />
+                <div className="relative p-2.5 rounded-2xl bg-gradient-to-br from-orange-500 to-red-600 text-white shadow-lg">
+                  <Trophy className="w-5 h-5" />
+                </div>
+              </div>
+              <span className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 dark:from-white dark:to-gray-300 bg-clip-text text-transparent">
+                주요 경기 결과
+              </span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {[1, 2, 3].map(i => (
+                <div key={i} className="h-16 bg-gradient-to-r from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-700 rounded-2xl animate-pulse" />
+              ))}
+            </div>
+          </CardContent>
+        </div>
       </Card>
     )
   }
@@ -286,51 +331,164 @@ export function BigClubResults() {
   }
   
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center gap-2">
-            <Trophy className="w-5 h-5" />
-            주요 경기 결과
-          </CardTitle>
-          <Link href="/fixtures">
-            <Button variant="ghost" size="sm">
-              전체보기
-              <ChevronRight className="w-4 h-4 ml-1" />
-            </Button>
-          </Link>
-        </div>
-      </CardHeader>
-      <CardContent>
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-6 mb-4">
-            <TabsTrigger value="all">전체</TabsTrigger>
-            <TabsTrigger value="premier">EPL</TabsTrigger>
-            <TabsTrigger value="laliga">라리가</TabsTrigger>
-            <TabsTrigger value="bundesliga">분데스</TabsTrigger>
-            <TabsTrigger value="seriea">세리에A</TabsTrigger>
-            <TabsTrigger value="ligue1">리그1</TabsTrigger>
-          </TabsList>
-          
-          <TabsContent value={activeTab} className="mt-0">
-            <div className="space-y-1">
-              {filteredMatches.length > 0 ? (
-                filteredMatches.map(match => (
-                  <MatchResultCard
-                    key={match.fixture.id}
-                    match={match}
-                    isBigMatch={isBigMatch(match)}
-                  />
-                ))
-              ) : (
-                <div className="text-center py-8 text-gray-500">
-                  최근 경기가 없습니다
+    <Card className="relative overflow-hidden border-0 rounded-3xl shadow-2xl">
+      {/* 배경 그라디언트 효과 */}
+      <div className="absolute inset-0 bg-gradient-to-br from-orange-50 via-white to-red-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800 opacity-50" />
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-orange-100/20 via-transparent to-transparent dark:from-orange-900/10" />
+      
+      <div className="relative">
+        <CardHeader className="px-6 py-5">
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-3">
+              <div className="relative">
+                <div className="absolute inset-0 bg-gradient-to-br from-orange-500 to-red-600 blur-xl opacity-40" />
+                <div className="relative p-2.5 rounded-2xl bg-gradient-to-br from-orange-500 to-red-600 text-white shadow-lg">
+                  <Zap className="w-5 h-5" />
                 </div>
-              )}
+              </div>
+              <span className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 dark:from-white dark:to-gray-300 bg-clip-text text-transparent">
+                주요 경기 결과
+              </span>
+            </CardTitle>
+            <Link href="/fixtures">
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                className="px-4 py-2 rounded-xl bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-gray-200/50 dark:border-gray-700/50 hover:bg-gray-50 dark:hover:bg-gray-700/80 transition-all shadow-sm flex items-center gap-1.5 group"
+              >
+                <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">전체보기</span>
+                <ChevronRight className="w-4 h-4 text-gray-500 group-hover:translate-x-0.5 transition-transform" />
+              </motion.button>
+            </Link>
+          </div>
+        </CardHeader>
+        
+        <CardContent className="px-6 pb-6">
+          <Tabs value={activeTab} onValueChange={setActiveTab}>
+            <div className="mb-4">
+              <TabsList className="w-full h-auto p-1.5 bg-white/60 dark:bg-gray-800/40 backdrop-blur-xl border border-gray-200/50 dark:border-gray-700/50 rounded-2xl shadow-sm grid grid-cols-6 gap-1">
+                <TabsTrigger 
+                  value="all" 
+                  className="py-2.5 rounded-xl data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:shadow-md data-[state=active]:shadow-gray-200/50 dark:data-[state=active]:shadow-black/30 transition-all duration-300 data-[state=active]:scale-[1.02] text-sm font-semibold"
+                >
+                  All
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="premier" 
+                  className="py-2.5 rounded-xl data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:shadow-md data-[state=active]:shadow-gray-200/50 dark:data-[state=active]:shadow-black/30 transition-all duration-300 data-[state=active]:scale-[1.02] text-sm font-semibold flex items-center gap-2"
+                >
+                  <div className="w-5 h-5 overflow-hidden">
+                    <Image 
+                      src={BIG_CLUBS.premier.logo} 
+                      alt="EPL" 
+                      width={20} 
+                      height={20} 
+                      className="w-full h-full object-contain"
+                    />
+                  </div>
+                  <span>Premier League</span>
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="laliga" 
+                  className="py-2.5 rounded-xl data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:shadow-md data-[state=active]:shadow-gray-200/50 dark:data-[state=active]:shadow-black/30 transition-all duration-300 data-[state=active]:scale-[1.02] text-sm font-semibold flex items-center gap-2"
+                >
+                  <div className="w-5 h-5 overflow-hidden">
+                    <Image 
+                      src={BIG_CLUBS.laliga.logo} 
+                      alt="La Liga" 
+                      width={20} 
+                      height={20} 
+                      className="w-full h-full object-contain"
+                    />
+                  </div>
+                  <span>La Liga</span>
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="bundesliga" 
+                  className="py-2.5 rounded-xl data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:shadow-md data-[state=active]:shadow-gray-200/50 dark:data-[state=active]:shadow-black/30 transition-all duration-300 data-[state=active]:scale-[1.02] text-sm font-semibold flex items-center gap-2"
+                >
+                  <div className="w-5 h-5 overflow-hidden">
+                    <Image 
+                      src={BIG_CLUBS.bundesliga.logo} 
+                      alt="Bundesliga" 
+                      width={20} 
+                      height={20} 
+                      className="w-full h-full object-contain"
+                    />
+                  </div>
+                  <span>Bundesliga</span>
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="seriea" 
+                  className="py-2.5 rounded-xl data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:shadow-md data-[state=active]:shadow-gray-200/50 dark:data-[state=active]:shadow-black/30 transition-all duration-300 data-[state=active]:scale-[1.02] text-sm font-semibold flex items-center gap-2"
+                >
+                  <div className="w-5 h-5 overflow-hidden">
+                    <Image 
+                      src={BIG_CLUBS.seriea.logo} 
+                      alt="Serie A" 
+                      width={20} 
+                      height={20} 
+                      className="w-full h-full object-contain"
+                    />
+                  </div>
+                  <span>Serie A</span>
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="ligue1" 
+                  className="py-2.5 rounded-xl data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:shadow-md data-[state=active]:shadow-gray-200/50 dark:data-[state=active]:shadow-black/30 transition-all duration-300 data-[state=active]:scale-[1.02] text-sm font-semibold flex items-center gap-2"
+                >
+                  <div className="w-5 h-5 overflow-hidden">
+                    <Image 
+                      src={BIG_CLUBS.ligue1.logo} 
+                      alt="Ligue 1" 
+                      width={20} 
+                      height={20} 
+                      className="w-full h-full object-contain"
+                    />
+                  </div>
+                  <span>Ligue 1</span>
+                </TabsTrigger>
+              </TabsList>
             </div>
-          </TabsContent>
-        </Tabs>
-      </CardContent>
+            
+            <TabsContent value={activeTab} className="mt-0">
+              <AnimatePresence mode="wait">
+                {filteredMatches.length > 0 ? (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="space-y-2"
+                  >
+                    {filteredMatches.map((match, index) => (
+                      <MatchResultCard
+                        key={match.fixture.id}
+                        match={match}
+                        isBigMatch={isBigMatch(match)}
+                        index={index}
+                      />
+                    ))}
+                  </motion.div>
+                ) : (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="flex flex-col items-center justify-center py-12"
+                  >
+                    <div className="relative">
+                      <div className="absolute inset-0 bg-gradient-to-br from-gray-200 to-gray-300 dark:from-gray-700 dark:to-gray-800 blur-xl opacity-30" />
+                      <div className="relative p-4 rounded-3xl bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-700">
+                        <Trophy className="w-8 h-8 text-gray-400 dark:text-gray-500" />
+                      </div>
+                    </div>
+                    <p className="mt-4 text-gray-500 dark:text-gray-400 font-medium">최근 경기가 없습니다</p>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </TabsContent>
+          </Tabs>
+        </CardContent>
+      </div>
     </Card>
   )
 }

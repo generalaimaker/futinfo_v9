@@ -222,6 +222,11 @@
   @apply animate-pulse bg-gray-200 rounded;
 }
 
+/* iOS Card styles */
+.ios-card {
+  @apply rounded-2xl;
+}
+
 /* Mobile-first responsive breakpoints */
 @media (max-width: 640px) {
   .ios-card {

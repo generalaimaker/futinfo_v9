@@ -29,7 +29,7 @@ const mainNavItems: NavItem[] = [
   { name: '일정', href: '/fixtures', icon: Calendar },
   { name: '이적시장', href: '/transfer', icon: Globe },
   { name: '뉴스', href: '/news', icon: Newspaper },
-  { name: '커뮤니티', href: '/community', icon: Users, badge: 'NEW' },
+  { name: '커뮤니티', href: '/community', icon: Users },
 ]
 
 const popularLeagues = [

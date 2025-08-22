@@ -829,6 +829,13 @@ class FootballAPIService {
       
       const fixtureDetails = data.response[0]
       
+      // 라인업 데이터를 Supabase에 캐싱
+      if (fixtureDetails.lineups && fixtureDetails.lineups.length > 0) {
+        this.cacheTeamLineups(fixtureDetails).catch(err => 
+          console.error('[FootballAPI] Failed to cache lineups:', err)
+        )
+      }
+      
       // 라인업이 없으면 players 엔드포인트도 시도
       if (!fixtureDetails.lineups || fixtureDetails.lineups.length === 0) {
         try {
@@ -1055,6 +1062,100 @@ class FootballAPIService {
       console.error('Error fetching fixture players:', error)
       throw error
     }
+  }
+  
+  // 팀 라인업을 Supabase에 캐싱
+  private async cacheTeamLineups(fixture: any): Promise<void> {
+    if (!fixture.lineups || !Array.isArray(fixture.lineups)) return
+    
+    const client = createClientComponentClient()
+    
+    for (const teamLineup of fixture.lineups) {
+      if (!teamLineup.team || !teamLineup.startXI) continue
+      
+      try {
+        const lineupData = {
+          team_id: teamLineup.team.id,
+          team_name: teamLineup.team.name,
+          fixture_id: fixture.fixture.id,
+          fixture_date: fixture.fixture.date,
+          formation: teamLineup.formation || 'Unknown',
+          lineup: teamLineup.startXI,
+          substitutes: teamLineup.substitutes || [],
+          coach: teamLineup.coach || null,
+          league_id: fixture.league?.id || null,
+          league_name: fixture.league?.name || null,
+          opponent_id: fixture.teams.home.id === teamLineup.team.id 
+            ? fixture.teams.away.id 
+            : fixture.teams.home.id,
+          opponent_name: fixture.teams.home.id === teamLineup.team.id 
+            ? fixture.teams.away.name 
+            : fixture.teams.home.name,
+          is_home: fixture.teams.home.id === teamLineup.team.id,
+          updated_at: new Date().toISOString()
+        }
+        
+        const { error } = await client
+          .from('team_recent_lineups')
+          .upsert(lineupData, {
+            onConflict: 'team_id,fixture_id'
+          })
+          
+        if (error) {
+          console.error('[FootballAPI] Error caching lineup:', error)
+        } else {
+          console.log(`[FootballAPI] Cached lineup for ${teamLineup.team.name}`)
+        }
+      } catch (err) {
+        console.error('[FootballAPI] Error processing lineup cache:', err)
+      }
+    }
+  }
+  
+  // 캐시된 최근 라인업 가져오기
+  async getCachedRecentLineup(teamId: number): Promise<any> {
+    const client = createClientComponentClient()
+    
+    try {
+      const { data, error } = await client
+        .from('team_recent_lineups')
+        .select('*')
+        .eq('team_id', teamId)
+        .order('fixture_date', { ascending: false })
+        .limit(1)
+        .single()
+      
+      if (error) {
+        console.log('[FootballAPI] No cached lineup found:', error)
+        return null
+      }
+      
+      if (data) {
+        console.log(`[FootballAPI] Found cached lineup for team ${teamId} from ${data.fixture_date}`)
+        // 포메이션 정규화: 4-5-1을 4-2-3-1로 변환
+        if (data.formation === '4-5-1' && data.lineup) {
+          const defenders = data.lineup.filter((p: any) => 
+            p.player?.pos === 'D' || p.pos === 'D'
+          ).length
+          const midfielders = data.lineup.filter((p: any) => 
+            p.player?.pos === 'M' || p.pos === 'M'
+          ).length
+          const forwards = data.lineup.filter((p: any) => 
+            p.player?.pos === 'F' || p.pos === 'F'
+          ).length
+          
+          // 4명의 수비수, 5명의 미드필더, 1명의 공격수면 4-2-3-1로 변환
+          if (defenders === 4 && midfielders === 5 && forwards === 1) {
+            data.formation = '4-2-3-1'
+          }
+        }
+        return data
+      }
+    } catch (err) {
+      console.error('[FootballAPI] Error fetching cached lineup:', err)
+    }
+    
+    return null
   }
 }
 

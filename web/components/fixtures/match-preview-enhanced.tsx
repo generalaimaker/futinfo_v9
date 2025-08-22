@@ -16,7 +16,7 @@ import {
   AlertTriangle, Shield, Target, Activity, Info,
   ChevronRight, Star, Zap, ArrowUp, ArrowDown, BarChart3
 } from 'lucide-react'
-import { arrangePlayersByPosition, normalizeFormation, PlayerPosition } from './lineup-utils'
+import { arrangePlayersV3, detectFormation, PlayerPosition } from './lineup-utils-v3'
 
 interface MatchPreviewEnhancedProps {
   fixture: any
@@ -208,7 +208,7 @@ function TeamStatsCard({ teamId, teamName, season, leagueId }: any) {
 }
 
 // 최근 경기 라인업 컴포넌트
-function LastMatchLineup({ teamId, teamName }: any) {
+function LastMatchLineup({ teamId, teamName, isHomeTeam = true }: any) {
   const [lineup, setLineup] = useState<any>(null)
   const [formation, setFormation] = useState<string>('')
   const [loading, setLoading] = useState(true)
@@ -219,9 +219,20 @@ function LastMatchLineup({ teamId, teamName }: any) {
       try {
         const footballAPI = new FootballAPIService()
         
-        // 1. 팀의 가장 최근 완료된 경기들 가져오기 (더 많이 가져와서 라인업 있는 것 찾기)
+        // 1. 먼저 캐시된 라인업 확인 (일단 스킵 - 캐시 테이블이 아직 비어있을 수 있음)
+        // const cachedLineup = await footballAPI.getCachedRecentLineup(teamId)
+        // if (cachedLineup) {
+        //   console.log(`[LastMatchLineup] Using cached lineup for ${teamName}`)
+        //   setFormation(cachedLineup.formation)
+        //   setLineup(cachedLineup.lineup)
+        //   setLastMatchDate(format(new Date(cachedLineup.fixture_date), 'M월 d일', { locale: ko }))
+        //   setLoading(false)
+        //   return
+        // }
+        
+        // 2. 캐시가 없으면 API에서 가져오기
         const recentFixtures = await footballAPI.getTeamFixtures(teamId, 10)
-        console.log('[LastMatchLineup] Recent fixtures:', recentFixtures)
+        console.log(`[LastMatchLineup] Recent fixtures for team ${teamId} (${teamName}):`, recentFixtures)
         
         if (recentFixtures && recentFixtures.length > 0) {
           // 완료된 경기 중에서 라인업이 있는 첫 번째 경기 찾기
@@ -248,9 +259,28 @@ function LastMatchLineup({ teamId, teamName }: any) {
                   const fixtureDate = new Date(fixture.fixture.date)
                   setLastMatchDate(format(fixtureDate, 'M월 d일', { locale: ko }))
                   
-                  // 포메이션 정규화
-                  const normalizedFormation = normalizeFormation(teamLineup.formation || '4-3-3')
-                  setFormation(normalizedFormation)
+                  // 포메이션 정규화 - API에서 제공하는 포메이션 사용
+                  const apiFormation = teamLineup.formation
+                  console.log(`[LastMatchLineup] Team ${teamId} (${teamName}) - API provided formation: ${apiFormation}`)
+                  
+                  // 포메이션 분석 - 개선된 감지 로직 사용
+                  // startXI를 정리된 형태로 먼저 변환
+                  const cleanLineup = teamLineup.startXI.map((playerData: any) => {
+                    const player = playerData.player || playerData
+                    return {
+                      player: {
+                        id: player.id,
+                        name: player.name,
+                        number: player.number,
+                        grid: player.grid || playerData.grid || null,
+                        pos: player.pos || playerData.position || null
+                      }
+                    }
+                  })
+                  const detectedFormation = detectFormation(cleanLineup)
+                  console.log('[LastMatchLineup] Detected formation:', detectedFormation)
+                  
+                  setFormation(detectedFormation)
                   
                   // startXI 구조 확인 및 정리
                   const lineupWithPositions = teamLineup.startXI.map((playerData: any, idx: number) => {
@@ -306,18 +336,9 @@ function LastMatchLineup({ teamId, teamName }: any) {
                     const fixtureDate = new Date(fixture.fixture.date)
                     setLastMatchDate(format(fixtureDate, 'M월 d일', { locale: ko }))
                     
-                    // 포메이션 추론 (GK 제외한 필드 플레이어 수로)
-                    const fieldPlayers = startingXI.filter((p: any) => p.player.pos !== 'G').length
-                    let inferredFormation = '4-3-3' // 기본값
-                    if (fieldPlayers === 10) {
-                      const defenders = startingXI.filter((p: any) => p.player.pos === 'D').length
-                      const midfielders = startingXI.filter((p: any) => p.player.pos === 'M').length
-                      const forwards = startingXI.filter((p: any) => p.player.pos === 'F').length
-                      
-                      if (defenders && midfielders && forwards) {
-                        inferredFormation = `${defenders}-${midfielders}-${forwards}`
-                      }
-                    }
+                    // 포메이션 추론 - 개선된 감지 로직 사용
+                    const inferredFormation = detectFormation(startingXI)
+                    console.log('[LastMatchLineup] Inferred formation:', inferredFormation)
                     
                     setFormation(inferredFormation)
                     setLineup(startingXI)
@@ -384,12 +405,41 @@ function LastMatchLineup({ teamId, teamName }: any) {
         )}
       </div>
       
-      <div className="bg-gradient-to-b from-green-600 to-green-500 rounded-lg p-4 aspect-[3/4] relative">
+      <div className="bg-gradient-to-b from-green-600 to-green-500 rounded-lg p-4 aspect-[3/4] relative overflow-hidden">
+        {/* 축구장 라인 */}
+        <svg className="absolute inset-0 w-full h-full" viewBox="0 0 100 133">
+          {/* 외곽선 */}
+          <rect x="5" y="5" width="90" height="123" fill="none" stroke="white" strokeWidth="0.5" opacity="0.5"/>
+          
+          {/* 중앙선 */}
+          <line x1="5" y1="66.5" x2="95" y2="66.5" stroke="white" strokeWidth="0.5" opacity="0.5"/>
+          
+          {/* 중앙 원 */}
+          <circle cx="50" cy="66.5" r="9" fill="none" stroke="white" strokeWidth="0.5" opacity="0.5"/>
+          <circle cx="50" cy="66.5" r="0.5" fill="white" opacity="0.5"/>
+          
+          {/* 페널티 박스 (위) */}
+          <rect x="20" y="5" width="60" height="16" fill="none" stroke="white" strokeWidth="0.5" opacity="0.5"/>
+          <rect x="35" y="5" width="30" height="6" fill="none" stroke="white" strokeWidth="0.5" opacity="0.5"/>
+          <circle cx="50" cy="16" r="0.5" fill="white" opacity="0.5"/>
+          
+          {/* 페널티 박스 (아래) */}
+          <rect x="20" y="112" width="60" height="16" fill="none" stroke="white" strokeWidth="0.5" opacity="0.5"/>
+          <rect x="35" y="122" width="30" height="6" fill="none" stroke="white" strokeWidth="0.5" opacity="0.5"/>
+          <circle cx="50" cy="117" r="0.5" fill="white" opacity="0.5"/>
+          
+          {/* 골대 (위) */}
+          <rect x="45" y="3" width="10" height="2" fill="none" stroke="white" strokeWidth="0.8" opacity="0.7"/>
+          
+          {/* 골대 (아래) */}
+          <rect x="45" y="128" width="10" height="2" fill="none" stroke="white" strokeWidth="0.8" opacity="0.7"/>
+        </svg>
+        
         {/* 포메이션에 따른 선수 배치 */}
         <div className="absolute inset-0 p-4">
           {(() => {
             // 선수들을 포지션별로 정렬하고 위치 할당
-            const arrangedPlayers = arrangePlayersByPosition(lineup, formation)
+            const arrangedPlayers = arrangePlayersV3(lineup, formation, isHomeTeam)
             console.log('[LastMatchLineup] Arranged players:', arrangedPlayers)
             
             return arrangedPlayers.map((player: any, idx: number) => {
@@ -405,20 +455,14 @@ function LastMatchLineup({ teamId, teamName }: any) {
                     transform: 'translate(-50%, -50%)'
                   }}
                 >
-                  <div className="bg-white rounded-full w-10 h-10 flex items-center justify-center shadow-lg border-2 border-gray-200">
-                    <span className="text-sm font-bold text-gray-900">
+                  <div className="bg-white rounded-full w-8 h-8 flex items-center justify-center shadow-md border border-gray-300">
+                    <span className="text-xs font-bold text-gray-900">
                       {player.player.number || idx + 1}
                     </span>
                   </div>
-                  <p className="text-white text-xs mt-1.5 text-center font-semibold whitespace-nowrap drop-shadow-md">
+                  <p className="text-white text-[10px] mt-1 text-center font-medium whitespace-nowrap drop-shadow-lg">
                     {player.player.name.split(' ').pop()}
                   </p>
-                  {/* 디버그용: 포지션 표시 */}
-                  {player.player.pos && (
-                    <p className="text-white text-[10px] opacity-70">
-                      {player.player.pos}
-                    </p>
-                  )}
                 </div>
               )
             })
@@ -772,10 +816,12 @@ export function MatchPreviewEnhanced({ fixture }: MatchPreviewEnhancedProps) {
                 <LastMatchLineup 
                   teamId={fixture.teams.home.id}
                   teamName={fixture.teams.home.name}
+                  isHomeTeam={true}
                 />
                 <LastMatchLineup 
                   teamId={fixture.teams.away.id}
                   teamName={fixture.teams.away.name}
+                  isHomeTeam={false}
                 />
               </div>
             </CardContent>

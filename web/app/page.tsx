@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { 
@@ -22,7 +22,7 @@ import {
 import { useStandings } from '@/lib/supabase/football'
 import { useUserPreferences, usePersonalizedFixtures } from '@/lib/hooks/useUserPreferences'
 import { usePopularNews } from '@/lib/supabase/cached-news'
-import { formatDistanceToNow } from 'date-fns'
+import { formatDistanceToNow, addDays } from 'date-fns'
 import { ko } from 'date-fns/locale'
 
 // 개선된 컴포넌트들
@@ -30,6 +30,9 @@ import { EnhancedHeroCarousel, HeroSlide } from '@/components/home/EnhancedHeroC
 import { PersonalizedSection } from '@/components/home/PersonalizedSection'
 import { NewsSection } from '@/components/home/NewsSection'
 import { BigClubResults } from '@/components/home/BigClubResults'
+import { TodayMatches } from '@/components/home/TodayMatches'
+import { TrendingCommunity } from '@/components/home/TrendingCommunity'
+import { MobileAppSection } from '@/components/home/MobileAppSection'
 
 // 주요 팀 ID 및 우선순위 (높을수록 우선)
 const MAJOR_TEAMS = {
@@ -258,210 +261,8 @@ function QuickStats() {
 }
 
 // ============================================
-// Secondary Matches - 주요 경기 목록 (대폭 개선)
+// Secondary Matches - 제거됨 (TodayMatches로 대체)
 // ============================================
-function SecondaryMatches({ matches, title = "주요 경기" }: { matches: any[], title?: string }) {
-  if (matches.length === 0) return null
-
-  // 리그별로 그룹화
-  const groupedMatches = matches.reduce((acc, match) => {
-    const leagueId = match.league.id
-    if (!acc[leagueId]) {
-      acc[leagueId] = {
-        league: match.league,
-        matches: [],
-        priority: match.priority || 0
-      }
-    }
-    acc[leagueId].matches.push(match)
-    return acc
-  }, {} as Record<number, { league: any, matches: any[], priority: number }>)
-
-  // 리그 우선순위로 정렬
-  const sortedGroups = (Object.values(groupedMatches) as { league: any, matches: any[], priority: number }[])
-    .sort((a, b) => {
-      const leaguePriority = { 39: 1, 140: 2, 135: 3, 78: 4, 61: 5, 2: 0 }
-      return (leaguePriority[a.league.id as keyof typeof leaguePriority] || 99) - 
-             (leaguePriority[b.league.id as keyof typeof leaguePriority] || 99)
-    })
-
-  return (
-    <Card className="p-6">
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-2">
-          <Trophy className="w-5 h-5 text-yellow-500" />
-          <h4 className="font-semibold text-lg">{title}</h4>
-          <Badge variant="secondary" className="text-xs">
-            {matches.length}개 경기
-          </Badge>
-        </div>
-        <Link href="/fixtures" className="text-sm text-primary hover:underline flex items-center gap-1">
-          전체보기 <ChevronRight className="w-4 h-4" />
-        </Link>
-      </div>
-      
-      {/* 리그별 경기 표시 */}
-      <div className="space-y-6">
-        {sortedGroups.slice(0, 3).map(({ league, matches: leagueMatches }) => {
-          const getLeagueStyle = (leagueId: number) => {
-            const styles: Record<number, { bg: string, border: string, flag: string }> = {
-              39: { bg: 'bg-purple-50', border: 'border-purple-200', flag: '🏴󠁧󠁢󠁥󠁮󠁧󠁿' },
-              140: { bg: 'bg-orange-50', border: 'border-orange-200', flag: '🇪🇸' },
-              135: { bg: 'bg-blue-50', border: 'border-blue-200', flag: '🇮🇹' },
-              78: { bg: 'bg-red-50', border: 'border-red-200', flag: '🇩🇪' },
-              61: { bg: 'bg-blue-50', border: 'border-blue-200', flag: '🇫🇷' },
-              2: { bg: 'bg-indigo-50', border: 'border-indigo-200', flag: '⭐' },
-            }
-            return styles[leagueId] || { bg: 'bg-gray-50', border: 'border-gray-200', flag: '⚽' }
-          }
-
-          const style = getLeagueStyle(league.id)
-
-          return (
-            <div key={league.id}>
-              {/* 리그 헤더 */}
-              <div className={cn(
-                "flex items-center gap-2 p-3 rounded-t-lg border-b",
-                style.bg, style.border
-              )}>
-                <span className="text-lg">{style.flag}</span>
-                <span className="font-semibold text-sm">{league.name}</span>
-                <Badge variant="outline" className="text-xs">
-                  {leagueMatches.length}경기
-                </Badge>
-              </div>
-
-              {/* 경기 목록 */}
-              <div className={cn("border-l border-r border-b rounded-b-lg", style.border)}>
-                {leagueMatches.slice(0, 4).map((match, index) => {
-                  const isLive = ['LIVE', '1H', '2H', 'HT'].includes(match.fixture?.status?.short)
-                  const isFinished = match.fixture?.status?.short === 'FT'
-                  const homeId = match.teams.home.id
-                  const awayId = match.teams.away.id
-                  
-                  // 빅6 팀 확인
-                  const premierBig6 = [33, 40, 50, 49, 42, 47]
-                  const isBig6Match = premierBig6.includes(homeId) || premierBig6.includes(awayId)
-                  
-                  // 라이벌전 확인
-                  const isRivalry = ALL_RIVALRIES.some(([t1, t2]) => 
-                    (homeId === t1 && awayId === t2) || (homeId === t2 && awayId === t1)
-                  )
-                  
-                  return (
-                    <Link
-                      key={match.fixture.id}
-                      href={`/fixtures/${match.fixture.id}`}
-                      className={cn(
-                        "block p-4 transition-all relative",
-                        index < leagueMatches.slice(0, 4).length - 1 && "border-b border-gray-100",
-                        isLive && "bg-red-50/50",
-                        isBig6Match && "bg-yellow-50/30",
-                        isRivalry && "bg-red-50/30",
-                        "hover:bg-white/80"
-                      )}
-                    >
-                      {/* 특별 경기 표시 */}
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex gap-1">
-                          {isLive && (
-                            <Badge variant="destructive" className="text-xs px-2 py-0 animate-pulse">
-                              LIVE
-                            </Badge>
-                          )}
-                          {isRivalry && (
-                            <Badge className="text-xs px-2 py-0 bg-red-100 text-red-700">
-                              🔥 라이벌전
-                            </Badge>
-                          )}
-                          {isBig6Match && league.id === 39 && (
-                            <Badge className="text-xs px-2 py-0 bg-purple-100 text-purple-700">
-                              ⚡ 빅6
-                            </Badge>
-                          )}
-                        </div>
-                        <div className="text-xs text-gray-500">
-                          {match.priority ? `우선도: ${Math.round(match.priority)}` : ''}
-                        </div>
-                      </div>
-
-                      <div className="flex items-center justify-center gap-4">
-                        {/* 홈팀 */}
-                        <div className="flex items-center gap-2 flex-1 justify-end">
-                          <span className={cn(
-                            "text-sm font-medium truncate max-w-[120px] text-right",
-                            (isBig6Match || isRivalry) && "font-semibold"
-                          )}>
-                            {match.teams.home.name}
-                          </span>
-                          <Image
-                            src={match.teams.home.logo}
-                            alt=""
-                            width={28}
-                            height={28}
-                            className="object-contain"
-                          />
-                        </div>
-                        
-                        {/* 점수 또는 시간 */}
-                        <div className="min-w-[100px] text-center">
-                          {isLive || isFinished ? (
-                            <div>
-                              <div className="text-xl font-bold">
-                                {match.goals?.home ?? 0} - {match.goals?.away ?? 0}
-                              </div>
-                              {isLive && (
-                                <span className="text-xs text-red-600 font-medium">
-                                  {match.fixture.status.elapsed}'
-                                </span>
-                              )}
-                            </div>
-                          ) : (
-                            <div>
-                              <div className="text-base font-semibold">
-                                {new Date(match.fixture.date).toLocaleTimeString('ko-KR', {
-                                  hour: '2-digit',
-                                  minute: '2-digit'
-                                })}
-                              </div>
-                              <div className="text-xs text-muted-foreground">
-                                {new Date(match.fixture.date).toLocaleDateString('ko-KR', {
-                                  month: 'short',
-                                  day: 'numeric'
-                                })}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                        
-                        {/* 원정팀 */}
-                        <div className="flex items-center gap-2 flex-1">
-                          <Image
-                            src={match.teams.away.logo}
-                            alt=""
-                            width={28}
-                            height={28}
-                            className="object-contain"
-                          />
-                          <span className={cn(
-                            "text-sm font-medium truncate max-w-[120px]",
-                            (isBig6Match || isRivalry) && "font-semibold"
-                          )}>
-                            {match.teams.away.name}
-                          </span>
-                        </div>
-                      </div>
-                    </Link>
-                  )
-                })}
-              </div>
-            </div>
-          )
-        })}
-      </div>
-    </Card>
-  )
-}
 
 // ============================================
 // 4. Quick Actions - 빠른 액세스 (개선)
@@ -517,61 +318,7 @@ function QuickActions() {
   )
 }
 
-// ============================================
-// 5. Trending Community - 인기 커뮤니티 (개선)
-// ============================================
-function TrendingCommunity() {
-  const { posts, isLoading } = usePopularPosts()
-
-  if (isLoading) {
-    return (
-      <Card className="p-6">
-        <div className="animate-pulse space-y-3">
-          <div className="h-4 bg-secondary rounded w-1/3" />
-          <div className="h-20 bg-secondary rounded" />
-        </div>
-      </Card>
-    )
-  }
-
-  if (posts.length === 0) return null
-
-  // 가장 인기있는 포스트 1개만 표시
-  const topPost = posts[0]
-
-  return (
-    <Card className="p-6 hover:shadow-md transition-shadow">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <Sparkles className="h-5 w-5 text-yellow-500" />
-          <h3 className="font-semibold">커뮤니티 인기글</h3>
-        </div>
-        <Link href="/community" className="text-sm text-primary hover:underline">
-          더보기
-        </Link>
-      </div>
-      
-      <Link href={`/community/posts/${topPost.id}`} className="block group">
-        <h4 className="font-medium mb-2 group-hover:text-primary transition-colors line-clamp-2">
-          {topPost.title}
-        </h4>
-        <div className="flex items-center justify-between text-sm text-muted-foreground">
-          <div className="flex items-center gap-3">
-            <span>{topPost.author?.username || '익명'}</span>
-            <span>💬 {topPost.comment_count}</span>
-            <span>❤️ {topPost.like_count}</span>
-          </div>
-          <span>
-            {formatDistanceToNow(new Date(topPost.created_at), { 
-              addSuffix: true, 
-              locale: ko 
-            })}
-          </span>
-        </div>
-      </Link>
-    </Card>
-  )
-}
+// TrendingCommunity component is now imported from @/components/home/TrendingCommunity
 
 // ============================================
 // Main HomePage Component (개선)
@@ -584,6 +331,91 @@ export default function HomePage() {
   const { fixtures: personalizedFixtures } = usePersonalizedFixtures()
   const { posts: popularPosts } = usePopularPosts()
   const { data: popularNewsData } = usePopularNews(10)
+  const [selectedDate, setSelectedDate] = useState(new Date())
+  const [dateFixtures, setDateFixtures] = useState<any[]>(todayFixtures || [])
+  const [fixturesCache, setFixturesCache] = useState<Map<string, any[]>>(new Map())
+  const [isLoadingFixtures, setIsLoadingFixtures] = useState(false)
+  
+  // 날짜별 경기 가져오기 (캐싱 포함)
+  const fetchFixturesByDate = useCallback(async (date: Date) => {
+    const dateKey = date.toISOString().split('T')[0]
+    
+    // 캐시 확인
+    if (fixturesCache.has(dateKey)) {
+      setDateFixtures(fixturesCache.get(dateKey) || [])
+      return
+    }
+    
+    setIsLoadingFixtures(true)
+    try {
+      const footballAPIService = (await import('@/lib/supabase/football')).default
+      const response = await footballAPIService.getFixturesByDate(date)
+      
+      if (response?.response) {
+        setDateFixtures(response.response)
+        // 캐시에 저장
+        setFixturesCache(prev => new Map(prev).set(dateKey, response.response))
+      }
+    } catch (error) {
+      console.error('Error fetching fixtures by date:', error)
+      setDateFixtures([])
+    } finally {
+      setIsLoadingFixtures(false)
+    }
+  }, [fixturesCache])
+  
+  // 날짜 변경 시 경기 불러오기
+  useEffect(() => {
+    // 오늘이 선택된 날짜인 경우 이미 불러온 데이터 사용
+    const today = new Date()
+    if (selectedDate.toDateString() === today.toDateString() && todayFixtures.length > 0) {
+      setDateFixtures(todayFixtures)
+      // 오늘 날짜도 캐시에 저장
+      const todayKey = today.toISOString().split('T')[0]
+      setFixturesCache(prev => new Map(prev).set(todayKey, todayFixtures))
+    } else {
+      fetchFixturesByDate(selectedDate)
+    }
+    
+    // 인접한 날짜 미리 가져오기 (프리페치)
+    const prefetchAdjacentDates = async () => {
+      const prevDate = addDays(selectedDate, -1)
+      const nextDate = addDays(selectedDate, 1)
+      const prevKey = prevDate.toISOString().split('T')[0]
+      const nextKey = nextDate.toISOString().split('T')[0]
+      
+      // 이전 날짜 프리페치
+      if (!fixturesCache.has(prevKey)) {
+        try {
+          const footballAPIService = (await import('@/lib/supabase/football')).default
+          const response = await footballAPIService.getFixturesByDate(prevDate)
+          if (response?.response) {
+            setFixturesCache(prev => new Map(prev).set(prevKey, response.response))
+          }
+        } catch (error) {
+          console.error('Error prefetching previous date:', error)
+        }
+      }
+      
+      // 다음 날짜 프리페치
+      if (!fixturesCache.has(nextKey)) {
+        try {
+          const footballAPIService = (await import('@/lib/supabase/football')).default
+          const response = await footballAPIService.getFixturesByDate(nextDate)
+          if (response?.response) {
+            setFixturesCache(prev => new Map(prev).set(nextKey, response.response))
+          }
+        } catch (error) {
+          console.error('Error prefetching next date:', error)
+        }
+      }
+    }
+    
+    // 100ms 딜레이 후 프리페치 시작
+    const timer = setTimeout(prefetchAdjacentDates, 100)
+    
+    return () => clearTimeout(timer)
+  }, [selectedDate, fetchFixturesByDate, todayFixtures, fixturesCache])
   
   // 여러 리그 순위 데이터 가져오기 (25-26 시즌)
   const { data: premierStandings } = useStandings({ league: 39, season: 2025 })
@@ -868,34 +700,34 @@ export default function HomePage() {
   }, [liveMatches, todayFixtures, upcomingBigMatches, personalizedFixtures, preferences, isAuthenticated, 
       popularNewsData, premierStandings, laLigaStandings, serieAStandings])
   
-  // 하위 경기 목록을 위한 데이터 (빅팀 경기 우선)
-  const allMatches = [...liveMatches, ...todayFixtures]
-  const uniqueMatches = allMatches.filter((match, index, self) =>
-    index === self.findIndex((m) => m.fixture.id === match.fixture.id)
-  )
-  
-  // 빅팀 경기와 일반 경기 분리
-  const bigTeamMatches = uniqueMatches.filter(match => isBigTeamMatch(match))
-  const otherMatches = uniqueMatches.filter(match => !isBigTeamMatch(match))
-  
-  // 각각 우선순위 계산 후 정렬
-  const sortedBigTeamMatches = bigTeamMatches
-    .map(match => {
-      const { priority, reason } = calculateMatchPriority(match, isAuthenticated ? preferences : null)
-      return { ...match, priority: priority + 500, reason } // 빅팀 보너스
-    })
-    .sort((a, b) => b.priority - a.priority)
-  
-  const sortedOtherMatches = otherMatches
-    .map(match => {
-      const { priority, reason } = calculateMatchPriority(match, isAuthenticated ? preferences : null)
-      return { ...match, priority, reason }
-    })
-    .sort((a, b) => b.priority - a.priority)
-  
-  // 빅팀 경기를 먼저, 그 다음 일반 경기 (모든 경기 포함)
-  const secondaryMatches = [...sortedBigTeamMatches, ...sortedOtherMatches]
-    .slice(0, 30) // 모든 경기 표시 (배너 경기도 포함)
+  // 오늘의 경기 목록 (실시간, 예정, 완료)
+  const todayMatches = useMemo(() => {
+    // 라이브 경기와 오늘 경기를 합침
+    const allTodayMatches = [...liveMatches, ...todayFixtures]
+    
+    // 중복 제거
+    const uniqueMatches = allTodayMatches.filter((match, index, self) =>
+      index === self.findIndex((m) => m.fixture.id === match.fixture.id)
+    )
+    
+    // 우선순위 계산 및 정렬
+    return uniqueMatches
+      .map(match => {
+        const { priority, reason } = calculateMatchPriority(match, isAuthenticated ? preferences : null)
+        return { ...match, priority, reason }
+      })
+      .sort((a, b) => {
+        // 라이브 경기 최우선
+        const aLive = ['LIVE', '1H', '2H', 'HT'].includes(a.fixture?.status?.short)
+        const bLive = ['LIVE', '1H', '2H', 'HT'].includes(b.fixture?.status?.short)
+        if (aLive && !bLive) return -1
+        if (!aLive && bLive) return 1
+        
+        // 그 다음 우선순위로 정렬
+        return b.priority - a.priority
+      })
+      .slice(0, 20) // 최대 20경기만 표시
+  }, [liveMatches, todayFixtures, preferences, isAuthenticated])
 
   const hasPersonalizedContent = isAuthenticated && 
     (preferences.favoriteTeamIds.length > 0 || preferences.favoriteLeagueIds.length > 0)
@@ -912,53 +744,33 @@ export default function HomePage() {
           onSlideChange={(index) => console.log('현재 슬라이드:', index)}
         />
         
-        {/* 빅클럽 경기 결과 섹션 */}
+        {/* 오늘의 경기 (실시간/예정/진행) - FotMob 스타일 */}
+        <TodayMatches 
+          initialMatches={dateFixtures}
+          onDateChange={(date) => {
+            setSelectedDate(date)
+          }}
+        />
+        
+        {/* 빅클럽 경기 결과 섹션 - 그 다음 배치 */}
         <BigClubResults />
         
-        {/* Secondary Matches - 캐러셀 아래 경기 목록 */}
-        {secondaryMatches.length > 0 && (
-          <SecondaryMatches matches={secondaryMatches} title="경기 목록" />
-        )}
-        
-        {/* Quick Stats - 간단한 통계 */}
-        <QuickStats />
+        {/* Quick Stats - 간단한 통계 - 제거 */}
+        {/* <QuickStats /> */}
         
         {/* Main Content Area */}
-        <div className="grid lg:grid-cols-3 gap-6">
-          {/* Left Column - Main Content */}
-          <div className="lg:col-span-2 space-y-6">
-            
-            {/* Personalized Content for logged-in users */}
-            {hasPersonalizedContent && <PersonalizedSection />}
-            
-            {/* News Section */}
-            <NewsSection />
-          </div>
+        <div className="space-y-6">
+          {/* Personalized Content for logged-in users */}
+          {hasPersonalizedContent && <PersonalizedSection />}
           
-          {/* Right Column - Secondary Content */}
-          <div className="space-y-6">
-            {/* Quick Actions */}
-            <QuickActions />
-            
-            {/* Trending Community */}
-            <TrendingCommunity />
-            
-            {/* Mobile App Promo */}
-            <Card className="p-6 bg-gradient-to-br from-primary/10 to-transparent">
-              <h3 className="font-semibold mb-2">📱 모바일 앱</h3>
-              <p className="text-sm text-muted-foreground mb-3">
-                언제 어디서나 실시간 축구 정보
-              </p>
-              <div className="flex gap-2">
-                <Button size="sm" variant="outline" disabled className="text-xs">
-                  iOS 준비중
-                </Button>
-                <Button size="sm" variant="outline" disabled className="text-xs">
-                  Android 준비중
-                </Button>
-              </div>
-            </Card>
-          </div>
+          {/* News Section */}
+          <NewsSection />
+          
+          {/* Trending Community - 전체 너비 */}
+          <TrendingCommunity />
+          
+          {/* Mobile App Section - 전체 너비 */}
+          <MobileAppSection />
         </div>
       </div>
     </div>

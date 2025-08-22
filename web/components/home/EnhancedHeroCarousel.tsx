@@ -7,7 +7,7 @@ import {
   Calendar, Clock, Circle, Trophy, Star, 
   ChevronLeft, ChevronRight, Pause, Play,
   MapPin, Activity, Zap, Newspaper, TrendingUp,
-  Users, BarChart3, Heart, Bell
+  Users, BarChart3, Heart, Bell, Sparkles, Flame
 } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { formatDistanceToNow } from 'date-fns'
 import { ko } from 'date-fns/locale'
+import { motion, AnimatePresence } from 'framer-motion'
 
 // 슬라이드 콘텐츠 타입
 export type SlideType = 'match' | 'news' | 'team' | 'stats' | 'promotion'
@@ -97,11 +98,15 @@ export function EnhancedHeroCarousel({
   // 로딩 상태
   if (isLoading) {
     return (
-      <div className="relative h-[320px] md:h-[400px] rounded-2xl overflow-hidden bg-gradient-to-br from-primary/10 to-transparent animate-pulse">
+      <div className="relative h-[380px] md:h-[450px] lg:h-[480px] rounded-3xl overflow-hidden shadow-2xl">
+        <div className="absolute inset-0 bg-gradient-to-br from-purple-100 via-blue-50 to-pink-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800 animate-pulse" />
         <div className="absolute inset-0 flex items-center justify-center">
           <div className="text-center">
-            <div className="h-8 w-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-            <p className="text-sm text-muted-foreground">콘텐츠 불러오는 중...</p>
+            <div className="relative">
+              <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-purple-600 blur-2xl opacity-20 animate-pulse" />
+              <div className="relative h-12 w-12 border-4 border-gray-200 dark:border-gray-700 border-t-blue-500 dark:border-t-blue-400 rounded-full animate-spin mx-auto mb-4" />
+            </div>
+            <p className="text-sm font-medium text-gray-500 dark:text-gray-400">콘텐츠 불러오는 중...</p>
           </div>
         </div>
       </div>
@@ -111,11 +116,19 @@ export function EnhancedHeroCarousel({
   // 슬라이드가 없을 때
   if (slides.length === 0) {
     return (
-      <Card className="relative h-[320px] md:h-[400px] flex items-center justify-center">
-        <div className="text-center">
-          <Calendar className="w-12 h-12 mx-auto mb-3 text-muted-foreground" />
-          <h3 className="text-lg font-semibold mb-2">표시할 콘텐츠가 없습니다</h3>
-          <p className="text-sm text-muted-foreground">곧 업데이트됩니다</p>
+      <Card className="relative h-[380px] md:h-[450px] lg:h-[480px] border-0 rounded-3xl shadow-2xl overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-br from-gray-100 via-white to-gray-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800" />
+        <div className="relative flex items-center justify-center h-full">
+          <div className="text-center">
+            <div className="relative">
+              <div className="absolute inset-0 bg-gradient-to-br from-gray-200 to-gray-300 dark:from-gray-700 dark:to-gray-800 blur-xl opacity-30" />
+              <div className="relative p-5 rounded-3xl bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-700">
+                <Calendar className="w-12 h-12 text-gray-400 dark:text-gray-500" />
+              </div>
+            </div>
+            <h3 className="mt-6 text-xl font-bold text-gray-700 dark:text-gray-300">표시할 콘텐츠가 없습니다</h3>
+            <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">곧 업데이트됩니다</p>
+          </div>
         </div>
       </Card>
     )
@@ -125,9 +138,9 @@ export function EnhancedHeroCarousel({
 
   return (
     <div className="relative">
-      {/* 메인 캐러셀 */}
-      <div 
-        className="relative h-[320px] md:h-[400px] rounded-2xl overflow-hidden group"
+      {/* 메인 캐러셀 - Apple 스타일 */}
+      <Card 
+        className="relative h-[420px] md:h-[480px] lg:h-[520px] border-0 rounded-2xl overflow-hidden group shadow-2xl bg-gradient-to-br from-gray-900 to-black"
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
       >
@@ -148,50 +161,58 @@ export function EnhancedHeroCarousel({
           <PromotionSlide data={currentSlide.data} />
         )}
 
-        {/* 네비게이션 버튼 */}
+        {/* 네비게이션 버튼 - Apple 스타일 */}
         {slides.length > 1 && (
           <>
-            <button
+            <motion.button
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
               onClick={goToPrevious}
-              className="absolute left-4 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/30 backdrop-blur text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/50 z-10"
+              className="absolute left-6 top-1/2 -translate-y-1/2 p-3 rounded-2xl bg-white/20 dark:bg-gray-900/20 backdrop-blur-xl border border-white/30 dark:border-gray-700/30 text-white opacity-0 group-hover:opacity-100 transition-all hover:bg-white/30 dark:hover:bg-gray-900/30 z-10 shadow-lg"
               aria-label="이전"
             >
               <ChevronLeft className="w-6 h-6" />
-            </button>
-            <button
+            </motion.button>
+            <motion.button
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
               onClick={goToNext}
-              className="absolute right-4 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/30 backdrop-blur text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/50 z-10"
+              className="absolute right-6 top-1/2 -translate-y-1/2 p-3 rounded-2xl bg-white/20 dark:bg-gray-900/20 backdrop-blur-xl border border-white/30 dark:border-gray-700/30 text-white opacity-0 group-hover:opacity-100 transition-all hover:bg-white/30 dark:hover:bg-gray-900/30 z-10 shadow-lg"
               aria-label="다음"
             >
               <ChevronRight className="w-6 h-6" />
-            </button>
+            </motion.button>
           </>
         )}
 
-        {/* 자동재생 토글 */}
+        {/* 자동재생 토글 - Apple 스타일 */}
         {slides.length > 1 && (
-          <button
+          <motion.button
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.9 }}
             onClick={() => setIsAutoPlaying(!isAutoPlaying)}
-            className="absolute bottom-4 right-4 p-2 rounded-full bg-black/30 backdrop-blur text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/50 z-10"
+            className="absolute bottom-6 right-6 p-2.5 rounded-2xl bg-white/20 dark:bg-gray-900/20 backdrop-blur-xl border border-white/30 dark:border-gray-700/30 text-white opacity-0 group-hover:opacity-100 transition-all hover:bg-white/30 dark:hover:bg-gray-900/30 z-10 shadow-lg"
             aria-label={isAutoPlaying ? "일시정지" : "재생"}
           >
             {isAutoPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
-          </button>
+          </motion.button>
         )}
-      </div>
+      </Card>
 
-      {/* 인디케이터 */}
+      {/* 인디케이터 - Apple 스타일 */}
       {slides.length > 1 && (
-        <div className="mt-4 flex items-center justify-center gap-2">
+        <div className="mt-6 flex items-center justify-center gap-3">
           {slides.map((slide, index) => (
-            <button
+            <motion.button
               key={slide.id}
+              whileHover={{ scale: 1.2 }}
+              whileTap={{ scale: 0.8 }}
               onClick={() => goToSlide(index)}
               className={cn(
-                "transition-all",
+                "transition-all duration-300",
                 index === currentIndex 
-                  ? "w-8 h-2 bg-primary rounded-full" 
-                  : "w-2 h-2 bg-gray-300 dark:bg-gray-600 rounded-full hover:bg-gray-400"
+                  ? "w-10 h-2.5 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full shadow-lg shadow-blue-500/30" 
+                  : "w-2.5 h-2.5 bg-gray-300 dark:bg-gray-600 rounded-full hover:bg-gray-400 dark:hover:bg-gray-500"
               )}
               aria-label={`슬라이드 ${index + 1}`}
             />
@@ -229,126 +250,200 @@ function MatchSlide({ data }: { data: any }) {
 
   return (
     <div className="absolute inset-0">
-      <div className="absolute inset-0 bg-gradient-to-br from-green-900/90 via-slate-900/80 to-slate-800/70" />
+      {/* 그라디언트 배경 - 더 모던하고 깔끔하게 */}
+      <div className="absolute inset-0 bg-gradient-to-br from-emerald-600/95 via-green-700/90 to-teal-800/85" />
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-white/10 via-transparent to-transparent" />
       
-      {/* 라이브 인디케이터 */}
+      {/* 라이브 인디케이터 - 더 세련되게 */}
       {isLive && (
-        <div className="absolute top-4 left-4 z-20">
-          <div className="flex items-center gap-2 px-3 py-1.5 bg-red-500 rounded-full animate-pulse">
-            <Circle className="w-2 h-2 fill-current" />
-            <span className="text-xs font-bold text-white">LIVE</span>
-            <span className="text-xs text-white">{data.fixture.status.elapsed}'</span>
-          </div>
+        <div className="absolute top-6 left-6 z-20">
+          <motion.div 
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="flex items-center gap-2 px-4 py-2 bg-red-500/90 backdrop-blur-xl rounded-2xl shadow-lg"
+          >
+            <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
+            <span className="text-sm font-bold text-white">LIVE</span>
+            <span className="text-sm text-white/90">{data.fixture.status.elapsed}'</span>
+          </motion.div>
         </div>
       )}
 
-      {/* 빅매치 표시 */}
-      <div className="absolute top-4 right-4 z-20 flex flex-col gap-2">
+      {/* 빅매치 표시 - 더 깔끔하게 */}
+      <div className="absolute top-6 right-6 z-20 flex flex-col gap-2 items-end">
         {isRivalry && (
-          <Badge className="bg-red-500/90 backdrop-blur text-white border-0">
-            🔥 라이벌전
-          </Badge>
+          <motion.div
+            initial={{ x: 20, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            transition={{ delay: 0.2 }}
+            className="px-3 py-1.5 bg-gradient-to-r from-red-500 to-orange-500 rounded-xl backdrop-blur-xl shadow-lg"
+          >
+            <span className="text-xs font-bold text-white flex items-center gap-1">
+              <Flame className="w-3 h-3" /> 라이벌전
+            </span>
+          </motion.div>
         )}
         {isBig6Match && data.league.id === 39 && (
-          <Badge className="bg-purple-500/90 backdrop-blur text-white border-0">
-            ⚡ 프리미어 빅6
-          </Badge>
+          <motion.div
+            initial={{ x: 20, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            transition={{ delay: 0.3 }}
+            className="px-3 py-1.5 bg-gradient-to-r from-purple-500 to-indigo-500 rounded-xl backdrop-blur-xl shadow-lg"
+          >
+            <span className="text-xs font-bold text-white flex items-center gap-1">
+              <Zap className="w-3 h-3" /> 빅매치
+            </span>
+          </motion.div>
         )}
-        <Badge className="bg-black/50 backdrop-blur text-white border-0">
-          {data.league.name}
-        </Badge>
+        <motion.div
+          initial={{ x: 20, opacity: 0 }}
+          animate={{ x: 0, opacity: 1 }}
+          transition={{ delay: 0.4 }}
+          className="px-3 py-1.5 bg-white/20 backdrop-blur-xl rounded-xl shadow-lg"
+        >
+          <span className="text-xs font-medium text-white">{data.league.name}</span>
+        </motion.div>
       </div>
 
       {/* 경기 정보 */}
       <div className="relative h-full flex flex-col justify-center p-8 md:p-12">
         <div className="max-w-5xl mx-auto w-full">
           <div className="flex items-center justify-between mb-8">
-            {/* 홈팀 */}
-            <div className="flex-1 flex flex-col items-center">
-              <div className="w-24 h-24 md:w-32 md:h-32 p-3 bg-white/10 backdrop-blur rounded-xl mb-3">
+            {/* 홈팀 - 더 크고 선명하게 */}
+            <motion.div 
+              initial={{ x: -50, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              transition={{ delay: 0.1 }}
+              className="flex-1 flex flex-col items-center"
+            >
+              <div className="w-28 h-28 md:w-36 md:h-36 p-2 bg-white/15 backdrop-blur-xl rounded-2xl mb-4 shadow-xl">
                 <Image
                   src={data.teams.home.logo}
                   alt={data.teams.home.name}
-                  width={128}
-                  height={128}
-                  className="w-full h-full object-contain"
+                  width={144}
+                  height={144}
+                  className="w-full h-full object-contain drop-shadow-2xl"
                 />
               </div>
-              <h3 className="text-xl md:text-2xl font-bold text-white text-center">
+              <h3 className="text-2xl md:text-3xl font-bold text-white text-center mb-1">
                 {data.teams.home.name}
               </h3>
-              <p className="text-sm text-white/60">홈</p>
-            </div>
+              <Badge className="bg-white/20 backdrop-blur text-white text-xs border-0">홈</Badge>
+            </motion.div>
 
-            {/* 점수/시간 */}
-            <div className="px-8 text-center">
+            {/* 점수/시간 - 더 크고 아름답게 */}
+            <motion.div 
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ delay: 0.2 }}
+              className="px-8 text-center"
+            >
               {isLive || isFinished ? (
                 <div>
-                  <div className="flex items-center gap-4">
-                    <span className="text-5xl md:text-6xl font-bold text-white">
+                  <div className="flex items-center gap-4 justify-center">
+                    <motion.span 
+                      initial={{ y: -20, opacity: 0 }}
+                      animate={{ y: 0, opacity: 1 }}
+                      transition={{ delay: 0.3 }}
+                      className="text-6xl md:text-7xl font-black text-white drop-shadow-2xl"
+                    >
                       {data.goals?.home ?? 0}
-                    </span>
-                    <span className="text-3xl text-white/40">:</span>
-                    <span className="text-5xl md:text-6xl font-bold text-white">
+                    </motion.span>
+                    <span className="text-4xl text-white/30">:</span>
+                    <motion.span 
+                      initial={{ y: -20, opacity: 0 }}
+                      animate={{ y: 0, opacity: 1 }}
+                      transition={{ delay: 0.4 }}
+                      className="text-6xl md:text-7xl font-black text-white drop-shadow-2xl"
+                    >
                       {data.goals?.away ?? 0}
-                    </span>
+                    </motion.span>
                   </div>
                   {isFinished && (
-                    <Badge className="mt-3 bg-white/20 text-white border-0">종료</Badge>
+                    <motion.div
+                      initial={{ y: 10, opacity: 0 }}
+                      animate={{ y: 0, opacity: 1 }}
+                      transition={{ delay: 0.5 }}
+                    >
+                      <Badge className="mt-4 px-4 py-1.5 bg-white/25 backdrop-blur-xl text-white text-sm font-bold border-0 shadow-lg">
+                        종료
+                      </Badge>
+                    </motion.div>
                   )}
                 </div>
               ) : (
                 <div>
-                  <div className="text-3xl md:text-4xl font-bold text-white">
+                  <motion.div 
+                    initial={{ scale: 0.9, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    transition={{ delay: 0.3 }}
+                    className="text-4xl md:text-5xl font-bold text-white drop-shadow-2xl"
+                  >
                     {new Date(data.fixture.date).toLocaleTimeString('ko-KR', {
                       hour: '2-digit',
                       minute: '2-digit'
                     })}
-                  </div>
-                  <div className="text-lg text-white/60 mt-2">
+                  </motion.div>
+                  <motion.div 
+                    initial={{ y: 10, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    transition={{ delay: 0.4 }}
+                    className="text-lg text-white/70 mt-3 font-medium"
+                  >
                     {formatDistanceToNow(new Date(data.fixture.date), {
                       addSuffix: true,
                       locale: ko
                     })}
-                  </div>
+                  </motion.div>
                 </div>
               )}
-            </div>
+            </motion.div>
 
-            {/* 원정팀 */}
-            <div className="flex-1 flex flex-col items-center">
-              <div className="w-24 h-24 md:w-32 md:h-32 p-3 bg-white/10 backdrop-blur rounded-xl mb-3">
+            {/* 원정팀 - 더 크고 선명하게 */}
+            <motion.div 
+              initial={{ x: 50, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              transition={{ delay: 0.1 }}
+              className="flex-1 flex flex-col items-center"
+            >
+              <div className="w-28 h-28 md:w-36 md:h-36 p-2 bg-white/15 backdrop-blur-xl rounded-2xl mb-4 shadow-xl">
                 <Image
                   src={data.teams.away.logo}
                   alt={data.teams.away.name}
-                  width={128}
-                  height={128}
-                  className="w-full h-full object-contain"
+                  width={144}
+                  height={144}
+                  className="w-full h-full object-contain drop-shadow-2xl"
                 />
               </div>
-              <h3 className="text-xl md:text-2xl font-bold text-white text-center">
+              <h3 className="text-2xl md:text-3xl font-bold text-white text-center mb-1">
                 {data.teams.away.name}
               </h3>
-              <p className="text-sm text-white/60">원정</p>
-            </div>
+              <Badge className="bg-white/20 backdrop-blur text-white text-xs border-0">원정</Badge>
+            </motion.div>
           </div>
 
-          {/* 경기장 정보 및 상세보기 */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-sm text-white/70">
+          {/* 경기장 정보 및 상세보기 - 더 세련되게 */}
+          <motion.div 
+            initial={{ y: 20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ delay: 0.6 }}
+            className="flex items-center justify-between mt-8"
+          >
+            <div className="flex items-center gap-2 text-sm text-white/80 font-medium">
               <MapPin className="w-4 h-4" />
               <span>{data.fixture.venue?.name || '경기장 정보 없음'}</span>
             </div>
             <Link href={`/fixtures/${data.fixture.id}`}>
-              <Button 
-                size="sm" 
-                className="bg-white/20 backdrop-blur hover:bg-white/30 text-white border-0"
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }} 
+                className="px-5 py-2.5 bg-white/25 backdrop-blur-xl hover:bg-white/35 text-white rounded-2xl font-semibold text-sm shadow-lg transition-all flex items-center gap-2"
               >
-                경기 상세보기
-                <ChevronRight className="ml-2 h-4 w-4" />
-              </Button>
+                <span>경기 상세보기</span>
+                <ChevronRight className="h-4 w-4 flex-shrink-0" />
+              </motion.button>
             </Link>
-          </div>
+          </motion.div>
         </div>
       </div>
     </div>
@@ -364,14 +459,20 @@ function NewsSlide({ data }: { data: any }) {
   
   return (
     <div className="absolute inset-0">
-      <div className="absolute inset-0 bg-gradient-to-br from-blue-900/90 via-slate-900/80 to-slate-800/70" />
+      {/* 모던한 블루 그라디언트 */}
+      <div className="absolute inset-0 bg-gradient-to-br from-blue-600/95 via-indigo-700/90 to-purple-800/85" />
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_left,_var(--tw-gradient-stops))] from-white/10 via-transparent to-transparent" />
       
-      {/* 뉴스 라벨 */}
-      <div className="absolute top-4 left-4 z-20">
-        <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-500 rounded-full">
+      {/* 뉴스 라벨 - 더 세련되게 */}
+      <div className="absolute top-6 left-6 z-20">
+        <motion.div 
+          initial={{ scale: 0.9, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          className="flex items-center gap-2 px-4 py-2 bg-white/20 backdrop-blur-xl rounded-2xl shadow-lg"
+        >
           <Newspaper className="w-4 h-4 text-white" />
-          <span className="text-xs font-bold text-white">주요 뉴스</span>
-        </div>
+          <span className="text-sm font-bold text-white">주요 뉴스</span>
+        </motion.div>
       </div>
 
       {/* 뉴스 목록 - 3개만 표시, 컴팩트 디자인 */}
@@ -381,7 +482,7 @@ function NewsSlide({ data }: { data: any }) {
             주요 뉴스
           </h2>
           
-          <div className="space-y-2">
+          <div className="grid gap-2.5">
             {newsItems.slice(0, 3).map((item: any, index: number) => (
               <Link 
                 key={item.id || index} 
@@ -422,10 +523,10 @@ function NewsSlide({ data }: { data: any }) {
             <Link href="/news">
               <Button 
                 size="sm" 
-                className="bg-white/20 backdrop-blur hover:bg-white/30 text-white border-0 h-7 text-xs px-3 py-1"
+                className="bg-white/20 backdrop-blur hover:bg-white/30 text-white border-0 h-7 text-xs px-3 py-1 whitespace-nowrap flex items-center gap-1"
               >
-                모든 뉴스 보기
-                <ChevronRight className="ml-1 h-3 w-3" />
+                <span>모든 뉴스 보기</span>
+                <ChevronRight className="h-3 w-3 flex-shrink-0" />
               </Button>
             </Link>
           </div>
@@ -536,10 +637,10 @@ function TeamSlide({ data }: { data: any }) {
               <Link href={`/teams/${data.team.id}`}>
                 <Button 
                   size="sm" 
-                  className="bg-white/20 backdrop-blur hover:bg-white/30 text-white border-0"
+                  className="bg-white/20 backdrop-blur hover:bg-white/30 text-white border-0 whitespace-nowrap flex items-center gap-1"
                 >
-                  팀 정보 보기
-                  <ChevronRight className="ml-2 h-4 w-4" />
+                  <span>팀 정보 보기</span>
+                  <ChevronRight className="h-4 w-4 flex-shrink-0" />
                 </Button>
               </Link>
             </div>
@@ -573,7 +674,7 @@ function StatsSlide({ data }: { data: any }) {
             {data.league.name} 상위 5팀
           </h2>
           
-          <div className="space-y-2">
+          <div className="grid gap-2.5">
             {data.standings.slice(0, 5).map((team: any, index: number) => (
               <div
                 key={team.team.id}
@@ -621,10 +722,10 @@ function StatsSlide({ data }: { data: any }) {
             <Link href="/standings">
               <Button 
                 size="sm" 
-                className="bg-white/20 backdrop-blur hover:bg-white/30 text-white border-0"
+                className="bg-white/20 backdrop-blur hover:bg-white/30 text-white border-0 whitespace-nowrap flex items-center gap-1"
               >
-                전체 순위 보기
-                <ChevronRight className="ml-2 h-4 w-4" />
+                <span>전체 순위 보기</span>
+                <ChevronRight className="h-4 w-4 flex-shrink-0" />
               </Button>
             </Link>
           </div>
