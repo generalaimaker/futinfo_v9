@@ -316,13 +316,13 @@ function MatchSlide({ data }: { data: any }) {
               transition={{ delay: 0.1 }}
               className="flex-1 flex flex-col items-center"
             >
-              <div className="w-28 h-28 md:w-36 md:h-36 p-2 bg-white/15 backdrop-blur-xl rounded-2xl mb-4 shadow-xl">
+              <div className="w-28 h-28 md:w-36 md:h-36 flex items-center justify-center mb-4">
                 <Image
                   src={data.teams.home.logo}
                   alt={data.teams.home.name}
                   width={144}
                   height={144}
-                  className="w-full h-full object-contain drop-shadow-2xl"
+                  className="w-full h-full object-contain"
                 />
               </div>
               <h3 className="text-2xl md:text-3xl font-bold text-white text-center mb-1">
@@ -406,13 +406,13 @@ function MatchSlide({ data }: { data: any }) {
               transition={{ delay: 0.1 }}
               className="flex-1 flex flex-col items-center"
             >
-              <div className="w-28 h-28 md:w-36 md:h-36 p-2 bg-white/15 backdrop-blur-xl rounded-2xl mb-4 shadow-xl">
+              <div className="w-28 h-28 md:w-36 md:h-36 flex items-center justify-center mb-4">
                 <Image
                   src={data.teams.away.logo}
                   alt={data.teams.away.name}
                   width={144}
                   height={144}
-                  className="w-full h-full object-contain drop-shadow-2xl"
+                  className="w-full h-full object-contain"
                 />
               </div>
               <h3 className="text-2xl md:text-3xl font-bold text-white text-center mb-1">
