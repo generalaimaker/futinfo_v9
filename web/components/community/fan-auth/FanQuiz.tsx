@@ -83,7 +83,7 @@ const getTeamQuizzes = (teamId: number): QuizQuestion[] => {
   return [
     {
       id: '1',
-      question: `${teamName}의 창단 연도는?`,
+      question: `이 팀의 창단 연도는?`,
       options: ['1900년대', '1910년대', '1920년대', '1930년대'],
       correctAnswer: 0,
       difficulty: 'easy',

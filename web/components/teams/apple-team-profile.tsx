@@ -7,7 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { 
   ChevronLeft, Heart, Share2, MoreHorizontal, Info, Home, Plane,
   Trophy, Target, Shield, Activity, Users, Star, Award,
-  MapPin, Calendar, Stadium, TrendingUp, TrendingDown,
+  MapPin, Calendar, Building, TrendingUp, TrendingDown,
   BarChart3, Zap, Circle, ChevronRight, Clock, Percent,
   Hash, ArrowUp, ArrowDown, Minus, AlertTriangle, Flag,
   DollarSign, ArrowRightLeft, UserPlus, UserMinus,
@@ -45,13 +45,8 @@ function TeamFormDisplay({ teamId, form, leagueId }: { teamId: number, form: str
       if (!leagueId) return []
       
       try {
-        // 팀의 해당 리그 경기만 가져오기
-        const response = await footballAPIService.callUnifiedAPI('fixtures', {
-          team: teamId,
-          league: leagueId,
-          season: currentSeason,
-          last: 10 // 더 많이 가져와서 필터링
-        })
+        // 팀의 최근 경기 가져오기
+        const response = await footballAPIService.getTeamFixtures(teamId, 10)
         
         // 완료된 경기만 필터링하고 최근 5경기만 선택
         const completedFixtures = response?.response?.filter(

@@ -104,11 +104,11 @@ export function FanAuthResult({
       const animationEnd = Date.now() + duration
       const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 0 }
 
-      function randomInRange(min: number, max: number) {
+      const randomInRange = (min: number, max: number) => {
         return Math.random() * (max - min) + min
       }
 
-      const interval: any = setInterval(function() {
+      const interval: any = setInterval(() => {
         const timeLeft = animationEnd - Date.now()
 
         if (timeLeft <= 0) {
