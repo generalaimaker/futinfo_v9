@@ -277,17 +277,21 @@ class PlayerProfileViewModel: ObservableObject {
         do {
             print("🔄 선수 프로필 로드 시작: playerId=\(playerId)")
             
-            // 새로운 캐싱 API 사용
-            let response = try await apiService.fetchPlayerProfile(playerId: playerId, season: selectedSeason)
+            // 선수 정보와 통계를 별도로 가져오기
+            async let playerInfoTask = apiService.fetchPlayerInfo(playerId: playerId)
+            async let playerStatsTask = apiService.fetchPlayerStatistics(playerId: playerId, season: selectedSeason)
+            
+            let (playerInfoResponse, playerStatsResponse) = try await (playerInfoTask, playerStatsTask)
             
             // 첫 번째 응답에서 프로필 추출
-            if let profileData = response.response.first {
+            if let playerInfo = playerInfoResponse.response.first,
+               let playerStats = playerStatsResponse.response.first {
                 let profile = PlayerProfileData(
-                    player: profileData.player,
-                    statistics: profileData.statistics
+                    player: playerInfo.player,
+                    statistics: playerStats.statistics
                 )
                 
-                let statistics = profileData.statistics ?? []
+                let statistics = profile.statistics ?? []
                 print("✅ 선수 프로필 로드 성공: \(profile.player.name ?? "Unknown")")
                 print("📊 API에서 받은 통계 개수: \(statistics.count)")
                 
@@ -323,17 +327,21 @@ class PlayerProfileViewModel: ObservableObject {
                     // 골/어시스트가 있는 가장 최신 시즌 선택
                     print("✅ 골/어시스트가 있는 최신 시즌(\(foundBestSeason))을 selectedSeason으로 설정합니다.")
                     bestSeason = foundBestSeason
-                } else if let lastPlayedSeason = clubStats.filter({ ($0.games?.appearences ?? 0) > 0 }).compactMap({ $0.league?.season }).max() {
-                    // 골/어시스트가 없으면, 경기를 뛴 마지막 시즌을 선택
-                    print("✅ 골/어시스트 없음. 마지막으로 경기를 뛴 시즌(\(lastPlayedSeason))을 selectedSeason으로 설정합니다.")
-                    bestSeason = lastPlayedSeason
-                } else if let latestAnySeason = statistics.compactMap({ $0.league?.season }).max() {
-                    // 클럽 통계가 아예 없으면, 국가대표팀 포함 가장 최신 시즌 선택
-                    print("⚠️ 클럽 통계 없음. 국가대표팀 포함 가장 최신 시즌(\(latestAnySeason))을 selectedSeason으로 설정합니다.")
-                    bestSeason = latestAnySeason
                 } else {
-                    print("⚠️ 유효한 시즌 정보를 찾을 수 없음. 기본 시즌을 유지합니다.")
-                    bestSeason = self.selectedSeason
+                    // 골/어시스트가 없으면, 경기를 뛴 마지막 시즌을 선택
+                    let playedStats = clubStats.filter { ($0.games?.appearences ?? 0) > 0 }
+                    let playedSeasons = playedStats.compactMap { $0.league?.season }
+                    if let lastPlayedSeason = playedSeasons.max() {
+                        print("✅ 골/어시스트 없음. 마지막으로 경기를 뛴 시즌(\(lastPlayedSeason))을 selectedSeason으로 설정합니다.")
+                        bestSeason = lastPlayedSeason
+                    } else if let latestAnySeason = statistics.compactMap({ $0.league?.season }).max() {
+                        // 클럽 통계가 아예 없으면, 국가대표팀 포함 가장 최신 시즌 선택
+                        print("⚠️ 클럽 통계 없음. 국가대표팀 포함 가장 최신 시즌(\(latestAnySeason))을 selectedSeason으로 설정합니다.")
+                        bestSeason = latestAnySeason
+                    } else {
+                        print("⚠️ 유효한 시즌 정보를 찾을 수 없음. 기본 시즌을 유지합니다.")
+                        bestSeason = self.selectedSeason
+                    }
                 }
                 
                 // 메인 스레드에서 selectedSeason 업데이트

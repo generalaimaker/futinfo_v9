@@ -26,17 +26,20 @@ extension FixturesOverviewViewModel {
             fixtures[date] = cachedData
             print("✅ 캐시 데이터 즉시 표시: \(dateString) (\(cachedData.count)개)")
             
-            // 캐시가 1시간 이내면 API 호출 스킵
+            // 캐시가 30분 이내면 API 호출 스킵 (1시간에서 30분으로 단축)
             if !forceRefresh, let cacheDate = cacheDates[dateString], 
-               Date().timeIntervalSince(cacheDate) < 3600 {
-                print("⏩ 캐시가 유효하여 API 호출 스킵")
+               Date().timeIntervalSince(cacheDate) < 1800 {
+                print("⏩ 캐시가 유효하여 API 호출 스킵 (30분 이내)")
                 return
             }
         }
         
-        // 로딩 상태 설정 (캐시가 없을 때만)
+        // 로딩 상태 설정 (캐시가 없을 때만 로딩 표시)
         if fixtures[date]?.isEmpty ?? true {
             isLoading = true
+        } else {
+            // 캐시가 있으면 로딩 표시 안함 (백그라운드 갱신)
+            isLoading = false
         }
         errorMessage = nil
         
@@ -48,32 +51,32 @@ extension FixturesOverviewViewModel {
             }
             
             do {
-                // 우선순위별 리그 그룹 정의
-                let primaryLeagues = getPreferredLeagues() // 사용자 선호 리그
-                let secondaryLeagues = [39, 140, 135, 78, 61] // 5대 리그
-                let tertiaryLeagues = [94, 88, 203, 144, 179] // 기타 주요 리그
-                let koreanLeagues = [292, 293] // K리그
-                let internationalLeagues = [2, 3, 848, 537] // 챔스, 유로파 등
+                // 우선순위별 리그 그룹 정의 - 필수 리그만 선택
+                let primaryLeagues = getPreferredLeagues().prefix(3) // 사용자 선호 리그 중 상위 3개만
+                let mainLeagues = [39, 140, 135, 78, 61] // 5대 리그
+                let koreanLeagues = [292] // K리그1만
+                
+                // 중요 리그만 선택 (최대 10개)
+                var selectedLeagues = Array(primaryLeagues)
+                selectedLeagues.append(contentsOf: mainLeagues)
+                selectedLeagues.append(contentsOf: koreanLeagues)
+                
+                // 중복 제거 및 최대 10개로 제한
+                let limitedLeagues = Array(Set(selectedLeagues)).prefix(10)
                 
                 // 7월에는 여름 리그 추가
                 let calendar = Calendar.current
                 let month = calendar.component(.month, from: date)
-                var summerLeagues: [Int] = []
-                if month == 7 {
-                    summerLeagues = [253, 71, 307, 15] // MLS, 브라질, 사우디, 클럽월드컵
-                    print("🌞 7월 - 여름 리그 추가: MLS(253), 브라질(71), 사우디(307), 클럽월드컵(15)")
+                
+                var finalLeagues = Array(limitedLeagues)
+                if month == 7 || month == 8 {
+                    // 여름 시즌 리그 추가 (MLS만)
+                    finalLeagues.append(253) // MLS
+                    print("🌞 여름 시즌 - MLS(253) 추가")
                 }
                 
-                // 모든 리그 ID 수집 (중복 제거)
-                var allLeagues = Set<Int>()
-                allLeagues.formUnion(primaryLeagues)
-                allLeagues.formUnion(secondaryLeagues)
-                allLeagues.formUnion(tertiaryLeagues)
-                allLeagues.formUnion(koreanLeagues)
-                allLeagues.formUnion(internationalLeagues)
-                allLeagues.formUnion(summerLeagues)
-                
-                let leagueIds = Array(allLeagues)
+                // 최종 리그 리스트 (최대 12개)
+                let leagueIds = Array(Set(finalLeagues)).prefix(12).map { Int($0) }
                 
                 print("🚀 배치 요청 시작: \(leagueIds.count)개 리그")
                 
@@ -90,32 +93,48 @@ extension FixturesOverviewViewModel {
                 let elapsed = Date().timeIntervalSince(startTime)
                 print("✅ 배치 요청 완료: \(String(format: "%.2f", elapsed))초에 \(fixturesResponse.response.count)개 경기 로드")
                 
-                // 결과 정렬 및 캐시 저장
-                let sortedFixtures = sortFixturesByPriority(fixturesResponse.response)
+                // 빈 응답도 정상 처리 (경기가 없는 날일 수 있음)
+                let sortedFixtures = fixturesResponse.response.isEmpty ? [] : sortFixturesByPriority(fixturesResponse.response)
                 
-                // UI 업데이트
-                fixtures[date] = sortedFixtures
-                
-                // 캐시 저장
-                cachedFixtures[dateString] = sortedFixtures
-                cacheDates[dateString] = Date()
-                saveCachedFixtures(for: dateString)
+                // UI 업데이트 - 캐시가 있으면 병합, 없으면 새 데이터 사용
+                if sortedFixtures.isEmpty && cachedFixtures[dateString] != nil {
+                    // 새 데이터가 비어있고 캐시가 있으면 캐시 유지
+                    print("⚠️ 빈 응답 받음 - 기존 캐시 유지")
+                    fixtures[date] = cachedFixtures[dateString]!
+                } else {
+                    // 정상 데이터 업데이트
+                    fixtures[date] = sortedFixtures
+                    
+                    // 캐시 저장 (빈 데이터도 저장하여 불필요한 재요청 방지)
+                    cachedFixtures[dateString] = sortedFixtures
+                    cacheDates[dateString] = Date()
+                    saveCachedFixtures(for: dateString)
+                }
                 
                 // 라이브 경기 추적 업데이트
-                updateLiveMatchTracking(fixtures: sortedFixtures)
+                if !sortedFixtures.isEmpty {
+                    updateLiveMatchTracking(fixtures: sortedFixtures)
+                }
                 
-                // 스마트 프리페치 (백그라운드에서 실행)
-                Task {
-                    await smartPrefetch(around: date)
+                // 스마트 프리페치 (백그라운드에서 실행) - 오류가 없을 때만
+                if !forceRefresh {
+                    Task {
+                        await smartPrefetch(around: date)
+                    }
                 }
                 
             } catch {
                 print("❌ 배치 요청 실패: \(error)")
-                errorMessage = error.localizedDescription
                 
-                // 오류 시 캐시된 데이터 표시
-                if let cached = cachedFixtures[dateString] {
+                // 오류 시 캐시된 데이터가 있으면 유지, 없으면 빈 배열
+                if let cached = cachedFixtures[dateString], !cached.isEmpty {
+                    print("✅ 오류 발생 - 캐시 데이터 사용: \(cached.count)개")
                     fixtures[date] = cached
+                    errorMessage = nil // 캐시가 있으면 에러 메시지 표시 안함
+                } else {
+                    // 캐시도 없으면 빈 배열 설정
+                    fixtures[date] = []
+                    errorMessage = "경기 정보를 불러올 수 없습니다"
                 }
             }
         }
@@ -123,42 +142,47 @@ extension FixturesOverviewViewModel {
         loadingTasks[loadingKey] = task
     }
     
-    /// 스마트 프리페칭 - ±2일만 미리 로드
+    /// 스마트 프리페칭 - ±1일만 미리 로드 (API 제한 고려)
     @MainActor
     func smartPrefetch(around date: Date) async {
-        print("🧠 스마트 프리페치 시작")
+        print("🧠 스마트 프리페치 시작 (±1일)")
         
-        // 주말이면 3일, 평일이면 2일 프리페치
+        // API 제한을 고려하여 ±1일만 프리페치
         let calendar = Calendar.current
-        let weekday = calendar.component(.weekday, from: date)
-        let isWeekend = weekday == 1 || weekday == 7
-        let prefetchDays = isWeekend ? 3 : 2
+        let prefetchDays = 1
         
         // 프리페치 범위 설정
-        let range = -prefetchDays...prefetchDays
+        let range = [-prefetchDays, prefetchDays] // -1일, +1일만
         
-        // 동시 실행을 위한 태스크 그룹 사용
-        await withTaskGroup(of: Void.self) { group in
-            for dayOffset in range where dayOffset != 0 { // 오늘은 제외
-                let targetDate = calendar.date(byAdding: .day, value: dayOffset, to: date)!
-                let dateString = formatDateForAPI(targetDate)
-                
-                // 이미 캐시가 있고 1시간 이내면 스킵
-                if let cacheDate = cacheDates[dateString],
-                   Date().timeIntervalSince(cacheDate) < 3600 {
-                    continue
-                }
-                
-                group.addTask { [weak self] in
-                    await self?.loadFixturesOptimized(for: targetDate)
-                }
+        // 순차 실행으로 변경 (API 제한 방지)
+        for dayOffset in range {
+            let targetDate = calendar.date(byAdding: .day, value: dayOffset, to: date)!
+            let dateString = formatDateForAPI(targetDate)
+            
+            // 이미 캐시가 있고 30분 이내면 스킵
+            if let cacheDate = cacheDates[dateString],
+               Date().timeIntervalSince(cacheDate) < 1800 {
+                print("⏩ 프리페치 스킵 (캐시 유효): \(dateString)")
+                continue
             }
+            
+            // 이미 데이터가 있으면 스킵
+            if let existing = fixtures[targetDate], !existing.isEmpty {
+                print("⏩ 프리페치 스킵 (데이터 있음): \(dateString)")
+                continue
+            }
+            
+            print("📥 프리페치 중: \(dateString)")
+            await loadFixturesOptimized(for: targetDate)
+            
+            // API 제한 방지를 위한 대기
+            try? await Task.sleep(nanoseconds: 1_000_000_000) // 1초 대기
         }
         
         print("✅ 스마트 프리페치 완료")
         
-        // 프리페치 후 메모리 정리
-        cleanupMemory()
+        // 프리페치 후 메모리 정리 (더 보수적으로)
+        // cleanupMemory() // 일시적으로 비활성화
     }
     
     /// 메모리 최적화 - 오래된 데이터 정리

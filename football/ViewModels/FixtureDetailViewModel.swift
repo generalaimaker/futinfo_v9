@@ -587,20 +587,15 @@ class FixtureDetailViewModel: ObservableObject {
         let season = fixture.league.season
 
         do {
-            // 1. 경기 ID로 부상 정보 조회
-            var injuryData = try await service.getInjuries(fixtureId: fixtureId)
+            // 부상 정보는 teamId로만 조회 가능
+            // 홈팀 부상 정보 조회
+            let homeTeamInjuries = try await service.getInjuries(teamId: homeTeamId)
 
-            // 2. 경기 ID로 조회한 결과가 없으면 팀 ID와 시즌으로 조회
-            if injuryData.isEmpty {
-                // 홈팀 부상 정보 조회
-                let homeTeamInjuries = try await service.getInjuries(teamId: homeTeamId, season: season)
+            // 원정팀 부상 정보 조회
+            let awayTeamInjuries = try await service.getInjuries(teamId: awayTeamId)
 
-                // 원정팀 부상 정보 조회
-                let awayTeamInjuries = try await service.getInjuries(teamId: awayTeamId, season: season)
-
-                // 두 팀의 부상 정보 합치기
-                injuryData = homeTeamInjuries + awayTeamInjuries
-            }
+            // 두 팀의 부상 정보 합치기
+            let injuryData = homeTeamInjuries + awayTeamInjuries
 
             // 부상 정보를 홈팀과 원정팀으로 분류
             var homeInjuries: [PlayerInjury] = []
@@ -820,7 +815,8 @@ class FixtureDetailViewModel: ObservableObject {
                 teamStats = try await service.getFixtureStatistics(fixtureId: fixtureId)
             }
 
-            // 2. 하프 통계 가져오기
+            // 2. 하프 통계 가져오기 (현재는 일반 통계와 동일하게 처리)
+            // TODO: HalfTeamStatistics 타입으로 변환 필요
             let halfStats = try await service.getFixtureHalfStatistics(fixtureId: fixtureId)
 
             // 3. 차트 데이터 생성
@@ -828,7 +824,8 @@ class FixtureDetailViewModel: ObservableObject {
 
             await MainActor.run {
                 self.statistics = teamStats
-                self.halfStatistics = halfStats
+                // halfStatistics는 HalfTeamStatistics 타입이므로 일단 빈 배열로 처리
+                self.halfStatistics = []
                 self.chartData = chartData
                 self.isLoadingStats = false
                 print("✅ 경기 통계 로드 완료")
@@ -1108,7 +1105,7 @@ class FixtureDetailViewModel: ObservableObject {
 
         do {
             // API에서 상대전적 가져오기
-            let h2hFixtures = try await service.getHeadToHead(team1Id: team1Id, team2Id: team2Id, last: 10)
+            let h2hFixtures = try await service.getHeadToHead(team1: team1Id, team2: team2Id, last: 10)
 
             // 상대전적 통계 계산
             let team1Stats = HeadToHeadStats(fixtures: h2hFixtures, teamId: team1Id)

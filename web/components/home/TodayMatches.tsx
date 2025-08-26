@@ -15,6 +15,7 @@ import {
 import { format, addDays, isSameDay } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import { motion, AnimatePresence } from 'framer-motion'
+import { formatMatchTime } from '@/lib/utils/timezone'
 
 interface MatchData {
   fixture: any
@@ -39,7 +40,8 @@ function MatchCard({ match, index }: { match: any; index: number }) {
   const isFinished = match.fixture?.status?.short === 'FT' || 
                      match.fixture?.status?.short === 'AET' || 
                      match.fixture?.status?.short === 'PEN'
-  const matchTime = format(new Date(match.fixture.date), 'HH:mm')
+  // 사용자 위치 기반 시간 표시
+  const matchTime = formatMatchTime(match.fixture.date)
   
   return (
     <motion.div

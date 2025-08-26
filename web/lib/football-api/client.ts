@@ -84,6 +84,8 @@ async function enrichTransfersWithTeamLogos(transfers: any[]) {
 
 // API Methods
 export async function getAllTransfers(page = 1) {
+  console.log('[getAllTransfers] Called with page:', page)
+  
   try {
     const data = await fetchFootballData('/football-get-all-transfers', {
       page: page.toString(),
@@ -422,6 +424,39 @@ export async function getTeamLogos(teamIds: number[]) {
   }
   
   return results
+}
+
+// Get transfers by team ID using API Football v3
+export async function getTransfersByTeamId(teamId: number) {
+  try {
+    const response = await fetch(`https://api-football-v1.p.rapidapi.com/v3/transfers?team=${teamId}`, {
+      method: 'GET',
+      headers: {
+        'x-rapidapi-key': RAPIDAPI_KEY,
+        'x-rapidapi-host': 'api-football-v1.p.rapidapi.com'
+      }
+    })
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch transfers: ${response.status}`)
+    }
+
+    const data = await response.json()
+    console.log('[getTransfersByTeamId] Response for team', teamId, ':', data)
+    
+    // API Football v3 returns transfers in response array
+    if (data?.response && Array.isArray(data.response)) {
+      return {
+        transfers: data.response,
+        total: data.response.length
+      }
+    }
+    
+    return { transfers: [], total: 0 }
+  } catch (error) {
+    console.error('[getTransfersByTeamId] Error:', error)
+    return { transfers: [], total: 0 }
+  }
 }
 
 // Cache implementation

@@ -131,11 +131,10 @@ struct TeamProfileView: View {
                     
                     // 팀의 기본 리그 ID 찾기 및 데이터 로드
                     do {
-                        // 팀의 현재 시즌 경기 가져오기 (forceRefresh: true로 설정하여 캐시를 무시하고 최신 데이터 가져오기)
+                        // 팀의 현재 시즌 경기 가져오기
                         let fixtures = try await viewModel.service.getTeamFixtures(
                             teamId: viewModel.teamId,
-                            season: viewModel.selectedSeason,
-                            forceRefresh: true
+                            season: viewModel.selectedSeason
                         )
                         print("📊 팀 경기 데이터 로드 성공: \(fixtures.count)개 경기")
                         

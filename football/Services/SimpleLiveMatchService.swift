@@ -60,12 +60,12 @@ class SimpleLiveMatchService {
     private func loadLiveMatches() async {
         do {
             // 라이브 경기 가져오기 (캐시 없이)
-            let response: FixturesResponse = try await apiService.performRequest(
-                endpoint: "fixtures",
-                parameters: ["live": "all"],
-                cachePolicy: .veryShort, // 매우 짧은 캐시 (5초)
-                forceRefresh: true // 항상 새 데이터
-            )
+            // 오늘 날짜의 경기 중 라이브인 것만 필터링
+            let dateFormatter = DateFormatter()
+            dateFormatter.dateFormat = "yyyy-MM-dd"
+            let today = dateFormatter.string(from: Date())
+            
+            let response = try await apiService.fetchFixtures(date: today)
             
             let fixtures = response.response.filter { fixture in
                 liveStatuses.contains(fixture.fixture.status.short)
@@ -165,14 +165,15 @@ class SimpleLiveMatchService {
     // MARK: - 특정 경기 상세 정보
     
     func getMatchDetails(fixtureId: Int) async throws -> Fixture {
-        let response: FixturesResponse = try await apiService.performRequest(
-            endpoint: "fixtures",
-            parameters: ["id": String(fixtureId)],
-            cachePolicy: .veryShort,
-            forceRefresh: true
-        )
+        // fetchFixtureById가 없으므로 오늘 날짜의 fixtures에서 찾기
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-dd"
+        let today = dateFormatter.string(from: Date())
         
-        guard let fixture = response.response.first else {
+        let response = try await apiService.fetchFixtures(date: today)
+        
+        // ID로 특정 fixture 찾기
+        guard let fixture = response.response.first(where: { $0.fixture.id == fixtureId }) else {
             throw FootballAPIError.apiError(["경기를 찾을 수 없습니다"])
         }
         
@@ -180,7 +181,12 @@ class SimpleLiveMatchService {
     }
     
     func getMatchEvents(fixtureId: Int) async throws -> [FixtureEvent] {
-        return try await apiService.getFixtureEvents(fixtureId: fixtureId)
+        // TODO: Implement getFixtureEvents in SupabaseFootballAPIService
+        // return try await apiService.getFixtureEvents(fixtureId: fixtureId)
+        
+        // 임시로 fetchFixtureEvents 사용 (있다면)
+        let response = try await apiService.fetchFixtureEvents(fixtureId: fixtureId)
+        return response.response
     }
     
     // MARK: - 라이프사이클

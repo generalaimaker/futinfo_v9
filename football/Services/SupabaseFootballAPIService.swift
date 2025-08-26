@@ -9,7 +9,7 @@ class SupabaseFootballAPIService: ObservableObject {
     private let supabaseService = SupabaseService.shared
     private let supabaseURL = "https://uutmymaxkkytibuiiaax.supabase.co"
     private let cacheManager = APICacheManager.shared
-    private let defaultTimeout: TimeInterval = 20.0 // 20초로 줄여서 빠른 실패 처리
+    private let defaultTimeout: TimeInterval = 30.0
     
     private var cancellables = Set<AnyCancellable>()
     
@@ -18,28 +18,25 @@ class SupabaseFootballAPIService: ObservableObject {
     // MARK: - Fixtures
     
     func fetchFixtures(date: String, leagueId: Int? = nil, season: Int? = nil) async throws -> FixturesResponse {
+        // Edge Functions를 통한 API 호출
+        print("🌐 Supabase Edge Functions 호출")
+        
         // Rate Limit 확인
         await RateLimitManager.shared.waitForSlot()
         
-        // Build URL for POST request
-        let urlString = "\(supabaseURL)/functions/v1/unified-football-api"
-        
-        // Build request body
-        var params: [String: Any] = ["date": date]
+        // Build URL for GET request with query parameters
+        var urlString = "\(supabaseURL)/functions/v1/football-api/fixtures?date=\(date)"
         if let leagueId = leagueId {
-            params["league"] = leagueId
+            urlString += "&league=\(leagueId)"
         }
         if let season = season {
-            params["season"] = season
+            urlString += "&season=\(season)"
         }
         
-        let requestBody: [String: Any] = [
-            "endpoint": "fixtures",
-            "params": params
-        ]
+        // 캐시 우선 사용 플래그 추가 (빠른 응답을 위해)
+        urlString += "&preferCache=true"
         
-        print("🌐 Supabase API 호출: \(urlString)")
-        print("📅 요청 파라미터 - Date: \(date), League: \(leagueId ?? -1), Season: \(season ?? -1)")
+        print("🌐 Edge Function URL: \(urlString)")
         
         // Rate Limit 기록
         RateLimitManager.shared.recordRequest(endpoint: "fixtures")
@@ -49,143 +46,95 @@ class SupabaseFootballAPIService: ObservableObject {
         }
         
         var request = URLRequest(url: url)
-        request.httpMethod = "POST"
+        request.httpMethod = "GET"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        
-        // Add request body
-        let jsonData = try JSONSerialization.data(withJSONObject: requestBody)
-        request.httpBody = jsonData
         
         // Add Supabase anon key for Edge Functions
         let anonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV1dG15bWF4a2t5dGlidWlpYWF4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE4OTYzMzUsImV4cCI6MjA2NzQ3MjMzNX0.-sR7UF1Lj1cZ3fy6ScWaLViV_d5aU2PoT7UCpf3XlBM"
         request.setValue("Bearer \(anonKey)", forHTTPHeaderField: "Authorization")
         request.setValue(anonKey, forHTTPHeaderField: "apikey")
-        request.timeoutInterval = defaultTimeout
+        request.timeoutInterval = 30.0
         
-        // Retry logic for errors - 개선된 재시도 로직
-        var retryCount = 0
-        let maxRetries = 3  // 재시도 횟수 증가 (안정성 향상)
-        
-        while retryCount <= maxRetries {
-            do {
-                let (data, response) = try await URLSession.shared.data(for: request)
-                
-                guard let httpResponse = response as? HTTPURLResponse else {
-                    print("❌ Invalid HTTP response")
-                    throw FootballAPIError.invalidResponse
-                }
-                
-                print("📡 HTTP 응답 코드: \(httpResponse.statusCode)")
-                
-                if httpResponse.statusCode == 504 && retryCount < maxRetries {
-                    // 504 Gateway Timeout - exponential backoff 적용
-                    retryCount += 1
-                    let delay = Double(retryCount) * 2.0 // 2초, 4초, 6초 지연
-                    print("⚠️ 504 Gateway Timeout - 재시도 \(retryCount)/\(maxRetries) (\(delay)초 대기)")
-                    try await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
-                    continue
-                }
-                
-                // 429 Rate Limit 에러 특별 처리
-                if httpResponse.statusCode == 429 || (httpResponse.statusCode == 500 && String(data: data, encoding: .utf8)?.contains("429") == true) {
-                    print("⚠️ Rate Limit 초과 감지 - 긴 대기 시간 필요")
-                    // Rate limit manager 리셋하고 1분 대기
-                    RateLimitManager.shared.handleRateLimitError()
-                    
-                    if retryCount < maxRetries {
-                        retryCount += 1
-                        let waitTime = Double(retryCount) * 10.0 // 10초, 20초, 30초 대기
-                        print("⏳ Rate Limit 회복 대기: \(waitTime)초")
-                        try await Task.sleep(nanoseconds: UInt64(waitTime * 1_000_000_000))
-                        continue
-                    }
-                    throw FootballAPIError.rateLimitExceeded
-                }
-                
-                if httpResponse.statusCode != 200 {
-                    print("❌ HTTP 오류: \(httpResponse.statusCode)")
-                    if let errorData = String(data: data, encoding: .utf8) {
-                        print("❌ 오류 응답: \(errorData)")
-                        
-                        // Edge Function 구독 오류 체크
-                        if errorData.contains("You are not subscribed to this API") {
-                            print("❌ Edge Function 구독 오류 감지 - 직접 API 호출로 전환")
-                            throw FootballAPIError.edgeFunctionError("You are not subscribed to this API")
-                        }
-                        
-                        // Edge Function이 없는 경우 (404) - 직접 API 폴백
-                        if httpResponse.statusCode == 404 && errorData.contains("NOT_FOUND") {
-                            print("❌ Edge Function이 배포되지 않음 - 직접 API 호출로 전환")
-                            return try await fetchFixturesDirect(date: date, leagueId: leagueId)
-                        }
-                    }
-                    throw FootballAPIError.httpError(httpResponse.statusCode)
-                }
-                
-                // 응답 데이터 디버깅
-                if let jsonString = String(data: data, encoding: .utf8) {
-                    print("📋 API 응답 데이터 (처음 500자): \(String(jsonString.prefix(500)))")
-                }
-                
-                let decoder = JSONDecoder()
-                decoder.dateDecodingStrategy = .iso8601
-                
-                let fixturesResponse = try decoder.decode(FixturesResponse.self, from: data)
-                print("✅ Fixtures 응답: \(fixturesResponse.response.count)개 경기")
-                
-                // 응답이 비어있으면 추가 정보 출력
-                if fixturesResponse.response.isEmpty {
-                    print("⚠️ 빈 응답 - 요청 파라미터: date=\(date), league=\(leagueId ?? -1), season=\(season ?? -1)")
-                }
-                
-                return fixturesResponse
-            } catch {
-                if retryCount < maxRetries {
-                    retryCount += 1
-                    print("⚠️ API 호출 실패 - 재시도 \(retryCount)/\(maxRetries): \(error)")
-                    try await Task.sleep(nanoseconds: UInt64(Double(retryCount) * 1_000_000_000))
-                    continue
-                }
-                
-                // 최종 실패 시 직접 API 폴백 시도
-                print("❌ Edge Function 호출 최종 실패, 직접 API 폴백 시도: \(error)")
-                do {
-                    return try await fetchFixturesDirect(date: date, leagueId: leagueId)
-                } catch {
-                    print("❌ 직접 API 폴백도 실패: \(error)")
-                    throw error
-                }
+        do {
+            let (data, response) = try await URLSession.shared.data(for: request)
+            
+            guard let httpResponse = response as? HTTPURLResponse else {
+                throw FootballAPIError.invalidResponse
             }
+            
+            print("📡 HTTP 응답 코드: \(httpResponse.statusCode)")
+            
+            // 429 Rate Limit 에러 처리
+            if httpResponse.statusCode == 429 {
+                print("⚠️ Rate Limit 초과")
+                RateLimitManager.shared.handleRateLimitError()
+                throw FootballAPIError.rateLimitExceeded
+            }
+            
+            // 404나 500 에러 시 빈 응답 반환
+            if httpResponse.statusCode == 404 || httpResponse.statusCode == 500 {
+                print("⚠️ Edge Function 오류 (\(httpResponse.statusCode))")
+                return FixturesResponse(
+                    get: "fixtures",
+                    parameters: ResponseParameters(date: date),
+                    errors: [],
+                    results: 0,
+                    paging: APIPaging(current: 1, total: 1),
+                    response: []
+                )
+            }
+            
+            if httpResponse.statusCode != 200 {
+                print("❌ HTTP 오류: \(httpResponse.statusCode)")
+                // 빈 응답 반환 (앱 크래시 방지)
+                return FixturesResponse(
+                    get: "fixtures",
+                    parameters: ResponseParameters(date: date),
+                    errors: [],
+                    results: 0,
+                    paging: APIPaging(current: 1, total: 1),
+                    response: []
+                )
+            }
+            
+            // 응답 데이터 디버깅
+            if let jsonString = String(data: data, encoding: .utf8) {
+                print("📋 API 응답 데이터 (처음 500자): \(String(jsonString.prefix(500)))")
+            }
+            
+            let decoder = JSONDecoder()
+            decoder.dateDecodingStrategy = .iso8601
+            
+            let fixturesResponse = try decoder.decode(FixturesResponse.self, from: data)
+            print("✅ Edge Function 응답: \(fixturesResponse.response.count)개 경기")
+            
+            return fixturesResponse
+        } catch {
+            print("❌ Edge Function 호출 실패: \(error)")
+            // 빈 응답 반환
+            return FixturesResponse(
+                get: "fixtures",
+                parameters: ResponseParameters(date: date),
+                errors: [],
+                results: 0,
+                paging: APIPaging(current: 1, total: 1),
+                response: []
+            )
         }
-        
-        // Should not reach here
-        throw FootballAPIError.apiError(["Max retries exceeded"])
     }
     
     // MARK: - Standings
     
     func fetchStandings(leagueId: Int, season: Int) async throws -> StandingsResponse {
-        let urlString = "\(supabaseURL)/functions/v1/unified-football-api"
-        
-        let requestBody: [String: Any] = [
-            "endpoint": "standings",
-            "params": [
-                "league": leagueId,
-                "season": season
-            ]
-        ]
+        let urlString = "\(supabaseURL)/functions/v1/football-api/standings?league=\(leagueId)&season=\(season)"
         
         guard let url = URL(string: urlString) else {
             throw FootballAPIError.invalidRequest
         }
         
         var request = URLRequest(url: url)
-        request.httpMethod = "POST"
+        request.httpMethod = "GET"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        
-        // Add request body
-        let jsonData = try JSONSerialization.data(withJSONObject: requestBody)
-        request.httpBody = jsonData
         
         // Add Supabase anon key for Edge Functions
         let anonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV1dG15bWF4a2t5dGlidWlpYWF4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE4OTYzMzUsImV4cCI6MjA2NzQ3MjMzNX0.-sR7UF1Lj1cZ3fy6ScWaLViV_d5aU2PoT7UCpf3XlBM"
@@ -428,7 +377,7 @@ extension SupabaseFootballAPIService {
     }
     
     // 팀별 경기 일정 가져오기
-    func getTeamFixtures(teamId: Int, season: Int) async throws -> [Fixture] {
+    func getTeamFixtures(teamId: Int, season: Int, last: Int? = nil) async throws -> [Fixture] {
         // Rate Limit 확인
         await RateLimitManager.shared.waitForSlot()
         
@@ -492,6 +441,11 @@ extension SupabaseFootballAPIService {
         
         print("✅ 팀 경기 일정 조회 성공: \(fixturesResponse.response.count)개 경기")
         
+        // last 파라미터가 있으면 최근 경기만 반환
+        if let last = last {
+            return Array(fixturesResponse.response.prefix(last))
+        }
+        
         return fixturesResponse.response
     }
 }
@@ -499,9 +453,8 @@ extension SupabaseFootballAPIService {
 // MARK: - Player API Methods
 
 extension SupabaseFootballAPIService {
-    func fetchPlayerProfile(playerId: Int, season: Int? = nil) async throws -> SupabasePlayerResponse {
-        let currentSeason = season ?? Calendar.current.component(.year, from: Date())
-        let urlString = "\(supabaseURL)/functions/v1/players-api/player?id=\(playerId)&season=\(currentSeason)"
+    func fetchPlayerStatistics(playerId: Int, season: Int) async throws -> PlayerStatisticsResponse {
+        let urlString = "\(supabaseURL)/functions/v1/players-api/statistics?player=\(playerId)&season=\(season)"
         
         guard let url = URL(string: urlString) else {
             throw FootballAPIError.invalidRequest
@@ -528,14 +481,13 @@ extension SupabaseFootballAPIService {
         }
         
         let decoder = JSONDecoder()
-        return try decoder.decode(SupabasePlayerResponse.self, from: data)
+        decoder.dateDecodingStrategy = .iso8601
+        
+        return try decoder.decode(PlayerStatisticsResponse.self, from: data)
     }
     
-    func fetchPlayerStatistics(playerId: Int, season: Int, leagueId: Int? = nil) async throws -> SupabasePlayerResponse {
-        var urlString = "\(supabaseURL)/functions/v1/players-api/statistics?id=\(playerId)&season=\(season)"
-        if let leagueId = leagueId {
-            urlString += "&league=\(leagueId)"
-        }
+    func fetchPlayerInfo(playerId: Int) async throws -> PlayerProfileResponse {
+        let urlString = "\(supabaseURL)/functions/v1/players-api/player?id=\(playerId)"
         
         guard let url = URL(string: urlString) else {
             throw FootballAPIError.invalidRequest
@@ -562,16 +514,115 @@ extension SupabaseFootballAPIService {
         }
         
         let decoder = JSONDecoder()
-        return try decoder.decode(SupabasePlayerResponse.self, from: data)
+        decoder.dateDecodingStrategy = .iso8601
+        
+        return try decoder.decode(PlayerProfileResponse.self, from: data)
+    }
+    
+    // TODO: Define SearchPlayersResponse type before uncommenting
+    /*
+    func fetchPlayersSearch(query: String) async throws -> SearchPlayersResponse {
+        let encodedQuery = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? query
+        let urlString = "\(supabaseURL)/functions/v1/players-api/search?search=\(encodedQuery)"
+        
+        guard let url = URL(string: urlString) else {
+            throw FootballAPIError.invalidRequest
+        }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        
+        // Add Supabase anon key for Edge Functions
+        let anonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV1dG15bWF4a2t5dGlidWlpYWF4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE4OTYzMzUsImV4cCI6MjA2NzQ3MjMzNX0.-sR7UF1Lj1cZ3fy6ScWaLViV_d5aU2PoT7UCpf3XlBM"
+        request.setValue("Bearer \(anonKey)", forHTTPHeaderField: "Authorization")
+        request.setValue(anonKey, forHTTPHeaderField: "apikey")
+        request.timeoutInterval = defaultTimeout
+        
+        let (data, response) = try await URLSession.shared.data(for: request)
+        
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw FootballAPIError.invalidResponse
+        }
+        
+        if httpResponse.statusCode != 200 {
+            throw FootballAPIError.httpError(httpResponse.statusCode)
+        }
+        
+        let decoder = JSONDecoder()
+        return try decoder.decode(SearchPlayersResponse.self, from: data)
+    }
+    */
+    
+    // MARK: - FixtureDetailViewModel에서 필요한 메서드들
+    
+    // 경기 이벤트 가져오기 (fetchFixtureEvents가 이미 있다면 별칭)
+    func getFixtureEvents(fixtureId: Int) async throws -> [FixtureEvent] {
+        let response = try await fetchFixtureEvents(fixtureId: fixtureId)
+        return response.response
+    }
+    
+    // 부상자 정보 가져오기
+    func getInjuries(teamId: Int) async throws -> [InjuryData] {
+        // TODO: Implement injuries endpoint
+        return []
+    }
+    
+    // 첫 번째 레그 경기 찾기
+    func findFirstLegMatch(fixture: Fixture) async throws -> Fixture? {
+        // TODO: Implement first leg match finding logic
+        return nil
+    }
+    
+    // 경기 통계 가져오기
+    func getFixtureStatistics(fixtureId: Int) async throws -> [TeamStatistics] {
+        let response = try await fetchFixtureStatistics(fixtureId: fixtureId)
+        return response.response
+    }
+    
+    // 하프타임 통계 가져오기
+    func getFixtureHalfStatistics(fixtureId: Int) async throws -> [TeamStatistics] {
+        // 일반 통계와 동일하게 처리 (하프타임 데이터는 response에 포함됨)
+        return try await getFixtureStatistics(fixtureId: fixtureId)
+    }
+    
+    // 라인업 가져오기
+    func getFixtureLineups(fixtureId: Int) async throws -> [TeamLineup] {
+        let response = try await fetchFixtureLineups(fixtureId: fixtureId)
+        return response.response
+    }
+    
+    // 선수 통계 가져오기
+    func getFixturePlayersStatistics(fixtureId: Int) async throws -> [TeamPlayersStatistics] {
+        // TODO: Implement player statistics endpoint
+        return []
+    }
+    
+    // 맞대결 기록 가져오기
+    func getHeadToHead(team1: Int, team2: Int, last: Int = 10) async throws -> [Fixture] {
+        let response = try await fetchHeadToHead(team1Id: team1, team2Id: team2)
+        return Array(response.response.prefix(last))
     }
 }
 
-// MARK: - Search API Methods
+// MARK: - Generic Request Method
 
 extension SupabaseFootballAPIService {
-    func searchAll(query: String) async throws -> FootballSearchResponse {
-        let encodedQuery = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
-        let urlString = "\(supabaseURL)/functions/v1/search-api?query=\(encodedQuery)&type=all"
+    private func performRequest<T: Decodable>(
+        endpoint: String,
+        parameters: [String: Any]? = nil
+    ) async throws -> T {
+        var urlString = "\(supabaseURL)/functions/v1/football-api/\(endpoint)"
+        
+        // Add query parameters if provided
+        if let parameters = parameters {
+            let queryItems = parameters.map { key, value in
+                URLQueryItem(name: key, value: "\(value)")
+            }
+            var components = URLComponents(string: urlString)!
+            components.queryItems = queryItems
+            urlString = components.url!.absoluteString
+        }
         
         guard let url = URL(string: urlString) else {
             throw FootballAPIError.invalidRequest
@@ -580,66 +631,6 @@ extension SupabaseFootballAPIService {
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        
-        // Add Supabase anon key for Edge Functions
-        let anonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV1dG15bWF4a2t5dGlidWlpYWF4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE4OTYzMzUsImV4cCI6MjA2NzQ3MjMzNX0.-sR7UF1Lj1cZ3fy6ScWaLViV_d5aU2PoT7UCpf3XlBM"
-        request.setValue("Bearer \(anonKey)", forHTTPHeaderField: "Authorization")
-        request.setValue(anonKey, forHTTPHeaderField: "apikey")
-        request.timeoutInterval = defaultTimeout
-        
-        let (data, response) = try await URLSession.shared.data(for: request)
-        
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw FootballAPIError.invalidResponse
-        }
-        
-        if httpResponse.statusCode != 200 {
-            throw FootballAPIError.httpError(httpResponse.statusCode)
-        }
-        
-        let decoder = JSONDecoder()
-        return try decoder.decode(FootballSearchResponse.self, from: data)
-    }
-    
-    // Search teams by name
-    func searchTeams(query: String, limit: Int = 10) async throws -> [TeamProfile] {
-        // For now, return empty array - implement later with proper search
-        return []
-    }
-    
-    // Search players by name  
-    func searchPlayers(query: String, leagueId: Int? = nil, season: Int? = nil) async throws -> [PlayerProfileData] {
-        // For now, return empty array - implement later with proper search
-        return []
-    }
-    
-    // Generic request method for LiveMatchService compatibility
-    func performRequest<T: Decodable>(
-        endpoint: String,
-        parameters: [String: Any] = [:],
-        cachePolicy: CachePolicy = .standard,
-        forceRefresh: Bool = false
-    ) async throws -> T {
-        // Build request body for unified-football-api
-        let requestBody: [String: Any] = [
-            "endpoint": endpoint,
-            "params": parameters
-        ]
-        
-        // Build URL
-        let urlString = "\(supabaseURL)/functions/v1/unified-football-api"
-        
-        guard let url = URL(string: urlString) else {
-            throw FootballAPIError.invalidRequest
-        }
-        
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        
-        // Add request body
-        let jsonData = try JSONSerialization.data(withJSONObject: requestBody)
-        request.httpBody = jsonData
         
         // Add Supabase anon key for Edge Functions
         let anonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV1dG15bWF4a2t5dGlidWlpYWF4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE4OTYzMzUsImV4cCI6MjA2NzQ3MjMzNX0.-sR7UF1Lj1cZ3fy6ScWaLViV_d5aU2PoT7UCpf3XlBM"
@@ -664,405 +655,251 @@ extension SupabaseFootballAPIService {
     }
 }
 
-// Cache policy enum for LiveMatchService
-enum CachePolicy {
-    case short
-    case veryShort
-    case standard
-    case long
-    case never
-}
-
-// MARK: - Fixture Detail Methods
+// MARK: - Batch Request Methods
 
 extension SupabaseFootballAPIService {
-    func getFixtureEvents(fixtureId: Int, teamId: Int? = nil, playerId: Int? = nil) async throws -> [FixtureEvent] {
-        let response = try await fetchFixtureEvents(fixtureId: fixtureId)
-        return response.response
-    }
-    
-    func getFixtureStatistics(fixtureId: Int, teamId: Int? = nil, type: StatisticType? = nil) async throws -> [TeamStatistics] {
-        let response = try await fetchFixtureStatistics(fixtureId: fixtureId)
-        return response.response
-    }
-    
-    func getFixtureHalfStatistics(fixtureId: Int) async throws -> [HalfTeamStatistics] {
-        // For now, return empty array as half statistics might not be available
-        return []
-    }
-    
-    func getFixtureLineups(fixtureId: Int, teamId: Int? = nil) async throws -> [TeamLineup] {
-        let response = try await fetchFixtureLineups(fixtureId: fixtureId)
-        return response.response
-    }
-    
-    func getFixturePlayersStatistics(fixtureId: Int) async throws -> [TeamPlayersStatistics] {
-        // Fetch from Edge Function that combines lineup and player stats
-        let urlString = "\(supabaseURL)/functions/v1/fixtures-api/fixture-details?fixture=\(fixtureId)&type=players"
+    /// 배치 요청을 사용한 경기 일정 가져오기
+    func fetchFixturesBatch(date: String, leagueIds: [Int]) async throws -> FixturesResponse {
+        print("🚀 배치 요청 시작: \(leagueIds.count)개 리그")
         
-        guard let url = URL(string: urlString) else {
-            throw FootballAPIError.invalidRequest
-        }
-        
-        var request = URLRequest(url: url)
-        request.httpMethod = "GET"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        
-        // Add Supabase anon key for Edge Functions
-        let anonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV1dG15bWF4a2t5dGlidWlpYWF4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE4OTYzMzUsImV4cCI6MjA2NzQ3MjMzNX0.-sR7UF1Lj1cZ3fy6ScWaLViV_d5aU2PoT7UCpf3XlBM"
-        request.setValue("Bearer \(anonKey)", forHTTPHeaderField: "Authorization")
-        request.setValue(anonKey, forHTTPHeaderField: "apikey")
-        request.timeoutInterval = defaultTimeout
-        
-        let (data, response) = try await URLSession.shared.data(for: request)
-        
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw FootballAPIError.invalidResponse
-        }
-        
-        if httpResponse.statusCode != 200 {
-            throw FootballAPIError.httpError(httpResponse.statusCode)
-        }
-        
-        let decoder = JSONDecoder()
-        let playersResponse = try decoder.decode(FixturePlayersResponse.self, from: data)
-        return playersResponse.response
-    }
-    
-    func getHeadToHead(team1Id: Int, team2Id: Int, last: Int = 10) async throws -> [Fixture] {
-        let urlString = "\(supabaseURL)/functions/v1/fixtures-api/head2head?team1=\(team1Id)&team2=\(team2Id)&last=\(last)"
-        
-        guard let url = URL(string: urlString) else {
-            throw FootballAPIError.invalidRequest
-        }
-        
-        var request = URLRequest(url: url)
-        request.httpMethod = "GET"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        
-        // Add Supabase anon key for Edge Functions
-        let anonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV1dG15bWF4a2t5dGlidWlpYWF4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE4OTYzMzUsImV4cCI6MjA2NzQ3MjMzNX0.-sR7UF1Lj1cZ3fy6ScWaLViV_d5aU2PoT7UCpf3XlBM"
-        request.setValue("Bearer \(anonKey)", forHTTPHeaderField: "Authorization")
-        request.setValue(anonKey, forHTTPHeaderField: "apikey")
-        request.timeoutInterval = defaultTimeout
-        
-        let (data, response) = try await URLSession.shared.data(for: request)
-        
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw FootballAPIError.invalidResponse
-        }
-        
-        if httpResponse.statusCode != 200 {
-            throw FootballAPIError.httpError(httpResponse.statusCode)
-        }
-        
-        let decoder = JSONDecoder()
-        let fixturesResponse = try decoder.decode(FixturesResponse.self, from: data)
-        return fixturesResponse.response
-    }
-    
-    // Get fixtures with multiple parameters (for LeagueProfileViewModel)
-    func getFixtures(
-        leagueId: Int,
-        season: Int,
-        from: Date? = nil,
-        to: Date? = nil,
-        last: Int? = nil,
-        next: Int? = nil
-    ) async throws -> [Fixture] {
-        let dateFormatter = DateFormatter()
-        dateFormatter.dateFormat = "yyyy-MM-dd"
-        dateFormatter.timeZone = TimeZone(identifier: "Asia/Seoul")
-        
-        var urlString = "\(supabaseURL)/functions/v1/fixtures-api/fixtures?"
-        var params: [String] = []
-        
-        params.append("league=\(leagueId)")
-        params.append("season=\(season)")
-        
-        if let from = from {
-            params.append("from=\(dateFormatter.string(from: from))")
-        }
-        if let to = to {
-            params.append("to=\(dateFormatter.string(from: to))")
-        }
-        if let last = last {
-            params.append("last=\(last)")
-        }
-        if let next = next {
-            params.append("next=\(next)")
-        }
-        
-        urlString += params.joined(separator: "&")
-        
-        guard let url = URL(string: urlString) else {
-            throw FootballAPIError.invalidRequest
-        }
-        
-        var request = URLRequest(url: url)
-        request.httpMethod = "GET"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        
-        // Add Supabase anon key for Edge Functions
-        let anonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV1dG15bWF4a2t5dGlidWlpYWF4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE4OTYzMzUsImV4cCI6MjA2NzQ3MjMzNX0.-sR7UF1Lj1cZ3fy6ScWaLViV_d5aU2PoT7UCpf3XlBM"
-        request.setValue("Bearer \(anonKey)", forHTTPHeaderField: "Authorization")
-        request.setValue(anonKey, forHTTPHeaderField: "apikey")
-        request.timeoutInterval = defaultTimeout
-        
-        let (data, response) = try await URLSession.shared.data(for: request)
-        
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw FootballAPIError.invalidResponse
-        }
-        
-        if httpResponse.statusCode != 200 {
-            throw FootballAPIError.httpError(httpResponse.statusCode)
-        }
-        
-        let decoder = JSONDecoder()
-        let fixturesResponse = try decoder.decode(FixturesResponse.self, from: data)
-        return fixturesResponse.response
-    }
-    
-    func getTeamFixtures(teamId: Int, season: Int, last: Int? = nil, forceRefresh: Bool = false) async throws -> [Fixture] {
-        let urlString = "\(supabaseURL)/functions/v1/fixtures-api/fixtures?team=\(teamId)&season=\(season)"
-        
-        guard let url = URL(string: urlString) else {
-            throw FootballAPIError.invalidRequest
-        }
-        
-        var request = URLRequest(url: url)
-        request.httpMethod = "GET"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        
-        // Add Supabase anon key for Edge Functions
-        let anonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV1dG15bWF4a2t5dGlidWlpYWF4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE4OTYzMzUsImV4cCI6MjA2NzQ3MjMzNX0.-sR7UF1Lj1cZ3fy6ScWaLViV_d5aU2PoT7UCpf3XlBM"
-        request.setValue("Bearer \(anonKey)", forHTTPHeaderField: "Authorization")
-        request.setValue(anonKey, forHTTPHeaderField: "apikey")
-        request.timeoutInterval = defaultTimeout
-        
-        let (data, response) = try await URLSession.shared.data(for: request)
-        
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw FootballAPIError.invalidResponse
-        }
-        
-        if httpResponse.statusCode != 200 {
-            // Edge Function 오류 메시지 확인
-            if let errorData = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-               let errorMessage = errorData["error"] as? String {
-                print("❌ Edge Function 오류: \(errorMessage)")
-                if errorMessage.contains("You are not subscribed to this API") {
-                    throw FootballAPIError.edgeFunctionError("API 구독이 필요합니다. Rapid API 구독을 확인하세요.")
-                } else {
-                    throw FootballAPIError.edgeFunctionError(errorMessage)
+        // 병렬 처리를 위한 TaskGroup 사용
+        let results = await withTaskGroup(of: (Int, Result<FixturesResponse, Error>).self) { group in
+            for leagueId in leagueIds {
+                group.addTask {
+                    do {
+                        let response = try await self.fetchFixtures(date: date, leagueId: leagueId)
+                        return (leagueId, .success(response))
+                    } catch {
+                        return (leagueId, .failure(error))
+                    }
                 }
             }
-            throw FootballAPIError.httpError(httpResponse.statusCode)
+            
+            var allFixtures: [Fixture] = []
+            var errors: [String] = []
+            
+            for await (leagueId, result) in group {
+                switch result {
+                case .success(let response):
+                    allFixtures.append(contentsOf: response.response)
+                    if !response.response.isEmpty {
+                        print("✅ 리그 \(leagueId): \(response.response.count)개 경기")
+                    }
+                case .failure(let error):
+                    errors.append("리그 \(leagueId): \(error.localizedDescription)")
+                    print("❌ 리그 \(leagueId) 실패: \(error)")
+                }
+            }
+            
+            return (allFixtures, errors)
         }
         
-        let decoder = JSONDecoder()
-        let fixturesResponse = try decoder.decode(FixturesResponse.self, from: data)
+        let (allFixtures, errors) = results
         
-        print("✅ 팀 경기 응답: \(fixturesResponse.response.count)개 경기")
+        print("✅ 배치 요청 완료: \(allFixtures.count)개 경기 로드")
         
-        // Filter by last N fixtures if specified
-        if let last = last {
-            return Array(fixturesResponse.response.prefix(last))
-        }
+        // 중복 제거
+        let uniqueFixtures = Array(Set(allFixtures))
         
-        return fixturesResponse.response
+        return FixturesResponse(
+            get: "fixtures",
+            parameters: ResponseParameters(date: date),
+            errors: [],
+            results: uniqueFixtures.count,
+            paging: APIPaging(current: 1, total: 1),
+            response: uniqueFixtures
+        )
     }
     
-    func findFirstLegMatch(fixture: Fixture) async throws -> Fixture? {
-        // This is a complex method that searches for first leg matches in knockout rounds
-        // For now, return nil as it requires specific logic
-        return nil
-    }
-    
-    func getInjuries(fixtureId: Int? = nil, teamId: Int? = nil, season: Int? = nil, playerId: Int? = nil, date: String? = nil) async throws -> [InjuryData] {
-        var urlString = "\(supabaseURL)/functions/v1/injuries-api?"
-        var params: [String] = []
-        
-        if let fixtureId = fixtureId {
-            params.append("fixture=\(fixtureId)")
-        }
-        if let teamId = teamId {
-            params.append("team=\(teamId)")
-        }
-        if let season = season {
-            params.append("season=\(season)")
-        }
-        if let playerId = playerId {
-            params.append("player=\(playerId)")
-        }
-        if let date = date {
-            params.append("date=\(date)")
-        }
-        
-        urlString += params.joined(separator: "&")
-        
-        guard let url = URL(string: urlString) else {
-            throw FootballAPIError.invalidRequest
-        }
-        
-        var request = URLRequest(url: url)
-        request.httpMethod = "GET"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        
-        // Add Supabase anon key for Edge Functions
-        let anonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV1dG15bWF4a2t5dGlidWlpYWF4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE4OTYzMzUsImV4cCI6MjA2NzQ3MjMzNX0.-sR7UF1Lj1cZ3fy6ScWaLViV_d5aU2PoT7UCpf3XlBM"
-        request.setValue("Bearer \(anonKey)", forHTTPHeaderField: "Authorization")
-        request.setValue(anonKey, forHTTPHeaderField: "apikey")
-        request.timeoutInterval = defaultTimeout
-        
-        let (data, response) = try await URLSession.shared.data(for: request)
-        
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw FootballAPIError.invalidResponse
-        }
-        
-        if httpResponse.statusCode != 200 {
-            throw FootballAPIError.httpError(httpResponse.statusCode)
-        }
-        
-        let decoder = JSONDecoder()
-        let injuriesResponse = try decoder.decode(InjuriesResponse.self, from: data)
-        return injuriesResponse.response
-    }
-}
-
-// MARK: - Season Helper Methods
-
-extension SupabaseFootballAPIService {
-    /// 리그별 현재 활성 시즌 확인
-    func getCurrentSeasonForLeague(_ leagueId: Int) -> Int {
-        let calendar = Calendar.current
-        let now = Date()
-        let currentYear = calendar.component(.year, from: now)
-        let currentMonth = calendar.component(.month, from: now)
-        
-        // 리그별 시즌 규칙
-        switch leagueId {
-        case 39, 667: // Premier League, Club Friendlies
-            return currentMonth >= 8 ? currentYear : currentYear - 1
-        case 140: // La Liga  
-            return currentMonth >= 8 ? currentYear : currentYear - 1
-        case 135: // Serie A
-            return currentMonth >= 8 ? currentYear : currentYear - 1
-        case 78: // Bundesliga
-            return currentMonth >= 8 ? currentYear : currentYear - 1
-        case 61: // Ligue 1
-            return currentMonth >= 8 ? currentYear : currentYear - 1
-        case 2: // Champions League
-            return currentMonth >= 8 ? currentYear : currentYear - 1
-        case 3: // Europa League
-            return currentMonth >= 8 ? currentYear : currentYear - 1
-        case 292: // K League 1
-            // K리그는 3월부터 11월까지 진행
-            return currentMonth >= 3 ? currentYear : currentYear - 1
-        case 293: // K League 2
-            return currentMonth >= 3 ? currentYear : currentYear - 1
-        case 253: // MLS
-            return currentMonth >= 3 ? currentYear : currentYear - 1
-        case 307: // Saudi Pro League
-            // 사우디 프로 리그는 8월부터 시즌 시작 (유럽과 동일)
-            return currentMonth >= 8 ? currentYear : currentYear - 1
-        default:
-            // 기본값: 8월부터 시즌 시작
-            return currentMonth >= 8 ? currentYear : currentYear - 1
-        }
-    }
-    
-    /// 날짜에 따른 리그별 시즌 확인
-    func getSeasonForLeagueAndDate(_ leagueId: Int, date: Date) -> Int {
+    /// 리그별 시즌 정보 가져오기
+    func getSeasonForLeagueAndDate(_ leagueId: Int, date: Date) async -> Int {
         let calendar = Calendar.current
         let year = calendar.component(.year, from: date)
         let month = calendar.component(.month, from: date)
         
-        // 리그별 시즌 규칙
+        // 각 리그별 시즌 계산 로직
         switch leagueId {
-        case 667: // 클럽 친선경기 - 연중 진행되므로 현재 연도 사용
+        case 39, 140, 135, 78, 61, 94, 88, 203, 144, 179: // 유럽 리그
+            return month >= 8 ? year : year - 1
+        case 253, 71, 307: // 여름 시즌 리그
             return year
-            
-        case 39, 140, 135, 78, 61, 2, 3, 4, 5: // 유럽 리그 (챔스, 유로파, 컨퍼런스, 네이션스 포함)
-            // 8월~7월 시즌 (예: 2024년 8월~2025년 7월 = 2024 시즌)
-            return month >= 8 ? year : year - 1
-            
-        case 292, 293: // K리그 (3월~11월 시즌)
-            // 3월~11월: 현재 연도, 12월~2월: 전년도
-            return month >= 3 && month <= 11 ? year : year - 1
-            
-        case 253: // MLS (2월~12월 시즌)
-            // MLS는 거의 연중 진행 (2월~12월)
+        case 292, 293: // K리그
             return year
-            
-        case 307: // Saudi Pro League (8월~5월 시즌)
-            // 사우디 프로 리그는 유럽 리그와 동일한 시즌 주기
-            return month >= 8 ? year : year - 1
-            
-        case 71: // 브라질 세리에 A (4월~12월 시즌)
-            // 브라질 리그는 연중 진행
-            return year
-            
-        case 15: // FIFA 클럽 월드컵
-            // 2025년부터 새로운 포맷 (6-7월 개최)
-            if year >= 2025 && month >= 6 && month <= 7 {
-                return year // 2025년 6-7월 → 2025 시즌
-            } else {
-                // 기존 포맷은 12월 개최
-                return month == 12 ? year : year - 1
-            }
-            
-        case 94: // 포르투갈 프리메이라 리가
-            // 유럽 시즌과 동일
-            return month >= 8 ? year : year - 1
-            
-        case 88: // 네덜란드 에레디비시
-            // 유럽 시즌과 동일
-            return month >= 8 ? year : year - 1
-            
-        case 144: // 벨기에 프로 리그
-            // 유럽 시즌과 동일
-            return month >= 8 ? year : year - 1
-            
         default:
-            // 기본: 유럽 리그 규칙 (대부분의 리그가 8월 시작)
-            // 7월인 경우 대부분 시즌 오프이므로 전 시즌 사용
-            if month == 7 {
-                print("⚠️ 리그 \(leagueId): 7월은 시즌 오프 기간, \(year - 1) 시즌 사용")
-                return year - 1 // 전년도 시즌
-            }
-            return month >= 8 ? year : year - 1
+            return year
         }
     }
 }
 
 // MARK: - Direct API Fallback
+
 extension SupabaseFootballAPIService {
     // Supabase Edge Function이 실패하면 직접 API 호출
+    // 직접 API 호출을 위한 개선된 폴백 메서드
     func fetchFixturesDirect(date: String, leagueId: Int? = nil) async throws -> FixturesResponse {
-        let apiService = FootballAPIService.shared
+        print("🔄 직접 API 폴백 메서드 호출 시작: date=\(date), league=\(leagueId ?? -1)")
         
-        var endpoint = "/fixtures?date=\(date)"
-        if let leagueId = leagueId {
-            endpoint += "&league=\(leagueId)"
+        // DirectAPIService 사용하여 날짜별 조회
+        let directService = DirectAPIService.shared
+        
+        do {
+            // 각 리그별 경기 직접 조회
+            let response = try await directService.fetchFixturesByDate(date: date, leagueId: leagueId)
+            
+            // 빈 응답 처리
+            if response.response.isEmpty {
+                print("⚠️ 빈 응답 받음 - date: \(date), league: \(leagueId ?? -1)")
+                // 빈 응답도 정상적인 응답으로 처리
+                return response
+            }
+            
+            print("✅ 직접 API 성공: \(response.response.count)개 경기")
+            return response
+        } catch let error as FootballAPIError {
+            print("❌ 직접 API 실패 (FootballAPIError): \(error)")
+            
+            // Rate Limit 에러는 그대로 전파
+            if case .rateLimitExceeded = error {
+                throw error
+            }
+            
+            // 빈 응답 반환
+            return FixturesResponse(
+                get: "fixtures",
+                parameters: ResponseParameters(date: date),
+                errors: [],
+                results: 0,
+                paging: APIPaging(current: 1, total: 1),
+                response: []
+            )
+        } catch {
+            print("❌ 직접 API 실패 (기타 에러): \(error)")
+            
+            // FootballAPIService로 재시도 (기존 방식)
+            let apiService = FootballAPIService.shared
+            var endpoint = "/fixtures?date=\(date)"
+            if let leagueId = leagueId {
+                endpoint += "&league=\(leagueId)"
+            }
+            
+            do {
+                let request = apiService.createRequest(endpoint)
+                let (data, response) = try await URLSession.shared.data(for: request)
+                
+                guard let httpResponse = response as? HTTPURLResponse else {
+                    throw FootballAPIError.invalidResponse
+                }
+                
+                if httpResponse.statusCode != 200 {
+                    throw FootballAPIError.httpError(httpResponse.statusCode)
+                }
+                
+                let decoder = JSONDecoder()
+                decoder.dateDecodingStrategy = .iso8601
+                
+                return try decoder.decode(FixturesResponse.self, from: data)
+            } catch {
+                // 최종 실패 시 빈 응답 반환
+                return FixturesResponse(
+                    get: "fixtures",
+                    parameters: ResponseParameters(date: date),
+                    errors: [],
+                    results: 0,
+                    paging: APIPaging(current: 1, total: 1),
+                    response: []
+                )
+            }
+        }
+    }
+    
+    // MARK: - League Fixtures Methods
+    
+    func getFixtures(leagueId: Int, season: Int, last: Int? = nil, next: Int? = nil) async throws -> [Fixture] {
+        // Edge Functions endpoint for league fixtures with last/next parameters
+        await RateLimitManager.shared.waitForSlot()
+        
+        var urlString = "\(supabaseURL)/functions/v1/football-api/fixtures?league=\(leagueId)&season=\(season)"
+        
+        if let last = last {
+            urlString += "&last=\(last)"
+        } else if let next = next {
+            urlString += "&next=\(next)"
         }
         
-        let request = apiService.createRequest(endpoint)
+        print("🌐 리그 경기 일정 조회: \(urlString)")
+        RateLimitManager.shared.recordRequest(endpoint: "fixtures")
+        
+        guard let url = URL(string: urlString) else {
+            throw FootballAPIError.invalidRequest
+        }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        
+        // Add Supabase anon key for Edge Functions
+        let anonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV1dG15bWF4a2t5dGlidWlpYWF4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE4OTYzMzUsImV4cCI6MjA2NzQ3MjMzNX0.-sR7UF1Lj1cZ3fy6ScWaLViV_d5aU2PoT7UCpf3XlBM"
+        request.setValue("Bearer \(anonKey)", forHTTPHeaderField: "Authorization")
+        request.setValue(anonKey, forHTTPHeaderField: "apikey")
+        request.timeoutInterval = defaultTimeout
+        
         let (data, response) = try await URLSession.shared.data(for: request)
         
         guard let httpResponse = response as? HTTPURLResponse else {
             throw FootballAPIError.invalidResponse
         }
         
+        print("📡 HTTP 응답 코드: \(httpResponse.statusCode)")
+        
         if httpResponse.statusCode != 200 {
             throw FootballAPIError.httpError(httpResponse.statusCode)
         }
         
-        let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
+        let fixturesResponse = try JSONDecoder().decode(FixturesResponse.self, from: data)
+        return fixturesResponse.response
+    }
+    
+    func getFixtures(leagueId: Int, season: Int, from: Date, to: Date) async throws -> [Fixture] {
+        // Edge Functions endpoint for league fixtures with date range
+        await RateLimitManager.shared.waitForSlot()
         
-        return try decoder.decode(FixturesResponse.self, from: data)
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-dd"
+        let fromString = dateFormatter.string(from: from)
+        let toString = dateFormatter.string(from: to)
+        
+        let urlString = "\(supabaseURL)/functions/v1/football-api/fixtures?league=\(leagueId)&season=\(season)&from=\(fromString)&to=\(toString)"
+        
+        print("🌐 리그 경기 일정 조회 (날짜 범위): \(urlString)")
+        RateLimitManager.shared.recordRequest(endpoint: "fixtures")
+        
+        guard let url = URL(string: urlString) else {
+            throw FootballAPIError.invalidRequest
+        }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        
+        // Add Supabase anon key for Edge Functions
+        let anonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV1dG15bWF4a2t5dGlidWlpYWF4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE4OTYzMzUsImV4cCI6MjA2NzQ3MjMzNX0.-sR7UF1Lj1cZ3fy6ScWaLViV_d5aU2PoT7UCpf3XlBM"
+        request.setValue("Bearer \(anonKey)", forHTTPHeaderField: "Authorization")
+        request.setValue(anonKey, forHTTPHeaderField: "apikey")
+        request.timeoutInterval = defaultTimeout
+        
+        let (data, response) = try await URLSession.shared.data(for: request)
+        
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw FootballAPIError.invalidResponse
+        }
+        
+        print("📡 HTTP 응답 코드: \(httpResponse.statusCode)")
+        
+        if httpResponse.statusCode != 200 {
+            throw FootballAPIError.httpError(httpResponse.statusCode)
+        }
+        
+        let fixturesResponse = try JSONDecoder().decode(FixturesResponse.self, from: data)
+        return fixturesResponse.response
     }
 }

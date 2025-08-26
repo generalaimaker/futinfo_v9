@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button'
 import { useTheme } from '@/lib/theme-context'
 import { useSupabase } from '@/lib/supabase/provider'
 import { CommunityService } from '@/lib/supabase/community'
+import { adminService } from '@/lib/supabase/admin'
 
 interface NavItem {
   name: string
@@ -39,6 +40,7 @@ const popularLeagues = [
   { id: 78, name: 'Bundesliga', icon: '🇩🇪', logo: 'https://media.api-sports.io/football/leagues/78.png', count: '498' },
   { id: 61, name: 'Ligue 1', icon: '🇫🇷', logo: 'https://media.api-sports.io/football/leagues/61.png', count: '412' },
   { id: 2, name: 'Champions League', icon: '⭐', logo: 'https://media.api-sports.io/football/leagues/2.png', count: '1.2K' },
+  { id: 3, name: 'Europa League', icon: '🏆', logo: 'https://media.api-sports.io/football/leagues/3.png', count: '987' },
 ]
 
 export function NavbarModern() {
@@ -48,27 +50,27 @@ export function NavbarModern() {
   const [leaguesExpanded, setLeaguesExpanded] = useState(true)
   const [showUserMenu, setShowUserMenu] = useState(false)
   const [userProfile, setUserProfile] = useState<any>(null)
+  const [isAdmin, setIsAdmin] = useState(false)
   const { theme, toggleTheme } = useTheme()
   const { user, session, signOut, isLoading } = useSupabase()
-  
-  // 디버그용 로그
-  console.log('[NavbarModern] Current state - User:', user?.id, 'Session:', !!session, 'isLoading:', isLoading)
 
   useEffect(() => {
-    console.log('[NavbarModern] Effect triggered - User:', user?.id, 'Session:', !!session, 'isLoading:', isLoading)
     if (user && !isLoading) {
-      console.log('[NavbarModern] Loading user profile...')
       loadUserProfile()
     } else {
       setUserProfile(null)
     }
-  }, [user, session, isLoading])
+  }, [user?.id, isLoading])
 
   const loadUserProfile = async () => {
     if (!user) return
     try {
       const profile = await CommunityService.getCurrentUserProfile()
       setUserProfile(profile)
+      
+      // 관리자 권한 체크
+      const hasAdminAccess = await adminService.checkAdminAccess()
+      setIsAdmin(hasAdminAccess)
     } catch (error) {
       console.error('Error loading user profile:', error)
     }
@@ -204,6 +206,17 @@ export function NavbarModern() {
                         <span>설정</span>
                       </button>
                     </Link>
+                    {isAdmin && (
+                      <Link href="/admin">
+                        <button 
+                          onClick={() => setShowUserMenu(false)}
+                          className="w-full px-4 py-2 text-left hover:bg-secondary flex items-center gap-2"
+                        >
+                          <Shield className="h-4 w-4" />
+                          <span>관리자</span>
+                        </button>
+                      </Link>
+                    )}
                     <div className="border-t my-1"></div>
                     <button 
                       onClick={handleSignOut}
@@ -262,9 +275,9 @@ export function NavbarModern() {
                         <Image
                           src={league.logo}
                           alt={league.name}
-                          width={24}
-                          height={24}
-                          className="object-contain"
+                          width={28}
+                          height={28}
+                          className="object-contain w-7 h-7"
                         />
                       </div>
                       <span className="text-sm font-medium">{league.name}</span>
@@ -307,9 +320,9 @@ export function NavbarModern() {
                   <Image
                     src={team.logo}
                     alt={team.name}
-                    width={20}
-                    height={20}
-                    className="object-contain"
+                    width={24}
+                    height={24}
+                    className="object-contain w-6 h-6"
                   />
                   <span className="font-medium">{team.name}</span>
                 </Link>

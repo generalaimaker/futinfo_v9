@@ -84,14 +84,14 @@ export default function RegisterPage() {
             <CardContent className="p-8">
               <div className="mb-8">
                 <Link href="/" className="inline-flex items-center space-x-2 mb-6">
-                  <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
-                    <span className="text-white font-bold text-xl">F</span>
+                  <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-blue-600 rounded-lg flex items-center justify-center">
+                    <span className="text-white font-bold text-xl">B</span>
                   </div>
-                  <span className="text-xl font-bold">FutInfo</span>
+                  <span className="text-xl font-bold">Build-UP</span>
                 </Link>
                 
                 <h1 className="text-3xl font-bold text-gray-900 mb-2">
-                  FutInfo에 오신 것을 환영합니다!
+                  Build-UP에 오신 것을 환영합니다!
                 </h1>
                 <p className="text-gray-600">
                   새 계정을 만들고 커뮤니티에 참여하세요
@@ -314,7 +314,7 @@ export default function RegisterPage() {
             </div>
           </div>
 
-          <div className="mt-8 p-6 bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl">
+          <div className="mt-8 p-6 bg-gradient-to-r from-green-50 to-blue-50 rounded-xl">
             <p className="text-sm text-gray-700">
               가입은 <span className="font-semibold">무료</span>이며,<br />
               언제든지 탈퇴할 수 있습니다

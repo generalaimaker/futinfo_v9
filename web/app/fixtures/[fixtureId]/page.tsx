@@ -8,6 +8,7 @@ import { useFixtureRealtime } from '@/hooks/useFixtureRealtime'
 import { EnhancedMatchDetail } from '@/components/fixtures/EnhancedMatchDetail'
 import { EnhancedMatchDetailImproved } from '@/components/fixtures/enhanced-match-detail-improved'
 import { IOSMatchDetail } from '@/components/fixtures/ios-match-detail'
+import { AppleMatchDetail } from '@/components/fixtures/apple-match-detail'
 import MatchHeader from '@/components/fixtures/match-header'
 import MatchTabs from '@/components/fixtures/match-tabs'
 import MatchSummary from '@/components/fixtures/match-summary'
@@ -130,10 +131,22 @@ export default function FixtureDetailPage() {
     { id: 'h2h', label: '상대전적' }
   ]
   
-  // UI 버전 선택 (iOS 스타일 우선)
-  const useIOSStyle = true // iOS 스타일 사용
+  // UI 버전 선택 (Apple 스타일 우선)
+  const useAppleStyle = true // 새로운 Apple 스타일 사용
+  const useIOSStyle = false // 기존 iOS 스타일
   const useEnhancedUI = false
   const useImprovedUI = false
+  
+  if (useAppleStyle) {
+    return (
+      <AppleMatchDetail 
+        fixture={fixture} 
+        isLive={isLive}
+        onRefresh={refetch}
+        onBack={() => window.history.back()}
+      />
+    )
+  }
   
   if (useIOSStyle) {
     return (
@@ -234,7 +247,7 @@ export default function FixtureDetailPage() {
           {/* 탭 컨텐츠 */}
           <div className="p-4">
             {activeTab === 'summary' && <MatchSummary fixture={fixture} />}
-            {activeTab === 'statistics' && <MatchStatistics fixture={fixture} />}
+            {activeTab === 'statistics' && <MatchStatistics statistics={fixture.statistics || []} fixture={fixture} />}
             {activeTab === 'lineups' && <MatchLineups fixture={fixture} />}
             {activeTab === 'standings' && <MatchStandings leagueId={fixture.league.id} season={fixture.league.season} />}
             {activeTab === 'h2h' && <MatchH2H fixture={fixture} />}

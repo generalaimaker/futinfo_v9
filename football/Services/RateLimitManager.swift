@@ -16,10 +16,10 @@ class RateLimitManager {
     private var blockUntil: Date?
     private var queue: [(CheckedContinuation<Void, Never>)] = []
     
-    // 설정
-    private let maxRequests = 100
+    // 설정 - Rapid API 제한에 맞게 조정 (450 requests/minute)
+    private let maxRequests = 400  // 450보다 낮게 설정하여 여유 확보
     private let windowInterval: TimeInterval = 60 // 1분
-    private let retryAfter: TimeInterval = 5 // 5초
+    private let retryAfter: TimeInterval = 65 // 65초 (1분 + 여유)
     
     private init() {
         // 주기적으로 오래된 요청 정리

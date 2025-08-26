@@ -49,7 +49,7 @@ extension FixturesOverviewViewModel {
             
             do {
                 let dateString = formatDateForAPI(date)
-                let seasonForRequest = service.getSeasonForLeagueAndDate(leagueId, date: date)
+                let seasonForRequest = await service.getSeasonForLeagueAndDate(leagueId, date: date)
                 
                 print("🔄 새 리그 \(leagueId) 경기 로드 중: \(dateString)")
                 

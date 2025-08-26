@@ -18,12 +18,8 @@ import { apiCache, CacheConfig, CacheTTL } from '../utils/api-cache-manager'
 import { withRateLimit } from '../utils/rate-limit-manager'
 
 class FootballAPIService {
-  private supabase = null as ReturnType<typeof getSupabaseClient> | null
-  
-  constructor() {
-    if (typeof window !== 'undefined') {
-      this.supabase = getSupabaseClient()
-    }
+  private get supabase() {
+    return getSupabaseClient()
   }
   protected cache = new Map<string, { data: any; timestamp: number }>()
   private CACHE_DURATION = 5 * 60 * 1000 // 5분 캐시
@@ -94,7 +90,7 @@ class FootballAPIService {
     }
     this.lastRequestTime = Date.now()
     
-    console.log(`[FootballAPI] Calling unified-football-api with endpoint: ${endpoint}`, params)
+    // console.log(`[FootballAPI] Calling unified-football-api with endpoint: ${endpoint}`, params)
     
     try {
       // 직접 fetch 사용 (Supabase client의 body 전송 문제 해결)
@@ -118,7 +114,7 @@ class FootballAPIService {
       }).finally(() => clearTimeout(timeoutId))
       
       const data = await response.json()
-      console.log(`[FootballAPI] Response status:`, response.status)
+      // console.log(`[FootballAPI] Response status:`, response.status)
       
       if (!response.ok) {
         console.error(`[FootballAPI] API error (${endpoint}):`, data)
@@ -131,12 +127,12 @@ class FootballAPIService {
         throw new Error(data.error)
       }
       
-      console.log(`[FootballAPI] API response for ${endpoint}: ${data.results || 0} results`)
+      // console.log(`[FootballAPI] API response for ${endpoint}: ${data.results || 0} results`)
       return data as T
     } catch (e: any) {
       // AbortError는 무시 (React Strict Mode로 인한 중복 요청 취소)
       if (e.name === 'AbortError') {
-        console.log(`[FootballAPI] Request aborted for ${endpoint}`)
+        // console.log(`[FootballAPI] Request aborted for ${endpoint}`)
         throw e
       }
       console.error(`[FootballAPI] Exception calling ${endpoint}:`, e)
@@ -171,10 +167,49 @@ class FootballAPIService {
     }
   }
 
+  // 특정 경기 ID로 경기 정보 가져오기
+  async getFixtureById(fixtureId: number): Promise<FixturesResponse> {
+    const cacheKey = `fixture_${fixtureId}`
+    const cached = this.getCachedData<FixturesResponse>(cacheKey)
+    if (cached) {
+      // console.log('[FootballAPI] Returning cached fixture data for ID:', fixtureId)
+      return cached
+    }
+
+    // console.log('[FootballAPI] Fetching fixture by ID:', fixtureId)
+    
+    try {
+      const data = await this.callUnifiedAPI<FixturesResponse>('fixtures', { 
+        id: fixtureId
+      })
+      
+      if (data && data.response) {
+        // 5분간 캐시
+        this.setCachedData(cacheKey, data)
+        return data
+      }
+      
+      // 결과가 없으면 빈 응답 반환
+      // console.log('[FootballAPI] No fixture found for ID:', fixtureId)
+      const emptyResponse: FixturesResponse = {
+        get: "fixtures",
+        parameters: { fixture: fixtureId.toString() },
+        errors: [],
+        results: 0,
+        paging: { current: 1, total: 1 },
+        response: []
+      }
+      return emptyResponse
+    } catch (error) {
+      console.error('[FootballAPI] Error fetching fixture by ID:', error)
+      throw error
+    }
+  }
+
   // 날짜별 모든 리그 경기 가져오기
   async getFixturesByDate(date: Date): Promise<FixturesResponse> {
     const formattedDate = formatDate(date)
-    console.log('[FootballAPI] Fetching fixtures for date:', formattedDate)
+    // console.log('[FootballAPI] Fetching fixtures for date:', formattedDate)
     
     // 캐시 임시 비활성화
     // const cacheKey = `fixtures_date_${formattedDate}_all`
@@ -184,7 +219,7 @@ class FootballAPIService {
     //   return cached
     // }
 
-    console.log('[FootballAPI] Making API call for date:', formattedDate)
+    // console.log('[FootballAPI] Making API call for date:', formattedDate)
     
     try {
       // 날짜만으로 모든 경기 가져오기 (API가 다중 리그를 지원하지 않는 경우)
@@ -218,12 +253,12 @@ class FootballAPIService {
           response: filteredFixtures
         }
         
-        console.log(`[FootballAPI] Got ${data.response.length} total fixtures, filtered to ${filteredFixtures.length} (Premier, LaLiga, SerieA, Bundesliga, Ligue1, MLS, K-League only)`)
+        // console.log(`[FootballAPI] Got ${data.response.length} total fixtures, filtered to ${filteredFixtures.length} (Premier, LaLiga, SerieA, Bundesliga, Ligue1, MLS, K-League only`)
         return filteredResponse
       }
       
       // 결과가 없으면 빈 응답 반환
-      console.log('[FootballAPI] No fixtures found for date:', formattedDate)
+      // console.log('[FootballAPI] No fixtures found for date:', formattedDate)
       const emptyResponse: FixturesResponse = {
         get: "fixtures",
         parameters: { date: formattedDate },
@@ -315,97 +350,128 @@ class FootballAPIService {
     team: number
   }): Promise<TransfersResponse> {
     const currentYear = new Date().getFullYear()
-    const cacheKey = `transfers_${params.team}_recent_1year`
-    const cached = this.getCachedData<TransfersResponse>(cacheKey)
-    if (cached) return cached
+    const cacheKey = `transfers_${params.team}_${currentYear}_recent`
+    
+    // 캐시 임시 비활성화 (디버깅용)
+    // const cached = this.getCachedData<TransfersResponse>(cacheKey)
+    // if (cached) return cached
 
     try {
-      // 현재 시즌과 이전 시즌의 이적 정보만 가져오기 (더 넓은 범위)
-      const transferParams = {
-        ...params
-        // 시즌 제한 제거하여 더 많은 데이터 가져오기
-      }
+      let data: TransfersResponse
       
-      const data = await this.callUnifiedAPI<TransfersResponse>('transfers', transferParams)
+      // Try API Football v3 first
+      try {
+        const response = await fetch(`https://api-football-v1.p.rapidapi.com/v3/transfers?team=${params.team}`, {
+          method: 'GET',
+          headers: {
+            'x-rapidapi-key': process.env.NEXT_PUBLIC_RAPIDAPI_KEY || 'bd09a1efecmshf47e95710709f44p1dcafdjsn072eabc66aa4',
+            'x-rapidapi-host': 'api-football-v1.p.rapidapi.com'
+          }
+        })
+
+        if (response.ok) {
+          const apiData = await response.json()
+          console.log('[getTransfers] Team', params.team, '- Total transfers:', apiData?.results)
+          
+          // 처음 몇 개 이적 로그
+          if (apiData?.response?.length > 0) {
+            console.log('[getTransfers] Sample transfers:')
+            apiData.response.slice(0, 5).forEach((t: any, i: number) => {
+              console.log(`  ${i+1}. ${t.player?.name} - ${t.transfers?.[0]?.date} - ${t.transfers?.[0]?.type || 'N/A'}`)
+            })
+          }
+          
+          data = apiData as TransfersResponse
+        } else {
+          throw new Error(`API Football v3 failed: ${response.status}`)
+        }
+      } catch (v3Error) {
+        console.error('[getTransfers] Failed to fetch from API Football v3:', v3Error)
+        // Fallback to original method
+        const transferParams = {
+          ...params
+          // 시즌 제한 제거하여 더 많은 데이터 가져오기
+        }
+        data = await this.callUnifiedAPI<TransfersResponse>('transfers', transferParams)
+      }
       
       // console.log(`[FootballAPI] Raw transfers data for team ${params.team}:`, JSON.stringify(data, null, 2))
       
-      // 데이터를 날짜순으로 정렬 (최신순)
+      // 날짜 파싱 헬퍼 함수
+      const parseTransferDate = (dateStr: string): Date | null => {
+        if (!dateStr) return null
+        
+        // YYYY-MM-DD 형식
+        if (dateStr.includes('-')) {
+          return new Date(dateStr)
+        }
+        
+        // DDMMYY 형식 (010712 = 2012년 7월 1일)
+        if (dateStr.length === 6) {
+          const day = dateStr.substring(0, 2)
+          const month = dateStr.substring(2, 4)
+          let year = parseInt(dateStr.substring(4, 6))
+          
+          // 00-30은 2000년대, 31-99는 1900년대로 가정
+          if (year <= 30) {
+            year += 2000
+          } else {
+            year += 1900
+          }
+          
+          return new Date(`${year}-${month}-${day}`)
+        }
+        
+        // YYYYMMDD 형식
+        if (dateStr.length === 8) {
+          const year = dateStr.substring(0, 4)
+          const month = dateStr.substring(4, 6)
+          const day = dateStr.substring(6, 8)
+          return new Date(`${year}-${month}-${day}`)
+        }
+        
+        // 기타 형식은 그대로 파싱 시도
+        return new Date(dateStr)
+      }
+
+      // 모든 이적을 날짜순으로 정렬 (필터링 제거하여 모든 데이터 확인)
       if (data?.response && Array.isArray(data.response)) {
-        data.response = data.response
-          .map((transfer: any) => ({
-            ...transfer,
-            transfers: transfer.transfers
-              ?.filter((t: any) => {
-                if (!t.date) return false
-                
-                // 날짜 파싱 함수
-                const parseTransferDate = (dateStr: string): Date => {
-                  if (dateStr.includes('-')) {
-                    return new Date(dateStr)
-                  } else if (dateStr.length === 6) {
-                    // YYMMDD 형식인 경우 (180801 = 2018년 8월 1일)
-                    let year = parseInt(dateStr.substring(0, 2))
-                    const month = dateStr.substring(2, 4)
-                    const day = dateStr.substring(4, 6)
-                    
-                    // 년도 보정: 80년대 이후는 19xx, 그 이전은 20xx로 추정
-                    if (year >= 80) {
-                      year += 1900
-                    } else {
-                      year += 2000
-                    }
-                    
-                    return new Date(`${year}-${month}-${day}`)
-                  } else if (dateStr.length === 8) {
-                    // YYYYMMDD 형식인 경우
-                    const year = dateStr.substring(0, 4)
-                    const month = dateStr.substring(4, 6)
-                    const day = dateStr.substring(6, 8)
-                    return new Date(`${year}-${month}-${day}`)
-                  } else {
-                    return new Date(dateStr)
-                  }
-                }
-                
-                const transferDate = parseTransferDate(t.date)
-                const now = new Date()
-                const oneYearAgo = new Date(now.getTime() - (365 * 24 * 60 * 60 * 1000)) // 정확히 365일 전
-                const isWithinOneYear = transferDate >= oneYearAgo
-                // console.log(`[Transfer Filter] Player: ${transfer.player?.name}, Date: ${t.date}, Parsed: ${transferDate}, OneYearAgo: ${oneYearAgo}, Within 1 year: ${isWithinOneYear}`)
-                return isWithinOneYear // 정확히 최근 1년
-              })
-              ?.sort((a: any, b: any) => {
-                // 같은 날짜 파싱 함수 사용
-                const parseTransferDate = (dateStr: string): Date => {
-                  if (dateStr.includes('-')) {
-                    return new Date(dateStr)
-                  } else if (dateStr.length === 6) {
-                    // YYMMDD 형식인 경우
-                    let year = parseInt(dateStr.substring(0, 2))
-                    const month = dateStr.substring(2, 4)
-                    const day = dateStr.substring(4, 6)
-                    
-                    if (year >= 80) {
-                      year += 1900
-                    } else {
-                      year += 2000
-                    }
-                    
-                    return new Date(`${year}-${month}-${day}`)
-                  } else if (dateStr.length === 8) {
-                    const year = dateStr.substring(0, 4)
-                    const month = dateStr.substring(4, 6)
-                    const day = dateStr.substring(6, 8)
-                    return new Date(`${year}-${month}-${day}`)
-                  } else {
-                    return new Date(dateStr)
-                  }
-                }
-                return parseTransferDate(b.date).getTime() - parseTransferDate(a.date).getTime() // 최신순 정렬
-              })
-          }))
-          .filter((transfer: any) => transfer.transfers && transfer.transfers.length > 0) // 빈 이적 기록 제거
+        console.log(`[getTransfers] Processing ${data.response.length} transfers`)
+        
+        // 각 이적에 파싱된 날짜 추가
+        const transfersWithDates = data.response.map((playerTransfer: any) => {
+            const latestTransfer = playerTransfer.transfers?.[0]
+            const dateStr = latestTransfer?.date
+            const parsedDate = dateStr ? parseTransferDate(dateStr) : null
+            
+            return {
+                ...playerTransfer,
+                parsedDate: parsedDate,
+                dateString: dateStr
+            }
+        })
+        
+        // 유효한 날짜가 있는 것만 필터링하고 정렬
+        const validTransfers = transfersWithDates
+            .filter((t: any) => t.parsedDate && !isNaN(t.parsedDate.getTime()))
+            .sort((a: any, b: any) => {
+                return b.parsedDate.getTime() - a.parsedDate.getTime()
+            })
+        
+        // 상위 30개만 선택 (최신순)
+        data.response = validTransfers.slice(0, 30).map(({ parsedDate, dateString, ...rest }) => rest)
+        
+        console.log(`[getTransfers] Showing top ${data.response.length} most recent transfers`)
+        
+        // 상위 10개 이적 상세 로그
+        if (data.response.length > 0) {
+            console.log('[getTransfers] Recent transfers:')
+            data.response.slice(0, 10).forEach((t: any, i: number) => {
+                const transfer = t.transfers?.[0]
+                const date = parseTransferDate(transfer?.date)
+                console.log(`  ${i+1}. ${t.player?.name || 'Unknown'} - ${transfer?.date} (${date?.getFullYear()}) - ${transfer?.type || 'N/A'} - ${transfer?.teams?.in?.name} ← ${transfer?.teams?.out?.name}`)
+            })
+        }
       }
       
       this.setCachedData(cacheKey, data)
@@ -490,30 +556,30 @@ class FootballAPIService {
 
   // 팀 프로필 가져오기
   async getTeamProfile(teamId: number): Promise<TeamProfile> {
-    console.log('[FootballAPI] getTeamProfile called with teamId:', teamId)
+    // console.log('[FootballAPI] getTeamProfile called with teamId:', teamId)
     const cacheKey = `team_profile_${teamId}`
     const cached = this.getCachedData<TeamProfile>(cacheKey)
     if (cached) {
-      console.log('[FootballAPI] Returning cached team profile for:', teamId)
+      // console.log('[FootballAPI] Returning cached team profile for:', teamId)
       return cached
     }
 
     try {
-      console.log('[FootballAPI] Fetching team profile from API for:', teamId)
+      // console.log('[FootballAPI] Fetching team profile from API for:', teamId)
       const data = await this.callUnifiedAPI<{ response: TeamProfile[] }>('teams', { 
         id: teamId 
       })
       
-      console.log('[FootballAPI] Team profile API response:', data)
-      console.log('[FootballAPI] Team profile response structure:', {
-        hasResponse: !!data?.response,
-        responseLength: data?.response?.length,
-        firstItem: data?.response?.[0]
-      })
+      // console.log('[FootballAPI] Team profile API response:', data)
+      // console.log('[FootballAPI] Team profile response structure:', {
+      //   hasResponse: !!data?.response,
+      //   responseLength: data?.response?.length,
+      //   firstItem: data?.response?.[0]
+      // })
       
       if (data && data.response && data.response.length > 0) {
         const teamProfile = data.response[0] as TeamProfile
-        console.log('[FootballAPI] Extracted team profile:', teamProfile)
+        // console.log('[FootballAPI] Extracted team profile:', teamProfile)
         this.setCachedData(cacheKey, teamProfile)
         return teamProfile
       }
@@ -555,20 +621,88 @@ class FootballAPIService {
   async getPlayerProfile(playerId: number, season: number): Promise<PlayerProfile> {
     const cacheKey = `player_profile_${playerId}_${season}`
     const cached = this.getCachedData<PlayerProfile>(cacheKey)
-    if (cached) return cached
+    if (cached) {
+      console.log('[getPlayerProfile] Returning cached data for:', playerId)
+      return cached
+    }
 
     try {
+      console.log('[getPlayerProfile] Fetching player profile:', { playerId, season })
       const data = await this.callUnifiedAPI<any>('players', {
         id: playerId,
         season: season
       })
       
+      console.log('[getPlayerProfile] API response:', data)
+      
       const playerProfile = data.response[0] as PlayerProfile
+      console.log('[getPlayerProfile] Extracted profile:', playerProfile)
+      
       this.setCachedData(cacheKey, playerProfile)
       return playerProfile
     } catch (error) {
-      console.error('Error fetching player profile:', error)
+      console.error('[getPlayerProfile] Error fetching player profile:', error)
       throw error
+    }
+  }
+
+  // 선수 이적 기록 가져오기
+  async getPlayerTransfers(playerId: number): Promise<any> {
+    const cacheKey = `player_transfers_${playerId}`
+    const cached = this.getCachedData<any>(cacheKey)
+    if (cached) {
+      console.log('[getPlayerTransfers] Returning cached data for:', playerId)
+      return cached
+    }
+
+    try {
+      console.log('[getPlayerTransfers] Fetching transfers for player:', playerId)
+      const data = await this.callUnifiedAPI<any>('transfers', {
+        player: playerId
+      })
+      
+      console.log('[getPlayerTransfers] API response:', data)
+      
+      if (data?.response?.[0]) {
+        const transfers = data.response[0]
+        this.setCachedData(cacheKey, transfers)
+        return transfers
+      }
+      
+      return null
+    } catch (error) {
+      console.error('[getPlayerTransfers] Error fetching transfers:', error)
+      return null
+    }
+  }
+
+  // 선수 부상 기록 가져오기
+  async getPlayerInjuries(playerId: number): Promise<any> {
+    const cacheKey = `player_injuries_${playerId}`
+    const cached = this.getCachedData<any>(cacheKey)
+    if (cached) {
+      console.log('[getPlayerInjuries] Returning cached data for:', playerId)
+      return cached
+    }
+
+    try {
+      console.log('[getPlayerInjuries] Fetching injuries for player:', playerId)
+      const data = await this.callUnifiedAPI<any>('injuries', {
+        player: playerId,
+        season: new Date().getFullYear()
+      })
+      
+      console.log('[getPlayerInjuries] API response:', data)
+      
+      if (data?.response) {
+        this.setCachedData(cacheKey, data.response)
+        return data.response
+      }
+      
+      return []
+    } catch (error) {
+      console.error('[getPlayerInjuries] Error fetching injuries:', error)
+      return []
     }
   }
 
@@ -652,6 +786,64 @@ class FootballAPIService {
     }
   }
 
+  // 예측 데이터 가져오기
+  async getPredictions(fixtureId: number): Promise<any> {
+    const cacheKey = `predictions_${fixtureId}`
+    const cached = this.getCachedData<any>(cacheKey)
+    if (cached) return cached
+
+    try {
+      const data = await this.callUnifiedAPI<any>('predictions', {
+        fixture: fixtureId
+      })
+      
+      this.setCachedData(cacheKey, data)
+      return data
+    } catch (error) {
+      console.error('Error fetching predictions:', error)
+      return null
+    }
+  }
+
+  // 부상자 명단 가져오기
+  async getInjuries(teamId: number): Promise<any> {
+    const cacheKey = `injuries_${teamId}`
+    const cached = this.getCachedData<any>(cacheKey)
+    if (cached) return cached
+
+    try {
+      const data = await this.callUnifiedAPI<any>('injuries', {
+        team: teamId
+      })
+      
+      this.setCachedData(cacheKey, data)
+      return data
+    } catch (error) {
+      console.error('Error fetching injuries:', error)
+      return null
+    }
+  }
+
+  // 상대전적 (H2H) 가져오기
+  async getH2H(team1Id: number, team2Id: number, limit: number = 10): Promise<any> {
+    const cacheKey = `h2h_${team1Id}_${team2Id}_${limit}`
+    const cached = this.getCachedData<any>(cacheKey)
+    if (cached) return cached
+
+    try {
+      const data = await this.callUnifiedAPI<any>('fixtures/h2h', {
+        h2h: `${team1Id}-${team2Id}`,
+        last: limit
+      })
+      
+      this.setCachedData(cacheKey, data)
+      return data
+    } catch (error) {
+      console.error('Error fetching H2H:', error)
+      return null
+    }
+  }
+
   // 경기 상세 정보
   // 팀의 최근 경기 가져오기
   async getTeamFixtures(teamId: number, limit: number = 5): Promise<any> {
@@ -676,11 +868,11 @@ class FootballAPIService {
                 if (detailData?.response?.[0]) {
                   const fullFixture = detailData.response[0]
                   // 라인업이 포함된 전체 데이터 반환
-                  console.log('[FootballAPI] Fixture data for', fixture.fixture.id, 'has lineups:', !!fullFixture.lineups)
+                  // console.log('[FootballAPI] Fixture data for', fixture.fixture.id, 'has lineups:', !!fullFixture.lineups)
                   return fullFixture
                 }
               } catch (error) {
-                console.log('[FootballAPI] Could not fetch details for fixture:', fixture.fixture.id)
+                // console.log('[FootballAPI] Could not fetch details for fixture:', fixture.fixture.id)
               }
             }
             return fixture
@@ -701,14 +893,14 @@ class FootballAPIService {
   async getLeagueStandings(leagueId: number, season?: number): Promise<any> {
     try {
       const currentSeason = season || new Date().getFullYear()
-      console.log('[FootballAPI] Fetching standings for league:', leagueId, 'season:', currentSeason)
+      // console.log('[FootballAPI] Fetching standings for league:', leagueId, 'season:', currentSeason)
       
       const data = await this.callUnifiedAPI<any>('standings', {
         league: leagueId,
         season: currentSeason
       })
       
-      console.log('[FootballAPI] Standings response:', data)
+      // console.log('[FootballAPI] Standings response:', data)
       
       if (data?.response && Array.isArray(data.response) && data.response.length > 0) {
         return data.response[0].league.standings
@@ -724,14 +916,14 @@ class FootballAPIService {
   // 상대전적 가져오기
   async getH2HFixtures(team1Id: number, team2Id: number, limit: number = 10): Promise<any> {
     try {
-      console.log('[FootballAPI] Fetching H2H between teams:', team1Id, team2Id)
+      // console.log('[FootballAPI] Fetching H2H between teams:', team1Id, team2Id)
       
       const data = await this.callUnifiedAPI<any>('fixtures/headtohead', {
         h2h: `${team1Id}-${team2Id}`,
         last: limit
       })
       
-      console.log('[FootballAPI] H2H response:', data)
+      // console.log('[FootballAPI] H2H response:', data)
       
       if (data?.response && Array.isArray(data.response)) {
         return data.response
@@ -747,7 +939,7 @@ class FootballAPIService {
   // 팀 부상 선수 정보 가져오기
   async getTeamInjuries(teamId: number): Promise<any> {
     try {
-      console.log('[FootballAPI] Fetching injuries for team:', teamId)
+      // console.log('[FootballAPI] Fetching injuries for team:', teamId)
       
       // injuries 엔드포인트 호출 (현재 시즌)
       const currentSeason = new Date().getFullYear()
@@ -756,7 +948,7 @@ class FootballAPIService {
         season: currentSeason
       })
       
-      console.log('[FootballAPI] Injuries response:', data)
+      // console.log('[FootballAPI] Injuries response:', data)
       
       if (data?.response && Array.isArray(data.response)) {
         // 현재 부상 중인 선수만 필터링 (최근 데이터)
@@ -772,7 +964,7 @@ class FootballAPIService {
           return daysDiff <= 30
         })
         
-        console.log('[FootballAPI] Active injuries found:', activeInjuries.length)
+        // console.log('[FootballAPI] Active injuries found:', activeInjuries.length)
         return activeInjuries
       }
       
@@ -782,7 +974,7 @@ class FootballAPIService {
       
       // 대체 방법: 팀 스쿼드에서 부상 정보 확인
       try {
-        console.log('[FootballAPI] Trying alternative: squad endpoint')
+        // console.log('[FootballAPI] Trying alternative: squad endpoint')
         const squadData = await this.callUnifiedAPI<any>('players/squads', {
           team: teamId
         })
@@ -801,7 +993,7 @@ class FootballAPIService {
               }
             }))
           
-          console.log('[FootballAPI] Injured players from squad:', injuredPlayers.length)
+          // console.log('[FootballAPI] Injured players from squad:', injuredPlayers.length)
           return injuredPlayers
         }
       } catch (squadError) {
@@ -839,7 +1031,7 @@ class FootballAPIService {
       // 라인업이 없으면 players 엔드포인트도 시도
       if (!fixtureDetails.lineups || fixtureDetails.lineups.length === 0) {
         try {
-          console.log('[FootballAPI] No lineups in fixture, trying players endpoint')
+          // console.log('[FootballAPI] No lineups in fixture, trying players endpoint')
           const playersData = await this.callUnifiedAPI<any>('fixtures/players', {
             fixture: fixtureId
           })
@@ -896,11 +1088,11 @@ class FootballAPIService {
             
             if (lineups.length > 0 && lineups.some((l: any) => l.startXI.length > 0)) {
               fixtureDetails.lineups = lineups
-              console.log('[FootballAPI] Lineups extracted from players data')
+              // console.log('[FootballAPI] Lineups extracted from players data')
             }
           }
         } catch (playersError) {
-          console.log('[FootballAPI] Could not fetch players data:', playersError)
+          // console.log('[FootballAPI] Could not fetch players data:', playersError)
         }
       }
       
@@ -915,11 +1107,17 @@ class FootballAPIService {
   // 경기 라인업
   async getFixtureLineups(fixtureId: number): Promise<any> {
     const cacheKey = `fixture_lineups_${fixtureId}`
+    
+    // 캐시 강제 클리어 (디버깅)
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem(cacheKey)
+    }
+    
     const cached = this.getCachedData<any>(cacheKey)
     if (cached) return cached
 
     try {
-      console.log('[FootballAPI] Fetching lineups for fixture:', fixtureId)
+      // console.log('[FootballAPI] Fetching lineups for fixture:', fixtureId)
       
       // fixtures/lineups 엔드포인트 직접 호출
       try {
@@ -927,14 +1125,48 @@ class FootballAPIService {
           fixture: fixtureId
         })
         
-        console.log('[FootballAPI] Lineups API response:', lineupData)
+        // console.log('[FootballAPI] Lineups API response:', lineupData)
         
         if (lineupData?.response && Array.isArray(lineupData.response)) {
-          this.setCachedData(cacheKey, lineupData.response)
-          return lineupData.response
+          // 원본 데이터 구조 확인
+          // console.log('[FootballAPI] Raw lineup data structure:')
+          if (lineupData.response[0]) {
+            // console.log('Team 0 formation:', lineupData.response[0].formation)
+            // console.log('Team 0 startXI first player:', lineupData.response[0].startXI?.[0])
+          }
+          
+          // 라인업 데이터 정리 - formation과 grid 정보 유지
+          const processedLineups = lineupData.response.map((teamData: any) => ({
+            team: teamData.team,
+            formation: teamData.formation, // formation 정보 유지!
+            coach: teamData.coach,
+            startXI: teamData.startXI?.map((playerData: any) => ({
+              player: {
+                id: playerData.player?.id,
+                name: playerData.player?.name,
+                number: playerData.player?.number,
+                pos: playerData.player?.pos,
+                grid: playerData.player?.grid // grid 정보 유지!
+              }
+            })) || [],
+            substitutes: teamData.substitutes?.map((playerData: any) => ({
+              player: {
+                id: playerData.player?.id,
+                name: playerData.player?.name,
+                number: playerData.player?.number,
+                pos: playerData.player?.pos
+              }
+            })) || []
+          }))
+          
+          // console.log('[FootballAPI] Processed lineups:', processedLineups)
+          // console.log('First processed player:', processedLineups[0]?.startXI?.[0])
+          
+          this.setCachedData(cacheKey, processedLineups)
+          return processedLineups
         }
       } catch (lineupError) {
-        console.log('[FootballAPI] Lineups endpoint not available, trying fixtures endpoint')
+        // console.log('[FootballAPI] Lineups endpoint not available, trying fixtures endpoint')
       }
       
       // Fallback: fixtures 엔드포인트에서 라인업 추출
@@ -942,33 +1174,44 @@ class FootballAPIService {
         id: fixtureId
       })
       
-      console.log('[FootballAPI] Fixture data received, checking for lineups')
+      // console.log('[FootballAPI] Fixture data received, checking for lineups')
       
       if (fixtureData?.response?.[0]) {
         const fixture = fixtureData.response[0]
         
         // lineups 필드 확인
         if (fixture.lineups && Array.isArray(fixture.lineups)) {
-          console.log('[FootballAPI] Found lineups in fixture:', fixture.lineups.length, 'teams')
+          // console.log('[FootballAPI] Found lineups in fixture:', fixture.lineups.length, 'teams')
           this.setCachedData(cacheKey, fixture.lineups)
           return fixture.lineups
         }
         
         // players 필드에서 라인업 추출 시도
         if (fixture.players && Array.isArray(fixture.players)) {
-          console.log('[FootballAPI] Extracting lineups from players data')
+          // console.log('[FootballAPI] Extracting lineups from players data')
           const lineups = fixture.players.map((team: any) => ({
             team: team.team,
-            formation: null,
+            formation: fixture.lineups?.[fixture.players.indexOf(team)]?.formation || null, // formation 정보 시도
             startXI: team.players
               ?.filter((p: any) => p.statistics?.[0]?.games?.position !== 'S')
               ?.slice(0, 11)
+              ?.map((p: any, index: number) => ({
+                player: {
+                  id: p.player.id,
+                  name: p.player.name,
+                  number: p.statistics?.[0]?.games?.number || 0,
+                  pos: p.statistics?.[0]?.games?.position,
+                  grid: null // players 데이터에는 grid가 없으므로 null
+                }
+              })) || [],
+            substitutes: team.players
+              ?.filter((p: any) => p.statistics?.[0]?.games?.position === 'S')
               ?.map((p: any) => ({
                 player: {
                   id: p.player.id,
                   name: p.player.name,
                   number: p.statistics?.[0]?.games?.number || 0,
-                  pos: p.statistics?.[0]?.games?.position
+                  pos: 'S'
                 }
               })) || []
           }))
@@ -980,7 +1223,7 @@ class FootballAPIService {
         }
       }
       
-      console.log('[FootballAPI] No lineup data available')
+      // console.log('[FootballAPI] No lineup data available')
       return []
     } catch (error) {
       console.error('[FootballAPI] Error fetching fixture lineups:', error)
@@ -1104,7 +1347,7 @@ class FootballAPIService {
         if (error) {
           console.error('[FootballAPI] Error caching lineup:', error)
         } else {
-          console.log(`[FootballAPI] Cached lineup for ${teamLineup.team.name}`)
+          // console.log(`[FootballAPI] Cached lineup for ${teamLineup.team.name}`)
         }
       } catch (err) {
         console.error('[FootballAPI] Error processing lineup cache:', err)
@@ -1126,12 +1369,12 @@ class FootballAPIService {
         .single()
       
       if (error) {
-        console.log('[FootballAPI] No cached lineup found:', error)
+        // console.log('[FootballAPI] No cached lineup found:', error)
         return null
       }
       
       if (data) {
-        console.log(`[FootballAPI] Found cached lineup for team ${teamId} from ${data.fixture_date}`)
+        // console.log(`[FootballAPI] Found cached lineup for team ${teamId} from ${data.fixture_date}`)
         // 포메이션 정규화: 4-5-1을 4-2-3-1로 변환
         if (data.formation === '4-5-1' && data.lineup) {
           const defenders = data.lineup.filter((p: any) => 
@@ -1275,7 +1518,7 @@ export const useTeamProfile = (
     queryKey: ['teamProfile', teamId],
     queryFn: () => footballAPIService.getTeamProfile(teamId),
     staleTime: 24 * 60 * 60 * 1000, // 24시간
-    enabled: !!teamId,
+    enabled: teamId > 0, // 0이 아닌 유효한 teamId일 때만 호출
     ...options
   })
 }
@@ -1290,7 +1533,7 @@ export const useTeamStatistics = (
     queryKey: ['teamStats', teamId, season, leagueId],
     queryFn: () => footballAPIService.getTeamStatistics(teamId, season, leagueId),
     staleTime: 60 * 60 * 1000, // 1시간
-    enabled: !!teamId && !!season && !!leagueId,
+    enabled: teamId > 0 && season > 0 && leagueId > 0, // 모든 값이 유효할 때만 호출
     ...options
   })
 }
@@ -1300,9 +1543,15 @@ export const usePlayerProfile = (
   season: number,
   options?: UseQueryOptions<PlayerProfile>
 ) => {
+  console.log('[usePlayerProfile] Hook called with:', { playerId, season, enabled: !!playerId && !!season })
   return useQuery({
     queryKey: ['playerProfile', playerId, season],
-    queryFn: () => footballAPIService.getPlayerProfile(playerId, season),
+    queryFn: async () => {
+      console.log('[usePlayerProfile] queryFn executing for:', { playerId, season })
+      const result = await footballAPIService.getPlayerProfile(playerId, season)
+      console.log('[usePlayerProfile] queryFn result:', result)
+      return result
+    },
     staleTime: 60 * 60 * 1000, // 1시간
     enabled: !!playerId && !!season,
     ...options
@@ -1386,7 +1635,7 @@ export const useTeamNextFixtures = (
     queryKey: ['teamNextFixtures', teamId],
     queryFn: () => footballAPIService.getTeamNextFixtures(teamId),
     staleTime: 60 * 60 * 1000, // 1시간
-    enabled: !!teamId,
+    enabled: teamId > 0, // 유효한 teamId일 때만 호출
     ...options
   })
 }
@@ -1399,7 +1648,7 @@ export const useTeamLastFixtures = (
     queryKey: ['teamLastFixtures', teamId],
     queryFn: () => footballAPIService.getTeamLastFixtures(teamId),
     staleTime: 60 * 60 * 1000, // 1시간
-    enabled: !!teamId,
+    enabled: teamId > 0, // 유효한 teamId일 때만 호출
     ...options
   })
 }

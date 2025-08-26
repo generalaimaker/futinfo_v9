@@ -499,11 +499,15 @@ class LeagueProfileViewModel: ObservableObject {
                     print("🏆 챔피언스리그 특별 처리 적용")
                 }
                 
+                // 날짜가 없는 경우 기본값 사용
+                let fromDateToUse = fromDateObj ?? Date().addingTimeInterval(-365 * 24 * 60 * 60) // 1년 전
+                let toDateToUse = toDateObj ?? Date().addingTimeInterval(365 * 24 * 60 * 60) // 1년 후
+                
                 let allFixtures = try await service.getFixtures(
                     leagueId: actualLeagueId,
                     season: seasonForTournament,
-                    from: fromDateObj,
-                    to: toDateObj
+                    from: fromDateToUse,
+                    to: toDateToUse
                 )
                 
                 // 현재 리그에 속하는 경기만 필터링

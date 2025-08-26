@@ -130,7 +130,8 @@ function IOSScoreboard({ fixture, isLive }: any) {
           <p className="font-semibold text-gray-900 dark:text-white">
             {fixture.teams.home.name}
           </p>
-          {fixture.teams.home.winner && (
+          {/* 경기 종료 후에만 WIN 표시 */}
+          {isFinished && fixture.teams.home.winner && (
             <motion.div
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}
@@ -229,7 +230,8 @@ function IOSScoreboard({ fixture, isLive }: any) {
           <p className="font-semibold text-gray-900 dark:text-white">
             {fixture.teams.away.name}
           </p>
-          {fixture.teams.away.winner && (
+          {/* 경기 종료 후에만 WIN 표시 */}
+          {isFinished && fixture.teams.away.winner && (
             <motion.div
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}

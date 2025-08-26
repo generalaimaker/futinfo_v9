@@ -1,10 +1,12 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useParams } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { SkeletonLoader } from '@/components/ui/skeleton-loader'
+import { AppleTeamProfile } from '@/components/teams/apple-team-profile'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -17,13 +19,29 @@ import {
   Trophy, Target, AlertCircle, Loader2,
   User, Shirt, MessageSquare, BarChart3,
   Clock, Share2, Heart, Eye, Pin,
-  TrendingDown, Activity, Award
+  TrendingDown, Activity, Award, AlertTriangle
 } from 'lucide-react'
-import { useTeamProfile, useTeamStatistics, useTeamSquad, useTeamNextFixtures, useTeamLastFixtures, useStandings, useTeamTransfers } from '@/lib/supabase/football'
+import { useTeamProfile, useTeamStatistics, useTeamSquad, useTeamNextFixtures, useTeamLastFixtures, useStandings } from '@/lib/supabase/football'
+import footballAPIService from '@/lib/supabase/football'
+import { useFootballTransfers } from '@/lib/football-api/hooks'
 import { useUserPreferences } from '@/lib/hooks/useUserPreferences'
 import { teamCommunityService, TeamPost } from '@/lib/supabase/teams'
 import { cn } from '@/lib/utils'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+
+// 팀 이름 매핑 (API의 팀 이름과 우리 시스템의 팀 이름 매칭)
+const TEAM_NAME_MAPPING: Record<number, string[]> = {
+  33: ['Manchester United', 'Man United', 'Man Utd', 'Manchester Utd', 'MUFC'],
+  40: ['Liverpool', 'Liverpool FC', 'LFC'],
+  50: ['Manchester City', 'Man City', 'Manchester City FC', 'MCFC'],
+  49: ['Chelsea', 'Chelsea FC', 'CFC'],
+  42: ['Arsenal', 'Arsenal FC', 'AFC'],
+  47: ['Tottenham', 'Tottenham Hotspur', 'Spurs', 'THFC'],
+  48: ['West Ham', 'West Ham United', 'WHU'],
+  45: ['Everton', 'Everton FC', 'EFC'],
+  39: ['Newcastle', 'Newcastle United', 'NUFC'],
+  // 추가 팀들...
+}
 
 // 팀 ID와 리그 ID 매핑
 const getLeagueIdByTeam = (teamId: number): number => {
@@ -49,6 +67,9 @@ const getLeagueIdByTeam = (teamId: number): number => {
 }
 
 export default function TeamPage() {
+  // VERSION: 2.0 - Using useFootballTransfers for team transfers
+  console.log('[TeamPage v2.0] Component loaded')
+  
   const params = useParams()
   const teamId = parseInt(params.id as string)
   const queryClient = useQueryClient()
@@ -58,9 +79,10 @@ export default function TeamPage() {
   const [newPostContent, setNewPostContent] = useState('')
   const [newPostCategory, setNewPostCategory] = useState<TeamPost['category']>('general')
   const [transferFilter, setTransferFilter] = useState<'in' | 'out'>('in')
+  const [allTransfersRawData, setAllTransfersRawData] = useState<any>(null)
   
   const { data: profileData, isLoading: profileLoading } = useTeamProfile(teamId)
-  const [selectedSeason, setSelectedSeason] = useState(2024) // 2024 시즌을 기본값으로
+  const [selectedSeason, setSelectedSeason] = useState(2025) // 2025-26 시즌을 기본값으로
   const leagueId = getLeagueIdByTeam(teamId)
   const { data: statsData, isLoading: statsLoading } = useTeamStatistics(teamId, selectedSeason, leagueId)
   const { data: squadData, isLoading: squadLoading } = useTeamSquad(teamId)
@@ -68,7 +90,124 @@ export default function TeamPage() {
   const { data: lastFixtures, isLoading: lastLoading } = useTeamLastFixtures(teamId)
   const { data: standingsData } = useStandings({ league: leagueId, season: selectedSeason })
   const { preferences, addFavoriteTeam, removeFavoriteTeam } = useUserPreferences()
-  const { data: transfersData, isLoading: transfersLoading, error: transfersError } = useTeamTransfers(teamId)
+  
+  // 전체 이적 데이터 가져오기 - 강제 리프레시
+  const { data: allTransfersData, isLoading: transfersLoading, error: transfersError, refetch: refetchTransfers } = useFootballTransfers(1)
+  
+  // 컴포넌트 마운트 시 이적 데이터 강제 리프레시
+  useEffect(() => {
+    console.log('[TeamPage v2.0] Refetching transfers for team:', teamId)
+    
+    // 여러 페이지의 데이터를 모두 가져오기
+    import('@/lib/football-api/client').then(async ({ getAllTransfers }) => {
+      console.log('[TeamPage v2.0] Fetching multiple pages of transfers')
+      
+      const allTransfers: any[] = []
+      
+      // 첫 5페이지 데이터 가져오기
+      for (let page = 1; page <= 5; page++) {
+        console.log(`[TeamPage v2.0] Fetching page ${page}`)
+        const data = await getAllTransfers(page)
+        if (data.transfers && data.transfers.length > 0) {
+          allTransfers.push(...data.transfers)
+        }
+      }
+      
+      console.log(`[TeamPage v2.0] Total transfers fetched: ${allTransfers.length}`)
+      setAllTransfersRawData({ transfers: allTransfers, total: allTransfers.length })
+    })
+  }, [teamId])
+  
+  // 디버깅 로그
+  useEffect(() => {
+    console.log('[TeamPage] All transfers data:', allTransfersData)
+    console.log('[TeamPage] Transfers loading:', transfersLoading)
+    console.log('[TeamPage] Transfers error:', transfersError)
+  }, [allTransfersData, transfersLoading, transfersError])
+  
+  // 현재 팀 관련 이적만 필터링
+  const transfersData = useMemo(() => {
+    // 직접 가져온 데이터 사용
+    const dataToUse = allTransfersRawData || allTransfersData
+    
+    if (!dataToUse?.transfers) {
+      console.log('[TeamPage] No transfers data available')
+      return { response: [{ transfers: [] }] }
+    }
+    
+    // 팀 이름 가져오기
+    const teamName = profileData?.team?.name || ''
+    
+    console.log('[TeamPage] Filtering transfers for team:', teamName, 'ID:', teamId)
+    console.log('[TeamPage] Total transfers before filtering:', dataToUse.transfers.length)
+    
+    // 현재 팀과 관련된 이적만 필터링
+    const teamTransfers = dataToUse.transfers.filter((transfer: any) => {
+      const fromClub = (transfer.fromClub || transfer.from?.name || '').toLowerCase()
+      const toClub = (transfer.toClub || transfer.to?.name || '').toLowerCase()
+      
+      // 팀 이름 변형 목록 가져오기
+      const teamNameVariations = TEAM_NAME_MAPPING[teamId] || [teamName]
+      
+      // 모든 팀 이름 변형으로 매칭 시도
+      const isRelated = teamNameVariations.some(name => {
+        const lowerName = name.toLowerCase()
+        return fromClub.includes(lowerName) || toClub.includes(lowerName)
+      }) || 
+      transfer.from?.id === teamId ||
+      transfer.to?.id === teamId ||
+      transfer.fromClubId === teamId ||
+      transfer.toClubId === teamId
+      
+      // 디버깅용 - Manchester United 관련 이적 찾기
+      if (teamId === 33 && (fromClub.includes('united') || toClub.includes('united'))) {
+        console.log('[TeamPage] Potential Man United transfer:', {
+          from: fromClub,
+          to: toClub,
+          player: transfer.name,
+          matched: isRelated
+        })
+      }
+        
+      return isRelated
+    }).map((transfer: any) => {
+      // 방향 설정
+      const toClub = (transfer.toClub || transfer.to?.name || '').toLowerCase()
+      const teamNameVariations = TEAM_NAME_MAPPING[teamId] || [teamName]
+      
+      const isIn = teamNameVariations.some(name => 
+        toClub.includes(name.toLowerCase())
+      ) || 
+      transfer.to?.id === teamId ||
+      transfer.toClubId === teamId
+      
+      return {
+        ...transfer,
+        direction: isIn ? 'in' : 'out'
+      }
+    }).sort((a: any, b: any) => {
+      // 날짜 기준 정렬 (최신순)
+      const dateA = new Date(a.transferDate || a.date || 0)
+      const dateB = new Date(b.transferDate || b.date || 0)
+      return dateB.getTime() - dateA.getTime()
+    })
+    
+    console.log(`[TeamPage] Filtered ${teamTransfers.length} transfers for ${teamName}`)
+    
+    return {
+      response: [{
+        transfers: teamTransfers
+      }]
+    }
+  }, [allTransfersRawData, allTransfersData, teamId, profileData?.team?.name])
+  
+  // 부상자 명단 데이터
+  const { data: injuriesData, isLoading: injuriesLoading } = useQuery({
+    queryKey: ['teamInjuries', teamId],
+    queryFn: () => footballAPIService.getTeamInjuries(teamId),
+    staleTime: 60 * 60 * 1000, // 1시간
+    enabled: !!teamId
+  })
 
   // 커뮤니티 데이터
   const { data: teamPosts, isLoading: postsLoading, error: postsError } = useQuery({
@@ -221,6 +360,33 @@ export default function TeamPage() {
     )
   }
 
+  // Apple 스타일 사용 여부
+  const useAppleStyle = true
+  
+  if (useAppleStyle) {
+    return (
+      <AppleTeamProfile
+        teamId={teamId}
+        profileData={profileData}
+        statsData={statsData}
+        squadData={squadData}
+        nextFixtures={nextFixtures}
+        lastFixtures={lastFixtures}
+        standingsData={standingsData}
+        transfersData={transfersData}
+        injuriesData={injuriesData}
+        teamPosts={teamPosts}
+        isTeamFavorite={isTeamFavorite}
+        onToggleFavorite={toggleFavorite}
+        onCreatePost={(data: any) => createPostMutation.mutate({ 
+          title: data.title || 'Untitled', 
+          content: data.content, 
+          category: data.category || 'general' 
+        })}
+      />
+    )
+  }
+  
   return (
     <div className="min-h-screen lg:ml-64 p-4 lg:p-6">
       <div className="max-w-7xl mx-auto space-y-6">
@@ -233,15 +399,18 @@ export default function TeamPage() {
           <div className="relative p-8">
             <div className="flex flex-col lg:flex-row items-start justify-between gap-6">
               <div className="flex flex-col sm:flex-row items-start gap-6">
-                <div className="w-32 h-32 rounded-2xl bg-white/10 backdrop-blur-sm p-4 flex items-center justify-center shadow-xl">
-                  <Image
-                    src={team.logo}
-                    alt={team.name}
-                    width={100}
-                    height={100}
-                    className="object-contain drop-shadow-lg"
-                    priority
-                  />
+                <div className="relative group">
+                  <div className="absolute inset-0 bg-gradient-to-r from-primary/40 to-primary/20 rounded-2xl blur-xl group-hover:blur-2xl transition-all duration-500 opacity-0 group-hover:opacity-100" />
+                  <div className="relative w-32 h-32 rounded-2xl bg-white/10 backdrop-blur-sm p-4 flex items-center justify-center shadow-xl transform transition-all duration-300 group-hover:scale-105 group-hover:rotate-3">
+                    <Image
+                      src={team.logo}
+                      alt={team.name}
+                      width={100}
+                      height={100}
+                      className="object-contain drop-shadow-lg transition-transform duration-300 group-hover:scale-110"
+                      priority
+                    />
+                  </div>
                 </div>
                 <div className="space-y-3">
                   <div>
@@ -325,8 +494,8 @@ export default function TeamPage() {
           </div>
         </div>
 
-        {/* Content Tabs */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+        {/* Content Tabs with Animation */}
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6 transition-all duration-300">
           <TabsList className="grid w-full grid-cols-6 lg:w-auto lg:inline-grid">
             <TabsTrigger value="overview" className="gap-2">
               <Home className="w-4 h-4" />
@@ -355,7 +524,7 @@ export default function TeamPage() {
           </TabsList>
 
           {/* Overview Tab */}
-          <TabsContent value="overview" className="space-y-6">
+          <TabsContent value="overview" className="space-y-6 animate-in fade-in-0 slide-in-from-bottom-3 duration-300">
             {/* Quick Stats */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               <Card className="dark-card p-4">
@@ -477,11 +646,7 @@ export default function TeamPage() {
                   <h3 className="text-lg font-semibold mb-4">최근 경기 결과</h3>
                   <div className="space-y-3">
                     {lastLoading ? (
-                      <div className="space-y-2">
-                        {[1, 2, 3].map((i) => (
-                          <div key={i} className="h-20 bg-secondary/50 rounded-lg animate-pulse" />
-                        ))}
-                      </div>
+                      <SkeletonLoader variant="list" count={3} />
                     ) : lastFixtures?.response?.length > 0 ? (
                       lastFixtures.response.map((fixture: any) => {
                         const isHome = fixture.teams.home.id === teamId
@@ -646,20 +811,48 @@ export default function TeamPage() {
                     </div>
                   </Card>
                 )}
+                
+                {/* Injuries Section */}
+                {injuriesData && injuriesData.length > 0 && (
+                  <Card className="dark-card p-6">
+                    <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                      <AlertTriangle className="w-5 h-5 text-yellow-500" />
+                      부상자 명단
+                    </h3>
+                    <div className="space-y-3">
+                      {injuriesLoading ? (
+                        <SkeletonLoader variant="list" count={2} />
+                      ) : (
+                        injuriesData.slice(0, 5).map((injury: any, idx: number) => (
+                          <div key={idx} className="flex items-center gap-3 p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/20">
+                            <div className="w-10 h-10 rounded-full bg-yellow-500/20 flex items-center justify-center">
+                              <AlertTriangle className="w-5 h-5 text-yellow-500" />
+                            </div>
+                            <div className="flex-1">
+                              <p className="font-medium">{injury.player?.name || 'Unknown'}</p>
+                              <p className="text-sm text-muted-foreground">
+                                {injury.player?.type || injury.player?.reason || '부상'}
+                              </p>
+                            </div>
+                            {injury.player?.position && (
+                              <Badge variant="secondary" className="text-xs">
+                                {injury.player.position}
+                              </Badge>
+                            )}
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </Card>
+                )}
               </div>
             </div>
           </TabsContent>
 
           {/* Transfers Tab */}
-          <TabsContent value="transfers" className="space-y-6">
+          <TabsContent value="transfers" className="space-y-6 animate-in fade-in-0 slide-in-from-bottom-3 duration-300">
             {transfersLoading ? (
-              <div className="grid gap-6">
-                {[1, 2, 3].map((i) => (
-                  <Card key={i} className="dark-card p-6">
-                    <div className="h-64 bg-secondary/50 rounded-lg animate-pulse" />
-                  </Card>
-                ))}
-              </div>
+              <SkeletonLoader variant="card" count={3} />
             ) : transfersError ? (
               <Card className="dark-card p-6">
                 <div className="text-center py-8">
@@ -930,15 +1123,9 @@ export default function TeamPage() {
           </TabsContent>
 
           {/* Squad Tab */}
-          <TabsContent value="squad" className="space-y-6">
+          <TabsContent value="squad" className="space-y-6 animate-in fade-in-0 slide-in-from-bottom-3 duration-300">
             {squadLoading ? (
-              <div className="grid gap-6">
-                {[1, 2, 3].map((i) => (
-                  <Card key={i} className="dark-card p-6">
-                    <div className="h-64 bg-secondary/50 rounded-lg animate-pulse" />
-                  </Card>
-                ))}
-              </div>
+              <SkeletonLoader variant="card" count={3} />
             ) : (
               <div className="grid gap-6">
                 {positionOrder.map((position) => {
@@ -1009,18 +1196,14 @@ export default function TeamPage() {
           </TabsContent>
 
           {/* Fixtures Tab */}
-          <TabsContent value="fixtures" className="space-y-6">
+          <TabsContent value="fixtures" className="space-y-6 animate-in fade-in-0 slide-in-from-bottom-3 duration-300">
             <div className="grid md:grid-cols-2 gap-6">
               {/* Upcoming Fixtures */}
               <Card className="dark-card p-6">
                 <h3 className="text-lg font-semibold mb-4">다가오는 경기</h3>
                 <div className="space-y-3">
                   {nextLoading ? (
-                    <div className="space-y-2">
-                      {[1, 2, 3].map((i) => (
-                        <div key={i} className="h-20 bg-secondary/50 rounded-lg animate-pulse" />
-                      ))}
-                    </div>
+                    <SkeletonLoader variant="list" count={3} />
                   ) : nextFixtures?.response?.length > 0 ? (
                     nextFixtures.response.map((fixture: any) => (
                       <Link
@@ -1086,11 +1269,7 @@ export default function TeamPage() {
                 <h3 className="text-lg font-semibold mb-4">최근 결과</h3>
                 <div className="space-y-3">
                   {lastLoading ? (
-                    <div className="space-y-2">
-                      {[1, 2, 3].map((i) => (
-                        <div key={i} className="h-20 bg-secondary/50 rounded-lg animate-pulse" />
-                      ))}
-                    </div>
+                    <SkeletonLoader variant="list" count={3} />
                   ) : lastFixtures?.response?.length > 0 ? (
                     lastFixtures.response.map((fixture: any) => {
                       const isHome = fixture.teams.home.id === teamId
@@ -1154,7 +1333,7 @@ export default function TeamPage() {
           </TabsContent>
 
           {/* Stats Tab */}
-          <TabsContent value="stats" className="space-y-6">
+          <TabsContent value="stats" className="space-y-6 animate-in fade-in-0 slide-in-from-bottom-3 duration-300">
             {/* Season Selector */}
             <div className="flex items-center gap-4 mb-6">
               <h3 className="text-lg font-semibold">시즌 선택</h3>
@@ -1163,11 +1342,11 @@ export default function TeamPage() {
                 onChange={(e) => setSelectedSeason(Number(e.target.value))}
                 className="px-4 py-2 rounded-lg bg-secondary text-sm font-medium"
               >
+                <option value={2025}>2025-26</option>
                 <option value={2024}>2024-25</option>
                 <option value={2023}>2023-24</option>
                 <option value={2022}>2022-23</option>
                 <option value={2021}>2021-22</option>
-                <option value={2020}>2020-21</option>
               </select>
               {statsLoading && <Loader2 className="w-4 h-4 animate-spin" />}
             </div>
@@ -1339,7 +1518,7 @@ export default function TeamPage() {
           </TabsContent>
 
           {/* Community Tab */}
-          <TabsContent value="community" className="space-y-6">
+          <TabsContent value="community" className="space-y-6 animate-in fade-in-0 slide-in-from-bottom-3 duration-300">
             {/* Post Categories Filter */}
             <div className="flex items-center gap-2 flex-wrap">
               <Button
@@ -1447,13 +1626,7 @@ export default function TeamPage() {
 
                 {/* Posts */}
                 {postsLoading ? (
-                  <div className="space-y-4">
-                    {[1, 2, 3].map((i) => (
-                      <Card key={i} className="dark-card p-6">
-                        <div className="h-32 bg-secondary/50 rounded-lg animate-pulse" />
-                      </Card>
-                    ))}
-                  </div>
+                  <SkeletonLoader variant="card" count={3} />
                 ) : (console.log('[TeamProfile] Posts check:', { teamPosts, length: teamPosts?.length, isArray: Array.isArray(teamPosts) }), teamPosts?.length > 0) ? (
                   <div className="space-y-4">
                     {teamPosts.map((post: TeamPost) => (

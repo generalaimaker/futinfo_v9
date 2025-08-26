@@ -15,9 +15,11 @@ export function useFootballTransfers(page = 1) {
   return useQuery({
     queryKey: ['football-transfers', 'all', page],
     queryFn: () => getAllTransfers(page),
-    staleTime: 1000 * 60 * 5, // 5 minutes
-    gcTime: 1000 * 60 * 30, // 30 minutes
+    staleTime: 0, // 항상 새로운 데이터 가져오기
+    gcTime: 0, // 캐시 즉시 삭제
     retry: 1,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
   })
 }
 

@@ -63,36 +63,26 @@ export async function translateText(
     }
   }
 
-  // DeepL API가 없으면 원문 반환
-  const apiKey = typeof window !== 'undefined' 
-    ? process.env.NEXT_PUBLIC_DEEPL_API_KEY 
-    : undefined
-    
-  if (!apiKey) {
-    console.warn('DeepL API key not configured. Returning original text.')
-    return text
-  }
-
   try {
-    const response = await fetch('https://api-free.deepl.com/v2/translate', {
+    // API Route를 통해 번역 (CORS 회피)
+    const response = await fetch('/api/translate', {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
+        'Content-Type': 'application/json',
       },
-      body: new URLSearchParams({
-        auth_key: apiKey,
+      body: JSON.stringify({
         text: text,
-        source_lang: normalizedSource,
-        target_lang: normalizedTarget,
+        sourceLang: normalizedSource,
+        targetLang: normalizedTarget,
       }),
     })
 
     if (!response.ok) {
-      throw new Error(`DeepL API error: ${response.status}`)
+      throw new Error(`Translation API error: ${response.status}`)
     }
 
     const data = await response.json()
-    const translatedText = data.translations[0].text
+    const translatedText = data.translatedText || text
 
     // 캐시 저장
     if (useCache) {

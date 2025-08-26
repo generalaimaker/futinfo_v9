@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils'
 import { useUserPreferences, usePersonalizedFixtures } from '@/lib/hooks/useUserPreferences'
 import { FootballAPIService } from '@/lib/supabase/football'
 import { supabase } from '@/lib/supabase/client'
+import { formatMatchTime, formatVenue } from '@/lib/utils/timezone'
 
 interface PersonalizedSectionProps {
   className?: string
@@ -147,13 +148,9 @@ export function PersonalizedSection({ className }: PersonalizedSectionProps) {
                       )}
                     </div>
                     <span className="text-xs text-muted-foreground">
-                      {new Date(fixture.fixture.date).toLocaleDateString('ko-KR', {
-                        month: 'short',
-                        day: 'numeric',
-                        weekday: 'short'
-                      })} {new Date(fixture.fixture.date).toLocaleTimeString('ko-KR', {
-                        hour: '2-digit',
-                        minute: '2-digit'
+                      {formatMatchTime(fixture.fixture.date, { 
+                        showDate: true, 
+                        showWeekday: true 
                       })}
                     </span>
                   </div>
@@ -220,11 +217,9 @@ export function PersonalizedSection({ className }: PersonalizedSectionProps) {
                   </div>
 
                   {/* 경기장 정보 */}
-                  {fixture.fixture.venue && (
-                    <div className="mt-3 text-xs text-muted-foreground">
-                      📍 {fixture.fixture.venue.name}, {fixture.fixture.venue.city}
-                    </div>
-                  )}
+                  <div className="mt-3 text-xs text-muted-foreground">
+                    📍 {formatVenue(fixture.fixture.venue)}
+                  </div>
                 </Link>
               )
             })}

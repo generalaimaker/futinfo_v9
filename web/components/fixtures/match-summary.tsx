@@ -1,8 +1,9 @@
 import Image from 'next/image'
-import { Clock, AlertCircle, Trophy, TrendingUp, Shield, Activity } from 'lucide-react'
+import { Clock, AlertCircle, Trophy, TrendingUp, Shield, Activity, Table } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
 import { cn } from '@/lib/utils'
+import { LeagueStandingsMini } from './league-standings-mini'
 
 interface MatchSummaryProps {
   fixture: any // TODO: Add proper type
@@ -273,6 +274,24 @@ export default function MatchSummary({ fixture }: MatchSummaryProps) {
               </span>
             </div>
           </div>
+        </CardContent>
+      </Card>
+      
+      {/* 리그 순위 */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg flex items-center">
+            <Table className="w-5 h-5 mr-2" />
+            경기 후 리그 순위
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <LeagueStandingsMini
+            leagueId={fixture.league.id}
+            season={fixture.league.season || new Date().getFullYear()}
+            homeTeamId={fixture.teams.home.id}
+            awayTeamId={fixture.teams.away.id}
+          />
         </CardContent>
       </Card>
     </div>

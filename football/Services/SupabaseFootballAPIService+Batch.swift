@@ -36,7 +36,12 @@ extension SupabaseFootballAPIService {
                 let dateFormatter = DateFormatter()
                 dateFormatter.dateFormat = "yyyy-MM-dd"
                 let targetDate = dateFormatter.date(from: date) ?? Date()
-                let leagueSeason = season ?? self.getSeasonForLeagueAndDate(leagueId, date: targetDate)
+                let leagueSeason: Int
+                if let season = season {
+                    leagueSeason = season
+                } else {
+                    leagueSeason = await self.getSeasonForLeagueAndDate(leagueId, date: targetDate)
+                }
                 
                 // 디버그 로그 추가
                 if [253, 292, 293, 71].contains(leagueId) {

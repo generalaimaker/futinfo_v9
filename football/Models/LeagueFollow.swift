@@ -43,17 +43,16 @@ struct LeagueFollow: Identifiable, Codable {
         }
     }
     
-    // 기본 리그 목록 (최소화하여 Rate Limit 방지)
+    // 기본 리그 목록 (주요 리그만 포함)
     static let defaultLeagues: [LeagueFollow] = [
-        // 5대 리그만 기본으로 설정
+        // 유럽 5대 리그 + 챔피언스리그 + 유로파리그
         LeagueFollow(id: 39, name: "Premier League", logo: "https://media.api-sports.io/football/leagues/39.png", country: "England", isDefault: true),
         LeagueFollow(id: 140, name: "La Liga", logo: "https://media.api-sports.io/football/leagues/140.png", country: "Spain", isDefault: true),
         LeagueFollow(id: 135, name: "Serie A", logo: "https://media.api-sports.io/football/leagues/135.png", country: "Italy", isDefault: true),
         LeagueFollow(id: 78, name: "Bundesliga", logo: "https://media.api-sports.io/football/leagues/78.png", country: "Germany", isDefault: true),
         LeagueFollow(id: 61, name: "Ligue 1", logo: "https://media.api-sports.io/football/leagues/61.png", country: "France", isDefault: true),
-        
-        // K리그 (한국 사용자를 위해)
-        LeagueFollow(id: 292, name: "K League 1", logo: "https://media.api-sports.io/football/leagues/292.png", country: "South Korea", isDefault: true)
+        LeagueFollow(id: 2, name: "Champions League", logo: "https://media.api-sports.io/football/leagues/2.png", country: "World", isDefault: true),
+        LeagueFollow(id: 3, name: "Europa League", logo: "https://media.api-sports.io/football/leagues/3.png", country: "World", isDefault: true)
     ]
 }
 

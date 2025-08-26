@@ -3,9 +3,9 @@ import Foundation
 // MARK: - Optimized Batch Request with Parallel Processing
 extension SupabaseFootballAPIService {
     
-    /// 병렬 처리로 최적화된 배치 요청
+    /// 병렬 처리로 최적화된 배치 요청 - 직접 API 사용
     func fetchFixturesBatchOptimized(date: String, leagueIds: [Int], season: Int? = nil) async throws -> FixturesResponse {
-        print("🚀 최적화된 배치 요청 시작: \(leagueIds.count)개 리그")
+        print("🚀 직접 API 배치 요청 시작: \(leagueIds.count)개 리그")
         
         let startTime = Date()
         var allFixtures: [Fixture] = []
@@ -42,59 +42,50 @@ extension SupabaseFootballAPIService {
             }
         }
         
-        // 배치 크기 설정 (동시 2개씩 처리 - 안정성 향상)
-        let batchSize = 2
-        let batches = leagueIds.chunked(into: batchSize)
-        
-        for (index, batch) in batches.enumerated() {
-            print("📦 배치 \(index + 1)/\(batches.count) 처리 중: \(batch)")
+        // 순차 처리로 변경 (Rate Limit 방지)
+        for (index, leagueId) in leagueIds.enumerated() {
+            // Rate Limit 체크
+            await RateLimitManager.shared.waitForSlot()
             
-            // 배치 내에서 병렬 처리
-            await withTaskGroup(of: (Int, Result<[Fixture], Error>).self) { group in
-                for leagueId in batch {
-                    group.addTask {
-                        do {
-                            // 리그별로 올바른 시즌 계산
-                            let targetDate = dateFormatter.date(from: date) ?? Date()
-                            let leagueSeason: Int
-                            if let season = season {
-                                leagueSeason = season
-                            } else {
-                                leagueSeason = await self.getSeasonForLeagueAndDate(leagueId, date: targetDate)
-                            }
-                            
-                            let response = try await self.fetchFixtures(date: date, leagueId: leagueId, season: leagueSeason)
-                            return (leagueId, .success(response.response))
-                        } catch {
-                            return (leagueId, .failure(error))
-                        }
-                    }
-                }
-                
-                // 결과 수집
-                for await (leagueId, result) in group {
-                    switch result {
-                    case .success(let fixtures):
-                        allFixtures.append(contentsOf: fixtures)
-                        if !fixtures.isEmpty {
-                            print("✅ 리그 \(leagueId): \(fixtures.count)개 경기")
-                        }
-                    case .failure(let error):
-                        errors.append("리그 \(leagueId): \(error.localizedDescription)")
-                        print("❌ 리그 \(leagueId) 실패: \(error)")
-                    }
-                }
+            // 각 요청 사이에 충분한 대기
+            if index > 0 {
+                try await Task.sleep(nanoseconds: 500_000_000) // 0.5초 대기
             }
             
-            // 다음 배치 전 대기 (Rate Limit 방지 및 안정성 향상)
-            if index < batches.count - 1 {
-                print("⏳ Rate Limit 대기: 0.5초")
-                try await Task.sleep(nanoseconds: 500_000_000) // 0.5초
+            do {
+                // 각 리그별 경기 직접 조회
+                let directService = DirectAPIService.shared
+                let response = try await directService.fetchFixturesByDate(date: date, leagueId: leagueId)
+                
+                allFixtures.append(contentsOf: response.response)
+                if !response.response.isEmpty {
+                    print("✅ 리그 \(leagueId): \(response.response.count)개 경기")
+                }
+                
+                // Rate Limit 기록
+                RateLimitManager.shared.recordRequest(endpoint: "fixtures")
+                
+                // 5개마다 추가 대기
+                if (index + 1) % 5 == 0 {
+                    print("⏳ 5개 요청 완료 - 2초 대기")
+                    try await Task.sleep(nanoseconds: 2_000_000_000) // 2초
+                }
+            } catch {
+                errors.append("리그 \(leagueId): \(error.localizedDescription)")
+                print("❌ 리그 \(leagueId) 실패: \(error)")
+                
+                // Rate Limit 에러면 대기
+                if case FootballAPIError.rateLimitExceeded = error {
+                    print("⏳ Rate Limit 초과 - 65초 대기")
+                    RateLimitManager.shared.handleRateLimitError()
+                    try await Task.sleep(nanoseconds: 65_000_000_000) // 65초 대기
+                    break // 루프 종료
+                }
             }
         }
         
         let elapsed = Date().timeIntervalSince(startTime)
-        print("✅ 최적화된 배치 완료: \(String(format: "%.2f", elapsed))초에 \(allFixtures.count)개 경기 로드")
+        print("✅ 직접 API 배치 완료: \(String(format: "%.2f", elapsed))초에 \(allFixtures.count)개 경기 로드")
         
         // 중복 제거
         let uniqueFixtures = Array(Set(allFixtures))

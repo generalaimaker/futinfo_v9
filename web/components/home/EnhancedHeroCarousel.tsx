@@ -16,6 +16,7 @@ import { cn } from '@/lib/utils'
 import { formatDistanceToNow } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import { motion, AnimatePresence } from 'framer-motion'
+import { formatMatchTime, formatRelativeTime, formatVenue, getTimezoneAbbreviation } from '@/lib/utils/timezone'
 
 // 슬라이드 콘텐츠 타입
 export type SlideType = 'match' | 'news' | 'team' | 'stats' | 'promotion'
@@ -165,19 +166,21 @@ export function EnhancedHeroCarousel({
         {slides.length > 1 && (
           <>
             <motion.button
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.9 }}
+              whileHover={{ scale: 1.1, y: '-50%' }}
+              whileTap={{ scale: 0.9, y: '-50%' }}
+              initial={{ y: '-50%' }}
               onClick={goToPrevious}
-              className="absolute left-6 top-1/2 -translate-y-1/2 p-3 rounded-2xl bg-white/20 dark:bg-gray-900/20 backdrop-blur-xl border border-white/30 dark:border-gray-700/30 text-white opacity-0 group-hover:opacity-100 transition-all hover:bg-white/30 dark:hover:bg-gray-900/30 z-10 shadow-lg"
+              className="absolute left-6 top-1/2 p-3 rounded-2xl bg-white/20 dark:bg-gray-900/20 backdrop-blur-xl border border-white/30 dark:border-gray-700/30 text-white opacity-0 group-hover:opacity-100 transition-all hover:bg-white/30 dark:hover:bg-gray-900/30 z-10 shadow-lg"
               aria-label="이전"
             >
               <ChevronLeft className="w-6 h-6" />
             </motion.button>
             <motion.button
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.9 }}
+              whileHover={{ scale: 1.1, y: '-50%' }}
+              whileTap={{ scale: 0.9, y: '-50%' }}
+              initial={{ y: '-50%' }}
               onClick={goToNext}
-              className="absolute right-6 top-1/2 -translate-y-1/2 p-3 rounded-2xl bg-white/20 dark:bg-gray-900/20 backdrop-blur-xl border border-white/30 dark:border-gray-700/30 text-white opacity-0 group-hover:opacity-100 transition-all hover:bg-white/30 dark:hover:bg-gray-900/30 z-10 shadow-lg"
+              className="absolute right-6 top-1/2 p-3 rounded-2xl bg-white/20 dark:bg-gray-900/20 backdrop-blur-xl border border-white/30 dark:border-gray-700/30 text-white opacity-0 group-hover:opacity-100 transition-all hover:bg-white/30 dark:hover:bg-gray-900/30 z-10 shadow-lg"
               aria-label="다음"
             >
               <ChevronRight className="w-6 h-6" />
@@ -230,23 +233,6 @@ function MatchSlide({ data }: { data: any }) {
   const isLive = ['LIVE', '1H', '2H', 'HT'].includes(data.fixture?.status?.short)
   const isFinished = data.fixture?.status?.short === 'FT'
   
-  // 빅매치 및 라이벌전 확인
-  const homeId = data.teams.home.id
-  const awayId = data.teams.away.id
-  const premierBig6 = [33, 40, 50, 49, 42, 47]
-  const isBig6Match = premierBig6.includes(homeId) || premierBig6.includes(awayId)
-  
-  const rivalries = [
-    [33, 40], // 맨유 vs 리버풀
-    [42, 47], // 아스널 vs 토트넘
-    [49, 42], // 첼시 vs 아스널
-    [49, 47], // 첼시 vs 토트넘
-    [541, 529], // 레알 vs 바르샤
-    [489, 505], // AC밀란 vs 인터
-  ]
-  const isRivalry = rivalries.some(([t1, t2]) => 
-    (homeId === t1 && awayId === t2) || (homeId === t2 && awayId === t1)
-  )
 
   return (
     <div className="absolute inset-0">
@@ -269,36 +255,12 @@ function MatchSlide({ data }: { data: any }) {
         </div>
       )}
 
-      {/* 빅매치 표시 - 더 깔끔하게 */}
-      <div className="absolute top-6 right-6 z-20 flex flex-col gap-2 items-end">
-        {isRivalry && (
-          <motion.div
-            initial={{ x: 20, opacity: 0 }}
-            animate={{ x: 0, opacity: 1 }}
-            transition={{ delay: 0.2 }}
-            className="px-3 py-1.5 bg-gradient-to-r from-red-500 to-orange-500 rounded-xl backdrop-blur-xl shadow-lg"
-          >
-            <span className="text-xs font-bold text-white flex items-center gap-1">
-              <Flame className="w-3 h-3" /> 라이벌전
-            </span>
-          </motion.div>
-        )}
-        {isBig6Match && data.league.id === 39 && (
-          <motion.div
-            initial={{ x: 20, opacity: 0 }}
-            animate={{ x: 0, opacity: 1 }}
-            transition={{ delay: 0.3 }}
-            className="px-3 py-1.5 bg-gradient-to-r from-purple-500 to-indigo-500 rounded-xl backdrop-blur-xl shadow-lg"
-          >
-            <span className="text-xs font-bold text-white flex items-center gap-1">
-              <Zap className="w-3 h-3" /> 빅매치
-            </span>
-          </motion.div>
-        )}
+      {/* 리그 표시 */}
+      <div className="absolute top-6 right-6 z-20">
         <motion.div
           initial={{ x: 20, opacity: 0 }}
           animate={{ x: 0, opacity: 1 }}
-          transition={{ delay: 0.4 }}
+          transition={{ delay: 0.2 }}
           className="px-3 py-1.5 bg-white/20 backdrop-blur-xl rounded-xl shadow-lg"
         >
           <span className="text-xs font-medium text-white">{data.league.name}</span>
@@ -379,21 +341,26 @@ function MatchSlide({ data }: { data: any }) {
                     transition={{ delay: 0.3 }}
                     className="text-4xl md:text-5xl font-bold text-white drop-shadow-2xl"
                   >
-                    {new Date(data.fixture.date).toLocaleTimeString('ko-KR', {
-                      hour: '2-digit',
-                      minute: '2-digit'
-                    })}
+                    {formatMatchTime(data.fixture.date)}
                   </motion.div>
                   <motion.div 
                     initial={{ y: 10, opacity: 0 }}
                     animate={{ y: 0, opacity: 1 }}
                     transition={{ delay: 0.4 }}
-                    className="text-lg text-white/70 mt-3 font-medium"
+                    className="text-center"
                   >
-                    {formatDistanceToNow(new Date(data.fixture.date), {
-                      addSuffix: true,
-                      locale: ko
-                    })}
+                    <div className="text-sm text-white/60 font-medium">
+                      {formatMatchTime(data.fixture.date, { 
+                        showDate: true, 
+                        showWeekday: true 
+                      })}
+                    </div>
+                    <div className="text-xs text-white/50 mt-1">
+                      {getTimezoneAbbreviation()}
+                    </div>
+                    <div className="text-sm text-white/70 mt-1 font-medium">
+                      {formatRelativeTime(data.fixture.date)}
+                    </div>
                   </motion.div>
                 </div>
               )}
@@ -431,7 +398,7 @@ function MatchSlide({ data }: { data: any }) {
           >
             <div className="flex items-center gap-2 text-sm text-white/80 font-medium">
               <MapPin className="w-4 h-4" />
-              <span>{data.fixture.venue?.name || '경기장 정보 없음'}</span>
+              <span>{formatVenue(data.fixture.venue)}</span>
             </div>
             <Link href={`/fixtures/${data.fixture.id}`}>
               <motion.button

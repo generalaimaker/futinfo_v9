@@ -5,6 +5,8 @@ import { cn } from '@/lib/utils'
 import { Providers } from './providers'
 import { NavbarModern } from '@/components/layout/navbar-modern'
 import dynamic from 'next/dynamic'
+import { Toaster } from 'sonner'
+import { AnalyticsTracker } from '@/components/layout/analytics-tracker'
 
 // 모바일 네비게이션은 클라이언트 사이드에서만 렌더링
 const MobileNav = dynamic(() => import('@/components/ui/mobile-nav'), {
@@ -78,11 +80,17 @@ export default function RootLayout({
         "min-h-screen bg-background font-sans antialiased"
       )}>
         <Providers>
+          <AnalyticsTracker />
           <NavbarModern />
           <main className="min-h-screen pt-16 pb-16 md:pb-0">
             {children}
           </main>
           <MobileNav />
+          <Toaster 
+            position="top-center"
+            richColors
+            closeButton
+          />
         </Providers>
       </body>
     </html>

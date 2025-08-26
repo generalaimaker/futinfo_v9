@@ -8,6 +8,7 @@ import { formatDistanceToNow } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import { SimpleTransferFilter } from '@/components/news/SimpleTransferFilter'
 import { NewsSearchBar } from '@/components/news/NewsSearchBar'
+import { NewsArticleCard } from '@/components/news/NewsArticleCard'
 
 type NewsTab = 'major' | 'transfer' | 'injury'
 
@@ -200,63 +201,12 @@ export default function NewsPage() {
           </div>
         ) : (
           <div className="space-y-4">
-            {articles.map((article: any) => (
-              <article 
+            {articles.map((article: any, index: number) => (
+              <NewsArticleCard 
                 key={article.id}
-                className="bg-white rounded-lg shadow-sm border p-6 hover:shadow-md transition-shadow cursor-pointer"
-                onClick={() => window.open(article.url, '_blank')}
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-start gap-3 mb-2">
-                      <h3 className="text-lg font-semibold flex-1 hover:text-blue-600 transition-colors">
-                        {article.translations?.ko?.title || article.title}
-                      </h3>
-                      <div className="flex items-center gap-2">
-                        {article.translations && Object.keys(article.translations).length > 0 && (
-                          <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full">
-                            번역됨
-                          </span>
-                        )}
-                        {article.trust_score >= 80 && (
-                          <div className="flex items-center gap-1 text-xs">
-                            <Shield className={`w-4 h-4 ${getTrustScoreColor(article.trust_score)}`} />
-                            <span className={getTrustScoreColor(article.trust_score)}>
-                              {article.trust_score}%
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    {(article.translations?.ko?.description || article.description) && (
-                      <p className="text-gray-600 text-sm mb-3 line-clamp-2">
-                        {article.translations?.ko?.description || article.description}
-                      </p>
-                    )}
-                    <div className="flex items-center gap-4 text-sm text-gray-500">
-                      <span className="font-medium">{article.source}</span>
-                      <span>•</span>
-                      <span>
-                        {article.published_at && formatDistanceToNow(new Date(article.published_at), { 
-                          addSuffix: true,
-                          locale: ko 
-                        })}
-                      </span>
-                      <ExternalLink className="w-3 h-3 ml-auto" />
-                    </div>
-                  </div>
-                  {article.image_url && (
-                    <img 
-                      src={article.image_url} 
-                      alt={article.title}
-                      className="w-24 h-24 object-cover rounded-lg ml-4"
-                      onError={(e) => {
-                        e.currentTarget.style.display = 'none'
-                      }}
-                    />
-                  )}
-                </div>
-              </article>
+                article={article}
+                index={index}
+              />
             ))}
           </div>
         )}

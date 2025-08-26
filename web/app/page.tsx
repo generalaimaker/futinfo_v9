@@ -24,6 +24,8 @@ import { useUserPreferences, usePersonalizedFixtures } from '@/lib/hooks/useUser
 import { usePopularNews } from '@/lib/supabase/cached-news'
 import { formatDistanceToNow, addDays } from 'date-fns'
 import { ko } from 'date-fns/locale'
+import { adminService } from '@/lib/supabase/admin'
+import { FootballAPIService } from '@/lib/supabase/football'
 
 // 개선된 컴포넌트들
 import { EnhancedHeroCarousel, HeroSlide } from '@/components/home/EnhancedHeroCarousel'
@@ -335,6 +337,59 @@ export default function HomePage() {
   const [dateFixtures, setDateFixtures] = useState<any[]>(todayFixtures || [])
   const [fixturesCache, setFixturesCache] = useState<Map<string, any[]>>(new Map())
   const [isLoadingFixtures, setIsLoadingFixtures] = useState(false)
+  const [featuredMatches, setFeaturedMatches] = useState<any[]>([])
+  const [curatedNews, setCuratedNews] = useState<any[]>([])
+  const [realFeaturedMatchData, setRealFeaturedMatchData] = useState<any[]>([])
+  
+  // 관리자가 선택한 추천 콘텐츠 가져오기
+  useEffect(() => {
+    const loadFeaturedContent = async () => {
+      try {
+        const [matches, news] = await Promise.all([
+          adminService.getFeaturedMatches(),
+          adminService.getCuratedNews()
+        ])
+        
+        if (matches) {
+          const featuredMatchList = matches.filter(m => m.is_featured)
+          setFeaturedMatches(featuredMatchList)
+          
+          // 실제 경기 데이터 가져오기
+          if (featuredMatchList.length > 0) {
+            const footballAPI = new FootballAPIService()
+            const realMatchDataPromises = featuredMatchList.map(async (match) => {
+              try {
+                // fixture ID로 실제 경기 데이터 가져오기
+                const response = await footballAPI.getFixtureById(match.fixture_id)
+                if (response?.response?.[0]) {
+                  return {
+                    ...match,
+                    realData: response.response[0]
+                  }
+                }
+              } catch (error) {
+                console.error(`Error fetching fixture ${match.fixture_id}:`, error)
+              }
+              return match
+            })
+            
+            const realMatchData = await Promise.all(realMatchDataPromises)
+            setRealFeaturedMatchData(realMatchData)
+          }
+        }
+        if (news) {
+          setCuratedNews(news.filter(n => n.is_featured))
+        }
+      } catch (error) {
+        console.error('Error loading featured content:', error)
+      }
+    }
+    
+    loadFeaturedContent()
+    // 30초마다 업데이트
+    const interval = setInterval(loadFeaturedContent, 30000)
+    return () => clearInterval(interval)
+  }, [])
   
   // 날짜별 경기 가져오기 (캐싱 포함)
   const fetchFixturesByDate = useCallback(async (date: Date) => {
@@ -370,9 +425,11 @@ export default function HomePage() {
     const today = new Date()
     if (selectedDate.toDateString() === today.toDateString() && todayFixtures.length > 0) {
       setDateFixtures(todayFixtures)
-      // 오늘 날짜도 캐시에 저장
+      // 오늘 날짜도 캐시에 저장 - 함수형 업데이트 사용
       const todayKey = today.toISOString().split('T')[0]
-      setFixturesCache(prev => new Map(prev).set(todayKey, todayFixtures))
+      if (!fixturesCache.has(todayKey)) {
+        setFixturesCache(prev => new Map(prev).set(todayKey, todayFixtures))
+      }
     } else {
       fetchFixturesByDate(selectedDate)
     }
@@ -447,9 +504,65 @@ export default function HomePage() {
   const heroSlides = useMemo(() => {
     const slides: HeroSlide[] = []
     
-    // 1. 실시간 빅매치 (최우선) - 주요 팀의 라이브 경기만 표시
-    // 라이브 경기 중 빅팀 경기만 필터링
-    const liveBigMatches = liveMatches
+    // 관리자가 선택한 콘텐츠가 있으면 그것만 표시
+    const hasAdminContent = featuredMatches.length > 0 || curatedNews.length > 0
+    
+    // 0. 관리자가 선택한 추천 경기 (최최우선)
+    if (realFeaturedMatchData.length > 0) {
+      realFeaturedMatchData
+        .sort((a, b) => a.priority - b.priority) // 우선순위대로 정렬
+        .slice(0, 3) // 상위 3개만
+        .forEach((match, index) => {
+          // 실제 경기 데이터가 있으면 그것을 사용, 없으면 저장된 데이터 사용
+          const matchData = match.realData || {
+            fixture: {
+              id: match.fixture_id,
+              date: match.match_date,
+              status: { short: 'NS', long: 'Not Started', elapsed: null },
+              venue: null
+            },
+            teams: match.teams_info,
+            league: match.league_info,
+            goals: { home: null, away: null }
+          }
+          
+          slides.push({
+            id: `featured-${match.fixture_id}`,
+            type: 'match',
+            priority: 2000 - index, // 가장 높은 우선순위
+            data: matchData
+          })
+        })
+    } else if (featuredMatches.length > 0) {
+      // realFeaturedMatchData가 아직 로드되지 않았을 때 기본 데이터 사용
+      featuredMatches
+        .sort((a, b) => a.priority - b.priority)
+        .slice(0, 3)
+        .forEach((match, index) => {
+          slides.push({
+            id: `featured-${match.fixture_id}`,
+            type: 'match',
+            priority: 2000 - index,
+            data: {
+              fixture: {
+                id: match.fixture_id,
+                date: match.match_date,
+                status: { short: 'NS', long: 'Not Started', elapsed: null },
+                venue: null
+              },
+              teams: match.teams_info,
+              league: match.league_info,
+              goals: { home: null, away: null }
+            }
+          })
+        })
+    }
+    
+    // 관리자 콘텐츠가 있으면 자동 콘텐츠는 추가하지 않음
+    if (!hasAdminContent) {
+      // 1. 실시간 빅매치 (관리자 콘텐츠가 없을 때만)
+      // 라이브 경기 중 빅팀 경기만 필터링
+      const liveBigMatches = liveMatches
       .filter(match => {
         // 빅팀 경기인지 확인
         if (!isBigTeamMatch(match)) return false
@@ -495,8 +608,8 @@ export default function HomePage() {
       })
     }
     
-    // 2. 개인화 콘텐츠 (로그인 사용자)
-    if (isAuthenticated && preferences.favoriteTeamIds.length > 0) {
+      // 2. 개인화 콘텐츠 (로그인 사용자)
+      if (isAuthenticated && preferences.favoriteTeamIds.length > 0) {
       // 관심 팀의 다음 경기
       const favoriteTeamMatch = personalizedFixtures.find(f => 
         preferences.favoriteTeamIds.includes(f.teams.home.id) ||
@@ -523,8 +636,8 @@ export default function HomePage() {
       }
     }
     
-    // 3. 예정된 빅매치 (7일간의 빅매치)
-    if (upcomingBigMatches && upcomingBigMatches.length > 0) {
+      // 3. 예정된 빅매치 (7일간의 빅매치)
+      if (upcomingBigMatches && upcomingBigMatches.length > 0) {
       // 라이벌전 찾기
       const rivalryMatches = upcomingBigMatches.filter(match => {
         const homeId = match.teams.home.id
@@ -563,8 +676,8 @@ export default function HomePage() {
       })
     }
     
-    // 빅매치가 적으면 오늘의 일반 경기 중 우선순위 높은 것 표시
-    if (slides.length < 3 && todayFixtures.length > 0) {
+      // 빅매치가 적으면 오늘의 일반 경기 중 우선순위 높은 것 표시
+      if (slides.length < 3 && todayFixtures.length > 0) {
       const topMatches = todayFixtures
         .map(f => ({
           fixture: f,
@@ -584,11 +697,32 @@ export default function HomePage() {
         }
       })
     }
+    } // if (!hasAdminContent) 종료
     
-    // 4. 주요 뉴스 (실제 뉴스 데이터 사용)
-    if (slides.length < 5 && popularNewsData && popularNewsData.length > 0) {
-      // 상위 3개 뉴스만 가져와서 필요한 형식으로 변환
-      const topNews = popularNewsData.slice(0, 3).map((article: any) => ({
+    // 4. 주요 뉴스 (관리자 선택 뉴스 우선)
+    if (curatedNews.length > 0) {
+        const adminNews = curatedNews
+          .sort((a, b) => a.priority - b.priority)
+          .slice(0, 3)
+          .map((news: any) => ({
+            id: news.id,
+            title: news.title,
+            description: news.description,
+            image: news.image_url || '/images/news-placeholder.jpg',
+            category: news.category || '뉴스',
+            source: news.source_name,
+            publishedAt: news.created_at
+          }))
+        
+        slides.push({
+          id: 'news-curated',
+          type: 'news',
+          priority: 1500, // 관리자 선택 뉴스는 높은 우선순위
+          data: adminNews
+        })
+    } else if (!hasAdminContent && popularNewsData && popularNewsData.length > 0) {
+        // 관리자 콘텐츠가 없을 때만 인기 뉴스 사용
+        const topNews = popularNewsData.slice(0, 3).map((article: any) => ({
         id: article.id,
         title: article.title,
         description: article.description,
@@ -599,15 +733,16 @@ export default function HomePage() {
         publishedAt: article.published_at
       }))
       
-      slides.push({
-        id: 'news-main',
-        type: 'news',
-        priority: 700,
-        data: topNews
-      })
+        slides.push({
+          id: 'news-main',
+          type: 'news',
+          priority: 700,
+          data: topNews
+        })
     }
     
-    // 5. 리그 순위 통계 (여러 리그 순위)
+    // 5. 리그 순위 통계 (관리자 콘텐츠가 없을 때만)
+    if (!hasAdminContent) {
     const standingsSlides = []
     
     // 프리미어리그 순위
@@ -652,30 +787,31 @@ export default function HomePage() {
       })
     }
     
-    // 순위 슬라이드 중 하나를 랜덤하게 선택하거나 순차적으로 추가
-    if (standingsSlides.length > 0 && slides.length < 5) {
-      // 가장 높은 우선순위의 순위 슬라이드 추가
-      slides.push(standingsSlides[0])
-    }
+      // 순위 슬라이드 중 하나를 랜덤하게 선택하거나 순차적으로 추가
+      if (standingsSlides.length > 0 && slides.length < 5) {
+        // 가장 높은 우선순위의 순위 슬라이드 추가
+        slides.push(standingsSlides[0])
+      }
     
-    // 6. 프로모션/앱 홍보
-    if (slides.length < 5 && !isAuthenticated) {
-      slides.push({
-        id: 'promo-app',
-        type: 'promotion',
-        priority: 500,
-        data: {
-          title: '모든 축구 정보를 한 곳에서',
-          description: '로그인하고 좋아하는 팀을 팔로우하여 개인화된 콘텐츠를 받아보세요',
-          buttonText: '지금 시작하기',
-          features: [
-            { icon: Activity, label: '실시간 경기' },
-            { icon: TrendingUp, label: '이적시장' },
-            { icon: Users, label: '커뮤니티' }
-          ]
-        }
-      })
-    }
+      // 6. 프로모션/앱 홍보
+      if (slides.length < 5 && !isAuthenticated) {
+        slides.push({
+          id: 'promo-app',
+          type: 'promotion',
+          priority: 500,
+          data: {
+            title: '모든 축구 정보를 한 곳에서',
+            description: '로그인하고 좋아하는 팀을 팔로우하여 개인화된 콘텐츠를 받아보세요',
+            buttonText: '지금 시작하기',
+            features: [
+              { icon: Activity, label: '실시간 경기' },
+              { icon: TrendingUp, label: '이적시장' },
+              { icon: Users, label: '커뮤니티' }
+            ]
+          }
+        })
+      }
+    } // if (!hasAdminContent) for stats and promo
     
     // 최대 6개로 제한하고 우선순위로 정렬
     // 우선순위: 라이브 빅매치(1000+) > 라이벌전(950) > 예정 빅매치(850) > 순위(650) > 뉴스(700) > 프로모션(500)
@@ -698,7 +834,7 @@ export default function HomePage() {
       })
       .slice(0, 6)
   }, [liveMatches, todayFixtures, upcomingBigMatches, personalizedFixtures, preferences, isAuthenticated, 
-      popularNewsData, premierStandings, laLigaStandings, serieAStandings])
+      popularNewsData, premierStandings, laLigaStandings, serieAStandings, featuredMatches, curatedNews, realFeaturedMatchData])
   
   // 오늘의 경기 목록 (실시간, 예정, 완료)
   const todayMatches = useMemo(() => {

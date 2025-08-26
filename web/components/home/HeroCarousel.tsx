@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { formatDistanceToNow } from 'date-fns'
 import { ko } from 'date-fns/locale'
+import { formatMatchTime, formatRelativeTime, formatVenue } from '@/lib/utils/timezone'
 
 interface HeroMatch {
   fixture: any
@@ -197,16 +198,10 @@ export function HeroCarousel({
                 ) : (
                   <div>
                     <div className="text-2xl md:text-3xl font-bold text-white">
-                      {new Date(currentMatch.fixture.date).toLocaleTimeString('ko-KR', {
-                        hour: '2-digit',
-                        minute: '2-digit'
-                      })}
+                      {formatMatchTime(currentMatch.fixture.date)}
                     </div>
                     <div className="text-sm text-white/60 mt-1">
-                      {formatDistanceToNow(new Date(currentMatch.fixture.date), {
-                        addSuffix: true,
-                        locale: ko
-                      })}
+                      {formatRelativeTime(currentMatch.fixture.date)}
                     </div>
                   </div>
                 )}
@@ -237,7 +232,7 @@ export function HeroCarousel({
               <div className="flex items-center gap-4 text-sm text-white/70">
                 <div className="flex items-center gap-1">
                   <MapPin className="w-4 h-4" />
-                  <span>{currentMatch.fixture.venue?.name || '경기장 정보 없음'}</span>
+                  <span>{formatVenue(currentMatch.fixture.venue)}</span>
                 </div>
                 {currentMatch.fixture.venue?.city && (
                   <span>• {currentMatch.fixture.venue.city}</span>

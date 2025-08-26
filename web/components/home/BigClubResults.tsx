@@ -383,7 +383,8 @@ export function BigClubResults() {
                       alt="EPL" 
                       width={20} 
                       height={20} 
-                      className="w-full h-full object-contain"
+                      className="object-contain"
+                      style={{ width: 'auto', height: 'auto', maxWidth: '100%', maxHeight: '100%' }}
                     />
                   </div>
                   <span>Premier League</span>
@@ -398,7 +399,8 @@ export function BigClubResults() {
                       alt="La Liga" 
                       width={20} 
                       height={20} 
-                      className="w-full h-full object-contain"
+                      className="object-contain"
+                      style={{ width: 'auto', height: 'auto', maxWidth: '100%', maxHeight: '100%' }}
                     />
                   </div>
                   <span>La Liga</span>
@@ -413,7 +415,8 @@ export function BigClubResults() {
                       alt="Bundesliga" 
                       width={20} 
                       height={20} 
-                      className="w-full h-full object-contain"
+                      className="object-contain"
+                      style={{ width: 'auto', height: 'auto', maxWidth: '100%', maxHeight: '100%' }}
                     />
                   </div>
                   <span>Bundesliga</span>
@@ -428,7 +431,8 @@ export function BigClubResults() {
                       alt="Serie A" 
                       width={20} 
                       height={20} 
-                      className="w-full h-full object-contain"
+                      className="object-contain"
+                      style={{ width: 'auto', height: 'auto', maxWidth: '100%', maxHeight: '100%' }}
                     />
                   </div>
                   <span>Serie A</span>
@@ -443,7 +447,8 @@ export function BigClubResults() {
                       alt="Ligue 1" 
                       width={20} 
                       height={20} 
-                      className="w-full h-full object-contain"
+                      className="object-contain"
+                      style={{ width: 'auto', height: 'auto', maxWidth: '100%', maxHeight: '100%' }}
                     />
                   </div>
                   <span>Ligue 1</span>

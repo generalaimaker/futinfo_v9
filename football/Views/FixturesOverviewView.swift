@@ -802,6 +802,18 @@ struct FixturesOverviewView: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     HStack(spacing: 16) {
+                        #if DEBUG
+                        // 디버그 테스트 버튼
+                        Button(action: {
+                            Task {
+                                await TestFixtureLoader.shared.testFixtureLoading()
+                            }
+                        }) {
+                            Image(systemName: "ladybug")
+                                .foregroundColor(.orange)
+                        }
+                        #endif
+                        
                         // 캘린더 버튼
                         Button(action: {
                             showCalendarPicker = true

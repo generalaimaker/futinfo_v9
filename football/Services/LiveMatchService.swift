@@ -164,12 +164,12 @@ class LiveMatchService {
     /// - Returns: 라이브 경기 목록
     func getLiveMatches() async throws -> [Fixture] {
         // 🔥 라이브 경기는 항상 실시간 데이터
-        let response: FixturesResponse = try await apiService.performRequest(
-            endpoint: "fixtures",
-            parameters: ["live": "all"],
-            cachePolicy: .veryShort,  // 매우 짧은 캐시 (5초)
-            forceRefresh: true   // 항상 새 데이터
-        )
+        // performRequest가 private이므로 오늘 날짜의 경기를 가져와서 라이브만 필터링
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-dd"
+        let today = dateFormatter.string(from: Date())
+        
+        let response = try await apiService.fetchFixtures(date: today)
         
         print("✅ 라이브 경기 API 응답: \(response.response.count)개")
         
@@ -192,14 +192,14 @@ class LiveMatchService {
     /// - Parameter fixtureId: 경기 ID
     /// - Returns: 경기 상세 정보
     func getLiveMatchDetails(fixtureId: Int) async throws -> Fixture {
-        let response: FixturesResponse = try await apiService.performRequest(
-            endpoint: "fixtures",
-            parameters: ["id": String(fixtureId)],
-            cachePolicy: .veryShort,
-            forceRefresh: true
-        )
+        // performRequest가 private이므로 오늘 날짜 경기에서 찾기
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-dd"
+        let today = dateFormatter.string(from: Date())
         
-        guard let fixture = response.response.first else {
+        let response = try await apiService.fetchFixtures(date: today)
+        
+        guard let fixture = response.response.first(where: { $0.fixture.id == fixtureId }) else {
             throw FootballAPIError.apiError(["경기 정보를 찾을 수 없습니다."])
         }
         
@@ -211,12 +211,8 @@ class LiveMatchService {
     /// - Parameter fixtureId: 경기 ID
     /// - Returns: 경기 이벤트 목록
     func getLiveMatchEvents(fixtureId: Int) async throws -> [FixtureEvent] {
-        let response: FixtureEventResponse = try await apiService.performRequest(
-            endpoint: "fixtures/events",
-            parameters: ["fixture": String(fixtureId)],
-            cachePolicy: .veryShort,
-            forceRefresh: true
-        )
+        // performRequest가 private이므로 fetchFixtureEvents 사용
+        let response = try await apiService.fetchFixtureEvents(fixtureId: fixtureId)
         
         print("✅ 라이브 경기 ID \(fixtureId) 이벤트 \(response.response.count)개 조회 성공")
         return response.response
@@ -226,12 +222,8 @@ class LiveMatchService {
     /// - Parameter fixtureId: 경기 ID
     /// - Returns: 경기 통계 정보
     func getLiveMatchStatistics(fixtureId: Int) async throws -> [TeamStatistics] {
-        let response: FixtureStatisticsResponse = try await apiService.performRequest(
-            endpoint: "fixtures/statistics",
-            parameters: ["fixture": String(fixtureId)],
-            cachePolicy: .veryShort,
-            forceRefresh: true
-        )
+        // performRequest가 private이므로 fetchFixtureStatistics 사용
+        let response = try await apiService.fetchFixtureStatistics(fixtureId: fixtureId)
         
         print("✅ 라이브 경기 ID \(fixtureId) 통계 정보 조회 성공")
         return response.response

@@ -9,6 +9,7 @@ import { formatDistanceToNow } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import { usePersonalizedNews } from '@/lib/supabase/cached-news'
 import { motion, AnimatePresence } from 'framer-motion'
+import { NewsItemCard } from './NewsItemCard'
 
 interface NewsSectionProps {
   className?: string
@@ -21,11 +22,6 @@ export function NewsSection({ className }: NewsSectionProps) {
   })
 
   const articles = (data as any)?.articles || []
-  
-  // 번역된 제목 우선 사용
-  const getLocalizedTitle = (article: any) => {
-    return article.translations?.ko?.title || article.title
-  }
 
   return (
     <Card className={cn("relative overflow-hidden border-0 rounded-3xl shadow-2xl", className)}>
@@ -111,61 +107,11 @@ export function NewsSection({ className }: NewsSectionProps) {
                 className="space-y-2"
               >
                 {articles.slice(0, 5).map((article: any, index: number) => (
-                  <motion.a
+                  <NewsItemCard 
                     key={article.id}
-                    href={article.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: index * 0.05, duration: 0.3 }}
-                    className="block"
-                  >
-                    <div className={cn(
-                      "group relative p-4 rounded-2xl transition-all duration-300",
-                      "bg-white/80 dark:bg-gray-800/40 backdrop-blur-xl",
-                      "border border-gray-200/50 dark:border-gray-700/30",
-                      "hover:bg-white dark:hover:bg-gray-800/60",
-                      "hover:shadow-lg hover:shadow-gray-200/30 dark:hover:shadow-black/20",
-                      "hover:border-gray-300/50 dark:hover:border-gray-600/30",
-                      "hover:-translate-y-0.5"
-                    )}>
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex-1 min-w-0">
-                          <h4 className="font-semibold text-sm text-gray-900 dark:text-gray-100 line-clamp-2 group-hover:text-primary transition-colors mb-2">
-                            {getLocalizedTitle(article)}
-                          </h4>
-                          <div className="flex items-center gap-3 text-xs">
-                            <div className="flex items-center gap-1.5">
-                              <Globe className="w-3 h-3 text-gray-400" />
-                              <span className="text-gray-600 dark:text-gray-400 font-medium">{article.source}</span>
-                            </div>
-                            <span className="text-gray-400">•</span>
-                            <div className="flex items-center gap-1.5">
-                              <Clock className="w-3 h-3 text-gray-400" />
-                              <span className="text-gray-600 dark:text-gray-400">
-                                {article.published_at && formatDistanceToNow(new Date(article.published_at), { 
-                                  addSuffix: true, 
-                                  locale: ko 
-                                })}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="p-2 rounded-xl bg-gray-50 dark:bg-gray-800/80 border border-gray-200/50 dark:border-gray-700/50 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <ExternalLink className="w-4 h-4 text-gray-500 dark:text-gray-400" />
-                        </div>
-                      </div>
-                      
-                      {/* 호버 시 나타나는 장식 요소 */}
-                      <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <div className="relative">
-                          <div className="absolute inset-0 bg-gradient-to-br from-green-400 to-blue-500 blur opacity-60" />
-                          <Sparkles className="relative w-3 h-3 text-white" />
-                        </div>
-                      </div>
-                    </div>
-                  </motion.a>
+                    article={article}
+                    index={index}
+                  />
                 ))}
               </motion.div>
             )}

@@ -90,6 +90,10 @@ class LeagueFollowService: ObservableObject {
     
     // 팔로우한 리그 중 활성화된 리그 ID 목록 (시즌별)
     func getActiveLeagueIds(for date: Date = Date()) -> [Int] {
+        // 주요 리그만 반환 (유럽 5대 리그 + 챔피언스리그 + 유로파리그)
+        return [39, 140, 135, 78, 61, 2, 3]
+        
+        /*
         let calendar = Calendar.current
         let month = calendar.component(.month, from: date)
         
@@ -155,6 +159,7 @@ class LeagueFollowService: ObservableObject {
         }
         
         return activeLeagues
+        */
     }
     
     // 카테고리별로 그룹화된 팔로우하지 않은 리그 목록

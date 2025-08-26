@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react'
 import Image from 'next/image'
+import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -62,19 +63,30 @@ function ModernTimelineEvent({ event, isHome, homeTeam, awayTeam }: any) {
             {isSubstitution ? (
               <div className="space-y-1">
                 <div className="flex items-center gap-2 justify-end">
-                  <span className="text-sm text-green-600 font-medium">{playerIn}</span>
+                  <Link href={`/players/${event.assist?.id}`}>
+                    <span className="text-sm text-green-600 font-medium hover:underline cursor-pointer">{playerIn}</span>
+                  </Link>
                   <ArrowRight className="w-4 h-4 text-green-600" />
                 </div>
                 <div className="flex items-center gap-2 justify-end">
                   <ArrowLeft className="w-4 h-4 text-red-600" />
-                  <span className="text-sm text-red-600 font-medium">{playerOut}</span>
+                  <Link href={`/players/${event.player?.id}`}>
+                    <span className="text-sm text-red-600 font-medium hover:underline cursor-pointer">{playerOut}</span>
+                  </Link>
                 </div>
               </div>
             ) : (
               <div>
-                <p className="text-sm font-medium">{event.player?.name}</p>
+                <Link href={`/players/${event.player?.id}`}>
+                  <p className="text-sm font-medium hover:text-primary cursor-pointer">{event.player?.name}</p>
+                </Link>
                 {event.assist?.name && (
-                  <p className="text-xs text-gray-500">assist by {event.assist.name}</p>
+                  <p className="text-xs text-gray-500">
+                    assist by{' '}
+                    <Link href={`/players/${event.assist?.id}`}>
+                      <span className="hover:text-primary cursor-pointer hover:underline">{event.assist.name}</span>
+                    </Link>
+                  </p>
                 )}
               </div>
             )}
@@ -109,18 +121,29 @@ function ModernTimelineEvent({ event, isHome, homeTeam, awayTeam }: any) {
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
                   <ArrowLeft className="w-4 h-4 text-green-600" />
-                  <span className="text-sm text-green-600 font-medium">{playerIn}</span>
+                  <Link href={`/players/${event.assist?.id}`}>
+                    <span className="text-sm text-green-600 font-medium hover:underline cursor-pointer">{playerIn}</span>
+                  </Link>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-sm text-red-600 font-medium">{playerOut}</span>
+                  <Link href={`/players/${event.player?.id}`}>
+                    <span className="text-sm text-red-600 font-medium hover:underline cursor-pointer">{playerOut}</span>
+                  </Link>
                   <ArrowRight className="w-4 h-4 text-red-600" />
                 </div>
               </div>
             ) : (
               <div>
-                <p className="text-sm font-medium">{event.player?.name}</p>
+                <Link href={`/players/${event.player?.id}`}>
+                  <p className="text-sm font-medium hover:text-primary cursor-pointer">{event.player?.name}</p>
+                </Link>
                 {event.assist?.name && (
-                  <p className="text-xs text-gray-500">assist by {event.assist.name}</p>
+                  <p className="text-xs text-gray-500">
+                    assist by{' '}
+                    <Link href={`/players/${event.assist?.id}`}>
+                      <span className="hover:text-primary cursor-pointer hover:underline">{event.assist.name}</span>
+                    </Link>
+                  </p>
                 )}
               </div>
             )}

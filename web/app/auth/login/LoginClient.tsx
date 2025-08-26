@@ -109,13 +109,13 @@ export default function LoginClient() {
         {/* 왼쪽: 로그인 폼 */}
         <div className="order-2 lg:order-1">
           <Card className="border-0 shadow-2xl">
-            <CardContent className="p-8">
+            <CardContent className="p-6 lg:p-8">
               <div className="mb-8">
                 <Link href="/" className="inline-flex items-center space-x-2 mb-6">
-                  <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
-                    <span className="text-white font-bold text-xl">F</span>
+                  <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-blue-600 rounded-lg flex items-center justify-center">
+                    <span className="text-white font-bold text-xl">B</span>
                   </div>
-                  <span className="text-xl font-bold">FutInfo</span>
+                  <span className="text-xl font-bold">Build-UP</span>
                 </Link>
                 
                 <h1 className="text-3xl font-bold text-gray-900 mb-2">
@@ -126,7 +126,7 @@ export default function LoginClient() {
                 </p>
               </div>
 
-              <form onSubmit={handleSubmit} className="space-y-5">
+              <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     이메일
@@ -190,7 +190,7 @@ export default function LoginClient() {
 
                 <Button
                   type="submit"
-                  className="w-full h-12 text-base font-semibold"
+                  className="w-full h-12 text-base font-semibold flex items-center justify-center"
                   disabled={isLoading}
                 >
                   {isLoading ? (
@@ -199,29 +199,31 @@ export default function LoginClient() {
                       로그인 중...
                     </>
                   ) : (
-                    <>
-                      로그인
+                    <div className="flex items-center justify-center w-full">
+                      <span>로그인</span>
                       <ArrowRight className="ml-2 h-5 w-5" />
-                    </>
+                    </div>
                   )}
                 </Button>
 
-                <div className="relative my-6">
-                  <div className="absolute inset-0 flex items-center">
-                    <div className="w-full border-t border-gray-300"></div>
-                  </div>
-                  <div className="relative flex justify-center text-sm">
-                    <span className="px-2 bg-white text-gray-500">또는</span>
-                  </div>
+              </form>
+              
+              <div className="relative my-4">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-gray-200"></div>
                 </div>
+                <div className="relative flex justify-center text-sm">
+                  <span className="px-3 bg-white text-gray-500">또는</span>
+                </div>
+              </div>
 
-                {/* 소셜 로그인 버튼들 */}
-                <div className="space-y-3">
+              {/* 소셜 로그인 버튼들 */}
+              <div className="space-y-2">
                   {/* Google 로그인 */}
                   <Button
                     type="button"
                     variant="outline"
-                    className="w-full h-12 text-base font-medium"
+                    className="w-full h-12 text-base font-medium flex items-center justify-center hover:bg-gray-50"
                     onClick={handleGoogleSignIn}
                     disabled={isLoading}
                   >
@@ -250,7 +252,7 @@ export default function LoginClient() {
                   <Button
                     type="button"
                     variant="outline"
-                    className="w-full h-12 text-base font-medium bg-black text-white hover:bg-gray-900"
+                    className="w-full h-12 text-base font-medium bg-black text-white hover:bg-gray-900 border-black flex items-center justify-center"
                     onClick={handleAppleSignIn}
                     disabled={isLoading}
                   >
@@ -261,15 +263,14 @@ export default function LoginClient() {
                   </Button>
                 </div>
 
-                <div className="text-center">
-                  <p className="text-gray-600">
-                    아직 계정이 없으신가요?{' '}
-                    <Link href="/auth/register" className="text-blue-600 hover:underline font-semibold">
-                      회원가입
-                    </Link>
-                  </p>
-                </div>
-              </form>
+              <div className="text-center mt-4 pt-4">
+                <p className="text-gray-600 text-sm">
+                  아직 계정이 없으신가요?{' '}
+                  <Link href="/auth/register" className="text-blue-600 hover:underline font-medium">
+                    회원가입
+                  </Link>
+                </p>
+              </div>
             </CardContent>
           </Card>
         </div>
@@ -324,10 +325,10 @@ export default function LoginClient() {
             </div>
           </div>
 
-          <div className="mt-8 p-6 bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl">
+          <div className="mt-8 p-6 bg-gradient-to-r from-green-50 to-blue-50 rounded-xl">
             <p className="text-sm text-gray-700">
               <span className="font-semibold">12,500+</span> 명의 축구 팬들이<br />
-              매일 FutInfo에서 열정을 나누고 있습니다
+              매일 Build-UP에서 열정을 나누고 있습니다
             </p>
           </div>
         </div>

@@ -1,382 +1,63 @@
 'use client'
 
-import { useState } from 'react'
-import Image from 'next/image'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
+import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { useState } from 'react'
 import { cn } from '@/lib/utils'
-import { Users, Star, TrendingUp, ChevronRight } from 'lucide-react'
+import Image from 'next/image'
+import Link from 'next/link'
+import { Users, List } from 'lucide-react'
+import { getPosition } from './formation-positions'
+import { getTeamColor } from '@/lib/data/team-colors'
+
+// 포지션별 선수 위치 계산 (pos 기반)
+function getPositionByRole(pos: string, posIndex: number, totalInPosition: number, isHome: boolean) {
+  // 기본 X 위치 설정
+  const xPositions: { [key: string]: number } = {
+    'G': isHome ? 5 : 95,
+    'D': isHome ? 15 : 85,
+    'M': isHome ? 28 : 72,
+    'F': isHome ? 42 : 58
+  }
+  
+  // Y 위치 계산 (포지션별 선수 수에 따라 동적으로)
+  const calculateYPositions = (count: number): number[] => {
+    if (count === 1) return [50]
+    if (count === 2) return [35, 65]
+    if (count === 3) return [25, 50, 75]
+    if (count === 4) return [12, 35, 65, 88]
+    if (count === 5) return [5, 28, 50, 72, 95]
+    // 6명 이상일 때
+    const positions = []
+    const spacing = 90 / (count + 1)
+    for (let i = 1; i <= count; i++) {
+      positions.push(5 + spacing * i)
+    }
+    return positions
+  }
+  
+  const xPos = xPositions[pos] || xPositions['M']
+  const yPositions = calculateYPositions(totalInPosition)
+  const yPos = yPositions[posIndex] || 50
+  
+  return {
+    x: xPos,
+    y: yPos
+  }
+}
 
 interface LineupHorizontalProps {
   lineups: any[]
   events?: any[]
-  players?: any[]
 }
 
-// 포메이션 문자열을 기반으로 포지션 할당
-function assignPositionsByFormation(players: any[], formation: string) {
-  const groups: { [key: string]: any[] } = {
-    GK: [],
-    DEF: [],
-    MID: [],
-    ATT: []
-  }
+export function LineupHorizontal({ lineups, events = [] }: LineupHorizontalProps) {
+  const [viewMode, setViewMode] = useState<'visual' | 'list'>('visual')
   
-  // 포메이션 파싱 (예: "4-3-3", "3-4-2-1", "4-4-2" 등)
-  const formationParts = formation.split('-').map(Number)
-  let playerIndex = 0
-  
-  // 첫 번째 선수는 항상 골키퍼
-  if (players[playerIndex]) {
-    groups.GK.push(players[playerIndex])
-    playerIndex++
-  }
-  
-  // 수비수
-  const defCount = formationParts[0] || 0
-  for (let i = 0; i < defCount && playerIndex < players.length; i++) {
-    groups.DEF.push(players[playerIndex])
-    playerIndex++
-  }
-  
-  // 미드필더 (포메이션에 따라 다르게 처리)
-  if (formationParts.length === 3) {
-    // 4-4-2, 4-3-3 등 3파트 포메이션
-    const midCount = formationParts[1] || 0
-    for (let i = 0; i < midCount && playerIndex < players.length; i++) {
-      groups.MID.push(players[playerIndex])
-      playerIndex++
-    }
-    
-    // 공격수
-    const attCount = formationParts[2] || 0
-    for (let i = 0; i < attCount && playerIndex < players.length; i++) {
-      groups.ATT.push(players[playerIndex])
-      playerIndex++
-    }
-  } else if (formationParts.length === 4) {
-    // 4-2-3-1, 3-4-2-1 등 4파트 포메이션
-    const mid1Count = formationParts[1] || 0
-    const mid2Count = formationParts[2] || 0
-    
-    // 미드필더 전체
-    for (let i = 0; i < mid1Count + mid2Count && playerIndex < players.length; i++) {
-      groups.MID.push(players[playerIndex])
-      playerIndex++
-    }
-    
-    // 공격수
-    const attCount = formationParts[3] || 0
-    for (let i = 0; i < attCount && playerIndex < players.length; i++) {
-      groups.ATT.push(players[playerIndex])
-      playerIndex++
-    }
-  }
-  
-  return groups
-}
-
-// 선수 카드 컴포넌트
-function PlayerCard({ player, events = [], isHome, positionLabel }: any) {
-  const playerInfo = player.player || player
-  const number = player.number || playerInfo.number || '-'
-  const rating = player.statistics?.[0]?.games?.rating || null
-  const playerName = playerInfo.name || 'Unknown'
-  
-  // 이벤트 정보
-  const playerId = playerInfo.id
-  const goals = playerId ? events.filter((e: any) => e.type === 'Goal' && e.player?.id === playerId).length : 0
-  const assists = playerId ? events.filter((e: any) => e.type === 'Goal' && e.assist?.id === playerId).length : 0
-  const cards = playerId ? events.filter((e: any) => e.type === 'Card' && e.player?.id === playerId) : []
-  const yellowCards = cards.filter((c: any) => c.detail === 'Yellow Card').length
-  const redCards = cards.filter((c: any) => c.detail === 'Red Card').length
-  const subOut = playerId ? events.find((e: any) => e.type === 'subst' && e.player?.id === playerId) : null
-  
-  // 평점에 따른 색상
-  const getRatingColor = (rating: number) => {
-    if (rating >= 8.5) return 'bg-purple-500 text-white'
-    if (rating >= 8) return 'bg-green-500 text-white'
-    if (rating >= 7) return 'bg-blue-500 text-white'
-    if (rating >= 6) return 'bg-gray-600 text-white'
-    if (rating >= 5) return 'bg-orange-500 text-white'
-    return 'bg-red-500 text-white'
-  }
-  
-  return (
-    <div className={cn(
-      "flex flex-col items-center p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors relative",
-      subOut && "opacity-70"
-    )}>
-      {/* 평점 */}
-      {rating && (
-        <div className={cn(
-          "absolute -top-1 -right-1 z-10 w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shadow-lg",
-          getRatingColor(parseFloat(rating))
-        )}>
-          {parseFloat(rating).toFixed(1)}
-        </div>
-      )}
-      
-      {/* 포지션 라벨 */}
-      <span className="text-xs text-gray-500 mb-1">{positionLabel}</span>
-      
-      {/* 선수 사진/번호 */}
-      <div className="relative mb-2">
-        {playerInfo.photo ? (
-          <div className="relative">
-            <Image
-              src={playerInfo.photo}
-              alt={playerName}
-              width={56}
-              height={56}
-              className={cn(
-                "rounded-full border-2",
-                isHome ? "border-blue-500" : "border-red-500"
-              )}
-            />
-            <div className={cn(
-              "absolute -bottom-1 -right-1 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white",
-              isHome ? "bg-blue-600" : "bg-red-600"
-            )}>
-              {number}
-            </div>
-          </div>
-        ) : (
-          <div className={cn(
-            "w-14 h-14 rounded-full flex items-center justify-center font-bold text-white text-lg",
-            isHome ? "bg-blue-500" : "bg-red-500"
-          )}>
-            {number}
-          </div>
-        )}
-      </div>
-      
-      {/* 이벤트 아이콘 */}
-      <div className="flex gap-1 mb-1">
-        {goals > 0 && (
-          <span className="text-xs">⚽{goals > 1 && ` ${goals}`}</span>
-        )}
-        {assists > 0 && (
-          <span className="text-xs">🅰️{assists > 1 && ` ${assists}`}</span>
-        )}
-        {yellowCards > 0 && (
-          <span className="text-xs">🟨</span>
-        )}
-        {redCards > 0 && (
-          <span className="text-xs">🟥</span>
-        )}
-        {subOut && (
-          <span className="text-xs text-orange-500">{subOut.time.elapsed}'</span>
-        )}
-      </div>
-      
-      {/* 선수 이름 */}
-      <p className="text-xs font-medium text-center truncate max-w-[80px]">
-        {playerName.split(' ').pop()}
-      </p>
-    </div>
-  )
-}
-
-// 포지션 그룹 컴포넌트 - 포메이션에 맞게 선수 배치
-function PositionGroup({ players, label, events, isHome, bgColor, formation }: any) {
-  if (players.length === 0) return null
-  
-  // 포메이션에 따른 선수 배치 스타일 결정
-  const getPlayerArrangement = () => {
-    const playerCount = players.length
-    
-    // 골키퍼는 항상 중앙에 하나
-    if (label === 'GK') {
-      return 'flex flex-col items-center justify-center'
-    }
-    
-    // 포메이션별 배치
-    switch(playerCount) {
-      case 1:
-        return 'flex flex-col items-center justify-center'
-      case 2:
-        return 'flex flex-col justify-around py-4'
-      case 3:
-        // 3명일 때: 1-1-1 수직 배치 또는 삼각형
-        return 'flex flex-col justify-around py-2'
-      case 4:
-        // 4명일 때: 2-2 배치
-        return 'grid grid-rows-2 grid-cols-2 gap-1 py-2'
-      case 5:
-        // 5명일 때: 2-1-2 배치
-        return 'flex flex-col justify-around py-2'
-      default:
-        return 'flex flex-col gap-1'
-    }
-  }
-  
-  // 특수 배치가 필요한 경우 (3명 또는 5명)
-  const renderSpecialArrangement = () => {
-    if (players.length === 3) {
-      // 3명: 위-중간-아래
-      return (
-        <div className="flex flex-col justify-between h-full py-4">
-          <PlayerCard
-            player={players[0]}
-            events={events}
-            isHome={isHome}
-            positionLabel={`${label} 1`}
-          />
-          <PlayerCard
-            player={players[1]}
-            events={events}
-            isHome={isHome}
-            positionLabel={`${label} 2`}
-          />
-          <PlayerCard
-            player={players[2]}
-            events={events}
-            isHome={isHome}
-            positionLabel={`${label} 3`}
-          />
-        </div>
-      )
-    }
-    
-    if (players.length === 5) {
-      // 5명: 2-1-2 배치
-      return (
-        <div className="flex flex-col justify-between h-full py-2 gap-1">
-          <div className="flex justify-around">
-            <PlayerCard
-              player={players[0]}
-              events={events}
-              isHome={isHome}
-              positionLabel={`${label} 1`}
-            />
-            <PlayerCard
-              player={players[1]}
-              events={events}
-              isHome={isHome}
-              positionLabel={`${label} 2`}
-            />
-          </div>
-          <div className="flex justify-center">
-            <PlayerCard
-              player={players[2]}
-              events={events}
-              isHome={isHome}
-              positionLabel={`${label} 3`}
-            />
-          </div>
-          <div className="flex justify-around">
-            <PlayerCard
-              player={players[3]}
-              events={events}
-              isHome={isHome}
-              positionLabel={`${label} 4`}
-            />
-            <PlayerCard
-              player={players[4]}
-              events={events}
-              isHome={isHome}
-              positionLabel={`${label} 5`}
-            />
-          </div>
-        </div>
-      )
-    }
-    
-    return null
-  }
-  
-  const specialArrangement = renderSpecialArrangement()
-  if (specialArrangement) {
+  if (!lineups || lineups.length < 2) {
     return (
-      <div className={cn("flex flex-col min-w-[120px]", bgColor)}>
-        <div className="text-xs font-bold text-center text-gray-600 dark:text-gray-400 mb-2 px-2">
-          {label}
-        </div>
-        <div className="flex-1">
-          {specialArrangement}
-        </div>
-      </div>
-    )
-  }
-  
-  return (
-    <div className={cn("flex flex-col min-w-[120px]", bgColor)}>
-      <div className="text-xs font-bold text-center text-gray-600 dark:text-gray-400 mb-2 px-2">
-        {label}
-      </div>
-      <div className={cn("flex-1", getPlayerArrangement())}>
-        {players.map((player: any, idx: number) => (
-          <PlayerCard
-            key={idx}
-            player={player}
-            events={events}
-            isHome={isHome}
-            positionLabel={`${label} ${idx + 1}`}
-          />
-        ))}
-      </div>
-    </div>
-  )
-}
-
-// 교체 선수 섹션
-function SubstitutesSection({ substitutes, events, isHome }: any) {
-  return (
-    <div className="mt-4">
-      <h4 className="text-xs font-bold text-gray-600 dark:text-gray-400 mb-2">교체 선수</h4>
-      <div className="flex flex-wrap gap-2">
-        {substitutes.map((player: any, idx: number) => {
-          const playerInfo = player.player || player
-          const number = player.number || playerInfo.number || '-'
-          const rating = player.statistics?.[0]?.games?.rating || null
-          const subEvent = events?.find((e: any) => 
-            e.type === 'subst' && e.assist?.id === playerInfo.id
-          )
-          
-          return (
-            <div 
-              key={idx}
-              className={cn(
-                "flex items-center gap-2 px-2 py-1 rounded-lg bg-gray-50 dark:bg-gray-800",
-                subEvent && "ring-1 ring-green-500/50"
-              )}
-            >
-              <span className={cn(
-                "text-xs font-bold w-6 h-6 rounded-full flex items-center justify-center text-white",
-                isHome ? "bg-blue-500" : "bg-red-500"
-              )}>
-                {number}
-              </span>
-              <span className="text-xs font-medium">{playerInfo.name?.split(' ').pop()}</span>
-              {subEvent && (
-                <span className="text-xs text-green-600">
-                  {subEvent.time.elapsed}'
-                </span>
-              )}
-              {rating && (
-                <Badge variant="outline" className="text-xs h-5">
-                  {parseFloat(rating).toFixed(1)}
-                </Badge>
-              )}
-            </div>
-          )
-        })}
-      </div>
-    </div>
-  )
-}
-
-export function LineupHorizontal({ lineups, events = [], players = [] }: LineupHorizontalProps) {
-  const [showSubstitutes, setShowSubstitutes] = useState(false)
-  
-  if (!lineups || lineups.length === 0) {
-    return (
-      <Card>
-        <CardContent className="p-6">
-          <p className="text-center text-muted-foreground">라인업 정보가 없습니다.</p>
-        </CardContent>
+      <Card className="p-6">
+        <p className="text-center text-muted-foreground">라인업 정보가 없습니다</p>
       </Card>
     )
   }
@@ -384,32 +65,593 @@ export function LineupHorizontal({ lineups, events = [], players = [] }: LineupH
   const homeTeam = lineups[0]
   const awayTeam = lineups[1]
   
-  // 포지션별로 선수 그룹화
-  const homeGroups = assignPositionsByFormation(homeTeam.startXI, homeTeam.formation)
-  const awayGroups = assignPositionsByFormation(awayTeam.startXI, awayTeam.formation)
+  // 포지션별 선수 카운팅 (pos 기반 배치를 위해)
+  const countPlayersByPosition = (team: any) => {
+    const counts: { [key: string]: number } = { 'G': 0, 'D': 0, 'M': 0, 'F': 0 }
+    team.startXI?.forEach((player: any) => {
+      const pos = player.player?.pos
+      if (pos && counts[pos] !== undefined) {
+        counts[pos]++
+      }
+    })
+    return counts
+  }
+  
+  const homePositionCounts = countPlayersByPosition(homeTeam)
+  const awayPositionCounts = countPlayersByPosition(awayTeam)
+  
+  
+  // 팀 컬러 가져오기
+  const homeTeamColor = getTeamColor(homeTeam.team.id, homeTeam.team.name)
+  const awayTeamColor = getTeamColor(awayTeam.team.id, awayTeam.team.name)
+  
+  // 선수 마커 컴포넌트 (비주얼 뷰)
+  const PlayerMarker = ({ player, isHome, formation, teamColor, index, positionCounts, team }: any) => {
+    // API 데이터 구조: startXI 배열 요소는 {player: {id, name, number, grid, pos}}
+    const playerInfo = player.player || player
+    const number = playerInfo.number || player.number || '?'
+    const name = playerInfo.name || 'Unknown'
+    const playerId = playerInfo.id
+    const pos = playerInfo.pos // 포지션 정보
+    
+    // grid 값 찾기 - API-Football의 경우 player 객체 안에 grid가 있음
+    // grid 형식: "row:col" (예: "1:1" for GK, "2:1" for LB)
+    const grid = playerInfo.grid || player.grid
+    const rating = player.statistics?.[0]?.games?.rating || playerInfo.rating
+    
+    // 이벤트 체크
+    const goals = events.filter((e: any) => e.type === 'Goal' && e.player?.id === playerId).length
+    const assists = events.filter((e: any) => e.type === 'Goal' && e.assist?.id === playerId).length
+    const yellowCards = events.filter((e: any) => e.type === 'Card' && e.detail === 'Yellow Card' && e.player?.id === playerId).length
+    const redCards = events.filter((e: any) => e.type === 'Card' && e.detail === 'Red Card' && e.player?.id === playerId).length
+    const isSubstituted = events.some((e: any) => e.type === 'subst' && e.player?.id === playerId)
+    const substitutionTime = events.find((e: any) => e.type === 'subst' && e.player?.id === playerId)?.time?.elapsed
+    
+    // 포지션별 인덱스 계산
+    const getPosIndex = () => {
+      let posIndex = 0
+      for (let i = 0; i < index; i++) {
+        const p = team.startXI?.[i]?.player
+        if (p?.pos === pos) {
+          posIndex++
+        }
+      }
+      return posIndex
+    }
+    
+    // 포지션 계산 - grid가 있으면 정확한 위치, 없으면 pos 기반 또는 인덱스 기반 폴백
+    let position = { x: isHome ? 25 : 75, y: 50 }
+    
+    if (grid && formation) {
+      // grid 값이 있으면 정확한 포지션 계산
+      position = getPosition(grid, isHome, formation)
+      
+      // 포지션 미세 조정 (선수 겹침 방지)
+      const samePositionPlayers = team.startXI?.filter((p: any, i: number) => {
+        if (i >= index) return false
+        const pGrid = p.player?.grid || p.grid
+        if (!pGrid) return false
+        const pPos = getPosition(pGrid, isHome, formation)
+        // 같은 위치에 있는 선수 확인 (오차 범위 5% 이내)
+        return Math.abs(pPos.x - position.x) < 5 && Math.abs(pPos.y - position.y) < 5
+      })
+      
+      // 겹치는 선수가 있으면 살짝 위치 조정
+      if (samePositionPlayers && samePositionPlayers.length > 0) {
+        position.y += (samePositionPlayers.length * 3) * (index % 2 === 0 ? 1 : -1)
+      }
+    } else if (pos && positionCounts) {
+      // grid가 없지만 pos가 있을 때 포지션별 배치
+      const posIndex = getPosIndex()
+      const totalInPosition = positionCounts[pos] || 1
+      position = getPositionByRole(pos, posIndex, totalInPosition, isHome)
+    } else if (index !== undefined && formation) {
+      // formation만 있을 때 인덱스 기반 폴백
+      const formationParts = formation.split('-').map(Number)
+      
+      // GK
+      if (index === 0) {
+        position = { x: isHome ? 5 : 95, y: 50 }
+      } else {
+        // 필드 플레이어 - 라인별로 구분
+        let currentIndex = 1
+        let lineIndex = -1
+        let posInLine = 0
+        
+        for (let i = 0; i < formationParts.length; i++) {
+          const lineSize = formationParts[i]
+          if (index < currentIndex + lineSize) {
+            lineIndex = i
+            posInLine = index - currentIndex
+            break
+          }
+          currentIndex += lineSize
+        }
+        
+        if (lineIndex >= 0) {
+          const lineSize = formationParts[lineIndex]
+          
+          // X 포지션 (전진 정도)
+          const xPositions = isHome ? [15, 26, 36, 44] : [85, 74, 64, 56]
+          const xPos = xPositions[Math.min(lineIndex, xPositions.length - 1)]
+          
+          // Y 포지션 (좌우 배치)
+          let yPos = 50
+          if (lineSize === 1) {
+            yPos = 50
+          } else if (lineSize === 2) {
+            yPos = posInLine === 0 ? 35 : 65
+          } else if (lineSize === 3) {
+            yPos = [25, 50, 75][posInLine] || 50
+          } else if (lineSize === 4) {
+            yPos = [12, 35, 65, 88][posInLine] || 50
+          } else if (lineSize === 5) {
+            yPos = [5, 28, 50, 72, 95][posInLine] || 50
+          }
+          
+          position = { x: xPos, y: yPos }
+        }
+      }
+    }
+    
+    // 이름 줄이기 (성만 표시)
+    const shortName = name.split(' ').pop() || name
+    
+    return (
+      <Link href={`/players/${playerId}`}>
+        <div
+          className="absolute group cursor-pointer"
+          style={{
+            left: `${position.x}%`,
+            top: `${position.y}%`,
+            transform: 'translate(-50%, -50%)'
+          }}
+        >
+        <div className="flex flex-col items-center gap-0.5 transition-all duration-200 hover:scale-110 hover:z-10">
+          <div 
+            className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm shadow-xl border-2 border-white transition-all hover:shadow-2xl hover:border-yellow-400 hover:scale-110"
+            style={{
+              backgroundColor: teamColor.primary,
+              color: teamColor.text,
+              boxShadow: `0 4px 16px ${teamColor.primary}60, 0 2px 8px rgba(0,0,0,0.2)`
+            }}
+          >
+            {number}
+          </div>
+          <div className="text-[11px] font-bold bg-black/90 text-white px-2.5 py-0.5 rounded-full whitespace-nowrap shadow-lg backdrop-blur-sm hover:bg-black hover:scale-105 transition-all">
+            {shortName}
+          </div>
+          <div className="flex gap-0.5 items-center">
+            {goals > 0 && (
+              <div className="flex items-center">
+                {Array.from({ length: goals }).map((_, i) => (
+                  <span key={i} className="text-[11px]">⚽</span>
+                ))}
+              </div>
+            )}
+            {assists > 0 && (
+              <div className="flex items-center">
+                {Array.from({ length: assists }).map((_, i) => (
+                  <span key={i} className="text-[11px]">🅰️</span>
+                ))}
+              </div>
+            )}
+            {yellowCards > 0 && <span className="text-[11px]">🟨</span>}
+            {redCards > 0 && <span className="text-[11px]">🟥</span>}
+            {isSubstituted && (
+              <div className="flex items-center gap-0.5">
+                <span className="text-[11px]">↔️</span>
+                {substitutionTime && (
+                  <span className="text-[9px] text-red-600 font-bold">{substitutionTime}'</span>
+                )}
+              </div>
+            )}
+          </div>
+          {rating && (
+            <div className={cn(
+              "text-[10px] font-bold px-1.5 py-0.5 rounded-full shadow-md",
+              rating >= 8 ? "bg-green-500 text-white" :
+              rating >= 7 ? "bg-blue-500 text-white" :
+              rating >= 6 ? "bg-yellow-500 text-black" :
+              "bg-red-500 text-white"
+            )}>
+              {rating.toFixed(1)}
+            </div>
+          )}
+        </div>
+        </div>
+      </Link>
+    )
+  }
+  
+  // 리스트 아이템 컴포넌트 (리스트 뷰)
+  const PlayerListItem = ({ player, isHome, teamColor }: any) => {
+    const playerInfo = player.player || player
+    const number = player.number || playerInfo.number || '?'
+    const name = playerInfo.name || 'Unknown'
+    const playerId = playerInfo.id
+    const pos = playerInfo.pos || ''
+    const rating = playerInfo.rating || player.statistics?.[0]?.games?.rating
+    
+    // 이벤트 체크
+    const goals = events.filter((e: any) => e.type === 'Goal' && e.player?.id === playerId).length
+    const assists = events.filter((e: any) => e.type === 'Goal' && e.assist?.id === playerId).length
+    const yellowCards = events.filter((e: any) => e.type === 'Card' && e.detail === 'Yellow Card' && e.player?.id === playerId).length
+    const redCards = events.filter((e: any) => e.type === 'Card' && e.detail === 'Red Card' && e.player?.id === playerId).length
+    const isSubstituted = events.some((e: any) => e.type === 'subst' && e.player?.id === playerId)
+    const substitutionTime = events.find((e: any) => e.type === 'subst' && e.player?.id === playerId)?.time?.elapsed
+    
+    return (
+      <Link href={`/players/${playerId}`}>
+        <div className={cn(
+          "flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer"
+        )}>
+          <div 
+            className="flex items-center justify-center w-8 h-8 rounded-full font-bold text-sm"
+            style={{
+              backgroundColor: teamColor.primary,
+              color: teamColor.text
+            }}
+          >
+            {number}
+          </div>
+          <div className="flex-1">
+            <p className="font-medium text-sm hover:text-primary">{name}</p>
+            {pos && <p className="text-xs text-gray-500">{pos}</p>}
+          </div>
+        {rating && (
+          <div className={cn(
+            "text-xs font-bold px-2 py-1 rounded",
+            rating >= 8 ? "bg-green-500 text-white" :
+            rating >= 7 ? "bg-blue-500 text-white" :
+            rating >= 6 ? "bg-yellow-500 text-black" :
+            "bg-red-500 text-white"
+          )}>
+            {rating.toFixed(1)}
+          </div>
+        )}
+        <div className="flex gap-1 items-center">
+          {goals > 0 && (
+            <div className="flex items-center">
+              {Array.from({ length: goals }).map((_, i) => (
+                <span key={i} className="text-sm">⚽</span>
+              ))}
+            </div>
+          )}
+          {assists > 0 && (
+            <div className="flex items-center">
+              {Array.from({ length: assists }).map((_, i) => (
+                <span key={i} className="text-sm">🅰️</span>
+              ))}
+            </div>
+          )}
+          {yellowCards > 0 && <span className="text-sm">🟨</span>}
+          {redCards > 0 && <span className="text-sm">🟥</span>}
+          {isSubstituted && (
+            <div className="flex items-center gap-1">
+              <span className="text-sm">↔️</span>
+              {substitutionTime && (
+                <span className="text-xs text-red-600 font-semibold">{substitutionTime}'</span>
+              )}
+            </div>
+          )}
+        </div>
+        </div>
+      </Link>
+    )
+  }
   
   return (
-    <div className="space-y-6">
-      {/* 헤더 */}
+    <div className="space-y-4">
+      {/* 뷰 모드 전환 */}
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-bold flex items-center gap-2">
-          <Users className="w-5 h-5" />
+          <Users className="h-5 w-5" />
           라인업
         </h3>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setShowSubstitutes(!showSubstitutes)}
-        >
-          {showSubstitutes ? '선발 라인업' : '교체 선수 보기'}
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            size="sm"
+            variant={viewMode === 'visual' ? 'default' : 'outline'}
+            onClick={() => setViewMode('visual')}
+          >
+            <Users className="h-4 w-4 mr-1" />
+            비주얼
+          </Button>
+          <Button
+            size="sm"
+            variant={viewMode === 'visual' ? 'outline' : 'default'}
+            onClick={() => setViewMode('list')}
+          >
+            <List className="h-4 w-4 mr-1" />
+            리스트
+          </Button>
+        </div>
       </div>
-      
-      {/* 메인 라인업 카드 */}
-      <Card className="overflow-hidden">
-        <CardHeader className="pb-2">
-          <div className="flex items-center justify-between">
+
+      {viewMode === 'visual' ? (
+        /* 비주얼 뷰 */
+        <div className="w-full space-y-2">
+          {/* 팀 정보 - 축구장 위에 배치 */}
+          <div className="grid grid-cols-2 gap-4">
             <div className="flex items-center gap-2">
+              <div 
+                className="px-4 py-2 rounded-lg text-sm font-bold shadow-lg"
+                style={{
+                  backgroundColor: homeTeamColor.primary,
+                  color: homeTeamColor.text
+                }}
+              >
+                {homeTeam.team.name}
+              </div>
+              {homeTeam.formation && (
+                <span className="text-sm text-muted-foreground">{homeTeam.formation}</span>
+              )}
+            </div>
+            <div className="flex items-center justify-end gap-2">
+              {awayTeam.formation && (
+                <span className="text-sm text-muted-foreground">{awayTeam.formation}</span>
+              )}
+              <div 
+                className="px-4 py-2 rounded-lg text-sm font-bold shadow-lg"
+                style={{
+                  backgroundColor: awayTeamColor.primary,
+                  color: awayTeamColor.text
+                }}
+              >
+                {awayTeam.team.name}
+              </div>
+            </div>
+          </div>
+
+          {/* 경기장 */}
+          <Card className="relative bg-gradient-to-b from-green-500 via-green-600 to-green-500 overflow-hidden shadow-2xl border-2 border-green-600">
+            {/* 잔디 패턴 - 더 선명하게 */}
+            <div className="absolute inset-0 opacity-20">
+              <div className="h-full w-full" style={{
+                backgroundImage: `repeating-linear-gradient(90deg, transparent, transparent 40px, rgba(0,0,0,0.15) 40px, rgba(0,0,0,0.15) 80px)`
+              }} />
+            </div>
+            
+            {/* 조명 효과 */}
+            <div className="absolute inset-0 pointer-events-none">
+              <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-white/10" />
+            </div>
+
+            {/* 경기장 라인 */}
+            <div className="absolute inset-8">
+              {/* 외곽 라인 */}
+              <div className="absolute inset-0 border-2 border-white/60 rounded-sm" />
+              
+              {/* 센터 라인 */}
+              <div className="absolute left-1/2 top-0 bottom-0 w-0.5 bg-white/60" />
+              
+              {/* 센터 서클 */}
+              <div className="absolute left-1/2 top-1/2 w-24 h-24 -ml-12 -mt-12 border-2 border-white/60 rounded-full" />
+              <div className="absolute left-1/2 top-1/2 w-2 h-2 -ml-1 -mt-1 bg-white/80 rounded-full" />
+              
+              {/* 홈팀 페널티 박스 */}
+              <div className="absolute left-0 top-1/2 w-20 h-32 -mt-16 border-t-2 border-r-2 border-b-2 border-white/40" />
+              <div className="absolute left-0 top-1/2 w-10 h-20 -mt-10 border-t-2 border-r-2 border-b-2 border-white/40" />
+              
+              {/* 홈팀 골대 */}
+              <div className="absolute -left-0.5 top-1/2 w-1.5 h-12 -mt-6 bg-white/60" />
+              
+              {/* 홈팀 페널티 스팟 */}
+              <div className="absolute left-14 top-1/2 w-1.5 h-1.5 -mt-0.75 bg-white/60 rounded-full" />
+              
+              {/* 홈팀 페널티 아크 */}
+              <div className="absolute left-16 top-1/2 w-8 h-16 -mt-8 border-r-2 border-white/40 rounded-r-full" />
+              
+              {/* 원정팀 페널티 박스 */}
+              <div className="absolute right-0 top-1/2 w-20 h-32 -mt-16 border-t-2 border-l-2 border-b-2 border-white/40" />
+              <div className="absolute right-0 top-1/2 w-10 h-20 -mt-10 border-t-2 border-l-2 border-b-2 border-white/40" />
+              
+              {/* 원정팀 골대 */}
+              <div className="absolute -right-0.5 top-1/2 w-1.5 h-12 -mt-6 bg-white/60" />
+              
+              {/* 원정팀 페널티 스팟 */}
+              <div className="absolute right-14 top-1/2 w-1.5 h-1.5 -mt-0.75 bg-white/60 rounded-full" />
+              
+              {/* 원정팀 페널티 아크 */}
+              <div className="absolute right-16 top-1/2 w-8 h-16 -mt-8 border-l-2 border-white/40 rounded-l-full" />
+              
+              {/* 코너 아크 */}
+              <div className="absolute left-0 top-0 w-3 h-3 border-b-2 border-r-2 border-white/40 rounded-br-full" />
+              <div className="absolute left-0 bottom-0 w-3 h-3 border-t-2 border-r-2 border-white/40 rounded-tr-full" />
+              <div className="absolute right-0 top-0 w-3 h-3 border-b-2 border-l-2 border-white/40 rounded-bl-full" />
+              <div className="absolute right-0 bottom-0 w-3 h-3 border-t-2 border-l-2 border-white/40 rounded-tl-full" />
+            </div>
+
+            {/* 선수 배치 컨테이너 - 상하 여백 증가 */}
+            <div className="relative h-[28rem] py-12">
+              {homeTeam.startXI?.map((player: any, idx: number) => (
+                <PlayerMarker
+                  key={idx}
+                  player={player}
+                  isHome={true}
+                  formation={homeTeam.formation}
+                  teamColor={homeTeamColor}
+                  index={idx}
+                  positionCounts={homePositionCounts}
+                  team={homeTeam}
+                />
+              ))}
+              
+              {/* 선수 배치 - 원정팀 (오른쪽) */}
+              {awayTeam.startXI?.map((player: any, idx: number) => (
+                <PlayerMarker
+                  key={idx}
+                  player={player}
+                  isHome={false}
+                  formation={awayTeam.formation}
+                  teamColor={awayTeamColor}
+                  index={idx}
+                  positionCounts={awayPositionCounts}
+                  team={awayTeam}
+                />
+              ))}
+            </div>
+          </Card>
+          
+          {/* 벤치 선수 표시 */}
+          {(homeTeam.substitutes?.length > 0 || awayTeam.substitutes?.length > 0) && (
+            <Card className="mt-4 p-5 bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-800/50 dark:to-gray-900/50 border-2 border-gray-200 dark:border-gray-700">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 bg-gray-200 dark:bg-gray-700 rounded-lg">
+                    <Users className="h-5 w-5 text-gray-700 dark:text-gray-300" />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-gray-900 dark:text-white">벤치 & 교체 선수</h4>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Substitutes & Bench Players</p>
+                  </div>
+                </div>
+                <div className="text-xs text-gray-500 dark:text-gray-400">
+                  ↑ 들어온 선수 | ↓ 나간 선수
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* 홈팀 벤치 */}
+                <div>
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="w-3 h-3 bg-blue-500 rounded-full" />
+                    <span className="font-semibold text-sm">{homeTeam.team.name}</span>
+                  </div>
+                  <div className="space-y-2">
+                    {homeTeam.substitutes?.map((player: any, idx: number) => {
+                      const playerInfo = player.player || player
+                      const number = player.number || playerInfo.number || '?'
+                      const name = playerInfo.name || 'Unknown'
+                      const playerId = playerInfo.id
+                      const pos = playerInfo.pos || ''
+                      
+                      // 교체 이벤트 확인
+                      const substitutionEvent = events?.find((e: any) => 
+                        e.type === 'subst' && e.assist?.id === playerId
+                      )
+                      const substitutedFor = substitutionEvent?.player
+                      const substitutionTime = substitutionEvent?.time?.elapsed
+                      
+                      // 교체되지 않은 벤치 선수인지 확인
+                      const isUnused = !substitutionEvent
+                      
+                      return (
+                        <div key={idx} className={cn(
+                          "flex items-center justify-between p-2 rounded-lg transition-all",
+                          isUnused ? "bg-gray-100/50 dark:bg-gray-800/30 opacity-75" : "bg-white/50 dark:bg-gray-800/50"
+                        )}>
+                          <div className="flex items-center gap-2">
+                            <div 
+                              className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold"
+                              style={{
+                                backgroundColor: isUnused ? `${homeTeamColor.primary}80` : homeTeamColor.primary,
+                                color: homeTeamColor.text
+                              }}
+                            >
+                              {number}
+                            </div>
+                            <Link href={`/players/${playerId}`} className="flex-1">
+                              <p className={cn("text-sm font-medium hover:text-primary cursor-pointer", isUnused && "text-gray-600 dark:text-gray-400")}>
+                                {name}
+                              </p>
+                              {pos && <p className="text-xs text-gray-500">{pos}</p>}
+                            </Link>
+                          </div>
+                          {substitutionEvent ? (
+                            <div className="flex flex-col items-end gap-0.5">
+                              <div className="flex items-center gap-1">
+                                <span className="text-green-600 text-xs font-bold">IN</span>
+                                <span className="text-xs text-gray-600 dark:text-gray-400">{substitutionTime}'</span>
+                              </div>
+                              {substitutedFor && (
+                                <span className="text-xs text-gray-500">↔️ {substitutedFor.name.split(' ').pop()}</span>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-xs text-gray-400">미사용</span>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+                
+                {/* 원정팀 벤치 */}
+                <div>
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="w-3 h-3 bg-red-500 rounded-full" />
+                    <span className="font-semibold text-sm">{awayTeam.team.name}</span>
+                  </div>
+                  <div className="space-y-2">
+                    {awayTeam.substitutes?.map((player: any, idx: number) => {
+                      const playerInfo = player.player || player
+                      const number = player.number || playerInfo.number || '?'
+                      const name = playerInfo.name || 'Unknown'
+                      const playerId = playerInfo.id
+                      const pos = playerInfo.pos || ''
+                      
+                      // 교체 이벤트 확인
+                      const substitutionEvent = events?.find((e: any) => 
+                        e.type === 'subst' && e.assist?.id === playerId
+                      )
+                      const substitutedFor = substitutionEvent?.player
+                      const substitutionTime = substitutionEvent?.time?.elapsed
+                      
+                      // 교체되지 않은 벤치 선수인지 확인
+                      const isUnused = !substitutionEvent
+                      
+                      return (
+                        <div key={idx} className={cn(
+                          "flex items-center justify-between p-2 rounded-lg transition-all",
+                          isUnused ? "bg-gray-100/50 dark:bg-gray-800/30 opacity-75" : "bg-white/50 dark:bg-gray-800/50"
+                        )}>
+                          <div className="flex items-center gap-2">
+                            <div 
+                              className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold"
+                              style={{
+                                backgroundColor: isUnused ? `${awayTeamColor.primary}80` : awayTeamColor.primary,
+                                color: awayTeamColor.text
+                              }}
+                            >
+                              {number}
+                            </div>
+                            <Link href={`/players/${playerId}`} className="flex-1">
+                              <p className={cn("text-sm font-medium hover:text-primary cursor-pointer", isUnused && "text-gray-600 dark:text-gray-400")}>
+                                {name}
+                              </p>
+                              {pos && <p className="text-xs text-gray-500">{pos}</p>}
+                            </Link>
+                          </div>
+                          {substitutionEvent ? (
+                            <div className="flex flex-col items-end gap-0.5">
+                              <div className="flex items-center gap-1">
+                                <span className="text-green-600 text-xs font-bold">IN</span>
+                                <span className="text-xs text-gray-600 dark:text-gray-400">{substitutionTime}'</span>
+                              </div>
+                              {substitutedFor && (
+                                <span className="text-xs text-gray-500">↔️ {substitutedFor.name.split(' ').pop()}</span>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-xs text-gray-400">미사용</span>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              </div>
+            </Card>
+          )}
+        </div>
+      ) : (
+        /* 리스트 뷰 */
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* 홈팀 리스트 */}
+          <Card className="p-4">
+            <div className="flex items-center gap-2 mb-4">
               {homeTeam.team.logo && (
                 <Image
                   src={homeTeam.team.logo}
@@ -418,13 +660,27 @@ export function LineupHorizontal({ lineups, events = [], players = [] }: LineupH
                   height={24}
                 />
               )}
-              <span className="font-bold text-sm">{homeTeam.team.name}</span>
-              <Badge variant="outline" className="text-xs">{homeTeam.formation}</Badge>
+              <h4 className="font-bold">{homeTeam.team.name}</h4>
+              {homeTeam.formation && (
+                <span className="text-sm text-muted-foreground">({homeTeam.formation})</span>
+              )}
             </div>
-            
-            <div className="flex items-center gap-2">
-              <Badge variant="outline" className="text-xs">{awayTeam.formation}</Badge>
-              <span className="font-bold text-sm">{awayTeam.team.name}</span>
+            {homeTeam.startXI?.map((player: any, idx: number) => (
+              <PlayerListItem key={idx} player={player} isHome={true} teamColor={homeTeamColor} />
+            ))}
+            {homeTeam.substitutes && homeTeam.substitutes.length > 0 && (
+              <>
+                <div className="mt-4 mb-2 text-sm font-semibold text-muted-foreground">교체 선수</div>
+                {homeTeam.substitutes.map((player: any, idx: number) => (
+                  <PlayerListItem key={idx} player={player} isHome={true} teamColor={homeTeamColor} />
+                ))}
+              </>
+            )}
+          </Card>
+
+          {/* 원정팀 리스트 */}
+          <Card className="p-4">
+            <div className="flex items-center gap-2 mb-4">
               {awayTeam.team.logo && (
                 <Image
                   src={awayTeam.team.logo}
@@ -433,181 +689,25 @@ export function LineupHorizontal({ lineups, events = [], players = [] }: LineupH
                   height={24}
                 />
               )}
+              <h4 className="font-bold">{awayTeam.team.name}</h4>
+              {awayTeam.formation && (
+                <span className="text-sm text-muted-foreground">({awayTeam.formation})</span>
+              )}
             </div>
-          </div>
-        </CardHeader>
-        
-        <CardContent className="p-0">
-          {!showSubstitutes ? (
-            // 선발 라인업 가로 뷰
-            <div className="relative">
-              {/* 배경 그라데이션 */}
-              <div className="absolute inset-0 bg-gradient-to-r from-blue-50 via-green-50 to-red-50 dark:from-blue-950/20 dark:via-green-950/20 dark:to-red-950/20" />
-              
-              {/* 라인업 컨테이너 - 높이 설정 */}
-              <div className="relative flex overflow-x-auto min-h-[400px]">
-                {/* 홈팀 (왼쪽부터) */}
-                <div className="flex border-r-2 border-gray-300 dark:border-gray-700">
-                  {/* 홈팀 공격수 */}
-                  <PositionGroup 
-                    players={homeGroups.ATT}
-                    label="FW"
-                    events={events}
-                    isHome={true}
-                    bgColor="bg-blue-50/50 dark:bg-blue-950/20"
-                    formation={homeTeam.formation}
-                  />
-                  
-                  {/* 홈팀 미드필더 */}
-                  <PositionGroup 
-                    players={homeGroups.MID}
-                    label="MF"
-                    events={events}
-                    isHome={true}
-                    bgColor="bg-blue-50/30 dark:bg-blue-950/10"
-                    formation={homeTeam.formation}
-                  />
-                  
-                  {/* 홈팀 수비수 */}
-                  <PositionGroup 
-                    players={homeGroups.DEF}
-                    label="DF"
-                    events={events}
-                    isHome={true}
-                    bgColor="bg-blue-50/20 dark:bg-blue-950/10"
-                    formation={homeTeam.formation}
-                  />
-                  
-                  {/* 홈팀 골키퍼 */}
-                  <PositionGroup 
-                    players={homeGroups.GK}
-                    label="GK"
-                    events={events}
-                    isHome={true}
-                    bgColor="bg-blue-50/10 dark:bg-blue-950/5"
-                    formation={homeTeam.formation}
-                  />
-                </div>
-                
-                {/* 중앙 구분선 */}
-                <div className="flex items-center justify-center px-4 bg-gradient-to-b from-green-100 to-green-50 dark:from-green-900/20 dark:to-green-950/10">
-                  <div className="text-2xl font-bold text-gray-400">VS</div>
-                </div>
-                
-                {/* 원정팀 (오른쪽으로) */}
-                <div className="flex border-l-2 border-gray-300 dark:border-gray-700">
-                  {/* 원정팀 골키퍼 */}
-                  <PositionGroup 
-                    players={awayGroups.GK}
-                    label="GK"
-                    events={events}
-                    isHome={false}
-                    bgColor="bg-red-50/10 dark:bg-red-950/5"
-                    formation={awayTeam.formation}
-                  />
-                  
-                  {/* 원정팀 수비수 */}
-                  <PositionGroup 
-                    players={awayGroups.DEF}
-                    label="DF"
-                    events={events}
-                    isHome={false}
-                    bgColor="bg-red-50/20 dark:bg-red-950/10"
-                    formation={awayTeam.formation}
-                  />
-                  
-                  {/* 원정팀 미드필더 */}
-                  <PositionGroup 
-                    players={awayGroups.MID}
-                    label="MF"
-                    events={events}
-                    isHome={false}
-                    bgColor="bg-red-50/30 dark:bg-red-950/10"
-                    formation={awayTeam.formation}
-                  />
-                  
-                  {/* 원정팀 공격수 */}
-                  <PositionGroup 
-                    players={awayGroups.ATT}
-                    label="FW"
-                    events={events}
-                    isHome={false}
-                    bgColor="bg-red-50/50 dark:bg-red-950/20"
-                    formation={awayTeam.formation}
-                  />
-                </div>
-              </div>
-              
-              {/* 포메이션 시각화 힌트 */}
-              <div className="flex justify-between px-4 py-2 bg-gray-50 dark:bg-gray-900/50">
-                <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
-                  <ChevronRight className="w-4 h-4" />
-                  <span>홈팀 공격 방향</span>
-                </div>
-                <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
-                  <span>원정팀 공격 방향</span>
-                  <ChevronRight className="w-4 h-4 rotate-180" />
-                </div>
-              </div>
-            </div>
-          ) : (
-            // 교체 선수 뷰
-            <div className="p-4 space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <h4 className="font-bold text-sm mb-2 flex items-center gap-2">
-                    {homeTeam.team.logo && (
-                      <Image
-                        src={homeTeam.team.logo}
-                        alt={homeTeam.team.name}
-                        width={20}
-                        height={20}
-                      />
-                    )}
-                    {homeTeam.team.name}
-                  </h4>
-                  <SubstitutesSection
-                    substitutes={homeTeam.substitutes}
-                    events={events}
-                    isHome={true}
-                  />
-                </div>
-                
-                <div>
-                  <h4 className="font-bold text-sm mb-2 flex items-center gap-2">
-                    {awayTeam.team.logo && (
-                      <Image
-                        src={awayTeam.team.logo}
-                        alt={awayTeam.team.name}
-                        width={20}
-                        height={20}
-                      />
-                    )}
-                    {awayTeam.team.name}
-                  </h4>
-                  <SubstitutesSection
-                    substitutes={awayTeam.substitutes}
-                    events={events}
-                    isHome={false}
-                  />
-                </div>
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-      
-      {/* 코치 정보 */}
-      <div className="flex justify-between px-4">
-        <div className="text-sm">
-          <span className="text-gray-500">감독: </span>
-          <span className="font-medium">{homeTeam.coach?.name || 'Unknown'}</span>
+            {awayTeam.startXI?.map((player: any, idx: number) => (
+              <PlayerListItem key={idx} player={player} isHome={false} teamColor={awayTeamColor} />
+            ))}
+            {awayTeam.substitutes && awayTeam.substitutes.length > 0 && (
+              <>
+                <div className="mt-4 mb-2 text-sm font-semibold text-muted-foreground">교체 선수</div>
+                {awayTeam.substitutes.map((player: any, idx: number) => (
+                  <PlayerListItem key={idx} player={player} isHome={false} teamColor={awayTeamColor} />
+                ))}
+              </>
+            )}
+          </Card>
         </div>
-        <div className="text-sm">
-          <span className="text-gray-500">감독: </span>
-          <span className="font-medium">{awayTeam.coach?.name || 'Unknown'}</span>
-        </div>
-      </div>
+      )}
     </div>
   )
 }
