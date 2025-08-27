@@ -16,6 +16,7 @@ import { mockFixturesData } from './mockData'
 import { largeMockFixturesData } from './largeMockData'
 import { apiCache, CacheConfig, CacheTTL } from '../utils/api-cache-manager'
 import { withRateLimit } from '../utils/rate-limit-manager'
+import { freeFootballAPI } from './free-football-api'
 
 class FootballAPIService {
   private get supabase() {
@@ -805,36 +806,98 @@ class FootballAPIService {
     }
   }
 
-  // 부상자 명단 가져오기
-  async getInjuries(teamId: number): Promise<any> {
-    const cacheKey = `injuries_${teamId}`
+  // 팀 통계 가져오기
+  async getTeamStatistics(team: number, season: number, league: number): Promise<any> {
+    const cacheKey = `team_stats_${team}_${season}_${league}`
     const cached = this.getCachedData<any>(cacheKey)
     if (cached) return cached
 
     try {
-      const data = await this.callUnifiedAPI<any>('injuries', {
-        team: teamId
+      const data = await this.callUnifiedAPI<any>('teams/statistics', {
+        team,
+        season,
+        league
       })
       
       this.setCachedData(cacheKey, data)
       return data
     } catch (error) {
-      console.error('Error fetching injuries:', error)
+      console.error('Error fetching team statistics:', error)
       return null
     }
   }
 
-  // 상대전적 (H2H) 가져오기
-  async getH2H(team1Id: number, team2Id: number, limit: number = 10): Promise<any> {
-    const cacheKey = `h2h_${team1Id}_${team2Id}_${limit}`
+  // 부상자 명단 가져오기 - 다양한 방법 시도
+  async getInjuries(teamId: number, fixtureId?: number): Promise<any> {
+    const cacheKey = `injuries_${teamId}_${fixtureId || 'all'}`
     const cached = this.getCachedData<any>(cacheKey)
     if (cached) return cached
 
     try {
-      const data = await this.callUnifiedAPI<any>('fixtures/h2h', {
+      let data = null
+      
+      // 방법 1: fixture ID로 시도
+      if (fixtureId) {
+        try {
+          data = await this.callUnifiedAPI<any>('injuries', {
+            fixture: fixtureId
+          })
+          console.log(`[Football API] Injuries by fixture ${fixtureId}:`, data)
+        } catch (e) {
+          console.log('Fixture injuries not available, trying by team...')
+        }
+      }
+      
+      // 방법 2: team과 season으로 시도
+      if (!data || !data.response || data.response.length === 0) {
+        const season = new Date().getFullYear()
+        data = await this.callUnifiedAPI<any>('injuries', {
+          team: teamId,
+          season: season
+        })
+        console.log(`[Football API] Injuries by team ${teamId} and season:`, data)
+      }
+      
+      // 방법 3: team만으로 시도
+      if (!data || !data.response || data.response.length === 0) {
+        data = await this.callUnifiedAPI<any>('injuries', {
+          team: teamId
+        })
+        console.log(`[Football API] Injuries by team ${teamId} only:`, data)
+      }
+      
+      this.setCachedData(cacheKey, data)
+      return data
+    } catch (error) {
+      console.error('Error fetching injuries:', error)
+      return { response: [] }
+    }
+  }
+
+  // 상대전적 (H2H) 가져오기 - 오버로딩 지원
+  async getH2H(params: { h2h: string } | { team1Id: number; team2Id: number; limit?: number }): Promise<any> {
+    let cacheKey: string
+    let apiParams: any
+    
+    if ('h2h' in params) {
+      // 새로운 형식 (string)
+      cacheKey = `h2h_${params.h2h}`
+      apiParams = { h2h: params.h2h }
+    } else {
+      // 기존 형식 (team IDs)
+      const { team1Id, team2Id, limit = 10 } = params
+      cacheKey = `h2h_${team1Id}_${team2Id}_${limit}`
+      apiParams = {
         h2h: `${team1Id}-${team2Id}`,
         last: limit
-      })
+      }
+    }
+    
+    const cached = this.getCachedData<any>(cacheKey)
+    if (cached) return cached
+
+    try {
+      const data = await this.callUnifiedAPI<any>('fixtures/h2h', apiParams)
       
       this.setCachedData(cacheKey, data)
       return data
@@ -918,7 +981,7 @@ class FootballAPIService {
     try {
       // console.log('[FootballAPI] Fetching H2H between teams:', team1Id, team2Id)
       
-      const data = await this.callUnifiedAPI<any>('fixtures/headtohead', {
+      const data = await this.callUnifiedAPI<any>('fixtures/h2h', {
         h2h: `${team1Id}-${team2Id}`,
         last: limit
       })
@@ -1382,6 +1445,134 @@ class FootballAPIService {
     }
     
     return null
+  }
+  
+  /**
+   * Free API를 활용한 고급 통계
+   * xG, 패스 성공률, 점유율 등 상세 데이터
+   */
+  async getAdvancedMatchStats(fixtureId: number) {
+    try {
+      // Free API의 상세 통계 가져오기
+      const [allStats, xgStats, shotmap] = await Promise.all([
+        freeFootballAPI.getMatchEventAllStats(fixtureId).catch(() => null),
+        freeFootballAPI.getMatchXGStats(fixtureId).catch(() => null),
+        freeFootballAPI.getMatchShotmap(fixtureId).catch(() => null)
+      ])
+      
+      return {
+        allStats,
+        xgStats,
+        shotmap,
+        source: 'free-api'
+      }
+    } catch (error) {
+      console.error('[FootballAPI] Error getting advanced stats from Free API:', error)
+      return null
+    }
+  }
+  
+  /**
+   * Free API를 통한 팀 폼 분석
+   */
+  async getEnhancedTeamForm(teamId: number, matches: number = 10) {
+    try {
+      const formAnalysis = await freeFootballAPI.getTeamFormAnalysis(teamId, matches)
+      return formAnalysis
+    } catch (error) {
+      console.error('[FootballAPI] Error getting team form from Free API:', error)
+      return null
+    }
+  }
+  
+  /**
+   * Free API를 통한 선수 히트맵
+   */
+  async getPlayerHeatmap(eventId: number, playerId: number) {
+    try {
+      const heatmap = await freeFootballAPI.getPlayerHeatmap(eventId, playerId)
+      return heatmap
+    } catch (error) {
+      console.error('[FootballAPI] Error getting player heatmap:', error)
+      return null
+    }
+  }
+  
+  /**
+   * Free API를 통한 경기 하이라이트
+   */
+  async getMatchHighlights(fixtureId: number) {
+    try {
+      const highlights = await freeFootballAPI.getMatchHighlights(fixtureId)
+      return highlights
+    } catch (error) {
+      console.error('[FootballAPI] Error getting match highlights:', error)
+      return null
+    }
+  }
+  
+  /**
+   * 통합 경기 상세 데이터
+   * API-Football과 Free API 데이터 결합
+   */
+  async getEnhancedFixtureData(fixtureId: number) {
+    try {
+      // 병렬로 양쪽 API에서 데이터 가져오기
+      const [apiFootballData, freeAPIStats] = await Promise.all([
+        this.getFixtureById(fixtureId),
+        this.getAdvancedMatchStats(fixtureId)
+      ])
+      
+      // 데이터 병합
+      return {
+        ...apiFootballData,
+        advancedStats: freeAPIStats,
+        enhanced: true
+      }
+    } catch (error) {
+      console.error('[FootballAPI] Error getting enhanced fixture data:', error)
+      // 실패 시 기본 API-Football 데이터만 반환
+      return this.getFixtureById(fixtureId)
+    }
+  }
+  
+  /**
+   * Free API를 통한 베팅 오즈
+   */
+  async getMatchOdds(fixtureId: number) {
+    try {
+      const odds = await freeFootballAPI.getMatchOdds(fixtureId)
+      return odds
+    } catch (error) {
+      console.error('[FootballAPI] Error getting match odds:', error)
+      return null
+    }
+  }
+  
+  /**
+   * Free API를 통한 VAR 결정
+   */
+  async getVARDecisions(fixtureId: number) {
+    try {
+      const varDecisions = await freeFootballAPI.getMatchVARDecisions(fixtureId)
+      return varDecisions
+    } catch (error) {
+      console.error('[FootballAPI] Error getting VAR decisions:', error)
+      return null
+    }
+  }
+  
+  /**
+   * Free API를 통한 선수 평점
+   */
+  async getEnhancedPlayerRatings(fixtureId: number) {
+    try {
+      const ratings = await freeFootballAPI.getMatchPlayerRatings(fixtureId)
+      return ratings
+    } catch (error) {
+      console.error('[FootballAPI] Error getting player ratings from Free API:', error)
+      return null
+    }
   }
 }
 

@@ -3,6 +3,7 @@ import Image from 'next/image'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Users, User, ArrowUpDown, Star } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { getPlayerFullName, getPlayerNumber } from '@/lib/utils/player-helpers'
 
 interface MatchLineupsProps {
   fixture: any // TODO: Add proper type
@@ -177,7 +178,7 @@ export default function MatchLineups({ fixture }: MatchLineupsProps) {
                         {/* 선수 이름 */}
                         <div className="absolute top-full mt-1 left-1/2 -translate-x-1/2 whitespace-nowrap">
                           <div className="bg-black/70 text-white text-xs px-2 py-1 rounded">
-                            {player.player.name}
+                            {getPlayerFullName(player)}
                             {rating && (
                               <span className="ml-1 text-yellow-400">
                                 {rating}
@@ -222,7 +223,7 @@ export default function MatchLineups({ fixture }: MatchLineupsProps) {
                       {sub.player.number}
                     </div>
                     <div className="flex-1 text-left">
-                      <div className="text-sm font-medium">{sub.player.name}</div>
+                      <div className="text-sm font-medium">{getPlayerFullName(sub)}</div>
                       <div className="text-xs text-gray-600">{sub.player.pos}</div>
                     </div>
                     {playerStats?.statistics?.[0]?.games?.minutes && (
@@ -263,7 +264,7 @@ export default function MatchLineups({ fixture }: MatchLineupsProps) {
                 </span>
               </div>
               <div className="flex-1">
-                <h3 className="font-semibold text-lg">{selectedPlayer.player.name}</h3>
+                <h3 className="font-semibold text-lg">{getPlayerFullName(selectedPlayer)}</h3>
                 <p className="text-gray-600">{selectedPlayer.player.pos}</p>
                 
                 {/* 선수 통계 */}

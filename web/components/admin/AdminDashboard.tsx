@@ -420,52 +420,56 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8">
-      {/* 헤더 */}
-      <div className="mb-8">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl shadow-lg">
-              <Shield className="w-8 h-8 text-white" />
+    <div className="w-full px-4 py-8">
+      <div className="max-w-[1920px] mx-auto">
+        {/* 헤더 */}
+        <div className="mb-8">
+          <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl shadow-lg">
+                <Shield className="w-8 h-8 text-white" />
+              </div>
+              <div>
+                <h1 className="text-2xl lg:text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                  관리자 대시보드
+                </h1>
+                <p className="text-sm lg:text-base text-gray-600 dark:text-gray-400 mt-1">
+                  {format(new Date(), 'yyyy년 MM월 dd일 EEEE', { locale: ko })}
+                </p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                관리자 대시보드
-              </h1>
-              <p className="text-gray-600 dark:text-gray-400 mt-1">
-                {format(new Date(), 'yyyy년 MM월 dd일 EEEE', { locale: ko })}
-              </p>
+            
+            <div className="flex flex-wrap items-center gap-2 lg:gap-3">
+              <Button
+                onClick={() => setPreviewMode(!previewMode)}
+                variant={previewMode ? "default" : "outline"}
+                className="gap-2"
+                size="sm"
+              >
+                <Monitor className="w-4 h-4" />
+                <span className="hidden sm:inline">미리보기</span>
+              </Button>
+              <Button
+                onClick={loadData}
+                variant="outline"
+                className="gap-2"
+                size="sm"
+              >
+                <RefreshCw className="w-4 h-4" />
+                <span className="hidden sm:inline">새로고침</span>
+              </Button>
+              <Button
+                onClick={() => router.push('/')}
+                variant="outline"
+                className="gap-2"
+                size="sm"
+              >
+                <Home className="w-4 h-4" />
+                <span className="hidden sm:inline">홈으로</span>
+              </Button>
             </div>
-          </div>
-          
-          <div className="flex items-center gap-3">
-            <Button
-              onClick={() => setPreviewMode(!previewMode)}
-              variant={previewMode ? "default" : "outline"}
-              className="gap-2"
-            >
-              <Monitor className="w-4 h-4" />
-              미리보기
-            </Button>
-            <Button
-              onClick={loadData}
-              variant="outline"
-              className="gap-2"
-            >
-              <RefreshCw className="w-4 h-4" />
-              새로고침
-            </Button>
-            <Button
-              onClick={() => router.push('/')}
-              variant="outline"
-              className="gap-2"
-            >
-              <Home className="w-4 h-4" />
-              홈으로
-            </Button>
           </div>
         </div>
-      </div>
 
       {/* 통계 카드 */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
@@ -531,28 +535,35 @@ export default function AdminDashboard() {
 
       {/* 메인 탭 */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="w-full lg:w-auto bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border shadow-lg">
-          <TabsTrigger value="overview" className="gap-2">
-            <Layout className="w-4 h-4" />
-            대시보드
-          </TabsTrigger>
-          <TabsTrigger value="matches" className="gap-2">
-            <Trophy className="w-4 h-4" />
-            경기 관리
-          </TabsTrigger>
-          <TabsTrigger value="news" className="gap-2">
-            <Newspaper className="w-4 h-4" />
-            뉴스 관리
-          </TabsTrigger>
-          <TabsTrigger value="banner" className="gap-2">
-            <Palette className="w-4 h-4" />
-            배너 설정
-          </TabsTrigger>
-          <TabsTrigger value="analytics" className="gap-2">
-            <BarChart3 className="w-4 h-4" />
-            분석
-          </TabsTrigger>
-        </TabsList>
+        <div className="overflow-x-auto pb-2">
+          <TabsList className="inline-flex min-w-full lg:min-w-0 bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border shadow-lg">
+            <TabsTrigger value="overview" className="gap-2 whitespace-nowrap">
+              <Layout className="w-4 h-4" />
+              <span className="hidden sm:inline">대시보드</span>
+              <span className="sm:hidden">대시</span>
+            </TabsTrigger>
+            <TabsTrigger value="matches" className="gap-2 whitespace-nowrap">
+              <Trophy className="w-4 h-4" />
+              <span className="hidden sm:inline">경기 관리</span>
+              <span className="sm:hidden">경기</span>
+            </TabsTrigger>
+            <TabsTrigger value="news" className="gap-2 whitespace-nowrap">
+              <Newspaper className="w-4 h-4" />
+              <span className="hidden sm:inline">뉴스 관리</span>
+              <span className="sm:hidden">뉴스</span>
+            </TabsTrigger>
+            <TabsTrigger value="banner" className="gap-2 whitespace-nowrap">
+              <Palette className="w-4 h-4" />
+              <span className="hidden sm:inline">배너 설정</span>
+              <span className="sm:hidden">배너</span>
+            </TabsTrigger>
+            <TabsTrigger value="analytics" className="gap-2 whitespace-nowrap">
+              <BarChart3 className="w-4 h-4" />
+              <span className="hidden sm:inline">분석</span>
+              <span className="sm:hidden">분석</span>
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         {/* 대시보드 탭 */}
         <TabsContent value="overview" className="space-y-6">
@@ -993,6 +1004,7 @@ export default function AdminDashboard() {
           </div>
         </TabsContent>
       </Tabs>
+      </div>
     </div>
   )
 }

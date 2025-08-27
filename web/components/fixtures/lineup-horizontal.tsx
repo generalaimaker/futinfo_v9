@@ -2,36 +2,41 @@
 
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { cn } from '@/lib/utils'
 import Image from 'next/image'
 import Link from 'next/link'
 import { Users, List } from 'lucide-react'
 import { getPosition } from './formation-positions'
 import { getTeamColor } from '@/lib/data/team-colors'
+import { getPlayerFullName, getPlayerShortName, getPlayerNumber, getPlayerPosition } from '@/lib/utils/player-helpers'
 
-// 포지션별 선수 위치 계산 (pos 기반)
+// 포지션별 선수 위치 계산 (pos 기반) - 홈팀은 왼쪽, 원정팀은 오른쪽
 function getPositionByRole(pos: string, posIndex: number, totalInPosition: number, isHome: boolean) {
-  // 기본 X 위치 설정
+  // X 위치 설정 - 홈팀은 0-50, 원정팀은 50-100
   const xPositions: { [key: string]: number } = {
-    'G': isHome ? 5 : 95,
-    'D': isHome ? 15 : 85,
-    'M': isHome ? 28 : 72,
-    'F': isHome ? 42 : 58
+    'G': isHome ? 5 : 95,      // 골대 앞
+    'D': isHome ? 18 : 82,     // 수비 라인
+    'M': isHome ? 32 : 68,     // 미드필더 라인
+    'F': isHome ? 44 : 56      // 공격수 라인 (센터라인 근처)
   }
   
-  // Y 위치 계산 (포지션별 선수 수에 따라 동적으로)
+  // Y 위치 계산 - 균등 간격으로 배치
   const calculateYPositions = (count: number): number[] => {
-    if (count === 1) return [50]
-    if (count === 2) return [35, 65]
-    if (count === 3) return [25, 50, 75]
-    if (count === 4) return [12, 35, 65, 88]
-    if (count === 5) return [5, 28, 50, 72, 95]
+    if (count === 1) return [50] // 정중앙
+    if (count === 2) return [40, 60] // 두 명
+    if (count === 3) return [30, 50, 70] // 세 명
+    if (count === 4) return [20, 40, 60, 80] // 네 명 - 균등 간격 (센터백들 더 중앙으로)
+    if (count === 5) return [10, 30, 50, 70, 90] // 다섯 명
+    
     // 6명 이상일 때
     const positions = []
-    const spacing = 90 / (count + 1)
-    for (let i = 1; i <= count; i++) {
-      positions.push(5 + spacing * i)
+    const margin = 10 // 상하 여백
+    const availableSpace = 100 - (margin * 2)
+    const spacing = availableSpace / (count - 1)
+    
+    for (let i = 0; i < count; i++) {
+      positions.push(margin + (spacing * i))
     }
     return positions
   }
@@ -51,10 +56,72 @@ interface LineupHorizontalProps {
   events?: any[]
 }
 
-export function LineupHorizontal({ lineups, events = [] }: LineupHorizontalProps) {
+export function LineupHorizontal({ lineups, events = [], fixture }: LineupHorizontalProps & { fixture?: any }) {
   const [viewMode, setViewMode] = useState<'visual' | 'list'>('visual')
+  const [recentLineups, setRecentLineups] = useState<any>(null)
+  const [loading, setLoading] = useState(false)
   
-  if (!lineups || lineups.length < 2) {
+  // 최근 경기 라인업 가져오기
+  useEffect(() => {
+    if ((!lineups || lineups.length < 2) && fixture) {
+      const fetchRecentLineups = async () => {
+        setLoading(true)
+        try {
+          const { ExtendedFootballService } = await import('@/lib/supabase/football-extended')
+          const api = new ExtendedFootballService()
+          
+          // 각 팀의 최근 경기 가져오기
+          const [homeFixtures, awayFixtures] = await Promise.all([
+            api.getTeamLastFixtures(fixture.teams.home.id, 1),
+            api.getTeamLastFixtures(fixture.teams.away.id, 1)
+          ])
+          
+          if (homeFixtures?.response?.[0] && awayFixtures?.response?.[0]) {
+            // 각 팀의 최근 경기 라인업 가져오기
+            const [homeLineup, awayLineup] = await Promise.all([
+              api.getFixtureLineups(homeFixtures.response[0].fixture.id),
+              api.getFixtureLineups(awayFixtures.response[0].fixture.id)
+            ])
+            
+            // 각 팀의 라인업 찾기
+            const homeTeamLineup = homeLineup?.response?.find((l: any) => 
+              l.team.id === fixture.teams.home.id
+            )
+            const awayTeamLineup = awayLineup?.response?.find((l: any) => 
+              l.team.id === fixture.teams.away.id
+            )
+            
+            if (homeTeamLineup && awayTeamLineup) {
+              // 팀 정보 업데이트
+              homeTeamLineup.team = fixture.teams.home
+              awayTeamLineup.team = fixture.teams.away
+              setRecentLineups([homeTeamLineup, awayTeamLineup])
+            }
+          }
+        } catch (error) {
+          console.error('Error fetching recent lineups:', error)
+        } finally {
+          setLoading(false)
+        }
+      }
+      
+      fetchRecentLineups()
+    }
+  }, [lineups, fixture])
+  
+  // 실제 라인업이 있으면 사용, 없으면 최근 라인업 사용
+  const displayLineups = lineups && lineups.length >= 2 ? lineups : recentLineups
+  const isRecentLineup = !lineups || lineups.length < 2
+  
+  if (loading) {
+    return (
+      <Card className="p-6">
+        <p className="text-center text-muted-foreground">라인업 정보를 불러오는 중...</p>
+      </Card>
+    )
+  }
+  
+  if (!displayLineups || displayLineups.length < 2) {
     return (
       <Card className="p-6">
         <p className="text-center text-muted-foreground">라인업 정보가 없습니다</p>
@@ -62,8 +129,8 @@ export function LineupHorizontal({ lineups, events = [] }: LineupHorizontalProps
     )
   }
   
-  const homeTeam = lineups[0]
-  const awayTeam = lineups[1]
+  const homeTeam = displayLineups[0]
+  const awayTeam = displayLineups[1]
   
   // 포지션별 선수 카운팅 (pos 기반 배치를 위해)
   const countPlayersByPosition = (team: any) => {
@@ -89,10 +156,10 @@ export function LineupHorizontal({ lineups, events = [] }: LineupHorizontalProps
   const PlayerMarker = ({ player, isHome, formation, teamColor, index, positionCounts, team }: any) => {
     // API 데이터 구조: startXI 배열 요소는 {player: {id, name, number, grid, pos}}
     const playerInfo = player.player || player
-    const number = playerInfo.number || player.number || '?'
-    const name = playerInfo.name || 'Unknown'
+    const number = getPlayerNumber(player)
+    const name = getPlayerFullName(player)
     const playerId = playerInfo.id
-    const pos = playerInfo.pos // 포지션 정보
+    const pos = getPlayerPosition(player)
     
     // grid 값 찾기 - API-Football의 경우 player 객체 안에 grid가 있음
     // grid 형식: "row:col" (예: "1:1" for GK, "2:1" for LB)
@@ -267,10 +334,10 @@ export function LineupHorizontal({ lineups, events = [] }: LineupHorizontalProps
   // 리스트 아이템 컴포넌트 (리스트 뷰)
   const PlayerListItem = ({ player, isHome, teamColor }: any) => {
     const playerInfo = player.player || player
-    const number = player.number || playerInfo.number || '?'
-    const name = playerInfo.name || 'Unknown'
+    const number = getPlayerNumber(player)
+    const name = getPlayerFullName(player)
     const playerId = playerInfo.id
-    const pos = playerInfo.pos || ''
+    const pos = getPlayerPosition(player)
     const rating = playerInfo.rating || player.statistics?.[0]?.games?.rating
     
     // 이벤트 체크
@@ -343,11 +410,20 @@ export function LineupHorizontal({ lineups, events = [] }: LineupHorizontalProps
   
   return (
     <div className="space-y-4">
+      {/* 최근 경기 라인업 안내 */}
+      {isRecentLineup && (
+        <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
+          <p className="text-sm text-blue-700 dark:text-blue-400">
+            ℹ️ 아직 라인업이 발표되지 않았습니다. 각 팀의 최근 경기에서 사용한 포메이션과 라인업을 표시합니다.
+          </p>
+        </div>
+      )}
+      
       {/* 뷰 모드 전환 */}
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-bold flex items-center gap-2">
           <Users className="h-5 w-5" />
-          라인업
+          {isRecentLineup ? '예상 라인업 (최근 경기 기준)' : '라인업'}
         </h3>
         <div className="flex gap-2">
           <Button
@@ -522,10 +598,10 @@ export function LineupHorizontal({ lineups, events = [] }: LineupHorizontalProps
                   <div className="space-y-2">
                     {homeTeam.substitutes?.map((player: any, idx: number) => {
                       const playerInfo = player.player || player
-                      const number = player.number || playerInfo.number || '?'
-                      const name = playerInfo.name || 'Unknown'
+                      const number = getPlayerNumber(player)
+                      const name = getPlayerFullName(player)
                       const playerId = playerInfo.id
-                      const pos = playerInfo.pos || ''
+                      const pos = getPlayerPosition(player)
                       
                       // 교체 이벤트 확인
                       const substitutionEvent = events?.find((e: any) => 
@@ -566,7 +642,7 @@ export function LineupHorizontal({ lineups, events = [] }: LineupHorizontalProps
                                 <span className="text-xs text-gray-600 dark:text-gray-400">{substitutionTime}'</span>
                               </div>
                               {substitutedFor && (
-                                <span className="text-xs text-gray-500">↔️ {substitutedFor.name.split(' ').pop()}</span>
+                                <span className="text-xs text-gray-500">↔️ {getPlayerShortName(substitutedFor)}</span>
                               )}
                             </div>
                           ) : (
@@ -587,10 +663,10 @@ export function LineupHorizontal({ lineups, events = [] }: LineupHorizontalProps
                   <div className="space-y-2">
                     {awayTeam.substitutes?.map((player: any, idx: number) => {
                       const playerInfo = player.player || player
-                      const number = player.number || playerInfo.number || '?'
-                      const name = playerInfo.name || 'Unknown'
+                      const number = getPlayerNumber(player)
+                      const name = getPlayerFullName(player)
                       const playerId = playerInfo.id
-                      const pos = playerInfo.pos || ''
+                      const pos = getPlayerPosition(player)
                       
                       // 교체 이벤트 확인
                       const substitutionEvent = events?.find((e: any) => 
@@ -631,7 +707,7 @@ export function LineupHorizontal({ lineups, events = [] }: LineupHorizontalProps
                                 <span className="text-xs text-gray-600 dark:text-gray-400">{substitutionTime}'</span>
                               </div>
                               {substitutedFor && (
-                                <span className="text-xs text-gray-500">↔️ {substitutedFor.name.split(' ').pop()}</span>
+                                <span className="text-xs text-gray-500">↔️ {getPlayerShortName(substitutedFor)}</span>
                               )}
                             </div>
                           ) : (

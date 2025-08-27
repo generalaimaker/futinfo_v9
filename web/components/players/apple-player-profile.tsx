@@ -179,12 +179,12 @@ export function ApplePlayerProfile({ playerProfile, playerId }: ApplePlayerProfi
       removePlayer(playerId)
       toast({
         title: "즐겨찾기에서 제거됨",
-        description: `${player.name}이(가) 즐겨찾기에서 제거되었습니다.`
+        description: `${player.firstname && player.lastname ? `${player.firstname} ${player.lastname}` : player.name}이(가) 즐겨찾기에서 제거되었습니다.`
       })
     } else {
       addPlayer({
         id: playerId,
-        name: player.name,
+        name: player.firstname && player.lastname ? `${player.firstname} ${player.lastname}` : player.name,
         photo: player.photo,
         teamId: currentStats?.team.id,
         teamName: currentStats?.team.name,
@@ -192,7 +192,7 @@ export function ApplePlayerProfile({ playerProfile, playerId }: ApplePlayerProfi
       })
       toast({
         title: "즐겨찾기에 추가됨",
-        description: `${player.name}이(가) 즐겨찾기에 추가되었습니다.`
+        description: `${player.firstname && player.lastname ? `${player.firstname} ${player.lastname}` : player.name}이(가) 즐겨찾기에 추가되었습니다.`
       })
     }
   }
@@ -239,7 +239,7 @@ export function ApplePlayerProfile({ playerProfile, playerId }: ApplePlayerProfi
                   height={32}
                   className="rounded-full"
                 />
-                <span className="font-semibold">{player.name}</span>
+                <span className="font-semibold">{player.firstname && player.lastname ? `${player.firstname} ${player.lastname}` : player.name}</span>
               </motion.div>
             )}
           </div>
@@ -324,7 +324,7 @@ export function ApplePlayerProfile({ playerProfile, playerId }: ApplePlayerProfi
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: 0.1 }}
               >
-                {player.name}
+                {player.firstname && player.lastname ? `${player.firstname} ${player.lastname}` : player.name}
               </motion.h1>
               
               {currentStats && (

@@ -3,11 +3,12 @@
 import { useState, useEffect } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { Trophy, TrendingUp, TrendingDown, Minus } from 'lucide-react'
+import { Trophy, TrendingUp, TrendingDown, Minus, ChevronDown, ChevronUp } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { FootballAPIService } from '@/lib/supabase/football'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 
 interface LeagueStandingsMiniProps {
   leagueId: number
@@ -24,6 +25,7 @@ export function LeagueStandingsMini({
 }: LeagueStandingsMiniProps) {
   const [standings, setStandings] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [expanded, setExpanded] = useState(false)
   
   useEffect(() => {
     const fetchStandings = async () => {
@@ -70,31 +72,36 @@ export function LeagueStandingsMini({
   const minRank = Math.min(homeRank, awayRank)
   const maxRank = Math.max(homeRank, awayRank)
   
-  // Show top 3 + teams + surrounding teams
+  // Show top 3 + teams + surrounding teams when collapsed, all teams when expanded
   let displayStandings = []
   
-  // Always show top 3
-  const top3 = standings.slice(0, 3)
-  displayStandings.push(...top3)
-  
-  // Add teams and surrounding if not in top 3
-  if (minRank > 3) {
-    // Add separator if there's a gap
-    if (minRank > 4) {
-      displayStandings.push({ separator: true })
+  if (expanded) {
+    // Show all teams when expanded
+    displayStandings = [...standings]
+  } else {
+    // Always show top 3
+    const top3 = standings.slice(0, 3)
+    displayStandings.push(...top3)
+    
+    // Add teams and surrounding if not in top 3
+    if (minRank > 3) {
+      // Add separator if there's a gap
+      if (minRank > 4) {
+        displayStandings.push({ separator: true })
+      }
+      
+      // Add surrounding teams
+      const start = Math.max(3, minRank - 2)
+      const end = Math.min(standings.length, maxRank + 2)
+      const middleTeams = standings.slice(start, end)
+      displayStandings.push(...middleTeams.filter((t: any) => !top3.includes(t)))
     }
     
-    // Add surrounding teams
-    const start = Math.max(3, minRank - 2)
-    const end = Math.min(standings.length, maxRank + 2)
-    const middleTeams = standings.slice(start, end)
-    displayStandings.push(...middleTeams.filter((t: any) => !top3.includes(t)))
+    // Remove duplicates
+    displayStandings = displayStandings.filter((item, index, self) =>
+      item.separator || index === self.findIndex((t) => t.team?.id === item.team?.id)
+    )
   }
-  
-  // Remove duplicates
-  displayStandings = displayStandings.filter((item, index, self) =>
-    item.separator || index === self.findIndex((t) => t.team?.id === item.team?.id)
-  )
   
   const getFormIcon = (result: string) => {
     switch(result) {
@@ -178,13 +185,19 @@ export function LeagueStandingsMini({
                 <td className="py-2 pl-2">
                   <Link href={`/teams/${item.team.id}`}>
                     <div className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-                      <Image
-                        src={item.team.logo}
-                        alt={item.team.name}
-                        width={20}
-                        height={20}
-                        className="object-contain"
-                      />
+                      {/* 리버풀(팀 ID 40)의 경우 로고 크기 조정 */}
+                      <div className={cn(
+                        "flex-shrink-0",
+                        item.team.id === 40 ? "w-[18px] h-[18px]" : "w-5 h-5"
+                      )}>
+                        <Image
+                          src={item.team.logo}
+                          alt={item.team.name}
+                          width={item.team.id === 40 ? 18 : 20}
+                          height={item.team.id === 40 ? 18 : 20}
+                          className="object-contain w-full h-full"
+                        />
+                      </div>
                       <span className={cn(
                         "text-sm truncate max-w-[120px]",
                         isHighlighted && "font-bold"
@@ -228,6 +241,35 @@ export function LeagueStandingsMini({
           })}
         </tbody>
       </table>
+      
+      {/* Expand/Collapse button */}
+      {standings.length > displayStandings.length && !expanded && (
+        <div className="mt-4 flex justify-center">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setExpanded(true)}
+            className="flex items-center gap-2 text-sm font-medium hover:bg-gray-100 dark:hover:bg-gray-800"
+          >
+            전체 순위 보기
+            <ChevronDown className="w-4 h-4" />
+          </Button>
+        </div>
+      )}
+      
+      {expanded && (
+        <div className="mt-4 flex justify-center">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setExpanded(false)}
+            className="flex items-center gap-2 text-sm font-medium hover:bg-gray-100 dark:hover:bg-gray-800"
+          >
+            접기
+            <ChevronUp className="w-4 h-4" />
+          </Button>
+        </div>
+      )}
       
       {/* Legend */}
       <div className="mt-4 flex items-center gap-4 text-xs text-gray-500">

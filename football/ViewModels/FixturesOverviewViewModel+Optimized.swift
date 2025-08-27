@@ -211,7 +211,7 @@ extension FixturesOverviewViewModel {
     }
     
     /// 날짜 문자열을 Date로 변환
-    private func parseDateFromAPI(_ dateString: String) -> Date? {
+    internal func parseDateFromAPI(_ dateString: String) -> Date? {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd"
         formatter.timeZone = TimeZone(identifier: "Asia/Seoul")

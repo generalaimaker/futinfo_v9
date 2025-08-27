@@ -27,7 +27,7 @@ class FixturesOverviewViewModel: ObservableObject {
     @Published public var allDateRange: [Date] = []
     private let initialVisibleCount = 10 // 초기에 표시할 날짜 수 (오늘 기준 좌우 5일씩)
     private let additionalLoadCount = 10 // 추가로 로드할 날짜 수 (5에서 10으로 증가)
-    private let calendar = Calendar.current
+    internal let calendar = Calendar.current
     
     // API 요청 제한 관련 변수
     private var isRateLimited: Bool = false
@@ -44,9 +44,9 @@ class FixturesOverviewViewModel: ObservableObject {
     
     // 프리페칭을 위한 변수
     private var prefetchingDates: Set<Date> = []
-    private var prefetchTask: Task<Void, Never>?
-    private var dateSelectionTask: Task<Void, Never>?
-    private var activeTasks: [String: Task<Void, Never>] = [:] // 활성 작업 추적
+    internal var prefetchTask: Task<Void, Never>?
+    internal var dateSelectionTask: Task<Void, Never>?
+    internal var activeTasks: [String: Task<Void, Never>] = [:] // 활성 작업 추적
     
     // 경기 상태별 캐시 만료 시간 (분 단위)
     private let liveMatchCacheMinutes: Double = 1 // 진행 중인 경기는 1분 유지
@@ -85,7 +85,7 @@ class FixturesOverviewViewModel: ObservableObject {
     private let dateFormatter = DateFormatter()
     
     // 라이브 경기 상태 목록
-    private let liveStatuses = ["1H", "2H", "HT", "ET", "P", "BT", "LIVE"]
+    internal let liveStatuses = ["1H", "2H", "HT", "ET", "P", "BT", "LIVE"]
     
     // 유럽 주요 팀 ID (친선경기 우선순위)
     private let majorEuropeanTeams = [
@@ -138,21 +138,14 @@ class FixturesOverviewViewModel: ObservableObject {
         return formatter.string(from: date)
     }
     
-    // 날짜 선택 최적화 메서드
+    // 날짜 선택 최적화 메서드 - Performance 확장으로 이동
     @MainActor
     public func selectDate(_ date: Date) async {
-        // 이전 작업 취소
-        dateSelectionTask?.cancel()
+        await selectDateOptimized(date)
+        return
         
-        // 선택된 날짜 설정
-        selectedDate = date
-        
-        // 날짜 범위 확인 및 자동 확장
-        let needsExtension = !allDateRange.contains(where: { calendar.isDate($0, inSameDayAs: date) })
-        if needsExtension {
-            await expandDateRangeToInclude(date)
-        }
-        
+        /*
+        // 아래 코드는 selectDateOptimized에서 처리됨
         dateSelectionTask = Task {
             // 1. 메모리 캐시 확인
             let dateString = formatDateForAPI(date)
@@ -196,6 +189,7 @@ class FixturesOverviewViewModel: ObservableObject {
                 await smartPrefetch(around: date)
             }
         }
+        */
     }
     
     // 날짜 범위를 확장하여 특정 날짜 포함
@@ -505,7 +499,7 @@ class FixturesOverviewViewModel: ObservableObject {
                 
                 do {
                     // 직접 API 호출 (강제 새로고침으로 캐시 우회)
-                    let parameters = [
+                    let _ = [
                         "league": "15",
                         "season": String(season),
                         "from": dateStr,
@@ -544,7 +538,7 @@ class FixturesOverviewViewModel: ObservableObject {
         for testSeason in seasons {
             print("\n🗓️ \(testSeason) 시즌 테스트:")
             do {
-                let allParameters = [
+                let _ = [
                     "league": "15",
                     "season": String(testSeason)
                 ]
@@ -610,7 +604,7 @@ class FixturesOverviewViewModel: ObservableObject {
         // 프리미어리그 테스트 (비교용)
         print("\n⚽ 프리미어리그 테스트:")
         do {
-            let plParameters = [
+            let _ = [
                 "league": "39",
                 "season": "2024",
                 "from": "2025-01-06",
@@ -2259,7 +2253,7 @@ class FixturesOverviewViewModel: ObservableObject {
         print("🏆 합산 스코어 계산 - 최종 합산: \(aggregateHomeScore)-\(aggregateAwayScore)")
         
 //        return (home: aggregateHomeScore, away: aggregateAwayScore)
-    }
+//    }
     */
     
     // 특정 날짜에 대한 경기 일정 로드 (UI 업데이트 포함)
@@ -2449,5 +2443,153 @@ class FixturesOverviewViewModel: ObservableObject {
             
             print("⚽ 라이브 경기 \(currentLiveMatches.count)개 추적 중")
         }
+    }
+    
+    // MARK: - 빅매치 찾기
+    
+    /// 빅매치 팀 ID 정의
+    private let bigMatchTeams: Set<Int> = [
+        // 프리미어 리그 빅6
+        33,   // 맨체스터 유나이티드
+        50,   // 맨체스터 시티
+        40,   // 리버풀
+        49,   // 첼시
+        42,   // 아스날
+        47,   // 토트넘
+        
+        // 라리가
+        541,  // 레알 마드리드
+        529,  // 바르셀로나
+        530,  // 아틀레티코 마드리드
+        
+        // 분데스리가
+        157,  // 바이에른 뮌헨
+        165,  // 도르트문트
+        
+        // 세리에 A
+        505,  // 인터 밀란
+        489,  // AC 밀란
+        496,  // 유벤투스
+        492,  // 나폴리
+        
+        // 리그 1
+        85,   // 파리 생제르맹
+        
+        // 기타 강팀
+        34,   // 뉴캐슬
+        66,   // 아스톤 빌라
+        173,  // 라이프치히
+        168,  // 레버쿠젠
+        497,  // AS 로마
+        487   // 라치오
+    ]
+    
+    /// 가장 가까운 빅매치 찾기
+    @MainActor
+    func findUpcomingBigMatch(from date: Date) async -> Fixture? {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: date)
+        
+        // 오늘부터 30일간 검색
+        for dayOffset in 0..<30 {
+            guard let checkDate = calendar.date(byAdding: .day, value: dayOffset, to: today) else {
+                continue
+            }
+            
+            // 해당 날짜의 경기 확인
+            if fixtures[checkDate] == nil {
+                // 데이터가 없으면 로드
+                await loadFixturesForDate(checkDate, forceRefresh: false)
+            }
+            
+            if let dayFixtures = fixtures[checkDate] {
+                // 빅매치 찾기
+                let bigMatches = dayFixtures.filter { fixture in
+                    isBigMatch(fixture)
+                }.sorted { fixture1, fixture2 in
+                    // 시간 순으로 정렬
+                    fixture1.fixture.date < fixture2.fixture.date
+                }
+                
+                if let firstBigMatch = bigMatches.first {
+                    return firstBigMatch
+                }
+            }
+        }
+        
+        return nil
+    }
+    
+    /// 빅매치인지 확인
+    private func isBigMatch(_ fixture: Fixture) -> Bool {
+        // 양팀 모두 빅매치 팀인 경우
+        let homeBigTeam = bigMatchTeams.contains(fixture.teams.home.id)
+        let awayBigTeam = bigMatchTeams.contains(fixture.teams.away.id)
+        
+        // 양팀 모두 빅팀이거나, 챔피언스리그/유로파리그 8강 이상
+        if homeBigTeam && awayBigTeam {
+            return true
+        }
+        
+        // 챔피언스리그, 유로파리그 중요 경기
+        if [2, 3].contains(fixture.league.id) {
+            let round = fixture.league.round.lowercased()
+            if round.contains("quarter") || round.contains("semi") || round.contains("final") {
+                return true
+            }
+        }
+        
+        // 월드컵, 유로 결승전
+        if [1, 4].contains(fixture.league.id) {
+            let round = fixture.league.round.lowercased()
+            if round.contains("final") {
+                return true
+            }
+        }
+        
+        return false
+    }
+    
+    /// 빅매치 설명 생성
+    func getBigMatchDescription(_ fixture: Fixture) -> String {
+        let homeTeam = fixture.teams.home.name
+        let awayTeam = fixture.teams.away.name
+        
+        // 더비 매치 확인
+        if (fixture.teams.home.id == 33 && fixture.teams.away.id == 50) ||
+           (fixture.teams.home.id == 50 && fixture.teams.away.id == 33) {
+            return "맨체스터 더비"
+        }
+        
+        if (fixture.teams.home.id == 40 && fixture.teams.away.id == 45) ||
+           (fixture.teams.home.id == 45 && fixture.teams.away.id == 40) {
+            return "머지사이드 더비"
+        }
+        
+        if (fixture.teams.home.id == 541 && fixture.teams.away.id == 529) ||
+           (fixture.teams.home.id == 529 && fixture.teams.away.id == 541) {
+            return "엘 클라시코"
+        }
+        
+        if (fixture.teams.home.id == 489 && fixture.teams.away.id == 505) ||
+           (fixture.teams.home.id == 505 && fixture.teams.away.id == 489) {
+            return "밀라노 더비"
+        }
+        
+        // 리그명 포함
+        let leagueName: String = {
+            switch fixture.league.id {
+            case 39: return "프리미어리그"
+            case 140: return "라리가"
+            case 135: return "세리에 A"
+            case 78: return "분데스리가"
+            case 61: return "리그 1"
+            case 2: return "챔피언스리그"
+            case 3: return "유로파리그"
+            default: return fixture.league.name
+            }
+        }()
+        
+        return "\(leagueName) 빅매치"
     }
 }

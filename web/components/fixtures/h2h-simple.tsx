@@ -34,7 +34,7 @@ export function H2HSimple({ homeTeam, awayTeam, currentFixture }: H2HSimpleProps
         setLoading(true)
         setError(null)
         const footballAPIService = new FootballAPIService()
-        const data = await footballAPIService.getH2H(homeTeam.id, awayTeam.id)
+        const data = await footballAPIService.getH2H({ team1Id: homeTeam.id, team2Id: awayTeam.id })
         console.log('[H2HSimple] H2H data received:', data)
         
         // 데이터가 배열인지 확인

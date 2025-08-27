@@ -262,13 +262,15 @@ function HeroSection({ fixture, isLive }: any) {
                   whileTap={{ scale: 0.95 }}
                   className="cursor-pointer"
                 >
-                  <Image
-                    src={fixture.teams.home.logo}
-                    alt={fixture.teams.home.name}
-                    width={120}
-                    height={120}
-                    className="mx-auto mb-4"
-                  />
+                  <div className="w-[140px] h-[140px] mx-auto mb-4 flex items-center justify-center">
+                    <Image
+                      src={fixture.teams.home.logo}
+                      alt={fixture.teams.home.name}
+                      width={140}
+                      height={140}
+                      className="object-contain max-h-[140px]"
+                    />
+                  </div>
                 </motion.div>
               </Link>
               <Link href={`/teams/${fixture.teams.home.id}`}>
@@ -413,13 +415,15 @@ function HeroSection({ fixture, isLive }: any) {
                   whileTap={{ scale: 0.95 }}
                   className="cursor-pointer"
                 >
-                  <Image
-                    src={fixture.teams.away.logo}
-                    alt={fixture.teams.away.name}
-                    width={120}
-                    height={120}
-                    className="mx-auto mb-4"
-                  />
+                  <div className="w-[140px] h-[140px] mx-auto mb-4 flex items-center justify-center">
+                    <Image
+                      src={fixture.teams.away.logo}
+                      alt={fixture.teams.away.name}
+                      width={140}
+                      height={140}
+                      className="object-contain max-h-[140px]"
+                    />
+                  </div>
                 </motion.div>
               </Link>
               <Link href={`/teams/${fixture.teams.away.id}`}>
@@ -457,9 +461,9 @@ function HeroSection({ fixture, isLive }: any) {
           </div>
         </div>
         
-        {/* 경기장 정보 */}
+        {/* 경기장 및 주심 정보 */}
         <motion.div 
-          className="text-center mt-8"
+          className="text-center mt-8 space-y-2"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.5 }}
@@ -470,6 +474,15 @@ function HeroSection({ fixture, isLive }: any) {
               {formatVenue(fixture.fixture.venue)}
             </span>
           </div>
+          
+          {fixture.fixture.referee && (
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gray-100/50 dark:bg-gray-800/50 backdrop-blur">
+              <Users className="w-4 h-4 text-gray-500" />
+              <span className="text-sm text-gray-600 dark:text-gray-400">
+                주심: {fixture.fixture.referee}
+              </span>
+            </div>
+          )}
         </motion.div>
       </div>
       
@@ -736,6 +749,7 @@ export function AppleMatchDetail({
                 <LineupHorizontal
                   lineups={fixture.lineups}
                   events={fixture.events}
+                  fixture={fixture}
                 />
               </GlassCard>
             </motion.div>

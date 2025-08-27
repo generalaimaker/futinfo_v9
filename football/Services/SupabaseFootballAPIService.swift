@@ -694,7 +694,7 @@ extension SupabaseFootballAPIService {
             return (allFixtures, errors)
         }
         
-        let (allFixtures, errors) = results
+        let (allFixtures, _) = results
         
         print("✅ 배치 요청 완료: \(allFixtures.count)개 경기 로드")
         

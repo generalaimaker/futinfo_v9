@@ -583,8 +583,8 @@ class FixtureDetailViewModel: ObservableObject {
         // 홈팀과 원정팀 ID
         let homeTeamId = fixture.teams.home.id
         let awayTeamId = fixture.teams.away.id
-        let fixtureId = fixture.fixture.id
-        let season = fixture.league.season
+        let _ = fixture.fixture.id
+        let _ = fixture.league.season
 
         do {
             // 부상 정보는 teamId로만 조회 가능
@@ -817,7 +817,7 @@ class FixtureDetailViewModel: ObservableObject {
 
             // 2. 하프 통계 가져오기 (현재는 일반 통계와 동일하게 처리)
             // TODO: HalfTeamStatistics 타입으로 변환 필요
-            let halfStats = try await service.getFixtureHalfStatistics(fixtureId: fixtureId)
+            let _ = try await service.getFixtureHalfStatistics(fixtureId: fixtureId)
 
             // 3. 차트 데이터 생성
             let chartData = createChartData(from: teamStats)

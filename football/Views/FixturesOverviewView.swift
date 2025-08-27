@@ -1068,6 +1068,9 @@ struct FixturePageView: View {
     let index: Int
     let selectedIndex: Int
     
+    // 빅매치 상태
+    @State private var upcomingBigMatch: Fixture? = nil
+    
     // 리그별 접기/펼치기 상태 저장 (UserDefaults 사용)
     @State private var collapsedLeagues: Set<Int> = {
         if let saved = UserDefaults.standard.array(forKey: "collapsedLeagues") as? [Int] {
@@ -1373,13 +1376,22 @@ struct FixturePageView: View {
                                 }
                         } else {
                             // 정말로 데이터가 없는 경우에만 빈 상태 메시지 표시
-                            VStack(spacing: 12) {
-                                Image(systemName: "calendar.badge.exclamationmark")
-                                    .font(.system(size: 40))
-                                    .foregroundColor(.secondary)
-                                Text(viewModel.emptyDates[date] ?? "해당일에 예정된 경기가 없습니다")
-                                    .foregroundColor(.secondary)
-                                    .multilineTextAlignment(.center)
+                            VStack(spacing: 20) {
+                                // 일정 없음 메시지
+                                VStack(spacing: 12) {
+                                    Image(systemName: "calendar.badge.exclamationmark")
+                                        .font(.system(size: 40))
+                                        .foregroundColor(.secondary)
+                                    Text(viewModel.emptyDates[date] ?? "해당일에 예정된 경기가 없습니다")
+                                        .foregroundColor(.secondary)
+                                        .multilineTextAlignment(.center)
+                                }
+                                
+                                // 빅매치 표시
+                                if let upcomingBigMatch = upcomingBigMatch {
+                                    UpcomingBigMatchView(fixture: upcomingBigMatch, viewModel: viewModel)
+                                        .padding(.horizontal)
+                                }
                             }
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 40)
@@ -1388,6 +1400,17 @@ struct FixturePageView: View {
                                 if !isLoading && !viewModel.loadingDates.contains(date) {
                                     Task {
                                         await viewModel.loadFixturesForDate(date, forceRefresh: false)
+                                    }
+                                }
+                                
+                                // 빅매치 찾기
+                                if upcomingBigMatch == nil {
+                                    Task {
+                                        if let bigMatch = await viewModel.findUpcomingBigMatch(from: date) {
+                                            await MainActor.run {
+                                                self.upcomingBigMatch = bigMatch
+                                            }
+                                        }
                                     }
                                 }
                             }

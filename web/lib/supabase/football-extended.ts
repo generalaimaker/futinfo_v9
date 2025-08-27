@@ -2,17 +2,25 @@
 import { FootballAPIService } from './football'
 
 export class ExtendedFootballService extends FootballAPIService {
-  // H2H 상대전적 가져오기
-  async getH2H(homeTeamId: number, awayTeamId: number): Promise<any> {
-    const cacheKey = `h2h_${homeTeamId}_${awayTeamId}`
+  // H2H 상대전적 가져오기 - 오버로딩 지원
+  async getH2H(params: { team1Id: number; team2Id: number } | { h2h: string }): Promise<any> {
+    let cacheKey: string
+    let apiParams: any
+    
+    if ('h2h' in params) {
+      cacheKey = `h2h_${params.h2h}`
+      apiParams = { h2h: params.h2h, last: 10 }
+    } else {
+      const { team1Id, team2Id } = params
+      cacheKey = `h2h_${team1Id}_${team2Id}`
+      apiParams = { h2h: `${team1Id}-${team2Id}`, last: 10 }
+    }
+    
     const cached = this.getCachedData<any>(cacheKey)
     if (cached) return cached
 
     try {
-      const data = await this.callUnifiedAPI<any>('fixtures/headtohead', {
-        h2h: `${homeTeamId}-${awayTeamId}`,
-        last: 10
-      })
+      const data = await this.callUnifiedAPI<any>('fixtures/h2h', apiParams)
       
       this.setCachedData(cacheKey, data)
       return data

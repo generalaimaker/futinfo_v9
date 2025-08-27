@@ -306,7 +306,7 @@ export function H2HComponent({ homeTeam, awayTeam, currentFixture }: H2HComponen
     const fetchH2H = async () => {
       try {
         setLoading(true)
-        const data = await footballAPIService.getH2H(homeTeam.id, awayTeam.id)
+        const data = await footballAPIService.getH2H({ team1Id: homeTeam.id, team2Id: awayTeam.id })
         console.log('[H2HComponent] H2H data received:', data)
         
         // data가 배열인지 확인하고, 아니면 빈 배열로 설정

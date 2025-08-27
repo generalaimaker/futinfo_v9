@@ -110,7 +110,7 @@ export function EnhancedMatchInfo({ fixture }: EnhancedMatchInfoProps) {
   // H2H 상대전적 가져오기
   const { data: h2hData, isLoading: h2hLoading } = useQuery({
     queryKey: ['h2h', homeTeamId, awayTeamId],
-    queryFn: () => extendedFootballService.getH2H(homeTeamId, awayTeamId),
+    queryFn: () => extendedFootballService.getH2H({ team1Id: homeTeamId, team2Id: awayTeamId }),
     staleTime: 10 * 60 * 1000
   })
   

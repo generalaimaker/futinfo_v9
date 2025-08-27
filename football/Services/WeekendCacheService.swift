@@ -1,6 +1,7 @@
 import Foundation
 import SwiftUI
 
+@MainActor
 class WeekendCacheService {
     static let shared = WeekendCacheService()
     
@@ -170,11 +171,13 @@ class WeekendCacheService {
         let timeInterval = runTime.timeIntervalSinceNow
         
         // Timer 설정
-        Timer.scheduledTimer(withTimeInterval: timeInterval, repeats: false) { [weak self] _ in
-            self?.refreshWeekendInBackground()
-            
-            // 다음 날 다시 스케줄
-            self?.scheduleDailyPreload()
+        Timer.scheduledTimer(withTimeInterval: timeInterval, repeats: false) { _ in
+            Task { @MainActor in
+                WeekendCacheService.shared.refreshWeekendInBackground()
+                
+                // 다음 날 다시 스케줄
+                WeekendCacheService.shared.scheduleDailyPreload()
+            }
         }
         
         print("📅 다음 주말 캐싱 예약: \(runTime)")

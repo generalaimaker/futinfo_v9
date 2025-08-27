@@ -521,33 +521,23 @@ class SearchViewModel: ObservableObject {
     // 팀 검색 (API 서비스 호출)
     private func searchTeams(query: String) async -> Result<[SearchResultItem], Error> {
         guard !query.isEmpty else { return .success([]) }
-        do {
-            // TODO: Implement searchTeams function
-            // let teams = try await service.searchTeams(query: query) // 서비스 함수는 공백 제거 안 함
-            let teams: [TeamProfile] = [] // 임시로 빈 배열 반환
-            return .success(teams.map { SearchResultItem.team($0) })
-        } catch {
-            print("❌ 팀 검색 오류: \(error.localizedDescription)")
-            return .failure(error)
-        }
+        // TODO: Implement searchTeams function
+        // let teams = try await service.searchTeams(query: query) // 서비스 함수는 공백 제거 안 함
+        let teams: [TeamProfile] = [] // 임시로 빈 배열 반환
+        return .success(teams.map { SearchResultItem.team($0) })
     }
 
     // 선수 검색 (단일 리그 - 내부 사용, API 서비스 호출)
     private func searchPlayers(query: String, leagueId: Int) async -> Result<[SearchResultItem], Error> {
         guard !query.isEmpty else { return .success([]) } // 빈 쿼리 방지
-        do {
-            // TODO: Implement searchPlayers function
-            // let players = try await service.searchPlayers(
-            //     query: query, // ViewModel에서 처리된 쿼리 전달
-            //     leagueId: leagueId,
-            //     season: currentSeason
-            // )
-            let players: [PlayerProfileData] = [] // 임시로 빈 배열 반환
-            return .success(players.map { SearchResultItem.player($0) })
-        } catch {
-            print("❌ 선수 검색 오류 (리그: \(leagueId)): \(error.localizedDescription)")
-            return .failure(error)
-        }
+        // TODO: Implement searchPlayers function
+        // let players = try await service.searchPlayers(
+        //     query: query, // ViewModel에서 처리된 쿼리 전달
+        //     leagueId: leagueId,
+        //     season: currentSeason
+        // )
+        let players: [PlayerProfileData] = [] // 임시로 빈 배열 반환
+        return .success(players.map { SearchResultItem.player($0) })
     }
 
     // 주요 리그에서 선수 병렬 검색 (API 서비스 호출)

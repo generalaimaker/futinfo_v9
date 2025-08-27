@@ -77,7 +77,7 @@ export default function PlayerProfilePage({
             {/* Player info */}
             <div className="flex-1 text-center lg:text-left">
               <h1 className="text-4xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent mb-2">
-                {player.name}
+                {player.firstname && player.lastname ? `${player.firstname} ${player.lastname}` : player.name}
               </h1>
               
               <div className="flex flex-wrap items-center gap-4 justify-center lg:justify-start text-gray-600 mb-4">
