@@ -3,7 +3,7 @@
  * Based on ensemble approach with Bayesian updating
  */
 
-import { FixtureWithDetails } from '@/lib/types/football'
+import { Fixture } from '@/lib/types/football'
 
 // 예측 결과 타입 정의
 export interface AdvancedPrediction {
@@ -36,11 +36,11 @@ interface TeamStats {
   goals?: {
     for: { 
       total: { home: number; away: number; total: number }
-      average: { home: number; away: number; total: string }
+      average: { home: string | number; away: string | number; total: string }
     }
     against: {
       total: { home: number; away: number; total: number }
-      average: { home: number; away: number; total: string }
+      average: { home: string | number; away: string | number; total: string }
     }
   }
   clean_sheet?: { home: number; away: number; total: number }
@@ -236,7 +236,7 @@ export class AdvancedPredictionModel {
     awayStats: TeamStats,
     h2hStats: H2HStats,
     apiPrediction?: { home: string; draw: string; away: string },
-    fixture?: FixtureWithDetails,
+    fixture?: Fixture,
     advancedStats?: any // Free API의 고급 통계
   ): AdvancedPrediction {
     const predictions: Array<{ home: number; draw: number; away: number }> = []
@@ -244,10 +244,10 @@ export class AdvancedPredictionModel {
     // 1. Poisson 모델
     if (homeStats.goals && awayStats.goals) {
       const poissonPred = this.poissonModel(
-        parseFloat(homeStats.goals.for.average.home) || 1.5,
-        parseFloat(homeStats.goals.against.average.home) || 1.2,
-        parseFloat(awayStats.goals.for.average.away) || 1.2,
-        parseFloat(awayStats.goals.against.average.away) || 1.5
+        typeof homeStats.goals.for.average.home === 'number' ? homeStats.goals.for.average.home : parseFloat(homeStats.goals.for.average.home as string) || 1.5,
+        typeof homeStats.goals.against.average.home === 'number' ? homeStats.goals.against.average.home : parseFloat(homeStats.goals.against.average.home as string) || 1.2,
+        typeof awayStats.goals.for.average.away === 'number' ? awayStats.goals.for.average.away : parseFloat(awayStats.goals.for.average.away as string) || 1.2,
+        typeof awayStats.goals.against.average.away === 'number' ? awayStats.goals.against.average.away : parseFloat(awayStats.goals.against.average.away as string) || 1.5
       )
       predictions.push(poissonPred)
     }
@@ -316,7 +316,7 @@ export class AdvancedPredictionModel {
     homeStats: TeamStats,
     awayStats: TeamStats,
     h2hStats: H2HStats,
-    fixture?: FixtureWithDetails
+    fixture?: Fixture
   ): PredictionFactors {
     // Form Factor
     const homeFormScore = homeStats.form ? 
@@ -332,8 +332,8 @@ export class AdvancedPredictionModel {
     // Goals Factor
     const goalsFactor = homeStats.goals && awayStats.goals ?
       Math.min(1, Math.abs(
-        parseFloat(homeStats.goals.for.average.home) - 
-        parseFloat(awayStats.goals.for.average.away)
+        (typeof homeStats.goals.for.average.home === 'number' ? homeStats.goals.for.average.home : parseFloat(homeStats.goals.for.average.home as string)) - 
+        (typeof awayStats.goals.for.average.away === 'number' ? awayStats.goals.for.average.away : parseFloat(awayStats.goals.for.average.away as string))
       ) / 3) : 0.5
     
     // H2H Factor

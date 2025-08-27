@@ -169,8 +169,8 @@ function PredictionsSection({ fixtureId, fixture }: { fixtureId: number, fixture
         
         setPredictions(predData?.response?.[0])
         setTeamStats({
-          home: homeStatsData?.response || homeStatsData,
-          away: awayStatsData?.response || awayStatsData,
+          home: homeStatsData,
+          away: awayStatsData,
           homeRecent: homeRecentStats,
           awayRecent: awayRecentStats
         })
@@ -213,10 +213,10 @@ function PredictionsSection({ fixtureId, fixture }: { fixtureId: number, fixture
         }
         
         // 고급 모델 실행
-        if (homeStatsData?.response && awayStatsData?.response) {
+        if (homeStatsData && awayStatsData) {
           const advanced = advancedModel.predict(
-            homeStatsData.response,
-            awayStatsData.response,
+            homeStatsData,
+            awayStatsData,
             h2hStats,
             predData?.response?.[0]?.predictions?.percent,
             fixture
@@ -226,7 +226,7 @@ function PredictionsSection({ fixtureId, fixture }: { fixtureId: number, fixture
           setConfidence(advanced.confidence)
         } else {
           // 폴백: 기존 신뢰도 계산
-          calculateConfidence(predData?.response?.[0], homeStatsData?.response, awayStatsData?.response)
+          calculateConfidence(predData?.response?.[0], homeStatsData, awayStatsData)
         }
       } catch (error) {
         console.error('Error fetching predictions:', error)
@@ -986,8 +986,8 @@ function TeamStatisticsComparison({ fixture }: { fixture: any }) {
         ])
         
         console.log('Team stats data:', { homeData, awayData })
-        setHomeStats(homeData?.response || homeData)
-        setAwayStats(awayData?.response || awayData)
+        setHomeStats(homeData)
+        setAwayStats(awayData)
         setHomeRecentFixtures(homeRecent?.response || [])
         setAwayRecentFixtures(awayRecent?.response || [])
       } catch (error) {

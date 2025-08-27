@@ -806,7 +806,8 @@ class FootballAPIService {
     }
   }
 
-  // 팀 통계 가져오기
+  // 중복된 함수 제거 - 위의 getTeamStatistics 사용
+  /*
   async getTeamStatistics(team: number, season: number, league: number): Promise<any> {
     const cacheKey = `team_stats_${team}_${season}_${league}`
     const cached = this.getCachedData<any>(cacheKey)
@@ -826,6 +827,7 @@ class FootballAPIService {
       return null
     }
   }
+  */
 
   // 부상자 명단 가져오기 - 다양한 방법 시도
   async getInjuries(teamId: number, fixtureId?: number): Promise<any> {
