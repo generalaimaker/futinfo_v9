@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -71,6 +71,7 @@ export default function TeamPage() {
   console.log('[TeamPage v2.0] Component loaded')
   
   const params = useParams()
+  const router = useRouter()
   const teamId = parseInt(params.id as string)
   const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState('overview')
@@ -80,6 +81,8 @@ export default function TeamPage() {
   const [newPostCategory, setNewPostCategory] = useState<TeamPost['category']>('general')
   const [transferFilter, setTransferFilter] = useState<'in' | 'out'>('in')
   const [allTransfersRawData, setAllTransfersRawData] = useState<any>(null)
+  const [hoveredMatch, setHoveredMatch] = useState<string | null>(null)
+  const [recentMatches, setRecentMatches] = useState<any[]>([])
   
   const { data: profileData, isLoading: profileLoading } = useTeamProfile(teamId)
   const [selectedSeason, setSelectedSeason] = useState(2025) // 2025-26 시즌을 기본값으로
@@ -90,6 +93,15 @@ export default function TeamPage() {
   const { data: lastFixtures, isLoading: lastLoading } = useTeamLastFixtures(teamId)
   const { data: standingsData } = useStandings({ league: leagueId, season: selectedSeason })
   const { preferences, addFavoriteTeam, removeFavoriteTeam } = useUserPreferences()
+
+  // 최근 경기 데이터를 폼과 매칭
+  useEffect(() => {
+    if (statsData?.response && lastFixtures?.response) {
+      const formString = statsData.response.form || ''
+      const matches = lastFixtures.response.slice(0, formString.length).reverse()
+      setRecentMatches(matches)
+    }
+  }, [statsData, lastFixtures])
   
   // 전체 이적 데이터 가져오기 - 강제 리프레시
   const { data: allTransfersData, isLoading: transfersLoading, error: transfersError, refetch: refetchTransfers } = useFootballTransfers(1)
@@ -443,19 +455,67 @@ export default function TeamPage() {
                     <div className="flex items-center gap-2">
                       <span className="text-sm text-muted-foreground">최근 폼:</span>
                       <div className="flex items-center gap-1">
-                        {stats.form.split('').slice(-5).map((result: string, i: number) => (
-                          <div
-                            key={i}
-                            className={cn(
-                              "w-6 h-6 rounded flex items-center justify-center text-xs font-bold",
-                              result === 'W' && "bg-green-500 text-white",
-                              result === 'D' && "bg-gray-500 text-white",
-                              result === 'L' && "bg-red-500 text-white"
-                            )}
-                          >
-                            {result}
-                          </div>
-                        ))}
+                        {stats.form.split('').slice(-5).map((result: string, i: number) => {
+                          const match = recentMatches[i]
+                          const matchKey = match ? `${match.fixture.id}-${i}` : `form-${i}`
+                          
+                          return (
+                            <div key={i} className="relative">
+                              <div
+                                className={cn(
+                                  "w-6 h-6 rounded flex items-center justify-center text-xs font-bold cursor-pointer transition-transform hover:scale-110",
+                                  result === 'W' && "bg-green-500 text-white",
+                                  result === 'D' && "bg-gray-500 text-white",
+                                  result === 'L' && "bg-red-500 text-white"
+                                )}
+                                onMouseEnter={() => match && setHoveredMatch(matchKey)}
+                                onMouseLeave={() => setHoveredMatch(null)}
+                                onClick={() => {
+                                  if (match) {
+                                    router.push(`/fixtures/${match.fixture.id}`)
+                                  }
+                                }}
+                              >
+                                {result}
+                              </div>
+                              
+                              {/* Custom Tooltip */}
+                              {hoveredMatch === matchKey && match && (
+                                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 z-50 pointer-events-none">
+                                  <div className="bg-gray-900 text-white p-3 rounded-lg shadow-xl whitespace-nowrap border border-gray-700">
+                                    <div className="text-xs font-medium mb-1">
+                                      {new Date(match.fixture.date).toLocaleDateString('ko-KR')}
+                                    </div>
+                                    <div className="flex items-center gap-2 text-sm">
+                                      <span className={cn(
+                                        "font-bold",
+                                        match.teams.home.id === teamId && "text-blue-400"
+                                      )}>
+                                        {match.teams.home.name}
+                                      </span>
+                                      <span className="font-bold">
+                                        {match.goals.home ?? 0} - {match.goals.away ?? 0}
+                                      </span>
+                                      <span className={cn(
+                                        "font-bold",
+                                        match.teams.away.id === teamId && "text-blue-400"
+                                      )}>
+                                        {match.teams.away.name}
+                                      </span>
+                                    </div>
+                                    <div className="text-xs text-gray-400 mt-1">
+                                      {match.league.name}
+                                    </div>
+                                    <div className="absolute bottom-[-6px] left-1/2 transform -translate-x-1/2 w-0 h-0 
+                                                  border-l-[6px] border-l-transparent
+                                                  border-r-[6px] border-r-transparent
+                                                  border-t-[6px] border-t-gray-900"></div>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          )
+                        })}
                       </div>
                     </div>
                   )}

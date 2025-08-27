@@ -33,7 +33,7 @@ import { useRouter } from 'next/navigation'
 // 팀 최근 폼 표시 컴포넌트 - 리그 경기만 표시
 function TeamFormDisplay({ teamId, form, leagueId }: { teamId: number, form: string, leagueId?: number }) {
   const router = useRouter()
-  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
+  const [hoveredMatch, setHoveredMatch] = useState<string | null>(null)
   
   // 현재 시즌 계산
   const currentSeason = new Date().getFullYear()
@@ -70,6 +70,7 @@ function TeamFormDisplay({ teamId, form, leagueId }: { teamId: number, form: str
       {formArray.map((result: string, i: number) => {
         // 가장 오래된 경기부터 표시 (왼쪽이 과거, 오른쪽이 최근)
         const fixture = leagueFixtures?.[i]
+        const matchKey = fixture ? `${fixture.fixture?.id}-${i}` : `form-${i}`
         const isHome = fixture?.teams?.home?.id === teamId
         const opponent = isHome ? fixture?.teams?.away : fixture?.teams?.home
         const score = fixture?.goals || fixture?.score?.fulltime
@@ -86,10 +87,10 @@ function TeamFormDisplay({ teamId, form, leagueId }: { teamId: number, form: str
                 result === 'W' && "bg-green-500 text-white hover:bg-green-600",
                 result === 'D' && "bg-gray-400 text-white hover:bg-gray-500",
                 result === 'L' && "bg-red-500 text-white hover:bg-red-600",
-                hoveredIndex === i && "scale-110 shadow-lg"
+                hoveredMatch === matchKey && "scale-110 shadow-lg"
               )}
-              onMouseEnter={() => setHoveredIndex(i)}
-              onMouseLeave={() => setHoveredIndex(null)}
+              onMouseEnter={() => fixture && setHoveredMatch(matchKey)}
+              onMouseLeave={() => setHoveredMatch(null)}
               onClick={() => {
                 if (fixture?.fixture?.id) {
                   router.push(`/fixtures/${fixture.fixture.id}`)
@@ -100,7 +101,7 @@ function TeamFormDisplay({ teamId, form, leagueId }: { teamId: number, form: str
             </div>
             
             {/* Hover Tooltip - 왼쪽에 표시 */}
-            {fixture && hoveredIndex === i && (
+            {fixture && hoveredMatch === matchKey && (
               <div className="absolute top-1/2 right-full transform -translate-y-1/2 mr-2 z-50 pointer-events-none">
                 <div className="bg-gray-900 text-white rounded-lg p-2 shadow-xl whitespace-nowrap">
                   <div className="text-xs space-y-1">

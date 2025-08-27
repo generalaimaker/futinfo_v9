@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, Suspense } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useSearchParams, useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { Trophy, TrendingUp, TrendingDown, Minus, Activity, Target, Shield, Star, Loader2 } from 'lucide-react'
 import { Card } from '@/components/ui/card'
@@ -76,6 +76,7 @@ const MAJOR_LEAGUES = [
 
 function StandingsContent() {
   const searchParams = useSearchParams()
+  const router = useRouter()
   const defaultLeagueId = searchParams.get('league') || '39'
   const currentYear = new Date().getFullYear()
   const season = searchParams.get('season') || currentYear.toString()
@@ -86,10 +87,26 @@ function StandingsContent() {
   const [standings, setStandings] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [hoveredMatch, setHoveredMatch] = useState<string | null>(null)
+  const [recentMatches, setRecentMatches] = useState<Record<number, any[]>>({})
 
   useEffect(() => {
     loadStandings()
   }, [selectedLeague, season])
+
+  const loadTeamRecentMatches = async (teamId: number) => {
+    try {
+      const response = await footballAPIService.getTeamLastFixtures(teamId, 5)
+      if (response?.response) {
+        setRecentMatches(prev => ({
+          ...prev,
+          [teamId]: response.response.reverse() // 오래된 경기부터 표시하도록 역순
+        }))
+      }
+    } catch (error) {
+      console.error('Error fetching team matches:', error)
+    }
+  }
 
   const loadStandings = async () => {
     try {
@@ -101,7 +118,15 @@ function StandingsContent() {
       })
       
       if (data?.response?.[0]?.league?.standings?.[0]) {
-        setStandings(data.response[0].league.standings[0])
+        const standingsData = data.response[0].league.standings[0]
+        setStandings(standingsData)
+        
+        // 각 팀의 최근 경기 데이터 가져오기
+        standingsData.forEach((team: any) => {
+          if (team.form) {
+            loadTeamRecentMatches(team.team.id)
+          }
+        })
       } else {
         setStandings([])
       }
@@ -317,12 +342,15 @@ function StandingsContent() {
                             {/* 팀 */}
                             <td className="py-4 px-4">
                               <div className="flex items-center gap-3">
-                                <div className="relative">
+                                <div className={cn(
+                                  "relative flex items-center justify-center",
+                                  team.team.id === 40 ? "w-7 h-7" : "w-8 h-8"
+                                )}>
                                   <Image
                                     src={team.team.logo}
                                     alt={team.team.name}
-                                    width={32}
-                                    height={32}
+                                    width={team.team.id === 40 ? 28 : 32}
+                                    height={team.team.id === 40 ? 28 : 32}
                                     className="object-contain"
                                   />
                                 </div>
@@ -364,16 +392,72 @@ function StandingsContent() {
                             <td className="py-4 px-4">
                               <div className="flex items-center gap-1 justify-center">
                                 {team.form ? 
-                                  team.form.split('').slice(-5).map((result: string, idx: number) => (
-                                    <motion.div
-                                      key={idx}
-                                      initial={{ scale: 0 }}
-                                      animate={{ scale: 1 }}
-                                      transition={{ delay: (index * 0.02) + (idx * 0.05) }}
-                                    >
-                                      {getFormIcon(result)}
-                                    </motion.div>
-                                  )) : (
+                                  team.form.split('').slice(-5).map((result: string, idx: number) => {
+                                    const teamMatches = recentMatches[team.team.id] || []
+                                    const match = teamMatches[idx]
+                                    const matchKey = match ? `${team.team.id}-${match.fixture.id}-${idx}` : `form-${team.team.id}-${idx}`
+                                    
+                                    return (
+                                      <motion.div
+                                        key={idx}
+                                        initial={{ scale: 0 }}
+                                        animate={{ scale: 1 }}
+                                        transition={{ delay: (index * 0.02) + (idx * 0.05) }}
+                                        className="relative"
+                                      >
+                                        <div
+                                          className={cn(
+                                            "cursor-pointer transition-transform hover:scale-110",
+                                            match && "hover:z-10"
+                                          )}
+                                          onMouseEnter={() => match && setHoveredMatch(matchKey)}
+                                          onMouseLeave={() => setHoveredMatch(null)}
+                                          onClick={() => {
+                                            if (match) {
+                                              router.push(`/fixtures/${match.fixture.id}`)
+                                            }
+                                          }}
+                                        >
+                                          {getFormIcon(result)}
+                                        </div>
+                                        
+                                        {/* Custom Tooltip */}
+                                        {hoveredMatch === matchKey && match && (
+                                          <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 z-50 pointer-events-none">
+                                            <div className="bg-gray-900 text-white p-3 rounded-lg shadow-xl whitespace-nowrap border border-gray-700">
+                                              <div className="text-xs font-medium mb-1">
+                                                {new Date(match.fixture.date).toLocaleDateString('ko-KR')}
+                                              </div>
+                                              <div className="flex items-center gap-2 text-sm">
+                                                <span className={cn(
+                                                  "font-bold",
+                                                  match.teams.home.id === team.team.id && "text-blue-400"
+                                                )}>
+                                                  {match.teams.home.name}
+                                                </span>
+                                                <span className="font-bold">
+                                                  {match.goals.home ?? 0} - {match.goals.away ?? 0}
+                                                </span>
+                                                <span className={cn(
+                                                  "font-bold",
+                                                  match.teams.away.id === team.team.id && "text-blue-400"
+                                                )}>
+                                                  {match.teams.away.name}
+                                                </span>
+                                              </div>
+                                              <div className="text-xs text-gray-400 mt-1">
+                                                {match.league.name}
+                                              </div>
+                                              <div className="absolute bottom-[-6px] left-1/2 transform -translate-x-1/2 w-0 h-0 
+                                                            border-l-[6px] border-l-transparent
+                                                            border-r-[6px] border-r-transparent
+                                                            border-t-[6px] border-t-gray-900"></div>
+                                            </div>
+                                          </div>
+                                        )}
+                                      </motion.div>
+                                    )
+                                  }) : (
                                     <span className="text-gray-400 text-sm">-</span>
                                   )
                                 }
@@ -515,21 +599,79 @@ function StandingsContent() {
                     <div key={team.team.id} className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-medium text-gray-600">#{idx + 1}</span>
-                        <Image
-                          src={team.team.logo}
-                          alt={team.team.name}
-                          width={20}
-                          height={20}
-                          className="object-contain"
-                        />
+                        <div className={cn(
+                          "flex items-center justify-center",
+                          team.team.id === 40 ? "w-[18px] h-[18px]" : "w-5 h-5"
+                        )}>
+                          <Image
+                            src={team.team.logo}
+                            alt={team.team.name}
+                            width={team.team.id === 40 ? 18 : 20}
+                            height={team.team.id === 40 ? 18 : 20}
+                            className="object-contain"
+                          />
+                        </div>
                         <span className="text-sm">{team.team.name}</span>
                       </div>
                       <div className="flex gap-0.5">
-                        {team.form.slice(-3).split('').map((r: string, i: number) => (
-                          <div key={i} className="scale-75">
-                            {getFormIcon(r)}
-                          </div>
-                        ))}
+                        {team.form.slice(-3).split('').map((r: string, i: number) => {
+                          const teamMatches = recentMatches[team.team.id] || []
+                          const matchIndex = team.form.length - 3 + i // 전체 폼에서의 인덱스
+                          const match = teamMatches[matchIndex]
+                          const matchKey = match ? `sidebar-${team.team.id}-${match.fixture.id}-${i}` : `sidebar-form-${team.team.id}-${i}`
+                          
+                          return (
+                            <div key={i} className="scale-75 relative">
+                              <div
+                                className={cn(
+                                  "cursor-pointer transition-transform hover:scale-110",
+                                  match && "hover:z-20"
+                                )}
+                                onMouseEnter={() => match && setHoveredMatch(matchKey)}
+                                onMouseLeave={() => setHoveredMatch(null)}
+                                onClick={() => {
+                                  if (match) {
+                                    router.push(`/fixtures/${match.fixture.id}`)
+                                  }
+                                }}
+                              >
+                                {getFormIcon(r)}
+                              </div>
+                              
+                              {/* Custom Tooltip */}
+                              {hoveredMatch === matchKey && match && (
+                                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 z-50 pointer-events-none">
+                                  <div className="bg-gray-900 text-white p-2 rounded-lg shadow-xl whitespace-nowrap border border-gray-700 text-xs">
+                                    <div className="font-medium mb-1">
+                                      {new Date(match.fixture.date).toLocaleDateString('ko-KR')}
+                                    </div>
+                                    <div className="flex items-center gap-1">
+                                      <span className={cn(
+                                        "font-bold",
+                                        match.teams.home.id === team.team.id && "text-blue-400"
+                                      )}>
+                                        {match.teams.home.name}
+                                      </span>
+                                      <span className="font-bold">
+                                        {match.goals.home ?? 0} - {match.goals.away ?? 0}
+                                      </span>
+                                      <span className={cn(
+                                        "font-bold",
+                                        match.teams.away.id === team.team.id && "text-blue-400"
+                                      )}>
+                                        {match.teams.away.name}
+                                      </span>
+                                    </div>
+                                    <div className="absolute bottom-[-4px] left-1/2 transform -translate-x-1/2 w-0 h-0 
+                                                  border-l-[4px] border-l-transparent
+                                                  border-r-[4px] border-r-transparent
+                                                  border-t-[4px] border-t-gray-900"></div>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          )
+                        })}
                       </div>
                     </div>
                   ))}
