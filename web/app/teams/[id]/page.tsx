@@ -96,8 +96,8 @@ export default function TeamPage() {
 
   // 최근 경기 데이터를 폼과 매칭
   useEffect(() => {
-    if (statsData?.response && lastFixtures?.response) {
-      const formString = statsData.response.form || ''
+    if (statsData && lastFixtures?.response) {
+      const formString = (statsData as any).form || ''
       const matches = lastFixtures.response.slice(0, formString.length).reverse()
       setRecentMatches(matches)
     }
