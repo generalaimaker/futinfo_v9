@@ -29,7 +29,7 @@ const DEFAULT_PREFERENCES: UserPreferences = {
     communityReplies: true
   },
   language: 'ko',
-  news_language: 'ko',
+  news_language: 'ko', // 항상 한국어를 기본값으로
   news_categories: ['general', 'transfer', 'injury']
 }
 
@@ -73,7 +73,20 @@ export function useUserPreferences() {
         // 로그인하지 않은 경우 로컬스토리지에서 불러오기
         const savedPrefs = localStorage.getItem('user_preferences')
         if (savedPrefs) {
-          setPreferences(JSON.parse(savedPrefs))
+          try {
+            const parsed = JSON.parse(savedPrefs)
+            // news_language가 없으면 기본값 ko 설정
+            if (!parsed.news_language) {
+              parsed.news_language = 'ko'
+            }
+            setPreferences(parsed)
+          } catch {
+            setPreferences(DEFAULT_PREFERENCES)
+          }
+        } else {
+          // localStorage에 기본 설정 저장
+          localStorage.setItem('user_preferences', JSON.stringify(DEFAULT_PREFERENCES))
+          setPreferences(DEFAULT_PREFERENCES)
         }
         setIsAuthenticated(false)
         isLoadingPreferences = false

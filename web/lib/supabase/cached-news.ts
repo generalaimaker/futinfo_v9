@@ -57,6 +57,41 @@ export async function fetchPersonalizedNews(filters: NewsFilters = {}): Promise<
     
     if (error) throw error
     
+    // Edge Function이 번역을 반환하지 않을 수 있으므로 여기서도 번역 적용
+    const userLanguage = getUserLanguage()
+    if (data?.articles) {
+      data.articles = data.articles.map((article: any) => {
+        // 한국어 번역 우선 적용
+        const hasKoreanTranslation = article.translations?.ko || 
+                                     article.translations?.['ko'] ||
+                                     article.translations?.['ko-KR']
+        
+        if (userLanguage === 'ko' && hasKoreanTranslation) {
+          const koreanData = article.translations.ko || 
+                            article.translations['ko'] || 
+                            article.translations['ko-KR']
+          return {
+            ...article,
+            title: koreanData.title || article.title,
+            description: koreanData.description || article.description,
+            isTranslated: true,
+            originalTitle: article.title,
+            originalDescription: article.description
+          }
+        } else if (article.translations?.[userLanguage]) {
+          return {
+            ...article,
+            title: article.translations[userLanguage].title || article.title,
+            description: article.translations[userLanguage].description || article.description,
+            isTranslated: true,
+            originalTitle: article.title,
+            originalDescription: article.description
+          }
+        }
+        return article
+      })
+    }
+    
     return data
   } catch (error) {
     console.error('Error fetching personalized news:', error)
@@ -117,9 +152,27 @@ async function fetchNewsFromDB(filters: NewsFilters = {}): Promise<{
   // 사용자 언어 설정 가져오기
   const userLanguage = getUserLanguage()
   
-  // 번역 적용
+  // 번역 적용 - 한국어 번역 우선, 없으면 원문 사용
   const translatedArticles = (data || []).map(article => {
-    if (article.translations?.[userLanguage]) {
+    // 한국어 번역이 있는지 확인
+    const hasKoreanTranslation = article.translations?.ko || 
+                                  article.translations?.['ko'] ||
+                                  article.translations?.['ko-KR']
+    
+    if (userLanguage === 'ko' && hasKoreanTranslation) {
+      const koreanData = article.translations.ko || 
+                        article.translations['ko'] || 
+                        article.translations['ko-KR']
+      return {
+        ...article,
+        title: koreanData.title || article.title,
+        description: koreanData.description || article.description,
+        isTranslated: true,
+        originalTitle: article.title,
+        originalDescription: article.description
+      }
+    } else if (article.translations?.[userLanguage]) {
+      // 다른 언어 번역 적용
       return {
         ...article,
         title: article.translations[userLanguage].title || article.title,
@@ -129,6 +182,8 @@ async function fetchNewsFromDB(filters: NewsFilters = {}): Promise<{
         originalDescription: article.description
       }
     }
+    
+    // 번역이 없으면 원문 그대로
     return article
   })
   
@@ -139,20 +194,26 @@ async function fetchNewsFromDB(filters: NewsFilters = {}): Promise<{
   }
 }
 
-// 사용자 언어 설정 가져오기
+// 사용자 언어 설정 가져오기 - 항상 한국어 우선
 function getUserLanguage(): string {
+  // 서버 사이드 렌더링 시 한국어 반환
   if (typeof window === 'undefined') return 'ko'
   
-  // user_preferences에서 news_language 가져오기
-  const preferences = localStorage.getItem('user_preferences')
-  if (preferences) {
-    try {
+  // localStorage에서 명시적으로 설정된 언어만 확인
+  try {
+    const preferences = localStorage.getItem('user_preferences')
+    if (preferences) {
       const parsed = JSON.parse(preferences)
-      return parsed.news_language || parsed.language || 'ko'
-    } catch {
-      return 'ko'
+      // news_language가 명시적으로 설정된 경우만 사용, 아니면 무조건 ko
+      if (parsed.news_language && parsed.news_language !== 'ko') {
+        return parsed.news_language
+      }
     }
+  } catch (error) {
+    console.log('Error reading language preference, defaulting to Korean')
   }
+  
+  // 기본값은 항상 한국어
   return 'ko'
 }
 
@@ -170,7 +231,7 @@ export function usePersonalizedNews(filters: NewsFilters = {}) {
 // React Query Hook - 인기 뉴스
 export function usePopularNews(limit: number = 10) {
   return useQuery({
-    queryKey: ['news', 'popular', limit],
+    queryKey: ['news', 'popular', limit, getUserLanguage()],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('popular_news')
@@ -181,12 +242,31 @@ export function usePopularNews(limit: number = 10) {
       
       const userLanguage = getUserLanguage()
       return (data || []).map(article => {
-        if (article.translations?.[userLanguage]) {
+        // 한국어 번역 우선 확인
+        const hasKoreanTranslation = article.translations?.ko || 
+                                     article.translations?.['ko'] ||
+                                     article.translations?.['ko-KR']
+        
+        if (userLanguage === 'ko' && hasKoreanTranslation) {
+          const koreanData = article.translations.ko || 
+                            article.translations['ko'] || 
+                            article.translations['ko-KR']
+          return {
+            ...article,
+            title: koreanData.title || article.title,
+            description: koreanData.description || article.description,
+            isTranslated: true,
+            originalTitle: article.title,
+            originalDescription: article.description
+          }
+        } else if (article.translations?.[userLanguage]) {
           return {
             ...article,
             title: article.translations[userLanguage].title || article.title,
             description: article.translations[userLanguage].description || article.description,
-            isTranslated: true
+            isTranslated: true,
+            originalTitle: article.title,
+            originalDescription: article.description
           }
         }
         return article

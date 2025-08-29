@@ -195,12 +195,39 @@ class AdminService {
   // 큐레이션 뉴스 관리
   async getCuratedNews() {
     const { data, error } = await supabase
-      .from('curated_news')
+      .from('featured_news')
       .select('*')
-      .order('priority', { ascending: true })
+      .eq('is_active', true)
+      .order('display_order', { ascending: true })
 
     if (error) throw error
-    return data
+    
+    // 사용자 언어 설정 가져오기
+    const userLanguage = typeof window !== 'undefined' ? 
+      (localStorage.getItem('user_language') || 'ko') : 'ko'
+    
+    // 기존 형식으로 변환 (번역 포함)
+    return data?.map(item => {
+      // 번역이 있으면 사용, 없으면 원본 사용
+      const translation = item.translations?.[userLanguage]
+      
+      return {
+        id: item.id,
+        title: translation?.title || item.title,
+        description: translation?.description || item.description,
+        image_url: item.image_url,
+        source_url: item.url,
+        source_name: item.source,
+        category: 'news',
+        priority: item.display_order,
+        is_featured: item.is_active,
+        published_at: item.published_at,
+        created_at: item.created_at,
+        isTranslated: !!translation,
+        originalTitle: item.title,
+        originalDescription: item.description
+      }
+    }) || []
   }
 
   async addCuratedNews(news: Omit<CuratedNews, 'id' | 'created_at'>) {

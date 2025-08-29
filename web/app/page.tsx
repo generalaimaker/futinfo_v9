@@ -722,16 +722,31 @@ export default function HomePage() {
         })
     } else if (!hasAdminContent && popularNewsData && popularNewsData.length > 0) {
         // 관리자 콘텐츠가 없을 때만 인기 뉴스 사용
-        const topNews = popularNewsData.slice(0, 3).map((article: any) => ({
-        id: article.id,
-        title: article.title,
-        description: article.description,
-        image: article.image_url || '/images/news-placeholder.jpg',
-        category: article.category === 'transfer' ? '이적시장' : 
-                  article.category === 'injury' ? '부상' : '뉴스',
-        source: article.source,
-        publishedAt: article.published_at
-      }))
+        const topNews = popularNewsData.slice(0, 3).map((article: any) => {
+          // 한국어 번역 우선 적용
+          const hasKoreanTranslation = article.translations?.ko || 
+                                       article.translations?.['ko'] ||
+                                       article.translations?.['ko-KR']
+          
+          const title = hasKoreanTranslation 
+            ? (article.translations.ko?.title || article.translations['ko']?.title || article.translations['ko-KR']?.title || article.title)
+            : article.title
+          
+          const description = hasKoreanTranslation
+            ? (article.translations.ko?.description || article.translations['ko']?.description || article.translations['ko-KR']?.description || article.description)
+            : article.description
+          
+          return {
+            id: article.id,
+            title: title,
+            description: description,
+            image: article.image_url || '/images/news-placeholder.jpg',
+            category: article.category === 'transfer' ? '이적시장' : 
+                      article.category === 'injury' ? '부상' : '뉴스',
+            source: article.source,
+            publishedAt: article.published_at
+          }
+        })
       
         slides.push({
           id: 'news-main',

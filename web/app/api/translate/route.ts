@@ -1,9 +1,62 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { simpleTranslate } from '@/lib/translations/football-dictionary'
 
-const DEEPL_API_KEY = process.env.DEEPL_API_KEY || '75869dbd-a539-4026-95f6-997bdce5d232:fx'
+// Microsoft Translator API configuration
+const MICROSOFT_TRANSLATOR_KEY = process.env.MICROSOFT_TRANSLATOR_KEY || ''
+const MICROSOFT_TRANSLATOR_ENDPOINT = 'https://api.cognitive.microsofttranslator.com/'
+const MICROSOFT_TRANSLATOR_REGION = 'koreacentral'
 
-// LibreTranslate API (오픈소스, 무료)
+// Microsoft Translator API (Primary)
+async function microsoftTranslate(text: string, sourceLang: string, targetLang: string) {
+  try {
+    // Microsoft Translator 언어 코드 매핑
+    const langMap: Record<string, string> = {
+      'EN': 'en',
+      'KO': 'ko',
+      'JA': 'ja',
+      'ZH': 'zh-Hans',
+      'ES': 'es',
+      'DE': 'de',
+      'FR': 'fr',
+      'PT': 'pt',
+      'RU': 'ru'
+    }
+    
+    const fromLang = langMap[sourceLang] || sourceLang.toLowerCase()
+    const toLang = langMap[targetLang] || targetLang.toLowerCase()
+    
+    console.log('[Microsoft Translator] Requesting translation from', fromLang, 'to', toLang)
+    
+    const url = `${MICROSOFT_TRANSLATOR_ENDPOINT}translate?api-version=3.0&from=${fromLang}&to=${toLang}`
+    
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Ocp-Apim-Subscription-Key': MICROSOFT_TRANSLATOR_KEY,
+        'Ocp-Apim-Subscription-Region': MICROSOFT_TRANSLATOR_REGION,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify([{ text }])
+    })
+    
+    if (!response.ok) {
+      const error = await response.text()
+      console.error('[Microsoft Translator] API error:', response.status, error)
+      throw new Error(`Microsoft Translator API error: ${response.status}`)
+    }
+    
+    const data = await response.json()
+    const translatedText = data[0]?.translations[0]?.text || text
+    
+    console.log('[Microsoft Translator] Success:', translatedText.substring(0, 100))
+    return translatedText
+  } catch (error) {
+    console.error('[Microsoft Translator] Error:', error)
+    throw error
+  }
+}
+
+// LibreTranslate API (오픈소스, 무료 - Backup)
 async function libreTranslate(text: string, sourceLang: string, targetLang: string) {
   // LibreTranslate 공개 인스턴스 사용
   const url = 'https://libretranslate.de/translate'
@@ -82,7 +135,7 @@ export async function POST(request: NextRequest) {
       textLength: text?.length, 
       sourceLang, 
       targetLang,
-      hasApiKey: !!DEEPL_API_KEY 
+      hasMicrosoftKey: !!MICROSOFT_TRANSLATOR_KEY 
     })
 
     if (!text) {
@@ -94,53 +147,53 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ translatedText: text })
     }
 
-    const response = await fetch('https://api-free.deepl.com/v2/translate', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: new URLSearchParams({
-        auth_key: DEEPL_API_KEY,
-        text: text,
-        source_lang: sourceLang,
-        target_lang: targetLang,
-      }),
-    })
-
-    if (!response.ok) {
-      const errorText = await response.text()
-      console.error('[Translation API] DeepL error:', {
-        status: response.status,
-        statusText: response.statusText,
-        error: errorText
-      })
+    try {
+      // 1. Microsoft Translator API 사용 (Primary)
+      const translatedText = await microsoftTranslate(text, sourceLang, targetLang)
       
-      // Quota exceeded 또는 API 키 문제일 경우 LibreTranslate 사용
-      if (response.status === 456 || response.status === 403 || response.status === 401) {
-        console.warn('[Translation API] DeepL quota exceeded, using LibreTranslate')
-        
-        // LibreTranslate 사용 (무료 오픈소스)
+      console.log('[Translation API] Success with Microsoft Translator:', { 
+        originalLength: text.length, 
+        translatedLength: translatedText.length 
+      })
+
+      return NextResponse.json({ 
+        translatedText,
+        service: 'microsoft'
+      })
+    } catch (microsoftError) {
+      console.error('[Translation API] Microsoft Translator failed:', microsoftError)
+      
+      // 2. Fallback to LibreTranslate
+      try {
+        console.warn('[Translation API] Falling back to LibreTranslate')
         const alternativeTranslated = await libreTranslate(text, sourceLang, targetLang)
         
         return NextResponse.json({ 
           translatedText: alternativeTranslated,
-          fallback: 'libre',
-          warning: 'Using LibreTranslate due to DeepL quota'
+          service: 'libre',
+          fallback: true,
+          warning: 'Using LibreTranslate as fallback'
         })
+      } catch (libreError) {
+        console.error('[Translation API] LibreTranslate failed:', libreError)
+        
+        // 3. Final fallback to MyMemory
+        try {
+          console.warn('[Translation API] Final fallback to MyMemory')
+          const finalTranslated = await myMemoryTranslate(text, sourceLang, targetLang)
+          
+          return NextResponse.json({ 
+            translatedText: finalTranslated,
+            service: 'mymemory',
+            fallback: true,
+            warning: 'Using MyMemory as final fallback'
+          })
+        } catch (finalError) {
+          console.error('[Translation API] All translation services failed')
+          throw finalError
+        }
       }
-      
-      throw new Error(`DeepL API error: ${response.status} - ${errorText}`)
     }
-
-    const data = await response.json()
-    const translatedText = data.translations[0].text
-
-    console.log('[Translation API] Success:', { 
-      originalLength: text.length, 
-      translatedLength: translatedText.length 
-    })
-
-    return NextResponse.json({ translatedText })
   } catch (error: any) {
     console.error('[Translation API] Error:', error.message || error)
     

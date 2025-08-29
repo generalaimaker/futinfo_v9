@@ -1,9 +1,8 @@
 'use client'
 
-import { useTranslatedNews } from '@/lib/hooks/useTranslatedNews'
 import { formatDistanceToNow } from 'date-fns'
 import { ko } from 'date-fns/locale'
-import { Clock, Globe, ExternalLink } from 'lucide-react'
+import { Clock, Globe, ExternalLink, Languages } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { motion } from 'framer-motion'
 
@@ -13,7 +12,10 @@ interface NewsItemCardProps {
 }
 
 export function NewsItemCard({ article, index }: NewsItemCardProps) {
-  const { title, description, isTranslating } = useTranslatedNews(article)
+  // 이미 번역된 데이터를 직접 사용 (usePersonalizedNews에서 번역됨)
+  const title = article.title
+  const description = article.description
+  const isTranslated = article.isTranslated || false
 
   const getCategoryColor = (category?: string) => {
     switch (category) {
@@ -39,21 +41,20 @@ export function NewsItemCard({ article, index }: NewsItemCardProps) {
       <div className={`mt-1.5 w-2 h-2 rounded-full ${getCategoryColor(article.category)} ring-4 ring-white dark:ring-gray-800 flex-shrink-0`} />
       
       <div className="flex-1 min-w-0">
-        <h4 className="font-semibold text-gray-900 dark:text-white group-hover:text-green-600 dark:group-hover:text-green-400 transition-colors line-clamp-2">
-          {isTranslating ? (
-            <span className="inline-block animate-pulse bg-gray-200 dark:bg-gray-700 rounded h-5 w-3/4"></span>
-          ) : (
-            title
+        <div className="flex items-start gap-2">
+          <h4 className="font-semibold text-gray-900 dark:text-white group-hover:text-green-600 dark:group-hover:text-green-400 transition-colors line-clamp-2 flex-1">
+            {title}
+          </h4>
+          {isTranslated && (
+            <div className="flex-shrink-0 mt-0.5" title="자동 번역됨">
+              <Languages className="w-3.5 h-3.5 text-green-500" />
+            </div>
           )}
-        </h4>
+        </div>
         
         {description && (
           <p className="mt-1 text-sm text-gray-600 dark:text-gray-400 line-clamp-1">
-            {isTranslating ? (
-              <span className="inline-block animate-pulse bg-gray-200 dark:bg-gray-700 rounded h-4 w-full"></span>
-            ) : (
-              description
-            )}
+            {description}
           </p>
         )}
         

@@ -40,35 +40,9 @@ private let majorEuropeanTeams = [
 
 // MARK: - 경기 일정 로딩 뷰
 struct FixturesLoadingView: View {
-    @State private var loadingText = "경기 일정을 불러오는 중"
-    @State private var dotCount = 0
-    
     var body: some View {
-        VStack(spacing: 12) {
-            ProgressView()
-                .scaleEffect(1.5)
-            
-            Text("\(loadingText)\(String(repeating: ".", count: dotCount))")
-                .foregroundColor(.secondary)
-                .animation(.easeInOut, value: dotCount)
-                .onAppear {
-                    // 로딩 애니메이션 시작
-                    startLoadingAnimation()
-                }
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-    
-    private func startLoadingAnimation() {
-        // 로딩 애니메이션 타이머
-        let timer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { _ in
-            withAnimation {
-                dotCount = (dotCount + 1) % 4
-            }
-        }
-        
-        // 뷰가 사라질 때 타이머 정리
-        RunLoop.current.add(timer, forMode: .common)
+        // Skeleton UI 사용
+        FixturesSkeletonView()
     }
 }
 
@@ -620,7 +594,7 @@ struct FixturesMainContentView: View {
             if (viewModel.isLoading && isInitialLoad) || showSkeleton {
                 // 스켈레톤 UI로 대체하여 더 나은 사용자 경험 제공
                 ZStack {
-                    FixtureSkeletonView()
+                    FixturesSkeletonView()
                         .padding(.horizontal)
                         .background(Color(.systemBackground).opacity(0.9))
                         .transition(.opacity)
@@ -1104,11 +1078,14 @@ struct FixturePageView: View {
             // 팀 즐겨찾기 필터링
             let teamFavorites = FavoriteService.shared.getFavorites(type: .team)
             
-            return fixturesForDate.filter { fixture in
+            let favorites = fixturesForDate.filter { fixture in
                 teamFavorites.contains { favorite in
                     favorite.entityId == fixture.teams.home.id || favorite.entityId == fixture.teams.away.id
                 }
             }
+            
+            // 즐겨찾기 경기도 우선순위 정렬 적용
+            return favorites.sortedByPriority()
         }()
         
         let leagueFollowService = LeagueFollowService.shared
@@ -1130,7 +1107,7 @@ struct FixturePageView: View {
                 !favoriteFixtures.contains(fixture)
             }
             
-            // 리그별로 그룹화
+            // 리그별로 그룹화하고 각 리그내에서 우선순위 정렬
             var result: [Int: [Fixture]] = [:]
             for fixture in nonFavoriteFixtures {
                 let leagueId = fixture.league.id
@@ -1138,6 +1115,11 @@ struct FixturePageView: View {
                     result[leagueId] = []
                 }
                 result[leagueId]?.append(fixture)
+            }
+            
+            // 각 리그내 경기 우선순위 정렬
+            for (leagueId, fixtures) in result {
+                result[leagueId] = fixtures.sortedByPriority()
             }
             
             // 클럽 친선경기(667)는 유럽 주요 팀을 먼저 정렬

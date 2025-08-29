@@ -12,12 +12,14 @@ import { Label } from '@/components/ui/label'
 import { adminService, FeaturedMatch, CuratedNews } from '@/lib/supabase/admin'
 import { FootballAPIService } from '@/lib/supabase/football'
 import { getAnalytics } from '@/lib/supabase/analytics'
+import { createClient } from '@/lib/supabase/client'
+import UsageMonitor from './UsageMonitor'
 import { 
   Shield, Trophy, Newspaper, Settings, Plus, Edit, Trash2, Save, X, 
   Calendar, Star, Eye, EyeOff, MoveUp, MoveDown, RefreshCw, Search,
   TrendingUp, Users, BarChart3, Activity, Clock, Filter, ChevronRight,
   Home, Image as ImageIcon, Link, AlertCircle, CheckCircle, Loader2,
-  Database, Globe, Bell, Zap, Layout, Palette, Code, Monitor
+  Database, Globe, Bell, Zap, Layout, Palette, Code, Monitor, Languages
 } from 'lucide-react'
 import { format, addDays } from 'date-fns'
 import { ko } from 'date-fns/locale'
@@ -109,6 +111,19 @@ export default function AdminDashboard() {
   const [selectedTeam, setSelectedTeam] = useState<number | null>(null)
   const [showOnlyBigMatches, setShowOnlyBigMatches] = useState(false)
   
+  // 뉴스 관련 상태
+  const [newsSearchQuery, setNewsSearchQuery] = useState('')
+  const [searchResults, setSearchResults] = useState<any[]>([])
+  const [selectedNews, setSelectedNews] = useState<any[]>([])
+  const [isSearchingNews, setIsSearchingNews] = useState(false)
+  const [isSavingNews, setIsSavingNews] = useState(false)
+  const [isTranslating, setIsTranslating] = useState(false)
+  const [translationStatus, setTranslationStatus] = useState<{
+    dailyLimit: number
+    translatedToday: number
+    remainingToday: number
+  }>({ dailyLimit: 5, translatedToday: 0, remainingToday: 5 })
+  
   // 배너 미리보기 상태
   const [previewMode, setPreviewMode] = useState(false)
   
@@ -142,6 +157,53 @@ export default function AdminDashboard() {
   useEffect(() => {
     checkAdminAccess()
   }, [])
+
+  // 기존 선택된 뉴스 로드 및 뉴스 탭 활성화 시 최신 뉴스 로드
+  useEffect(() => {
+    if (isAdmin) {
+      loadFeaturedNews()
+      checkTranslationStatus()
+    }
+  }, [isAdmin])
+
+  // 뉴스 탭 활성화 시 최신 뉴스 자동 로드
+  useEffect(() => {
+    if (activeTab === 'news' && searchResults.length === 0) {
+      loadLatestNews()
+    }
+  }, [activeTab])
+
+  const loadFeaturedNews = async () => {
+    try {
+      const supabase = createClient()
+      const { data, error } = await supabase
+        .from('featured_news')
+        .select('*')
+        .eq('is_active', true)
+        .order('display_order', { ascending: true })
+
+      if (error) throw error
+      
+      if (data && data.length > 0) {
+        setSelectedNews(data.map(item => ({
+          id: item.news_id,
+          title: item.title,
+          description: item.description || '',
+          url: item.url,
+          urlToImage: item.image_url || '',
+          publishedAt: item.published_at,
+          source: {
+            id: null,
+            name: item.source || 'Unknown'
+          },
+          author: null,
+          content: null
+        })))
+      }
+    } catch (error) {
+      console.error('Error loading featured news:', error)
+    }
+  }
 
   const checkAdminAccess = async () => {
     try {
@@ -404,6 +466,201 @@ export default function AdminDashboard() {
     }
   }
 
+  // 뉴스 검색 - Supabase에서 직접 검색
+  const searchNews = async () => {
+    if (!newsSearchQuery.trim()) {
+      toast.error('검색어를 입력해주세요')
+      return
+    }
+
+    setIsSearchingNews(true)
+    try {
+      const supabase = createClient()
+      const { data, error } = await supabase
+        .from('news_articles')
+        .select('*')
+        .or(`title.ilike.%${newsSearchQuery}%,description.ilike.%${newsSearchQuery}%`)
+        .order('published_at', { ascending: false })
+        .limit(30)
+      
+      if (error) throw error
+      
+      // API 형식에 맞게 변환
+      const formattedArticles = (data || []).map(article => ({
+        id: article.id,
+        title: article.title,
+        description: article.description,
+        url: article.url,
+        urlToImage: article.image_url,
+        publishedAt: article.published_at,
+        source: {
+          id: null,
+          name: article.source
+        }
+      }))
+      
+      setSearchResults(formattedArticles)
+      
+      if (formattedArticles.length === 0) {
+        toast.info('검색 결과가 없습니다')
+      }
+    } catch (error) {
+      console.error('Error searching news:', error)
+      toast.error('뉴스 검색에 실패했습니다')
+    } finally {
+      setIsSearchingNews(false)
+    }
+  }
+
+  // 최신 뉴스 로드 - Supabase에서 직접 가져오기
+  const loadLatestNews = async () => {
+    setIsSearchingNews(true)
+    try {
+      const supabase = createClient()
+      const { data, error } = await supabase
+        .from('news_articles')
+        .select('*')
+        .order('published_at', { ascending: false })
+        .limit(30)
+      
+      if (error) throw error
+      
+      // API 형식에 맞게 변환
+      const formattedArticles = (data || []).map(article => ({
+        id: article.id,
+        title: article.title,
+        description: article.description,
+        url: article.url,
+        urlToImage: article.image_url,
+        publishedAt: article.published_at,
+        source: {
+          id: null,
+          name: article.source
+        }
+      }))
+      
+      setSearchResults(formattedArticles)
+    } catch (error) {
+      console.error('Error loading latest news:', error)
+      toast.error('최신 뉴스를 불러오는데 실패했습니다')
+    } finally {
+      setIsSearchingNews(false)
+    }
+  }
+
+  // 뉴스 선택/해제
+  const toggleNewsSelection = (article: any) => {
+    const isSelected = selectedNews.some(n => n.id === article.id)
+    
+    if (isSelected) {
+      setSelectedNews(prev => prev.filter(n => n.id !== article.id))
+    } else {
+      if (selectedNews.length >= 5) {
+        toast.error('최대 5개까지만 선택 가능합니다')
+        return
+      }
+      setSelectedNews(prev => [...prev, article])
+    }
+  }
+
+  // 선택된 뉴스 저장
+  // 번역 상태 확인
+  const checkTranslationStatus = async () => {
+    try {
+      const response = await fetch('/api/translate-featured', {
+        method: 'GET'
+      })
+      
+      if (response.ok) {
+        const data = await response.json()
+        setTranslationStatus(data)
+      }
+    } catch (error) {
+      console.error('Failed to check translation status:', error)
+    }
+  }
+
+  // Featured News 번역
+  const translateFeaturedNews = async () => {
+    if (translationStatus.remainingToday === 0) {
+      toast.error(`일일 번역 한도(${translationStatus.dailyLimit}개)에 도달했습니다`)
+      return
+    }
+
+    setIsTranslating(true)
+    try {
+      const response = await fetch('/api/translate-featured', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      })
+      
+      const data = await response.json()
+      
+      if (response.ok) {
+        toast.success(`${data.translated}개 뉴스 번역 완료 (오늘 남은 횟수: ${data.remainingToday})`)
+        setTranslationStatus({
+          dailyLimit: data.dailyLimit,
+          translatedToday: data.dailyLimit - data.remainingToday,
+          remainingToday: data.remainingToday
+        })
+      } else {
+        toast.error(data.error || '번역 중 오류가 발생했습니다')
+      }
+    } catch (error) {
+      console.error('Translation error:', error)
+      toast.error('번역 중 오류가 발생했습니다')
+    } finally {
+      setIsTranslating(false)
+    }
+  }
+
+  const saveFeaturedNews = async () => {
+    if (selectedNews.length === 0) {
+      toast.error('선택된 뉴스가 없습니다')
+      return
+    }
+
+    setIsSavingNews(true)
+    try {
+      const supabase = createClient()
+      
+      // 기존 featured_news 비활성화
+      await supabase
+        .from('featured_news')
+        .update({ is_active: false })
+        .eq('is_active', true)
+
+      // 새로운 뉴스 추가
+      const newsToInsert = selectedNews.map((article, index) => ({
+        news_id: article.id,
+        title: article.title,
+        description: article.description,
+        url: article.url,
+        image_url: article.urlToImage,
+        source: article.source.name,
+        published_at: article.publishedAt,
+        display_order: index + 1,
+        is_active: true
+      }))
+
+      const { error } = await supabase
+        .from('featured_news')
+        .insert(newsToInsert)
+
+      if (error) throw error
+
+      toast.success('주요 뉴스가 성공적으로 저장되었습니다')
+      await loadData()
+    } catch (error) {
+      console.error('Error saving featured news:', error)
+      toast.error('뉴스 저장에 실패했습니다')
+    } finally {
+      setIsSavingNews(false)
+    }
+  }
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -561,6 +818,11 @@ export default function AdminDashboard() {
               <BarChart3 className="w-4 h-4" />
               <span className="hidden sm:inline">분석</span>
               <span className="sm:hidden">분석</span>
+            </TabsTrigger>
+            <TabsTrigger value="monitoring" className="gap-2 whitespace-nowrap">
+              <Activity className="w-4 h-4" />
+              <span className="hidden sm:inline">모니터링</span>
+              <span className="sm:hidden">모니터</span>
             </TabsTrigger>
           </TabsList>
         </div>
@@ -866,49 +1128,250 @@ export default function AdminDashboard() {
 
         {/* 뉴스 관리 탭 */}
         <TabsContent value="news" className="space-y-6">
-          <Card className="p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold">큐레이션 뉴스</h3>
+          {/* 필터 바 */}
+          <Card className="p-4 bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl">
+            <div className="flex flex-wrap gap-4">
+              <div className="flex-1 min-w-[200px]">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <Input
+                    placeholder="뉴스 검색 (예: 손흥민, 프리미어리그)..."
+                    value={newsSearchQuery}
+                    onChange={(e) => setNewsSearchQuery(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && searchNews()}
+                    className="pl-10"
+                  />
+                </div>
+              </div>
+              
               <Button
-                onClick={async () => {
-                  const news: Omit<CuratedNews, 'id' | 'created_at'> = {
-                    title: '새 뉴스 제목',
-                    description: '뉴스 설명',
-                    priority: curatedNews.length,
-                    is_featured: true,
-                    published_at: new Date().toISOString()
-                  }
-                  await adminService.addCuratedNews(news)
-                  await loadData()
-                  toast.success('뉴스가 추가되었습니다')
-                }}
+                onClick={searchNews}
+                disabled={isSearchingNews}
+                className="bg-green-600 hover:bg-green-700"
               >
-                <Plus className="w-4 h-4 mr-2" />
-                뉴스 추가
+                {isSearchingNews ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+                <span className="ml-2">검색</span>
+              </Button>
+              
+              <Button
+                onClick={loadLatestNews}
+                disabled={isSearchingNews}
+                variant="outline"
+              >
+                <RefreshCw className="w-4 h-4 mr-2" />
+                최신 뉴스
               </Button>
             </div>
+          </Card>
+
+          {/* 현재 선택된 뉴스 */}
+          <Card className="p-6 bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl">
+            {/* 번역 상태 정보 카드 */}
+            <div className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg p-3 mb-4 border border-purple-200">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Languages className="w-5 h-5 text-purple-600" />
+                  <span className="text-sm font-medium text-gray-700">
+                    오늘의 번역 현황
+                  </span>
+                </div>
+                <div className="flex items-center gap-4 text-sm">
+                  <span className="text-gray-600">
+                    사용: <span className="font-bold text-purple-600">{translationStatus.translatedToday}</span>/{translationStatus.dailyLimit}
+                  </span>
+                  <span className="text-gray-600">
+                    남은 횟수: <span className="font-bold text-blue-600">{translationStatus.remainingToday}개</span>
+                  </span>
+                </div>
+              </div>
+              <div className="mt-2">
+                <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div 
+                    className="bg-gradient-to-r from-purple-500 to-blue-500 h-2 rounded-full transition-all"
+                    style={{ width: `${(translationStatus.translatedToday / translationStatus.dailyLimit) * 100}%` }}
+                  />
+                </div>
+              </div>
+              <p className="text-xs text-gray-500 mt-2">
+                💡 주요 뉴스 5개만 제목과 설명을 한국어로 번역합니다 (일일 한도 제한)
+              </p>
+            </div>
             
-            <div className="space-y-3">
-              {curatedNews.map((news, index) => (
-                <NewsEditCard
-                  key={news.id}
-                  news={news}
-                  index={index}
-                  onUpdate={async (updates) => {
-                    await adminService.updateCuratedNews(news.id!, updates)
-                    await loadData()
-                    toast.success('뉴스가 업데이트되었습니다')
-                  }}
-                  onDelete={async () => {
-                    await adminService.deleteCuratedNews(news.id!)
-                    await loadData()
-                    toast.success('뉴스가 삭제되었습니다')
-                  }}
-                  onPriorityChange={(direction) => updatePriority(news.id!, 'news', direction)}
-                  isFirst={index === 0}
-                  isLast={index === curatedNews.length - 1}
-                />
-              ))}
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold flex items-center gap-2">
+                <Star className="w-5 h-5 text-yellow-500" />
+                선택된 뉴스 ({selectedNews.length}/5)
+              </h3>
+              <div className="flex gap-2">
+                {selectedNews.length > 0 && (
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    onClick={() => {
+                      setSelectedNews([])
+                      toast.success('선택이 초기화되었습니다')
+                    }}
+                  >
+                    전체 해제
+                  </Button>
+                )}
+                <Button
+                  onClick={saveFeaturedNews}
+                  disabled={isSavingNews || selectedNews.length === 0}
+                  className="bg-blue-600 hover:bg-blue-700"
+                >
+                  {isSavingNews ? (
+                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                  ) : (
+                    <Save className="w-4 h-4 mr-2" />
+                  )}
+                  저장하기
+                </Button>
+                <Button
+                  onClick={translateFeaturedNews}
+                  disabled={isTranslating || translationStatus.remainingToday === 0}
+                  className="bg-purple-600 hover:bg-purple-700"
+                  title={`일일 번역 한도: ${translationStatus.translatedToday}/${translationStatus.dailyLimit}`}
+                >
+                  {isTranslating ? (
+                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                  ) : (
+                    <Languages className="w-4 h-4 mr-2" />
+                  )}
+                  번역 ({translationStatus.remainingToday}개 가능)
+                </Button>
+              </div>
+            </div>
+            
+            <AnimatePresence>
+              {selectedNews.length === 0 ? (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="text-center py-12 text-gray-500"
+                >
+                  <Newspaper className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                  <p>선택된 뉴스가 없습니다</p>
+                  <p className="text-sm mt-2">아래에서 뉴스를 선택해주세요</p>
+                </motion.div>
+              ) : (
+                <div className="space-y-3">
+                  {selectedNews.map((article, index) => (
+                    <motion.div
+                      key={article.id}
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: 20 }}
+                      transition={{ delay: index * 0.1 }}
+                      className="flex items-center gap-4 p-4 bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 rounded-xl"
+                    >
+                      <span className="text-2xl font-bold text-gray-300">#{index + 1}</span>
+                      
+                      {article.urlToImage && (
+                        <img 
+                          src={article.urlToImage} 
+                          alt=""
+                          className="w-16 h-16 object-cover rounded-lg"
+                        />
+                      )}
+                      
+                      <div className="flex-1">
+                        <h4 className="font-medium line-clamp-1">{article.title}</h4>
+                        <p className="text-sm text-gray-500 mt-1">{article.source.name}</p>
+                      </div>
+                      
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={() => toggleNewsSelection(article)}
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
+                    </motion.div>
+                  ))}
+                </div>
+              )}
+            </AnimatePresence>
+          </Card>
+
+          {/* 뉴스 선택 */}
+          <Card className="p-6 bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl">
+            <h3 className="text-lg font-semibold mb-4">뉴스 선택</h3>
+            
+            <div className="space-y-2 max-h-[600px] overflow-y-auto">
+              {searchResults.length === 0 ? (
+                <div className="text-center py-12 text-gray-500">
+                  <Newspaper className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                  <p>표시할 뉴스가 없습니다</p>
+                  <p className="text-sm mt-2">검색하거나 최신 뉴스를 불러와주세요</p>
+                </div>
+              ) : (
+                searchResults.map((article) => {
+                  const isSelected = selectedNews.some(n => n.id === article.id)
+                  
+                  return (
+                    <motion.div
+                      key={article.id}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      className={cn(
+                        "flex items-center justify-between p-4 rounded-xl border transition-all cursor-pointer",
+                        "hover:shadow-lg hover:scale-[1.02]",
+                        isSelected ? "bg-green-50 dark:bg-green-950/30 border-green-300" : "bg-white dark:bg-gray-800"
+                      )}
+                      onClick={() => toggleNewsSelection(article)}
+                    >
+                      <div className="flex items-center gap-4 flex-1">
+                        {article.urlToImage && (
+                          <img 
+                            src={article.urlToImage} 
+                            alt=""
+                            className="w-20 h-20 object-cover rounded-lg"
+                          />
+                        )}
+                        
+                        <div className="flex-1">
+                          <h4 className="font-medium line-clamp-2 mb-1">{article.title}</h4>
+                          <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2">
+                            {article.description}
+                          </p>
+                          <div className="flex items-center gap-3 mt-2 text-xs text-gray-500">
+                            <span className="flex items-center gap-1">
+                              <Globe className="w-3 h-3" />
+                              {article.source.name}
+                            </span>
+                            <span>
+                              {format(new Date(article.publishedAt), 'MM/dd HH:mm')}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <Button
+                        size="sm"
+                        variant={isSelected ? "secondary" : "default"}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          toggleNewsSelection(article)
+                        }}
+                        disabled={!isSelected && selectedNews.length >= 5}
+                      >
+                        {isSelected ? (
+                          <>
+                            <CheckCircle className="w-4 h-4 mr-1" />
+                            선택됨
+                          </>
+                        ) : (
+                          <>
+                            <Plus className="w-4 h-4 mr-1" />
+                            선택
+                          </>
+                        )}
+                      </Button>
+                    </motion.div>
+                  )
+                }))
+              }
             </div>
           </Card>
         </TabsContent>
@@ -1002,6 +1465,11 @@ export default function AdminDashboard() {
               </div>
             </Card>
           </div>
+        </TabsContent>
+
+        {/* 모니터링 탭 */}
+        <TabsContent value="monitoring" className="space-y-6">
+          <UsageMonitor />
         </TabsContent>
       </Tabs>
       </div>

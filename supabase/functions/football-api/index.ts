@@ -10,12 +10,14 @@ const corsHeaders = {
 const API_KEY = Deno.env.get('FOOTBALL_API_KEY') ?? ''
 const API_HOST = Deno.env.get('FOOTBALL_API_HOST') ?? 'api-football-v1.p.rapidapi.com'
 
-// 캐시 TTL 설정 (초)
+// 캐시 TTL 설정 (초) - 최적화된 값
 const CACHE_TTL = {
-  DEFAULT: 3600,      // 1시간
-  FUTURE: 1800,       // 30분 (미래 날짜)
-  PAST: 10800,        // 3시간 (과거 날짜)
-  EMPTY: 600,         // 10분 (빈 데이터)
+  LIVE: 60,           // 1분 (라이브 경기)
+  TODAY: 1800,        // 30분 (오늘 경기)
+  TOMORROW: 7200,     // 2시간 (내일 경기)  
+  FUTURE: 21600,      // 6시간 (2-7일 후) - 크게 증가
+  PAST: 86400,        // 24시간 (과거 경기) - 크게 증가
+  EMPTY: 3600,        // 1시간 (빈 데이터) - 증가
   ERROR: 300          // 5분 (오류)
 }
 
@@ -91,21 +93,46 @@ serve(async (req) => {
         )
     }
 
-    // 캐시 확인 (강제 새로고침이 아닌 경우)
-    if (!forceRefresh) {
-      const { data: cachedData } = await supabaseClient
-        .from('api_cache')
-        .select('*')
-        .eq('cache_key', cacheKey)
-        .single()
+    // 캐시 우선 전략 - 항상 캐시 먼저 확인
+    const { data: cachedData } = await supabaseClient
+      .from('api_cache')
+      .select('*')
+      .eq('cache_key', cacheKey)
+      .single()
 
-      if (cachedData && new Date(cachedData.expires_at) > new Date()) {
-        console.log(`Cache hit for ${cacheKey}`)
-        return new Response(
-          JSON.stringify(cachedData.response),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        )
-      }
+    // 캐시가 있고 유효한 경우 즉시 반환
+    if (cachedData && new Date(cachedData.expires_at) > new Date() && !forceRefresh) {
+      console.log(`✅ Cache hit for ${cacheKey}`)
+      
+      // 캐시 히트 통계 기록
+      await supabaseClient
+        .from('cache_stats')
+        .insert({
+          cache_key: cacheKey,
+          hit_type: 'hit',
+          timestamp: new Date().toISOString()
+        })
+      
+      return new Response(
+        JSON.stringify(cachedData.response),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+    
+    // 캐시가 만료되었지만 데이터가 있는 경우, 일단 반환하고 백그라운드 갱신
+    if (cachedData && !forceRefresh) {
+      console.log(`🔄 Stale cache, returning old data and refreshing`)
+      
+      // 기존 데이터 즉시 반환
+      const response = new Response(
+        JSON.stringify(cachedData.response),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+      
+      // 백그라운드에서 갱신 (비동기)
+      refreshCacheInBackground(cacheKey, apiEndpoint, params, supabaseClient)
+      
+      return response
     }
 
     // API 호출
@@ -125,24 +152,21 @@ serve(async (req) => {
 
     const data = await apiResponse.json()
     
-    // TTL 계산
-    let ttl = CACHE_TTL.DEFAULT
-    if (params.date) {
-      const requestDate = new Date(params.date)
-      const today = new Date()
-      today.setHours(0, 0, 0, 0)
-      
-      if (requestDate > today) {
-        ttl = CACHE_TTL.FUTURE
-      } else if (requestDate < today) {
-        ttl = CACHE_TTL.PAST
-      }
-    }
+    // 스마트 TTL 계산
+    let ttl = calculateSmartTTL(params.date, data)
     
     // 빈 응답 체크
     const hasData = data.response && data.response.length > 0
     if (!hasData) {
       ttl = CACHE_TTL.EMPTY
+    }
+    
+    // 라이브 경기가 있는지 확인
+    const hasLiveMatch = data.response?.some((match: any) => 
+      ['1H', '2H', 'HT', 'ET', 'P', 'BT', 'LIVE'].includes(match.fixture?.status?.short)
+    )
+    if (hasLiveMatch) {
+      ttl = CACHE_TTL.LIVE
     }
 
     // 캐시 저장
@@ -197,6 +221,71 @@ serve(async (req) => {
     )
   }
 })
+
+// 스마트 TTL 계산 함수
+function calculateSmartTTL(dateStr: string | undefined, data: any): number {
+  if (!dateStr) return CACHE_TTL.TODAY
+  
+  const requestDate = new Date(dateStr)
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  requestDate.setHours(0, 0, 0, 0)
+  
+  const diffDays = Math.floor((requestDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+  
+  if (diffDays < 0) {
+    return CACHE_TTL.PAST  // 과거 경기 - 24시간
+  } else if (diffDays === 0) {
+    return CACHE_TTL.TODAY  // 오늘 경기 - 30분
+  } else if (diffDays === 1) {
+    return CACHE_TTL.TOMORROW  // 내일 경기 - 2시간
+  } else {
+    return CACHE_TTL.FUTURE  // 미래 경기 - 6시간
+  }
+}
+
+// 백그라운드 캐시 갱신 함수
+async function refreshCacheInBackground(
+  cacheKey: string, 
+  apiEndpoint: string, 
+  params: any,
+  supabaseClient: any
+) {
+  try {
+    const apiUrl = `https://${API_HOST}/v3${apiEndpoint}?${new URLSearchParams(params)}`
+    
+    const apiResponse = await fetch(apiUrl, {
+      headers: {
+        'x-rapidapi-key': API_KEY,
+        'x-rapidapi-host': API_HOST,
+      }
+    })
+    
+    if (apiResponse.ok) {
+      const data = await apiResponse.json()
+      const ttl = calculateSmartTTL(params.date, data)
+      const expiresAt = new Date(Date.now() + ttl * 1000)
+      
+      await supabaseClient
+        .from('api_cache')
+        .upsert({
+          cache_key: cacheKey,
+          endpoint: apiEndpoint,
+          parameters: params,
+          response: data,
+          has_data: data.response && data.response.length > 0,
+          is_error: false,
+          ttl: ttl,
+          expires_at: expiresAt.toISOString(),
+          cached_at: new Date().toISOString()
+        })
+      
+      console.log(`✅ Background cache refresh completed for ${cacheKey}`)
+    }
+  } catch (error) {
+    console.error(`❌ Background refresh failed for ${cacheKey}:`, error)
+  }
+}
 
 // Rate limiting 함수
 function checkRateLimit(clientId: string): boolean {

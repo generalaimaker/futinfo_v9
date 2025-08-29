@@ -89,13 +89,22 @@ function StandingsContent() {
   const [error, setError] = useState<string | null>(null)
   const [hoveredMatch, setHoveredMatch] = useState<string | null>(null)
   const [recentMatches, setRecentMatches] = useState<Record<number, any[]>>({})
+  const [loadingMatches, setLoadingMatches] = useState<Record<number, boolean>>({})
+  const [hoveredTeam, setHoveredTeam] = useState<number | null>(null)
 
   useEffect(() => {
     loadStandings()
   }, [selectedLeague, season])
 
+  // Lazy load team recent matches only when hovering
   const loadTeamRecentMatches = async (teamId: number) => {
+    // If already loading or already loaded, skip
+    if (loadingMatches[teamId] || recentMatches[teamId]) {
+      return
+    }
+
     try {
+      setLoadingMatches(prev => ({ ...prev, [teamId]: true }))
       const response = await footballAPIService.getTeamLastFixtures(teamId, 5)
       if (response?.response) {
         setRecentMatches(prev => ({
@@ -105,6 +114,17 @@ function StandingsContent() {
       }
     } catch (error) {
       console.error('Error fetching team matches:', error)
+    } finally {
+      setLoadingMatches(prev => ({ ...prev, [teamId]: false }))
+    }
+  }
+
+  // Handle team hover for lazy loading
+  const handleTeamHover = (teamId: number) => {
+    setHoveredTeam(teamId)
+    // Only load if not already loaded
+    if (!recentMatches[teamId] && !loadingMatches[teamId]) {
+      loadTeamRecentMatches(teamId)
     }
   }
 
@@ -120,13 +140,7 @@ function StandingsContent() {
       if (data?.response?.[0]?.league?.standings?.[0]) {
         const standingsData = data.response[0].league.standings[0]
         setStandings(standingsData)
-        
-        // 각 팀의 최근 경기 데이터 가져오기
-        standingsData.forEach((team: any) => {
-          if (team.form) {
-            loadTeamRecentMatches(team.team.id)
-          }
-        })
+        // Removed automatic loading of all teams' recent matches
       } else {
         setStandings([])
       }
@@ -390,7 +404,10 @@ function StandingsContent() {
                             
                             {/* 최근 폼 */}
                             <td className="py-4 px-4">
-                              <div className="flex items-center gap-1 justify-center">
+                              <div 
+                                className="flex items-center gap-1 justify-center"
+                                onMouseEnter={() => handleTeamHover(team.team.id)}
+                              >
                                 {team.form ? 
                                   team.form.split('').slice(-5).map((result: string, idx: number) => {
                                     const teamMatches = recentMatches[team.team.id] || []
@@ -408,7 +425,8 @@ function StandingsContent() {
                                         <div
                                           className={cn(
                                             "cursor-pointer transition-transform hover:scale-110",
-                                            match && "hover:z-10"
+                                            match && "hover:z-10",
+                                            loadingMatches[team.team.id] && "opacity-50"
                                           )}
                                           onMouseEnter={() => match && setHoveredMatch(matchKey)}
                                           onMouseLeave={() => setHoveredMatch(null)}

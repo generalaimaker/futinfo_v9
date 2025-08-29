@@ -51,18 +51,15 @@ extension FixturesOverviewViewModel {
             }
             
             do {
-                // 우선순위별 리그 그룹 정의 - 필수 리그만 선택
-                let primaryLeagues = getPreferredLeagues().prefix(3) // 사용자 선호 리그 중 상위 3개만
-                let mainLeagues = [39, 140, 135, 78, 61] // 5대 리그
-                let koreanLeagues = [292] // K리그1만
+                // 백엔드 사전 캐싱 활용 - 주요 리그만 요청
+                // 이미 백엔드에서 캐싱된 리그들
+                let preCachedLeagues = [39, 140, 135, 78, 61, 292, 293, 2, 3]
                 
-                // 중요 리그만 선택 (최대 10개)
-                var selectedLeagues = Array(primaryLeagues)
-                selectedLeagues.append(contentsOf: mainLeagues)
-                selectedLeagues.append(contentsOf: koreanLeagues)
+                // 사용자 팔로우 리그 중 사전 캐싱된 리그만 선택
+                let userLeagues = getPreferredLeagues().filter { preCachedLeagues.contains($0) }
                 
-                // 중복 제거 및 최대 10개로 제한
-                let limitedLeagues = Array(Set(selectedLeagues)).prefix(10)
+                // 최대 5개 리그만 요청 (백엔드 캐시 활용)
+                let limitedLeagues = Array(userLeagues.prefix(5))
                 
                 // 7월에는 여름 리그 추가
                 let calendar = Calendar.current

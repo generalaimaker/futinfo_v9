@@ -9,6 +9,7 @@ import { ko } from 'date-fns/locale'
 import { SimpleTransferFilter } from '@/components/news/SimpleTransferFilter'
 import { NewsSearchBar } from '@/components/news/NewsSearchBar'
 import { NewsArticleCard } from '@/components/news/NewsArticleCard'
+import { FeaturedNewsBanner } from '@/components/news/FeaturedNewsBanner'
 
 type NewsTab = 'major' | 'transfer' | 'injury'
 
@@ -176,6 +177,9 @@ export default function NewsPage() {
 
       {/* Content */}
       <div className="container mx-auto px-4 py-6">
+        {/* Featured News Banner - 모든 탭에서 표시 */}
+        <FeaturedNewsBanner />
+        
         {isLoading ? (
           <div className="flex justify-center items-center h-64">
             <div className="text-center">

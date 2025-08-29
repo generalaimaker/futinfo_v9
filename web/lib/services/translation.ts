@@ -28,7 +28,7 @@ const LANGUAGE_MAP: Record<string, string> = {
 }
 
 /**
- * DeepL API를 사용한 텍스트 번역
+ * Microsoft Translator API를 사용한 텍스트 번역
  */
 export async function translateText(
   text: string,

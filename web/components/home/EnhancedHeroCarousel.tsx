@@ -17,6 +17,7 @@ import { formatDistanceToNow } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import { motion, AnimatePresence } from 'framer-motion'
 import { formatMatchTime, formatRelativeTime, formatVenue, getTimezoneAbbreviation } from '@/lib/utils/timezone'
+import { getTeamColor } from '@/lib/data/team-colors'
 
 // 슬라이드 콘텐츠 타입
 export type SlideType = 'match' | 'news' | 'team' | 'stats' | 'promotion'
@@ -233,181 +234,552 @@ function MatchSlide({ data }: { data: any }) {
   const isLive = ['LIVE', '1H', '2H', 'HT'].includes(data.fixture?.status?.short)
   const isFinished = data.fixture?.status?.short === 'FT'
   
+  // 팀 컬러 가져오기
+  const homeTeamColors = getTeamColor(data.teams?.home?.id, data.teams?.home?.name)
+  const awayTeamColors = getTeamColor(data.teams?.away?.id, data.teams?.away?.name)
 
   return (
     <div className="absolute inset-0">
-      {/* 그라디언트 배경 - 더 모던하고 깔끔하게 */}
-      <div className="absolute inset-0 bg-gradient-to-br from-emerald-600/95 via-green-700/90 to-teal-800/85" />
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-white/10 via-transparent to-transparent" />
+      {/* 프리미엄 다크 그라데이션 배경 - 팀 컬러 액센트 */}
+      <div 
+        className="absolute inset-0"
+        style={{
+          background: `linear-gradient(135deg, 
+            ${homeTeamColors.primary}20 0%, 
+            rgba(20,25,35,0.98) 30%, 
+            rgba(15,20,30,0.98) 50%, 
+            rgba(20,25,35,0.98) 70%, 
+            ${awayTeamColors.primary}20 100%)`,
+        }}
+      />
+      {/* 서브틀한 라이트 오버레이 */}
+      <div className="absolute inset-0 bg-gradient-to-b from-white/5 via-transparent to-black/20" />
       
-      {/* 라이브 인디케이터 - 더 세련되게 */}
+      {/* 팀 컬러 오브 - 더 밝고 선명한 효과 */}
+      <div className="absolute inset-0 overflow-hidden">
+        {/* 홈팀 컬러 오브 - 세련된 효과 */}
+        <motion.div
+          animate={{
+            x: [0, 100, 0],
+            y: [0, -50, 0],
+            scale: [1, 1.15, 1],
+          }}
+          transition={{
+            duration: 20,
+            repeat: Infinity,
+            ease: "easeInOut"
+          }}
+          className="absolute top-0 left-0 w-[600px] h-[600px] rounded-full"
+          style={{ 
+            background: `radial-gradient(circle at 30% 30%, ${homeTeamColors.primary}40, ${homeTeamColors.primary}20, transparent)`,
+            filter: 'blur(80px)',
+            mixBlendMode: 'screen',
+            opacity: 0.6
+          }}
+        />
+        
+        {/* 원정팀 컬러 오브 - 세련된 효과 */}
+        <motion.div
+          animate={{
+            x: [0, -100, 0],
+            y: [0, 50, 0],
+            scale: [1, 1.15, 1],
+          }}
+          transition={{
+            duration: 25,
+            repeat: Infinity,
+            ease: "easeInOut"
+          }}
+          className="absolute bottom-0 right-0 w-[600px] h-[600px] rounded-full"
+          style={{ 
+            background: `radial-gradient(circle at 70% 70%, ${awayTeamColors.primary}40, ${awayTeamColors.primary}20, transparent)`,
+            filter: 'blur(80px)',
+            mixBlendMode: 'screen',
+            opacity: 0.6
+          }}
+        />
+        
+        {/* 중앙 스포트라이트 효과 */}
+        <motion.div
+          animate={{
+            scale: [1, 1.2, 1],
+            opacity: [0.2, 0.3, 0.2],
+          }}
+          transition={{
+            duration: 25,
+            repeat: Infinity,
+            ease: "easeInOut"
+          }}
+          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[400px]"
+          style={{
+            background: 'radial-gradient(ellipse at center, rgba(255,255,255,0.08), transparent 60%)',
+            filter: 'blur(40px)',
+          }}
+        />
+        
+        {/* 상단 서브틀 하이라이트 */}
+        <div 
+          className="absolute top-0 left-0 right-0 h-[200px]"
+          style={{
+            background: 'linear-gradient(to bottom, rgba(255,255,255,0.08), transparent)',
+            mixBlendMode: 'overlay'
+          }}
+        />
+        
+        {/* 팀 컬러 액센트 라인 */}
+        <div 
+          className="absolute top-0 left-0 w-full h-1"
+          style={{
+            background: `linear-gradient(90deg, ${homeTeamColors.primary}60, transparent 30%, transparent 70%, ${awayTeamColors.primary}60)`,
+            boxShadow: `0 0 20px ${homeTeamColors.primary}40, 0 0 20px ${awayTeamColors.primary}40`,
+          }}
+        />
+      </div>
+      
+      {/* 프리미엄 그리드 패턴 */}
+      <div 
+        className="absolute inset-0"
+        style={{
+          backgroundImage: `
+            linear-gradient(rgba(255,255,255,.03) 1px, transparent 1px), 
+            linear-gradient(90deg, rgba(255,255,255,.03) 1px, transparent 1px)
+          `,
+          backgroundSize: '50px 50px',
+          opacity: 0.5,
+          maskImage: 'radial-gradient(ellipse at center, black 30%, transparent 70%)'
+        }}
+      />
+      
+      {/* Liquid Glass 라이브 인디케이터 */}
       {isLive && (
         <div className="absolute top-6 left-6 z-20">
           <motion.div 
-            initial={{ scale: 0.9, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            className="flex items-center gap-2 px-4 py-2 bg-red-500/90 backdrop-blur-xl rounded-2xl shadow-lg"
+            initial={{ scale: 0.9, opacity: 0, x: -20 }}
+            animate={{ scale: 1, opacity: 1, x: 0 }}
+            transition={{ type: "spring" }}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-full"
+            style={{
+              background: 'linear-gradient(135deg, rgba(255,0,0,0.3), rgba(255,0,0,0.2))',
+              backdropFilter: 'blur(20px)',
+              boxShadow: `
+                inset 0 1px 2px rgba(255,255,255,0.3),
+                0 8px 20px -4px rgba(255,0,0,0.4)
+              `,
+              border: '1px solid rgba(255,255,255,0.2)',
+            }}
           >
-            <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
+            <motion.div 
+              animate={{ scale: [1, 1.3, 1] }}
+              transition={{ duration: 1, repeat: Infinity }}
+              className="w-2 h-2 bg-white rounded-full"
+              style={{
+                boxShadow: '0 0 10px rgba(255,255,255,0.8)',
+              }}
+            />
             <span className="text-sm font-bold text-white">LIVE</span>
             <span className="text-sm text-white/90">{data.fixture.status.elapsed}'</span>
           </motion.div>
         </div>
       )}
 
-      {/* 리그 표시 */}
-      <div className="absolute top-6 right-6 z-20">
+      {/* 리그 표시 - 중앙 상단, 여백 더 증가 */}
+      <div className="absolute top-8 left-1/2 -translate-x-1/2 z-20">
         <motion.div
-          initial={{ x: 20, opacity: 0 }}
-          animate={{ x: 0, opacity: 1 }}
-          transition={{ delay: 0.2 }}
-          className="px-3 py-1.5 bg-white/20 backdrop-blur-xl rounded-xl shadow-lg"
+          initial={{ y: -20, opacity: 0, scale: 0.9 }}
+          animate={{ y: 0, opacity: 1, scale: 1 }}
+          transition={{ delay: 0.2, type: "spring" }}
+          className="flex items-center gap-3 px-5 py-3 bg-gradient-to-r from-white/25 to-white/15 backdrop-blur-xl rounded-full shadow-xl border border-white/20"
         >
-          <span className="text-xs font-medium text-white">{data.league.name}</span>
+          {/* 리그 로고 */}
+          {data.league.logo && (
+            <div className="relative w-6 h-6">
+              <Image
+                src={data.league.logo}
+                alt={data.league.name}
+                fill
+                className="object-contain"
+              />
+            </div>
+          )}
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-bold text-white">
+              {data.league.name}
+            </span>
+            {data.league.round && (
+              <>
+                <span className="text-white/40">•</span>
+                <span className="text-xs text-white/70">
+                  {data.league.round}
+                </span>
+              </>
+            )}
+          </div>
+          {/* 트로피 아이콘 (컵 대회인 경우) */}
+          {(data.league.name.includes('Cup') || 
+            data.league.name.includes('컵') || 
+            data.league.name.includes('FA') ||
+            data.league.name.includes('Champions') ||
+            data.league.name.includes('Europa')) && (
+            <Trophy className="w-4 h-4 text-yellow-400/80" />
+          )}
         </motion.div>
       </div>
 
-      {/* 경기 정보 */}
-      <div className="relative h-full flex flex-col justify-center p-8 md:p-12">
-        <div className="max-w-5xl mx-auto w-full">
-          <div className="flex items-center justify-between mb-8">
-            {/* 홈팀 - 더 크고 선명하게 */}
+      {/* 경기 정보 - 중앙 정렬로 균형잡힌 레이아웃 */}
+      <div className="relative h-full flex flex-col justify-center pt-24 pb-16 px-8 md:px-12">
+        <div className="max-w-6xl mx-auto w-full">
+          <div className="flex items-center justify-between gap-8">
+            {/* 홈팀 - 팀 컬러 네온 글로우 효과 */}
             <motion.div 
-              initial={{ x: -50, opacity: 0 }}
-              animate={{ x: 0, opacity: 1 }}
-              transition={{ delay: 0.1 }}
+              initial={{ x: -100, opacity: 0, scale: 0.8 }}
+              animate={{ x: 0, opacity: 1, scale: 1 }}
+              transition={{ delay: 0.2, type: "spring", stiffness: 100 }}
               className="flex-1 flex flex-col items-center"
             >
-              <div className="w-28 h-28 md:w-36 md:h-36 flex items-center justify-center mb-4">
-                <Image
-                  src={data.teams.home.logo}
-                  alt={data.teams.home.name}
-                  width={144}
-                  height={144}
-                  className="w-full h-full object-contain"
-                />
+              <div className="relative mb-4">
+                {/* Liquid Glass 팀 로고 컨테이너 */}
+                <motion.div
+                  whileHover={{ scale: 1.05, rotateY: 5 }}
+                  transition={{ type: "spring", stiffness: 300 }}
+                  className="relative"
+                >
+                  {/* 소프트 글로우 */}
+                  <div 
+                    className="absolute -inset-4 rounded-[32px] opacity-50"
+                    style={{
+                      background: `radial-gradient(circle at 50% 50%, ${homeTeamColors.primary}40, transparent 60%)`,
+                      filter: 'blur(40px)',
+                    }}
+                  />
+                  
+                  {/* Glass Container with Depth */}
+                  <div className="relative w-32 h-32 md:w-40 md:h-40 group">
+                    {/* Back Glass Layer */}
+                    <div 
+                      className="absolute inset-0 rounded-[28px] backdrop-blur-2xl"
+                      style={{
+                        background: `linear-gradient(135deg, 
+                          rgba(255,255,255,0.1), 
+                          rgba(255,255,255,0.05))`,
+                        boxShadow: `
+                          inset 0 1px 2px rgba(255,255,255,0.3),
+                          inset 0 -1px 2px rgba(0,0,0,0.2),
+                          0 20px 40px -10px ${homeTeamColors.primary}30,
+                          0 10px 20px -5px rgba(0,0,0,0.3)
+                        `,
+                        border: '1px solid rgba(255,255,255,0.18)',
+                      }}
+                    />
+                    
+                    {/* Team Color Accent */}
+                    <div 
+                      className="absolute inset-0 rounded-[28px] opacity-30"
+                      style={{
+                        background: `linear-gradient(135deg, ${homeTeamColors.primary}20, transparent)`,
+                      }}
+                    />
+                    
+                    {/* Logo */}
+                    <div className="absolute inset-0 p-6 flex items-center justify-center">
+                      <Image
+                        src={data.teams.home.logo}
+                        alt={data.teams.home.name}
+                        fill
+                        className="object-contain p-6 drop-shadow-lg"
+                      />
+                    </div>
+                    
+                    {/* Glass Shine Effect */}
+                    <div 
+                      className="absolute inset-0 rounded-[28px] opacity-50"
+                      style={{
+                        background: 'linear-gradient(135deg, transparent 40%, rgba(255,255,255,0.1) 50%, transparent 60%)',
+                      }}
+                    />
+                  </div>
+                </motion.div>
               </div>
-              <h3 className="text-2xl md:text-3xl font-bold text-white text-center mb-1">
+              <h3 className="text-xl md:text-2xl font-black text-white text-center tracking-tight">
                 {data.teams.home.name}
               </h3>
-              <Badge className="bg-white/20 backdrop-blur text-white text-xs border-0">홈</Badge>
             </motion.div>
 
-            {/* 점수/시간 - 더 크고 아름답게 */}
+            {/* 중앙 점수/VS 표시 - 네온 스타일 */}
             <motion.div 
-              initial={{ scale: 0.8, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ delay: 0.2 }}
+              initial={{ scale: 0, rotateY: 180 }}
+              animate={{ scale: 1, rotateY: 0 }}
+              transition={{ delay: 0.3, type: "spring" }}
               className="px-8 text-center"
             >
               {isLive || isFinished ? (
-                <div>
-                  <div className="flex items-center gap-4 justify-center">
-                    <motion.span 
-                      initial={{ y: -20, opacity: 0 }}
-                      animate={{ y: 0, opacity: 1 }}
-                      transition={{ delay: 0.3 }}
-                      className="text-6xl md:text-7xl font-black text-white drop-shadow-2xl"
-                    >
-                      {data.goals?.home ?? 0}
-                    </motion.span>
-                    <span className="text-4xl text-white/30">:</span>
-                    <motion.span 
-                      initial={{ y: -20, opacity: 0 }}
-                      animate={{ y: 0, opacity: 1 }}
-                      transition={{ delay: 0.4 }}
-                      className="text-6xl md:text-7xl font-black text-white drop-shadow-2xl"
-                    >
-                      {data.goals?.away ?? 0}
-                    </motion.span>
-                  </div>
+                <div className="relative">
+                  {/* Liquid Glass Score Container */}
+                  <motion.div 
+                    initial={{ scale: 0.8, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    transition={{ delay: 0.3, type: "spring" }}
+                    className="relative px-8 py-4 rounded-[32px]"
+                    style={{
+                      background: 'linear-gradient(135deg, rgba(255,255,255,0.08), rgba(255,255,255,0.03))',
+                      backdropFilter: 'blur(20px)',
+                      boxShadow: `
+                        inset 0 2px 4px rgba(255,255,255,0.1),
+                        inset 0 -2px 4px rgba(0,0,0,0.2),
+                        0 20px 40px -10px rgba(0,0,0,0.4)
+                      `,
+                      border: '1px solid rgba(255,255,255,0.1)',
+                    }}
+                  >
+                    <div className="flex items-center gap-6 justify-center">
+                      <motion.span 
+                        initial={{ x: -50, opacity: 0 }}
+                        animate={{ x: 0, opacity: 1 }}
+                        transition={{ delay: 0.4 }}
+                        className="text-7xl md:text-8xl font-black"
+                        style={{ 
+                          background: `linear-gradient(135deg, ${homeTeamColors.primary}, ${homeTeamColors.primary}80, rgba(255,255,255,0.9))`,
+                          WebkitBackgroundClip: 'text',
+                          WebkitTextFillColor: 'transparent',
+                          filter: `drop-shadow(0 4px 8px ${homeTeamColors.primary}40)`,
+                        }}
+                      >
+                        {data.goals?.home ?? 0}
+                      </motion.span>
+                      
+                      <div className="flex flex-col items-center gap-2">
+                        <span 
+                          className="text-2xl font-light"
+                          style={{
+                            background: 'linear-gradient(135deg, rgba(255,255,255,0.4), rgba(255,255,255,0.2))',
+                            WebkitBackgroundClip: 'text',
+                            WebkitTextFillColor: 'transparent',
+                          }}
+                        >
+                          :
+                        </span>
+                        {isLive && (
+                          <motion.div 
+                            animate={{ scale: [1, 1.1, 1] }}
+                            transition={{ duration: 2, repeat: Infinity }}
+                            className="px-3 py-1 rounded-full backdrop-blur-xl"
+                            style={{
+                              background: 'linear-gradient(135deg, rgba(255,0,0,0.5), rgba(255,0,0,0.3))',
+                              boxShadow: 'inset 0 1px 2px rgba(255,255,255,0.3)',
+                              border: '1px solid rgba(255,255,255,0.2)',
+                            }}
+                          >
+                            <span className="text-xs font-bold text-white">{data.fixture.status.elapsed}'</span>
+                          </motion.div>
+                        )}
+                      </div>
+                      
+                      <motion.span 
+                        initial={{ x: 50, opacity: 0 }}
+                        animate={{ x: 0, opacity: 1 }}
+                        transition={{ delay: 0.4 }}
+                        className="text-7xl md:text-8xl font-black"
+                        style={{ 
+                          background: `linear-gradient(135deg, ${awayTeamColors.primary}, ${awayTeamColors.primary}80, rgba(255,255,255,0.9))`,
+                          WebkitBackgroundClip: 'text',
+                          WebkitTextFillColor: 'transparent',
+                          filter: `drop-shadow(0 4px 8px ${awayTeamColors.primary}40)`,
+                        }}
+                      >
+                        {data.goals?.away ?? 0}
+                      </motion.span>
+                    </div>
+                  </motion.div>
                   {isFinished && (
                     <motion.div
                       initial={{ y: 10, opacity: 0 }}
                       animate={{ y: 0, opacity: 1 }}
                       transition={{ delay: 0.5 }}
+                      className="mt-4"
                     >
-                      <Badge className="mt-4 px-4 py-1.5 bg-white/25 backdrop-blur-xl text-white text-sm font-bold border-0 shadow-lg">
-                        종료
-                      </Badge>
+                      <div 
+                        className="inline-block px-4 py-1.5 rounded-full backdrop-blur-xl"
+                        style={{
+                          background: 'linear-gradient(135deg, rgba(255,255,255,0.15), rgba(255,255,255,0.08))',
+                          boxShadow: 'inset 0 1px 2px rgba(255,255,255,0.2), 0 4px 12px -2px rgba(0,0,0,0.3)',
+                          border: '1px solid rgba(255,255,255,0.15)',
+                        }}
+                      >
+                        <span className="text-sm font-semibold text-white/90">종료</span>
+                      </div>
                     </motion.div>
                   )}
                 </div>
               ) : (
-                <div>
+                <div className="relative">
+                  {/* Liquid Glass VS 디스플레이 - 위치 조정 */}
                   <motion.div 
-                    initial={{ scale: 0.9, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    transition={{ delay: 0.3 }}
-                    className="text-4xl md:text-5xl font-bold text-white drop-shadow-2xl"
+                    initial={{ scale: 0, rotate: -180 }}
+                    animate={{ scale: 1, rotate: 0 }}
+                    transition={{ delay: 0.3, type: "spring" }}
+                    className="relative mt-12"
                   >
-                    {formatMatchTime(data.fixture.date)}
+                    <div 
+                      className="text-6xl md:text-7xl font-black tracking-widest"
+                      style={{
+                        background: 'linear-gradient(135deg, rgba(255,255,255,0.3), rgba(255,255,255,0.1))',
+                        WebkitBackgroundClip: 'text',
+                        WebkitTextFillColor: 'transparent',
+                        textShadow: '0 2px 20px rgba(255,255,255,0.2)',
+                        filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))',
+                      }}
+                    >
+                      VS
+                    </div>
                   </motion.div>
+                  
+                  {/* 시간 및 경기장 정보 - 아래로 이동 */}
                   <motion.div 
-                    initial={{ y: 10, opacity: 0 }}
+                    initial={{ y: 20, opacity: 0 }}
                     animate={{ y: 0, opacity: 1 }}
                     transition={{ delay: 0.4 }}
-                    className="text-center"
+                    className="mt-8 space-y-2"
                   >
-                    <div className="text-sm text-white/60 font-medium">
-                      {formatMatchTime(data.fixture.date, { 
-                        showDate: true, 
-                        showWeekday: true 
+                    <div className="text-3xl md:text-4xl font-bold text-white">
+                      {formatMatchTime(data.fixture.date)}
+                    </div>
+                    <div className="text-sm text-white/60">
+                      {new Date(data.fixture.date).toLocaleDateString('ko-KR', { 
+                        weekday: 'short',
+                        month: 'short', 
+                        day: 'numeric'
                       })}
                     </div>
-                    <div className="text-xs text-white/50 mt-1">
-                      {getTimezoneAbbreviation()}
-                    </div>
-                    <div className="text-sm text-white/70 mt-1 font-medium">
-                      {formatRelativeTime(data.fixture.date)}
+                    <div className="flex items-center gap-2 justify-center">
+                      <MapPin className="w-3 h-3 text-white/60" />
+                      <span className="text-xs text-white/60">
+                        {formatVenue(data.fixture.venue)}
+                      </span>
                     </div>
                   </motion.div>
                 </div>
               )}
             </motion.div>
 
-            {/* 원정팀 - 더 크고 선명하게 */}
+            {/* 원정팀 - 팀 컬러 네온 글로우 효과 */}
             <motion.div 
-              initial={{ x: 50, opacity: 0 }}
-              animate={{ x: 0, opacity: 1 }}
-              transition={{ delay: 0.1 }}
+              initial={{ x: 100, opacity: 0, scale: 0.8 }}
+              animate={{ x: 0, opacity: 1, scale: 1 }}
+              transition={{ delay: 0.2, type: "spring", stiffness: 100 }}
               className="flex-1 flex flex-col items-center"
             >
-              <div className="w-28 h-28 md:w-36 md:h-36 flex items-center justify-center mb-4">
-                <Image
-                  src={data.teams.away.logo}
-                  alt={data.teams.away.name}
-                  width={144}
-                  height={144}
-                  className="w-full h-full object-contain"
-                />
+              <div className="relative mb-4">
+                {/* Liquid Glass 팀 로고 컨테이너 */}
+                <motion.div
+                  whileHover={{ scale: 1.05, rotateY: -5 }}
+                  transition={{ type: "spring", stiffness: 300 }}
+                  className="relative"
+                >
+                  {/* 소프트 글로우 */}
+                  <div 
+                    className="absolute -inset-4 rounded-[32px] opacity-50"
+                    style={{
+                      background: `radial-gradient(circle at 50% 50%, ${awayTeamColors.primary}40, transparent 60%)`,
+                      filter: 'blur(40px)',
+                    }}
+                  />
+                  
+                  {/* Glass Container with Depth */}
+                  <div className="relative w-32 h-32 md:w-40 md:h-40 group">
+                    {/* Back Glass Layer */}
+                    <div 
+                      className="absolute inset-0 rounded-[28px] backdrop-blur-2xl"
+                      style={{
+                        background: `linear-gradient(135deg, 
+                          rgba(255,255,255,0.1), 
+                          rgba(255,255,255,0.05))`,
+                        boxShadow: `
+                          inset 0 1px 2px rgba(255,255,255,0.3),
+                          inset 0 -1px 2px rgba(0,0,0,0.2),
+                          0 20px 40px -10px ${awayTeamColors.primary}30,
+                          0 10px 20px -5px rgba(0,0,0,0.3)
+                        `,
+                        border: '1px solid rgba(255,255,255,0.18)',
+                      }}
+                    />
+                    
+                    {/* Team Color Accent */}
+                    <div 
+                      className="absolute inset-0 rounded-[28px] opacity-30"
+                      style={{
+                        background: `linear-gradient(135deg, ${awayTeamColors.primary}20, transparent)`,
+                      }}
+                    />
+                    
+                    {/* Logo */}
+                    <div className="absolute inset-0 p-6 flex items-center justify-center">
+                      <Image
+                        src={data.teams.away.logo}
+                        alt={data.teams.away.name}
+                        fill
+                        className="object-contain p-6 drop-shadow-lg"
+                      />
+                    </div>
+                    
+                    {/* Glass Shine Effect */}
+                    <div 
+                      className="absolute inset-0 rounded-[28px] opacity-50"
+                      style={{
+                        background: 'linear-gradient(135deg, transparent 40%, rgba(255,255,255,0.1) 50%, transparent 60%)',
+                      }}
+                    />
+                  </div>
+                </motion.div>
               </div>
-              <h3 className="text-2xl md:text-3xl font-bold text-white text-center mb-1">
+              <h3 className="text-xl md:text-2xl font-black text-white text-center tracking-tight">
                 {data.teams.away.name}
               </h3>
-              <Badge className="bg-white/20 backdrop-blur text-white text-xs border-0">원정</Badge>
             </motion.div>
           </div>
 
-          {/* 경기장 정보 및 상세보기 - 더 세련되게 */}
+          {/* 상세보기 버튼 */}
           <motion.div 
             initial={{ y: 20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ delay: 0.6 }}
-            className="flex items-center justify-between mt-8"
+            className="flex items-center justify-center mt-14"
           >
-            <div className="flex items-center gap-2 text-sm text-white/80 font-medium">
-              <MapPin className="w-4 h-4" />
-              <span>{formatVenue(data.fixture.venue)}</span>
-            </div>
             <Link href={`/fixtures/${data.fixture.id}`}>
               <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }} 
-                className="px-5 py-2.5 bg-white/25 backdrop-blur-xl hover:bg-white/35 text-white rounded-2xl font-semibold text-sm shadow-lg transition-all flex items-center gap-2"
+                whileHover={{ scale: 1.02, y: -2 }}
+                whileTap={{ scale: 0.98 }}
+                className="relative group"
               >
-                <span>경기 상세보기</span>
-                <ChevronRight className="h-4 w-4 flex-shrink-0" />
+                {/* Liquid Glass Button */}
+                <div 
+                  className="px-6 py-3 rounded-2xl backdrop-blur-2xl flex items-center gap-2"
+                  style={{
+                    background: 'linear-gradient(135deg, rgba(255,255,255,0.15), rgba(255,255,255,0.08))',
+                    boxShadow: `
+                      inset 0 1px 2px rgba(255,255,255,0.3),
+                      inset 0 -1px 1px rgba(0,0,0,0.1),
+                      0 10px 30px -5px rgba(0,0,0,0.5),
+                      0 5px 15px -3px rgba(255,255,255,0.1)
+                    `,
+                    border: '1px solid rgba(255,255,255,0.2)',
+                  }}
+                >
+                  <span className="text-sm font-semibold text-white">경기 상세보기</span>
+                  <motion.div
+                    animate={{ x: [0, 3, 0] }}
+                    transition={{ duration: 1.5, repeat: Infinity }}
+                  >
+                    <ChevronRight className="h-4 w-4 text-white/80" />
+                  </motion.div>
+                </div>
+                
+                {/* Hover Glow */}
+                <div 
+                  className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                  style={{
+                    background: 'radial-gradient(circle at center, rgba(255,255,255,0.1), transparent)',
+                    filter: 'blur(10px)',
+                  }}
+                />
               </motion.button>
             </Link>
           </motion.div>
@@ -426,77 +798,204 @@ function NewsSlide({ data }: { data: any }) {
   
   return (
     <div className="absolute inset-0">
-      {/* 모던한 블루 그라디언트 */}
-      <div className="absolute inset-0 bg-gradient-to-br from-blue-600/95 via-indigo-700/90 to-purple-800/85" />
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_left,_var(--tw-gradient-stops))] from-white/10 via-transparent to-transparent" />
+      {/* Liquid Glass 스타일 배경 */}
+      <div className="absolute inset-0 bg-gradient-to-br from-slate-900/95 via-blue-950/90 to-indigo-950/95" />
       
-      {/* 뉴스 라벨 - 더 세련되게 */}
-      <div className="absolute top-6 left-6 z-20">
-        <motion.div 
-          initial={{ scale: 0.9, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          className="flex items-center gap-2 px-4 py-2 bg-white/20 backdrop-blur-xl rounded-2xl shadow-lg"
-        >
-          <Newspaper className="w-4 h-4 text-white" />
-          <span className="text-sm font-bold text-white">주요 뉴스</span>
-        </motion.div>
+      {/* 부드러운 컬러 오브 */}
+      <div className="absolute inset-0 overflow-hidden">
+        <motion.div
+          animate={{
+            x: [0, -50, 0],
+            y: [0, 100, 0],
+            scale: [1, 1.2, 1],
+          }}
+          transition={{
+            duration: 25,
+            repeat: Infinity,
+            ease: "easeInOut"
+          }}
+          className="absolute -top-20 -right-20 w-[600px] h-[600px] rounded-full"
+          style={{
+            background: 'radial-gradient(circle, rgba(59,130,246,0.3), rgba(59,130,246,0.1), transparent)',
+            filter: 'blur(80px)',
+            mixBlendMode: 'screen'
+          }}
+        />
+        <motion.div
+          animate={{
+            x: [0, 50, 0],
+            y: [0, -50, 0],
+            scale: [1, 1.1, 1],
+          }}
+          transition={{
+            duration: 20,
+            repeat: Infinity,
+            ease: "easeInOut"
+          }}
+          className="absolute -bottom-20 -left-20 w-[500px] h-[500px] rounded-full"
+          style={{
+            background: 'radial-gradient(circle, rgba(99,102,241,0.3), rgba(99,102,241,0.1), transparent)',
+            filter: 'blur(80px)',
+            mixBlendMode: 'screen'
+          }}
+        />
       </div>
-
-      {/* 뉴스 목록 - 3개만 표시, 컴팩트 디자인 */}
-      <div className="relative h-full flex items-center p-4 md:p-6">
+      
+      {/* 상단 하이라이트 */}
+      <div className="absolute inset-0 bg-gradient-to-b from-white/5 via-transparent to-transparent" />
+      
+      {/* 뉴스 콘텐츠 영역 - 더 컴팩트한 레이아웃 */}
+      <div className="relative h-full flex flex-col justify-center py-4 px-6 md:px-8">
         <div className="max-w-4xl mx-auto w-full">
-          <h2 className="text-base md:text-lg font-bold text-white mb-3">
-            주요 뉴스
-          </h2>
+          {/* 헤더 영역 - 크기 더 축소 */}
+          <div className="flex items-center justify-between mb-3">
+            <motion.h2 
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+              className="text-base md:text-lg font-bold text-white"
+            >
+              Top News
+            </motion.h2>
+            
+            {/* 우측 상단 뉴스 아이콘 */}
+            <motion.div
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.4 }}
+              className="flex items-center gap-1.5 px-2 py-1 rounded-full"
+              style={{
+                background: 'linear-gradient(135deg, rgba(255,255,255,0.08), rgba(255,255,255,0.04))',
+                backdropFilter: 'blur(10px)',
+                border: '1px solid rgba(255,255,255,0.1)',
+              }}
+            >
+              <Newspaper className="w-3.5 h-3.5 text-white/60" />
+              <span className="text-[10px] text-white/60">Football News</span>
+            </motion.div>
+          </div>
           
           <div className="grid gap-2.5">
             {newsItems.slice(0, 3).map((item: any, index: number) => (
-              <Link 
-                key={item.id || index} 
-                href={`/news/${item.id || index}`}
-                className="block group"
+              <motion.div
+                key={item.id || index}
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.3 + index * 0.1 }}
               >
-                <div className="bg-white/10 backdrop-blur rounded-lg p-3 hover:bg-white/20 transition-all">
-                  <div className="flex items-center gap-2 mb-1">
-                    {index === 0 && (
-                      <Badge variant="destructive" className="text-[10px] px-1.5 py-0">
-                        HOT
-                      </Badge>
-                    )}
-                    <span className="text-[10px] text-white/50 uppercase">{item.source}</span>
-                    {item.publishedAt && (
-                      <span className="text-[10px] text-white/40">
-                        • {formatDistanceToNow(new Date(item.publishedAt), {
-                          addSuffix: true,
-                          locale: ko
-                        })}
-                      </span>
-                    )}
-                  </div>
-                  
-                  <h3 className="text-sm md:text-base font-semibold text-white line-clamp-1 group-hover:text-blue-300 transition-colors">
-                    {item.title}
-                  </h3>
-                  
-                  <p className="text-xs text-white/60 line-clamp-1 mt-1">
-                    {item.description}
-                  </p>
-                </div>
-              </Link>
+                <Link 
+                  href={`/news/${item.id || index}`}
+                  className="block group"
+                >
+                  <motion.div 
+                    whileHover={{ scale: 1.01, x: 3 }}
+                    className="relative p-2.5 rounded-xl transition-all"
+                    style={{
+                      background: 'linear-gradient(135deg, rgba(255,255,255,0.08), rgba(255,255,255,0.03))',
+                      backdropFilter: 'blur(20px)',
+                      boxShadow: `
+                        inset 0 1px 2px rgba(255,255,255,0.1),
+                        0 10px 30px -5px rgba(0,0,0,0.3)
+                      `,
+                      border: '1px solid rgba(255,255,255,0.1)',
+                    }}
+                  >
+                    <div className="flex items-start gap-2.5">
+                      {/* 뉴스 순위 표시 - 모두 동일한 스타일 */}
+                      <div 
+                        className="w-6 h-6 rounded-full flex items-center justify-center font-bold text-[10px] flex-shrink-0"
+                        style={{
+                          background: 'linear-gradient(135deg, rgba(255,255,255,0.15), rgba(255,255,255,0.08))',
+                          boxShadow: 'inset 0 1px 2px rgba(255,255,255,0.2)',
+                          border: '1px solid rgba(255,255,255,0.2)',
+                        }}
+                      >
+                        <span className="text-white">{index + 1}</span>
+                      </div>
+                      
+                      {/* 뉴스 콘텐츠 */}
+                      <div className="flex-1">
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <span className="text-[10px] text-white/50 font-medium">{item.source}</span>
+                        {item.publishedAt && (
+                          <span className="text-[10px] text-white/40">
+                            {formatDistanceToNow(new Date(item.publishedAt), {
+                              addSuffix: true,
+                              locale: ko
+                            })}
+                          </span>
+                        )}
+                      </div>
+                      
+                      <h3 className="text-sm md:text-base font-bold text-white mb-1.5 group-hover:text-blue-300 transition-colors line-clamp-2">
+                        {item.title}
+                      </h3>
+                      
+                      <p className="text-xs text-white/60 line-clamp-2">
+                        {item.description}
+                      </p>
+                      </div>
+                    </div>
+                    
+                    {/* Hover Glow Effect */}
+                    <div 
+                      className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"
+                      style={{
+                        background: 'radial-gradient(circle at center, rgba(59,130,246,0.1), transparent)',
+                        filter: 'blur(20px)',
+                      }}
+                    />
+                  </motion.div>
+                </Link>
+              </motion.div>
             ))}
           </div>
           
-          <div className="mt-3 text-center">
+          {/* 하단 버튼 영역 - 중앙 정렬, 크기 축소 */}
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.6 }}
+            className="mt-4 flex justify-center"
+          >
             <Link href="/news">
-              <Button 
-                size="sm" 
-                className="bg-white/20 backdrop-blur hover:bg-white/30 text-white border-0 h-7 text-xs px-3 py-1 whitespace-nowrap flex items-center gap-1"
+              <motion.button
+                whileHover={{ scale: 1.02, y: -1 }}
+                whileTap={{ scale: 0.98 }}
+                className="relative group inline-block"
               >
-                <span>모든 뉴스 보기</span>
-                <ChevronRight className="h-3 w-3 flex-shrink-0" />
-              </Button>
+                <div 
+                  className="px-4 py-2 rounded-xl backdrop-blur-2xl flex items-center gap-1.5"
+                  style={{
+                    background: 'linear-gradient(135deg, rgba(255,255,255,0.15), rgba(255,255,255,0.08))',
+                    boxShadow: `
+                      inset 0 1px 2px rgba(255,255,255,0.3),
+                      inset 0 -1px 1px rgba(0,0,0,0.1),
+                      0 10px 30px -5px rgba(0,0,0,0.4)
+                    `,
+                    border: '1px solid rgba(255,255,255,0.2)',
+                  }}
+                >
+                  <span className="text-xs font-semibold text-white">모든 뉴스 보기</span>
+                  <motion.div
+                    animate={{ x: [0, 3, 0] }}
+                    transition={{ duration: 1.5, repeat: Infinity }}
+                  >
+                    <ChevronRight className="h-3.5 w-3.5 text-white/80" />
+                  </motion.div>
+                </div>
+                
+                {/* Hover Glow */}
+                <div 
+                  className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                  style={{
+                    background: 'radial-gradient(circle at center, rgba(255,255,255,0.1), transparent)',
+                    filter: 'blur(10px)',
+                  }}
+                />
+              </motion.button>
             </Link>
-          </div>
+          </motion.div>
         </div>
       </div>
     </div>

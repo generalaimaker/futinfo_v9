@@ -110,7 +110,7 @@ serve(async (req) => {
       teamIds: url.searchParams.get('teamIds')?.split(',').map(Number),
       playerIds: url.searchParams.get('playerIds')?.split(',').map(Number),
       leagueIds: url.searchParams.get('leagueIds')?.split(',').map(Number),
-      language: url.searchParams.get('language') || 'ko',
+      language: 'ko', // 항상 한국어를 기본값으로
       limit: parseInt(url.searchParams.get('limit') || '20'),
       offset: parseInt(url.searchParams.get('offset') || '0'),
       searchQuery: url.searchParams.get('search') || undefined,
@@ -206,12 +206,29 @@ serve(async (req) => {
       (filters.offset || 0) + (filters.limit || 20)
     )
     
-    // 사용자 언어에 맞는 번역 적용
+    // 사용자 언어에 맞는 번역 적용 - 항상 한국어 우선
     const translatedArticles = paginatedArticles.map(article => {
       const translations = article.translations || {}
-      const userLang = filters.language || preferences.language || 'ko'
       
-      if (translations[userLang]) {
+      // 한국어 번역 우선 확인 (여러 형식 체크)
+      const koreanTranslation = translations.ko || 
+                                translations['ko'] || 
+                                translations['ko-KR']
+      
+      if (koreanTranslation) {
+        return {
+          ...article,
+          title: koreanTranslation.title || article.title,
+          description: koreanTranslation.description || article.description,
+          isTranslated: true,
+          originalTitle: article.title,
+          originalDescription: article.description
+        }
+      }
+      
+      // 한국어 번역이 없는 경우에만 다른 언어 체크
+      const userLang = filters.language || preferences.language || 'ko'
+      if (userLang !== 'ko' && translations[userLang]) {
         return {
           ...article,
           title: translations[userLang].title || article.title,

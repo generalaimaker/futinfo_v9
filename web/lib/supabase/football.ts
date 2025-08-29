@@ -81,6 +81,183 @@ class FootballAPIService {
     )
   }
 
+  // Supabase 캐시에서 데이터 가져오기
+  private async getCachedFromSupabase(endpoint: string, params: any): Promise<any> {
+    try {
+      const { supabase } = await import('./client')
+      
+      // 캐시 키 생성
+      const cacheKey = `${endpoint}_${JSON.stringify(params)}`
+      
+      // 캐시 테이블에서 데이터 조회
+      const { data, error } = await supabase
+        .from('api_cache')
+        .select('data')
+        .eq('cache_key', cacheKey)
+        .gte('expires_at', new Date().toISOString())
+        .single()
+      
+      if (error || !data) {
+        // 캐시가 없으면 fixtures 테이블에서 직접 조회 시도
+        if (endpoint === 'fixtures') {
+          // 날짜 처리 - params.date가 없으면 오늘 날짜 사용
+          const queryDate = params.date || new Date().toISOString().split('T')[0]
+          
+          const { data: fixtures, error: fixturesError } = await supabase
+            .from('fixtures')
+            .select('*')
+            .gte('fixture_date', queryDate + 'T00:00:00')
+            .lte('fixture_date', queryDate + 'T23:59:59')
+            .order('fixture_date', { ascending: true })
+          
+          if (!fixturesError && fixtures && fixtures.length > 0) {
+            // fixtures 테이블 데이터를 API 응답 형식으로 변환
+            return {
+              get: endpoint,
+              parameters: params,
+              errors: [],
+              results: fixtures.length,
+              paging: { current: 1, total: 1 },
+              response: fixtures.map(f => ({
+                fixture: {
+                  id: f.fixture_id,
+                  referee: f.referee,
+                  timezone: "UTC",
+                  date: f.fixture_date,
+                  timestamp: new Date(f.fixture_date).getTime() / 1000,
+                  periods: { first: null, second: null },
+                  venue: { 
+                    id: f.venue_id, 
+                    name: f.venue_name || "Stadium", 
+                    city: f.venue_city || "City" 
+                  },
+                  status: { 
+                    long: f.status_long || "Not Started", 
+                    short: f.status_short || "NS", 
+                    elapsed: f.elapsed 
+                  }
+                },
+                league: {
+                  id: f.league_id,
+                  name: f.league_name,
+                  country: f.league_country,
+                  logo: f.league_logo,
+                  flag: f.league_flag,
+                  season: f.season,
+                  round: f.round
+                },
+                teams: {
+                  home: {
+                    id: f.home_team_id,
+                    name: f.home_team_name,
+                    logo: f.home_team_logo,
+                    winner: f.home_winner
+                  },
+                  away: {
+                    id: f.away_team_id,
+                    name: f.away_team_name,
+                    logo: f.away_team_logo,
+                    winner: f.away_winner
+                  }
+                },
+                goals: { 
+                  home: f.goals_home, 
+                  away: f.goals_away 
+                },
+                score: {
+                  halftime: { home: f.score_halftime_home, away: f.score_halftime_away },
+                  fulltime: { home: f.score_fulltime_home, away: f.score_fulltime_away },
+                  extratime: { home: null, away: null },
+                  penalty: { home: null, away: null }
+                }
+              }))
+            }
+          }
+        }
+        
+        // 실시간 경기 조회
+        if (endpoint === 'fixtures/live') {
+          const { data: liveFixtures, error: liveError } = await supabase
+            .from('fixtures')
+            .select('*')
+            .in('status_short', ['LIVE', '1H', '2H', 'HT', 'ET', 'P', 'BT'])
+            .order('fixture_date', { ascending: true })
+          
+          if (!liveError && liveFixtures) {
+            return {
+              get: endpoint,
+              parameters: params,
+              errors: [],
+              results: liveFixtures.length,
+              paging: { current: 1, total: 1 },
+              response: liveFixtures.map(f => ({
+                fixture: {
+                  id: f.fixture_id,
+                  referee: f.referee,
+                  timezone: "UTC",
+                  date: f.fixture_date,
+                  timestamp: new Date(f.fixture_date).getTime() / 1000,
+                  periods: { first: null, second: null },
+                  venue: { 
+                    id: f.venue_id, 
+                    name: f.venue_name || "Stadium", 
+                    city: f.venue_city || "City" 
+                  },
+                  status: { 
+                    long: f.status_long || "In Play", 
+                    short: f.status_short || "LIVE", 
+                    elapsed: f.elapsed 
+                  }
+                },
+                league: {
+                  id: f.league_id,
+                  name: f.league_name,
+                  country: f.league_country,
+                  logo: f.league_logo,
+                  flag: f.league_flag,
+                  season: f.season,
+                  round: f.round
+                },
+                teams: {
+                  home: {
+                    id: f.home_team_id,
+                    name: f.home_team_name,
+                    logo: f.home_team_logo,
+                    winner: f.home_winner
+                  },
+                  away: {
+                    id: f.away_team_id,
+                    name: f.away_team_name,
+                    logo: f.away_team_logo,
+                    winner: f.away_winner
+                  }
+                },
+                goals: { 
+                  home: f.goals_home, 
+                  away: f.goals_away 
+                },
+                score: {
+                  halftime: { home: f.score_halftime_home, away: f.score_halftime_away },
+                  fulltime: { home: f.score_fulltime_home, away: f.score_fulltime_away },
+                  extratime: { home: null, away: null },
+                  penalty: { home: null, away: null }
+                }
+              }))
+            }
+          }
+        }
+        
+        return null
+      }
+      
+      return data.data
+    } catch (error) {
+      console.error('[FootballAPI] Error getting cached data:', error)
+      return null
+    }
+  }
+
+
   // 통합 API 호출
   protected async callUnifiedAPI<T>(endpoint: string, params: any): Promise<T> {
     // Rate limiting - ensure minimum delay between requests
@@ -119,6 +296,14 @@ class FootballAPIService {
       
       if (!response.ok) {
         console.error(`[FootballAPI] API error (${endpoint}):`, data)
+        
+        // Edge Function 실패 시 Supabase 캐시에서 가져오기
+        const cachedData = await this.getCachedFromSupabase(endpoint, params)
+        if (cachedData) {
+          console.log(`[FootballAPI] Using cached data for ${endpoint}`)
+          return cachedData as T
+        }
+        
         throw new Error(data.error || 'API request failed')
       }
       
@@ -137,6 +322,18 @@ class FootballAPIService {
         throw e
       }
       console.error(`[FootballAPI] Exception calling ${endpoint}:`, e)
+      
+      // 에러 발생 시 캐시된 데이터 시도
+      try {
+        const cachedData = await this.getCachedFromSupabase(endpoint, params)
+        if (cachedData) {
+          console.log(`[FootballAPI] Using cached data after error for ${endpoint}`)
+          return cachedData as T
+        }
+      } catch (cacheError) {
+        console.error(`[FootballAPI] Cache fallback failed:`, cacheError)
+      }
+      
       throw e
     }
   }
