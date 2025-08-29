@@ -21,6 +21,10 @@ interface FeaturedNews {
   source: string
   published_at: string
   display_order: number
+  isTranslated?: boolean
+  originalTitle?: string
+  originalDescription?: string
+  translations?: any
 }
 
 export function FeaturedNewsBanner() {
