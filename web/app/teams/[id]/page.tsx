@@ -194,9 +194,8 @@ export default function TeamPage() {
       const processedTransfers = teamTransfersData.response.map((transferData: any) => {
         const latestTransfer = transferData.transfers?.[0]
         
-        // 방향 결정 - ID를 숫자로 변환하여 비교
-        const numTeamId = parseInt(teamId)
-        const isIn = latestTransfer?.teams?.in?.id === numTeamId
+        // 방향 결정 - teamId는 이미 숫자
+        const isIn = latestTransfer?.teams?.in?.id === teamId
         
         // 이적 타입 결정 (loan이 있으면 임대, 없으면 일반 이적)
         const transferType = latestTransfer?.type?.toLowerCase().includes('loan') ? 'loan' : 'transfer'

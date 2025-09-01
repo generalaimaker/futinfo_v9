@@ -19,7 +19,7 @@ export function UltraModernBanner() {
   
   // 주요 경기만 필터링 (주요 리그)
   const majorLeagues = [39, 140, 135, 78, 61] // Premier League, La Liga, Serie A, Bundesliga, Ligue 1
-  const matches = fixturesData?.response?.filter(match => 
+  const matches = (fixturesData as any)?.response?.filter((match: any) => 
     majorLeagues.includes(match.league.id)
   ).slice(0, 5) || []
   
