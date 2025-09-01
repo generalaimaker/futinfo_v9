@@ -21,9 +21,9 @@ import {
   Clock, Share2, Heart, Eye, Pin,
   TrendingDown, Activity, Award, AlertTriangle
 } from 'lucide-react'
-import { useTeamProfile, useTeamStatistics, useTeamSquad, useTeamNextFixtures, useTeamLastFixtures, useStandings } from '@/lib/supabase/football'
+import { useTeamProfile, useTeamStatistics, useTeamSquad, useTeamNextFixtures, useTeamLastFixtures, useStandings, useTransfers } from '@/lib/supabase/football'
 import footballAPIService from '@/lib/supabase/football'
-import { useFootballTransfers } from '@/lib/football-api/hooks'
+import { getEnhancedTeamTransfers } from '@/lib/football-api/team-transfers'
 import { useUserPreferences } from '@/lib/hooks/useUserPreferences'
 import { teamCommunityService, TeamPost } from '@/lib/supabase/teams'
 import { cn } from '@/lib/utils'
@@ -80,7 +80,6 @@ export default function TeamPage() {
   const [newPostContent, setNewPostContent] = useState('')
   const [newPostCategory, setNewPostCategory] = useState<TeamPost['category']>('general')
   const [transferFilter, setTransferFilter] = useState<'in' | 'out'>('in')
-  const [allTransfersRawData, setAllTransfersRawData] = useState<any>(null)
   const [hoveredMatch, setHoveredMatch] = useState<string | null>(null)
   const [recentMatches, setRecentMatches] = useState<any[]>([])
   
@@ -103,115 +102,131 @@ export default function TeamPage() {
     }
   }, [statsData, lastFixtures])
   
-  // 전체 이적 데이터 가져오기 - 강제 리프레시
-  const { data: allTransfersData, isLoading: transfersLoading, error: transfersError, refetch: refetchTransfers } = useFootballTransfers(1)
-  
-  // 컴포넌트 마운트 시 이적 데이터 강제 리프레시
-  useEffect(() => {
-    console.log('[TeamPage v2.0] Refetching transfers for team:', teamId)
-    
-    // 여러 페이지의 데이터를 모두 가져오기
-    import('@/lib/football-api/client').then(async ({ getAllTransfers }) => {
-      console.log('[TeamPage v2.0] Fetching multiple pages of transfers')
-      
-      const allTransfers: any[] = []
-      
-      // 첫 5페이지 데이터 가져오기
-      for (let page = 1; page <= 5; page++) {
-        console.log(`[TeamPage v2.0] Fetching page ${page}`)
-        const data = await getAllTransfers(page)
-        if (data.transfers && data.transfers.length > 0) {
-          allTransfers.push(...data.transfers)
-        }
-      }
-      
-      console.log(`[TeamPage v2.0] Total transfers fetched: ${allTransfers.length}`)
-      setAllTransfersRawData({ transfers: allTransfers, total: allTransfers.length })
-    })
-  }, [teamId])
-  
-  // 디버깅 로그
-  useEffect(() => {
-    console.log('[TeamPage] All transfers data:', allTransfersData)
-    console.log('[TeamPage] Transfers loading:', transfersLoading)
-    console.log('[TeamPage] Transfers error:', transfersError)
-  }, [allTransfersData, transfersLoading, transfersError])
-  
-  // 현재 팀 관련 이적만 필터링
-  const transfersData = useMemo(() => {
-    // 직접 가져온 데이터 사용
-    const dataToUse = allTransfersRawData || allTransfersData
-    
-    if (!dataToUse?.transfers) {
-      console.log('[TeamPage] No transfers data available')
-      return { response: [{ transfers: [] }] }
-    }
-    
-    // 팀 이름 가져오기
-    const teamName = profileData?.team?.name || ''
-    
-    console.log('[TeamPage] Filtering transfers for team:', teamName, 'ID:', teamId)
-    console.log('[TeamPage] Total transfers before filtering:', dataToUse.transfers.length)
-    
-    // 현재 팀과 관련된 이적만 필터링
-    const teamTransfers = dataToUse.transfers.filter((transfer: any) => {
-      const fromClub = (transfer.fromClub || transfer.from?.name || '').toLowerCase()
-      const toClub = (transfer.toClub || transfer.to?.name || '').toLowerCase()
-      
-      // 팀 이름 변형 목록 가져오기
-      const teamNameVariations = TEAM_NAME_MAPPING[teamId] || [teamName]
-      
-      // 모든 팀 이름 변형으로 매칭 시도
-      const isRelated = teamNameVariations.some(name => {
-        const lowerName = name.toLowerCase()
-        return fromClub.includes(lowerName) || toClub.includes(lowerName)
-      }) || 
-      transfer.from?.id === teamId ||
-      transfer.to?.id === teamId ||
-      transfer.fromClubId === teamId ||
-      transfer.toClubId === teamId
-      
-      // 디버깅용 - Manchester United 관련 이적 찾기
-      if (teamId === 33 && (fromClub.includes('united') || toClub.includes('united'))) {
-        console.log('[TeamPage] Potential Man United transfer:', {
-          from: fromClub,
-          to: toClub,
-          player: transfer.name,
-          matched: isRelated
+  // 팀별 이적 데이터 가져오기 - Enhanced API with accurate fees
+  const { data: teamTransfersData, isLoading: transfersLoading, error: transfersError } = useQuery({
+    queryKey: ['teamTransfers-enhanced', teamId],
+    queryFn: async () => {
+      console.log('[TeamPage] Fetching enhanced transfers...')
+      try {
+        const enhancedData = await getEnhancedTeamTransfers(teamId)
+        console.log('[TeamPage] Enhanced transfer data:', {
+          source: enhancedData.source,
+          in: enhancedData.in?.length || 0,
+          out: enhancedData.out?.length || 0,
+          totalSpent: enhancedData.stats?.totalSpent,
+          totalEarned: enhancedData.stats?.totalEarned
         })
+        return enhancedData
+      } catch (error) {
+        console.error('[TeamPage] Error fetching enhanced transfers:', error)
+        // Fallback to old API if enhanced fails
+        const response = await fetch(`/api/teams/${teamId}/transfers`)
+        if (!response.ok) throw new Error('Failed to fetch transfers')
+        const data = await response.json()
+        return { ...data, source: 'api-football-fallback' }
       }
-        
-      return isRelated
-    }).map((transfer: any) => {
-      // 방향 설정
-      const toClub = (transfer.toClub || transfer.to?.name || '').toLowerCase()
-      const teamNameVariations = TEAM_NAME_MAPPING[teamId] || [teamName]
-      
-      const isIn = teamNameVariations.some(name => 
-        toClub.includes(name.toLowerCase())
-      ) || 
-      transfer.to?.id === teamId ||
-      transfer.toClubId === teamId
-      
-      return {
-        ...transfer,
-        direction: isIn ? 'in' : 'out'
-      }
-    }).sort((a: any, b: any) => {
-      // 날짜 기준 정렬 (최신순)
-      const dateA = new Date(a.transferDate || a.date || 0)
-      const dateB = new Date(b.transferDate || b.date || 0)
-      return dateB.getTime() - dateA.getTime()
+    },
+    enabled: !!teamId,
+    staleTime: 5 * 60 * 1000, // 5분
+  })
+  
+  // 디버깅 로그  
+  useEffect(() => {
+    if (teamTransfersData) {
+      console.log('[TeamPage] Transfers fetched successfully, length:', teamTransfersData?.response?.length)
+    }
+  }, [teamTransfersData])
+  
+  // 이적 데이터 처리 및 방향 설정
+  const transfersData = useMemo(() => {
+    console.log('[TeamPage] Transfer data check:', {
+      hasTeamTransfersData: !!teamTransfersData,
+      teamTransfersDataLength: teamTransfersData?.response?.length,
+      source: teamTransfersData?.source
     })
     
-    console.log(`[TeamPage] Filtered ${teamTransfers.length} transfers for ${teamName}`)
-    
-    return {
-      response: [{
-        transfers: teamTransfers
-      }]
+    if (!teamTransfersData) {
+      console.log('[TeamPage] No transfers data available')
+      return null
     }
-  }, [allTransfersRawData, allTransfersData, teamId, profileData?.team?.name])
+    
+    console.log('[TeamPage] Processing transfers for team ID:', teamId)
+    console.log('[TeamPage] Data source:', teamTransfersData.source)
+    
+    // Check if this is enhanced data from free-api
+    if (teamTransfersData.source === 'free-api' && (teamTransfersData.in || teamTransfersData.out)) {
+      // Combine in and out transfers with direction already set
+      const allTransfers = [
+        ...(teamTransfersData.in || []),
+        ...(teamTransfersData.out || [])
+      ]
+      
+      // Map to expected format for AppleTeamProfile
+      const processedTransfers = allTransfers.map((transfer: any) => {
+        return {
+          player: {
+            id: transfer.playerId,
+            name: transfer.playerName
+          },
+          transfers: [{
+            date: transfer.transferDate,
+            type: transfer.fee?.text || transfer.transferType || 'Transfer',
+            teams: {
+              in: transfer.toClub,
+              out: transfer.fromClub
+            }
+          }],
+          direction: transfer.direction,
+          transferType: transfer.onLoan ? 'loan' : 
+                       transfer.transferType === 'free' ? 'free' : 'transfer',
+          transferDate: transfer.transferDate,
+          // Add fee information for display
+          fee: transfer.fee,
+          marketValue: transfer.marketValue,
+          position: transfer.position
+        }
+      })
+      
+      console.log(`[TeamPage] Processed ${processedTransfers.length} free-api transfers`)
+      return processedTransfers
+    } else if (teamTransfersData.response) {
+      // Old API format (fallback)
+      const processedTransfers = teamTransfersData.response.map((transferData: any) => {
+        const latestTransfer = transferData.transfers?.[0]
+        
+        // 방향 결정 - ID를 숫자로 변환하여 비교
+        const numTeamId = parseInt(teamId)
+        const isIn = latestTransfer?.teams?.in?.id === numTeamId
+        
+        // 이적 타입 결정 (loan이 있으면 임대, 없으면 일반 이적)
+        const transferType = latestTransfer?.type?.toLowerCase().includes('loan') ? 'loan' : 'transfer'
+        
+        return {
+          ...transferData,
+          direction: isIn ? 'in' : 'out',
+          transferType: transferType,
+          transferDate: latestTransfer?.date
+        }
+      }).filter((transfer: any) => {
+        // 2024년 7월 이후의 이적만 표시
+        const transferDate = transfer.transferDate
+        if (!transferDate) return false
+        
+        const date = new Date(transferDate)
+        const cutoffDate = new Date('2024-07-01')
+        
+        return date >= cutoffDate
+      }).sort((a: any, b: any) => {
+        // 최신 이적이 먼저 오도록 정렬
+        return new Date(b.transferDate).getTime() - new Date(a.transferDate).getTime()
+      })
+      
+      console.log(`[TeamPage] Processed ${processedTransfers.length} old-api transfers`)
+      return processedTransfers
+    }
+    
+    return []
+  }, [teamTransfersData, teamId])
   
   // 부상자 명단 데이터
   const { data: injuriesData, isLoading: injuriesLoading } = useQuery({

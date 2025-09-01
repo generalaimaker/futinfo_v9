@@ -8,8 +8,9 @@ import { Badge } from '@/components/ui/badge'
 import { 
   TrendingUp, TrendingDown, Calendar, DollarSign, 
   Users, AlertCircle, Loader2, ArrowRight, Globe, 
-  RefreshCw, ChevronLeft, ChevronRight, User
+  ChevronLeft, ChevronRight
 } from 'lucide-react'
+import Image from 'next/image'
 import { 
   useFootballTransfers, 
   useFootballTopTransfers,
@@ -43,15 +44,14 @@ export default function TransferPage() {
   
   // No need to load player images anymore
   
-  // League options for selector
+  // League options for selector with logos - Top 5 European leagues only
   const leagueOptions = [
-    { id: 'all', name: '전체 리그', icon: '🌍' },
-    { id: 'PREMIER_LEAGUE', name: 'Premier League', icon: '🇬🇧' },
-    { id: 'LA_LIGA', name: 'La Liga', icon: '🇪🇸' },
-    { id: 'SERIE_A', name: 'Serie A', icon: '🇮🇹' },
-    { id: 'BUNDESLIGA', name: 'Bundesliga', icon: '🇩🇪' },
-    { id: 'LIGUE_1', name: 'Ligue 1', icon: '🇫🇷' },
-    { id: 'K_LEAGUE_1', name: 'K League 1', icon: '🇰🇷' },
+    { id: 'all', name: '전체 리그', logo: null },
+    { id: 'PREMIER_LEAGUE', name: 'Premier League', logo: 'https://media.api-sports.io/football/leagues/39.png' },
+    { id: 'LA_LIGA', name: 'La Liga', logo: 'https://media.api-sports.io/football/leagues/140.png' },
+    { id: 'SERIE_A', name: 'Serie A', logo: 'https://media.api-sports.io/football/leagues/135.png' },
+    { id: 'BUNDESLIGA', name: 'Bundesliga', logo: 'https://media.api-sports.io/football/leagues/78.png' },
+    { id: 'LIGUE_1', name: 'Ligue 1', logo: 'https://media.api-sports.io/football/leagues/61.png' },
   ]
   
   // Get transfer clubs
@@ -161,16 +161,6 @@ export default function TransferPage() {
     return 'bg-green-500' // 기본값: 완전이적
   }
   
-  // Clear cache function
-  const clearCache = () => {
-    if (typeof window !== 'undefined') {
-      const keys = Object.keys(localStorage).filter(key => key.startsWith('football_api_cache_'))
-      keys.forEach(key => localStorage.removeItem(key))
-      alert(`캐시가 삭제되었습니다. ${keys.length}개 항목 제거됨`)
-      window.location.reload()
-    }
-  }
-
   if (allError) {
     return (
       <div className="min-h-screen lg:ml-64 p-4 lg:p-6">
@@ -178,10 +168,7 @@ export default function TransferPage() {
           <Card className="dark-card p-8 text-center">
             <AlertCircle className="w-12 h-12 mx-auto mb-4 text-red-500" />
             <h2 className="text-xl font-semibold mb-2">오류가 발생했습니다</h2>
-            <p className="text-muted-foreground mb-4">{(allError as Error).message}</p>
-            <Button onClick={clearCache} variant="outline">
-              캐시 삭제 후 새로고침
-            </Button>
+            <p className="text-muted-foreground">{(allError as Error).message}</p>
           </Card>
         </div>
       </div>
@@ -297,7 +284,7 @@ export default function TransferPage() {
             {/* League Selector */}
             <Card className="dark-card p-4">
               <h3 className="text-sm font-semibold mb-3">리그 선택</h3>
-              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-2">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
                 {leagueOptions.map((league) => (
                   <button
                     key={league.id}
@@ -312,7 +299,21 @@ export default function TransferPage() {
                         : "border-secondary bg-secondary/50 hover:border-primary/50"
                     )}
                   >
-                    <div className="text-xl mb-1">{league.icon}</div>
+                    <div className="mb-1 h-8 flex items-center justify-center">
+                      {league.logo ? (
+                        <div className="relative w-8 h-6">
+                          <Image 
+                            src={league.logo} 
+                            alt={league.name} 
+                            fill
+                            className="object-contain"
+                            sizes="32px"
+                          />
+                        </div>
+                      ) : (
+                        <Globe className="w-5 h-5 text-muted-foreground" />
+                      )}
+                    </div>
                     <div className="text-xs font-medium">{league.name}</div>
                   </button>
                 ))}
@@ -324,12 +325,6 @@ export default function TransferPage() {
                 <h3 className="text-lg font-semibold">
                   {selectedLeague === 'all' ? '전체 리그' : leagueOptions.find(l => l.id === selectedLeague)?.name} 최근 이적
                 </h3>
-                <div className="flex items-center gap-2">
-                  <Button onClick={clearCache} variant="outline" size="sm">
-                    <RefreshCw className="w-4 h-4 mr-2" />
-                    캐시 삭제
-                  </Button>
-                </div>
               </div>
               
               {isLoading ? (
@@ -356,21 +351,16 @@ export default function TransferPage() {
                             getTransferTypeBadgeColor(transfer)
                           )} />
                           
-                          {/* Player Icon */}
-                          <div className="relative">
-                            <div className="w-20 h-20 rounded-full overflow-hidden ring-2 ring-white/10 bg-gradient-to-br from-white/20 to-white/5 flex items-center justify-center">
-                              <User className="w-10 h-10 text-muted-foreground" />
-                            </div>
-                            {transfer.position?.label && (
-                              <div className="absolute -bottom-1 -right-1 px-2 py-0.5 bg-primary text-primary-foreground text-xs font-medium rounded-full">
-                                {transfer.position.label}
-                              </div>
-                            )}
-                          </div>
-                          
                           {/* Transfer Details */}
                           <div className="flex-1">
-                            <h4 className="text-lg font-semibold mb-2">{transfer.name || transfer.player?.name || 'Unknown Player'}</h4>
+                            <div className="flex items-center gap-2 mb-2">
+                              <h4 className="text-lg font-semibold">{transfer.name || transfer.player?.name || 'Unknown Player'}</h4>
+                              {transfer.position?.label && (
+                                <Badge variant="outline" className="text-xs">
+                                  {transfer.position.label}
+                                </Badge>
+                              )}
+                            </div>
                             
                             {/* Club Transfer */}
                             <div className="flex items-center gap-3 mb-3">
@@ -464,21 +454,20 @@ export default function TransferPage() {
                     >
                       <div className="p-6">
                         <div className="flex items-start gap-5">
-                          <div className="relative">
-                            <div className="w-24 h-24 rounded-2xl overflow-hidden ring-2 ring-primary/30 bg-gradient-to-br from-white/20 to-white/5 flex items-center justify-center">
-                              <User className="w-12 h-12 text-muted-foreground" />
-                            </div>
-                            <div className="absolute -top-3 -right-3 w-10 h-10 bg-gradient-to-br from-primary to-primary/80 rounded-full flex items-center justify-center text-primary-foreground font-bold shadow-lg">
+                          <div className="flex-shrink-0">
+                            <div className="w-10 h-10 bg-gradient-to-br from-primary to-primary/80 rounded-full flex items-center justify-center text-primary-foreground font-bold shadow-lg">
                               {index + 1}
                             </div>
                           </div>
                           <div className="flex-1">
-                            <h4 className="text-xl font-bold mb-1">{transfer.name || transfer.player?.name || 'Unknown Player'}</h4>
-                            {transfer.position?.label && (
-                              <Badge variant="outline" className="mb-3">
-                                {transfer.position.label}
-                              </Badge>
-                            )}
+                            <div className="flex items-center gap-2 mb-1">
+                              <h4 className="text-xl font-bold">{transfer.name || transfer.player?.name || 'Unknown Player'}</h4>
+                              {transfer.position?.label && (
+                                <Badge variant="outline">
+                                  {transfer.position.label}
+                                </Badge>
+                              )}
+                            </div>
                             
                             <div className="space-y-2">
                               <div className="flex items-center gap-2 text-sm">
@@ -549,21 +538,16 @@ export default function TransferPage() {
                             </div>
                           </div>
                           
-                          {/* Player Icon */}
-                          <div className="relative">
-                            <div className="w-16 h-16 rounded-xl overflow-hidden ring-2 ring-white/10 bg-gradient-to-br from-white/20 to-white/5 flex items-center justify-center">
-                              <User className="w-8 h-8 text-muted-foreground" />
-                            </div>
-                            {transfer.position?.label && (
-                              <div className="absolute -bottom-1 -right-1 px-1.5 py-0.5 bg-primary text-primary-foreground text-[10px] font-medium rounded">
-                                {transfer.position.label}
-                              </div>
-                            )}
-                          </div>
-                          
                           {/* Transfer Details */}
                           <div className="flex-1">
-                            <h4 className="font-semibold text-base mb-1">{transfer.name || transfer.player?.name || 'Unknown Player'}</h4>
+                            <div className="flex items-center gap-2 mb-1">
+                              <h4 className="font-semibold text-base">{transfer.name || transfer.player?.name || 'Unknown Player'}</h4>
+                              {transfer.position?.label && (
+                                <Badge variant="outline" className="text-[10px] py-0 px-1.5">
+                                  {transfer.position.label}
+                                </Badge>
+                              )}
+                            </div>
                             <div className="flex items-center gap-2 text-sm text-muted-foreground">
                               {(() => {
                                 const { from, to } = getTransferClubs(transfer)

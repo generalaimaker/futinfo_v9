@@ -13,6 +13,7 @@ import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { CompactTransferSlide } from './CompactTransferSlide'
 import { formatDistanceToNow } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -20,7 +21,7 @@ import { formatMatchTime, formatRelativeTime, formatVenue, getTimezoneAbbreviati
 import { getTeamColor } from '@/lib/data/team-colors'
 
 // 슬라이드 콘텐츠 타입
-export type SlideType = 'match' | 'news' | 'team' | 'stats' | 'promotion'
+export type SlideType = 'match' | 'news' | 'team' | 'stats' | 'promotion' | 'transfer'
 
 export interface HeroSlide {
   id: string
@@ -161,6 +162,9 @@ export function EnhancedHeroCarousel({
         )}
         {currentSlide.type === 'promotion' && (
           <PromotionSlide data={currentSlide.data} />
+        )}
+        {currentSlide.type === 'transfer' && (
+          <CompactTransferSlide data={currentSlide.data} />
         )}
 
         {/* 네비게이션 버튼 - Apple 스타일 */}
@@ -535,11 +539,9 @@ function MatchSlide({ data }: { data: any }) {
                         initial={{ x: -50, opacity: 0 }}
                         animate={{ x: 0, opacity: 1 }}
                         transition={{ delay: 0.4 }}
-                        className="text-7xl md:text-8xl font-black"
+                        className="text-7xl md:text-8xl font-black text-white"
                         style={{ 
-                          background: `linear-gradient(135deg, ${homeTeamColors.primary}, ${homeTeamColors.primary}80, rgba(255,255,255,0.9))`,
-                          WebkitBackgroundClip: 'text',
-                          WebkitTextFillColor: 'transparent',
+                          textShadow: `0 4px 12px ${homeTeamColors.primary}80, 0 2px 4px rgba(0,0,0,0.5)`,
                           filter: `drop-shadow(0 4px 8px ${homeTeamColors.primary}40)`,
                         }}
                       >
@@ -548,12 +550,7 @@ function MatchSlide({ data }: { data: any }) {
                       
                       <div className="flex flex-col items-center gap-2">
                         <span 
-                          className="text-2xl font-light"
-                          style={{
-                            background: 'linear-gradient(135deg, rgba(255,255,255,0.4), rgba(255,255,255,0.2))',
-                            WebkitBackgroundClip: 'text',
-                            WebkitTextFillColor: 'transparent',
-                          }}
+                          className="text-2xl font-light text-white/60"
                         >
                           :
                         </span>
@@ -577,11 +574,9 @@ function MatchSlide({ data }: { data: any }) {
                         initial={{ x: 50, opacity: 0 }}
                         animate={{ x: 0, opacity: 1 }}
                         transition={{ delay: 0.4 }}
-                        className="text-7xl md:text-8xl font-black"
+                        className="text-7xl md:text-8xl font-black text-white"
                         style={{ 
-                          background: `linear-gradient(135deg, ${awayTeamColors.primary}, ${awayTeamColors.primary}80, rgba(255,255,255,0.9))`,
-                          WebkitBackgroundClip: 'text',
-                          WebkitTextFillColor: 'transparent',
+                          textShadow: `0 4px 12px ${awayTeamColors.primary}80, 0 2px 4px rgba(0,0,0,0.5)`,
                           filter: `drop-shadow(0 4px 8px ${awayTeamColors.primary}40)`,
                         }}
                       >
@@ -1241,6 +1236,148 @@ function PromotionSlide({ data }: { data: any }) {
           >
             {data.buttonText || '자세히 알아보기'}
           </Button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ============================================
+// 이적 슬라이드 - 리스트 형태
+// ============================================
+function TransferSlide({ data }: { data: any }) {
+  const isTopFees = data.type === 'topFees'
+  const transfers = data.transfers || []
+  
+  console.log('[TransferSlide] Rendering:', {
+    type: data.type,
+    transfersCount: transfers.length,
+    transfers: transfers.slice(0, 2).map((t: any) => ({ name: t.playerName, fee: t.fee?.amount }))
+  })
+  
+  // 데이터가 없으면 렌더링하지 않음
+  if (!transfers || transfers.length === 0) {
+    return null
+  }
+  
+  // 정확히 5개만 표시
+  const displayTransfers = transfers.slice(0, 5)
+  console.log('[TransferSlide] Display count:', displayTransfers.length)
+  
+  return (
+    <div className="absolute inset-0">
+      {/* 프리미엄 그라데이션 배경 */}
+      <div className="absolute inset-0 bg-gradient-to-br from-emerald-900/95 via-green-900/90 to-slate-900/95" />
+      
+      {/* 메인 컨텐츠 */}
+      <div className="relative h-full p-8 md:p-12 flex flex-col">
+        {/* 헤더 */}
+        <div className="mb-8">
+          <div className="inline-flex items-center gap-2 px-4 py-2 bg-yellow-500/20 backdrop-blur-xl rounded-full mb-4">
+            <TrendingUp className="w-5 h-5 text-yellow-400" />
+            <span className="text-sm font-bold text-yellow-400 uppercase tracking-wider">
+              Transfer Market 25/26
+            </span>
+          </div>
+          <h1 className="text-4xl md:text-5xl font-bold text-white mb-2">
+            {isTopFees ? '최고 이적료 TOP 5' : '최신 이적 TOP 5'}
+          </h1>
+          <p className="text-white/60">
+            {isTopFees ? '이번 시즌 가장 비싼 이적' : '최근 완료된 주요 이적'}
+          </p>
+        </div>
+        
+        {/* 이적 리스트 */}
+        <div className="flex-1 overflow-hidden">
+          <div className="space-y-3">
+            {displayTransfers.map((transfer: any, index: number) => (
+              <motion.div
+                key={transfer.id}
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: index * 0.1 }}
+                className="group"
+              >
+                <div className="bg-white/10 backdrop-blur-xl rounded-2xl p-4 hover:bg-white/15 transition-all border border-white/10 hover:border-white/20">
+                  <div className="flex items-center gap-4">
+                    {/* 순위 */}
+                    <div className={cn(
+                      "flex-shrink-0 w-12 h-12 rounded-xl flex items-center justify-center font-bold text-xl",
+                      transfer.rank === 1 ? "bg-gradient-to-br from-yellow-400 to-yellow-600 text-white shadow-lg shadow-yellow-500/30" :
+                      transfer.rank === 2 ? "bg-gradient-to-br from-gray-300 to-gray-500 text-white" :
+                      transfer.rank === 3 ? "bg-gradient-to-br from-orange-400 to-orange-600 text-white" :
+                      "bg-white/10 text-white/70"
+                    )}>
+                      {transfer.rank || (index + 1)}
+                    </div>
+                    
+                    {/* 선수 정보 */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h3 className="font-bold text-white text-lg truncate">
+                          {transfer.playerName}
+                        </h3>
+                        {transfer.position && (
+                          <span className="text-xs px-2 py-0.5 bg-white/10 rounded-full text-white/60">
+                            {transfer.position}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 text-sm">
+                        <span className="text-white/50">{transfer.fromClub.name}</span>
+                        <ChevronRight className="w-4 h-4 text-white/30" />
+                        <span className="text-white font-medium">{transfer.toClub.name}</span>
+                        <Badge variant="outline" className="ml-2 text-[10px] border-white/20 text-white/60">
+                          {transfer.teamLeague}
+                        </Badge>
+                      </div>
+                    </div>
+                    
+                    {/* 이적료 & 날짜 */}
+                    <div className="flex-shrink-0 text-right">
+                      <div className={cn(
+                        "font-bold text-lg",
+                        index === 0 ? "text-yellow-400" : "text-white"
+                      )}>
+                        {transfer.fee?.text}
+                      </div>
+                      <div className="text-xs text-white/40">
+                        {new Date(transfer.transferDate).toLocaleDateString('ko-KR', {
+                          month: 'short',
+                          day: 'numeric'
+                        })}
+                      </div>
+                    </div>
+                    
+                    {/* 이적 타입 */}
+                    {transfer.transferType === 'loan' && (
+                      <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/30">
+                        임대
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+        
+        {/* 하단 액션 */}
+        <div className="mt-6 flex items-center justify-between">
+          <div className="flex items-center gap-2 text-white/50">
+            <Sparkles className="w-4 h-4" />
+            <span className="text-sm">실시간 업데이트</span>
+          </div>
+          
+          <Link href="/transfers">
+            <Button 
+              variant="secondary" 
+              className="bg-white/10 backdrop-blur-xl hover:bg-white/20 text-white border-white/20"
+            >
+              전체 이적 보기
+              <ChevronRight className="w-4 h-4 ml-2" />
+            </Button>
+          </Link>
         </div>
       </div>
     </div>

@@ -1,0 +1,242 @@
+[
+  {
+    "apiFootballId": 33,
+    "freeApiId": 10260,
+    "apiFootballName": "Manchester United",
+    "freeApiName": "Man United",
+    "match": "suspicious",
+    "confidence": 56.25
+  },
+  {
+    "apiFootballId": 34,
+    "freeApiId": 10261,
+    "apiFootballName": "Newcastle",
+    "freeApiName": "Newcastle",
+    "match": "exact",
+    "confidence": 100
+  },
+  {
+    "apiFootballId": 35,
+    "freeApiId": 8678,
+    "apiFootballName": "Bournemouth",
+    "freeApiName": "Bournemouth",
+    "match": "exact",
+    "confidence": 100
+  },
+  {
+    "apiFootballId": 36,
+    "freeApiId": 9879,
+    "apiFootballName": "Fulham",
+    "freeApiName": "Fulham",
+    "match": "exact",
+    "confidence": 100
+  },
+  {
+    "apiFootballId": 39,
+    "freeApiId": 8602,
+    "apiFootballName": "Wolves",
+    "freeApiName": "Wolves",
+    "match": "exact",
+    "confidence": 100
+  },
+  {
+    "apiFootballId": 40,
+    "freeApiId": 8650,
+    "apiFootballName": "Liverpool",
+    "freeApiName": "Liverpool",
+    "match": "exact",
+    "confidence": 100
+  },
+  {
+    "apiFootballId": 41,
+    "freeApiId": 8466,
+    "apiFootballName": "Southampton",
+    "freeApiName": "Southampton",
+    "match": "exact",
+    "confidence": 100
+  },
+  {
+    "apiFootballId": 42,
+    "freeApiId": 9825,
+    "apiFootballName": "Arsenal",
+    "freeApiName": "Arsenal",
+    "match": "exact",
+    "confidence": 100
+  },
+  {
+    "apiFootballId": 45,
+    "freeApiId": 8668,
+    "apiFootballName": "Everton",
+    "freeApiName": "Everton",
+    "match": "exact",
+    "confidence": 100
+  },
+  {
+    "apiFootballId": 46,
+    "freeApiId": 8197,
+    "apiFootballName": "Leicester",
+    "freeApiName": "Leicester",
+    "match": "exact",
+    "confidence": 100
+  },
+  {
+    "apiFootballId": 47,
+    "freeApiId": 8586,
+    "apiFootballName": "Tottenham",
+    "freeApiName": "Tottenham",
+    "match": "exact",
+    "confidence": 100
+  },
+  {
+    "apiFootballId": 48,
+    "freeApiId": 8654,
+    "apiFootballName": "West Ham",
+    "freeApiName": "West Ham",
+    "match": "exact",
+    "confidence": 100
+  },
+  {
+    "apiFootballId": 49,
+    "freeApiId": 8455,
+    "apiFootballName": "Chelsea",
+    "freeApiName": "Chelsea",
+    "match": "exact",
+    "confidence": 100
+  },
+  {
+    "apiFootballId": 50,
+    "freeApiId": 8456,
+    "apiFootballName": "Manchester City",
+    "freeApiName": "Man City",
+    "match": "suspicious",
+    "confidence": 50
+  },
+  {
+    "apiFootballId": 51,
+    "freeApiId": 10204,
+    "apiFootballName": "Brighton",
+    "freeApiName": "Brighton",
+    "match": "exact",
+    "confidence": 100
+  },
+  {
+    "apiFootballId": 52,
+    "freeApiId": 9826,
+    "apiFootballName": "Crystal Palace",
+    "freeApiName": "Crystal Palace",
+    "match": "exact",
+    "confidence": 100
+  },
+  {
+    "apiFootballId": 55,
+    "freeApiId": 9937,
+    "apiFootballName": "Brentford",
+    "freeApiName": "Brentford",
+    "match": "exact",
+    "confidence": 100
+  },
+  {
+    "apiFootballId": 57,
+    "freeApiId": 9902,
+    "apiFootballName": "Ipswich",
+    "freeApiName": "Ipswich",
+    "match": "exact",
+    "confidence": 100
+  },
+  {
+    "apiFootballId": 65,
+    "freeApiId": 10203,
+    "apiFootballName": "Nottingham Forest",
+    "freeApiName": "Nottm Forest",
+    "match": "suspicious",
+    "confidence": 68.75
+  },
+  {
+    "apiFootballId": 66,
+    "freeApiId": 10252,
+    "apiFootballName": "Aston Villa",
+    "freeApiName": "Aston Villa",
+    "match": "exact",
+    "confidence": 100
+  },
+  {
+    "apiFootballId": 77,
+    "freeApiId": 8548,
+    "apiFootballName": "Angers",
+    "freeApiName": "Rangers",
+    "match": "partial",
+    "confidence": 85
+  },
+  {
+    "apiFootballId": 79,
+    "freeApiId": 8639,
+    "apiFootballName": "Lille",
+    "freeApiName": "Lille",
+    "match": "exact",
+    "confidence": 100
+  },
+  {
+    "apiFootballId": 80,
+    "freeApiId": 9748,
+    "apiFootballName": "Lyon",
+    "freeApiName": "Lyon",
+    "match": "exact",
+    "confidence": 100
+  },
+  {
+    "apiFootballId": 81,
+    "freeApiId": 8592,
+    "apiFootballName": "Marseille",
+    "freeApiName": "Marseille",
+    "match": "exact",
+    "confidence": 100
+  },
+  {
+    "apiFootballId": 82,
+    "freeApiId": 10249,
+    "apiFootballName": "Montpellier",
+    "freeApiName": "Montpellier",
+    "match": "exact",
+    "confidence": 100
+  },
+  {
+    "apiFootballId": 83,
+    "freeApiId": 9830,
+    "apiFootballName": "Nantes",
+    "freeApiName": "Nantes",
+    "match": "exact",
+    "confidence": 100
+  },
+  {
+    "apiFootballId": 84,
+    "freeApiId": 9831,
+    "apiFootballName": "Nice",
+    "freeApiName": "Nice",
+    "match": "exact",
+    "confidence": 100
+  },
+  {
+    "apiFootballId": 91,
+    "freeApiId": 9829,
+    "apiFootballName": "Monaco",
+    "freeApiName": "Monaco",
+    "match": "exact",
+    "confidence": 100
+  },
+  {
+    "apiFootballId": 94,
+    "freeApiId": 9851,
+    "apiFootballName": "Rennes",
+    "freeApiName": "Rennes",
+    "match": "exact",
+    "confidence": 100
+  },
+  {
+    "apiFootballId": 96,
+    "freeApiId": 9941,
+    "apiFootballName": "Toulouse",
+    "freeApiName": "Toulouse",
+    "match": "exact",
+    "confidence": 100
+  }
+]

@@ -35,6 +35,9 @@ import { BigClubResults } from '@/components/home/BigClubResults'
 import { TodayMatches } from '@/components/home/TodayMatches'
 import { TrendingCommunity } from '@/components/home/TrendingCommunity'
 import { MobileAppSection } from '@/components/home/MobileAppSection'
+import { LeagueStandings } from '@/components/home/LeagueStandings'
+import { TransferHighlights } from '@/components/home/TransferHighlights'
+import { useBannerTransfers } from '@/lib/hooks/useMajorTransfers'
 
 // 주요 팀 ID 및 우선순위 (높을수록 우선)
 const MAJOR_TEAMS = {
@@ -333,6 +336,18 @@ export default function HomePage() {
   const { fixtures: personalizedFixtures } = usePersonalizedFixtures()
   const { posts: popularPosts } = usePopularPosts()
   const { data: popularNewsData } = usePopularNews(10)
+  const { topFees, recentTransfers, isLoading: transfersLoading } = useBannerTransfers()
+  
+  // 디버깅용 로그
+  useEffect(() => {
+    console.log('[HomePage] Transfer data:', {
+      topFees: topFees?.length,
+      recentTransfers: recentTransfers?.length,
+      isLoading: transfersLoading,
+      topFeesData: topFees?.slice(0, 2),
+      recentData: recentTransfers?.slice(0, 2)
+    })
+  }, [topFees, recentTransfers, transfersLoading])
   const [selectedDate, setSelectedDate] = useState(new Date())
   const [dateFixtures, setDateFixtures] = useState<any[]>(todayFixtures || [])
   const [fixturesCache, setFixturesCache] = useState<Map<string, any[]>>(new Map())
@@ -507,11 +522,11 @@ export default function HomePage() {
     // 관리자가 선택한 콘텐츠가 있으면 그것만 표시
     const hasAdminContent = featuredMatches.length > 0 || curatedNews.length > 0
     
-    // 0. 관리자가 선택한 추천 경기 (최최우선)
+    // 0. 관리자가 선택한 추천 경기 (최최우선) - 최소 4개 보장
     if (realFeaturedMatchData.length > 0) {
       realFeaturedMatchData
         .sort((a, b) => a.priority - b.priority) // 우선순위대로 정렬
-        .slice(0, 3) // 상위 3개만
+        .slice(0, Math.max(4, realFeaturedMatchData.length)) // 최소 4개, 있으면 모두 표시
         .forEach((match, index) => {
           // 실제 경기 데이터가 있으면 그것을 사용, 없으면 저장된 데이터 사용
           const matchData = match.realData || {
@@ -537,7 +552,7 @@ export default function HomePage() {
       // realFeaturedMatchData가 아직 로드되지 않았을 때 기본 데이터 사용
       featuredMatches
         .sort((a, b) => a.priority - b.priority)
-        .slice(0, 3)
+        .slice(0, Math.max(4, featuredMatches.length)) // 최소 4개
         .forEach((match, index) => {
           slides.push({
             id: `featured-${match.fixture_id}`,
@@ -756,8 +771,54 @@ export default function HomePage() {
         })
     }
     
-    // 5. 리그 순위 통계 (관리자 콘텐츠가 없을 때만)
-    if (!hasAdminContent) {
+    // 5. 주요 이적 (Top Transfers) - 데이터가 있을 때만 추가
+    console.log('[HomePage] Transfer check:', {
+      transfersLoading,
+      topFeesLength: topFees?.length,
+      recentTransfersLength: recentTransfers?.length
+    })
+    
+    // 최고 이적료 TOP 5 슬라이드
+    if (!transfersLoading && topFees && topFees.length > 0) {
+      console.log('[HomePage] Adding topFees slide:', topFees.length)
+      slides.push({
+        id: 'transfer-top-fees',
+        type: 'transfer',
+        priority: 1600, // 높은 우선순위
+        data: {
+          type: 'topFees',
+          transfers: topFees // 모든 데이터 전달
+        }
+      })
+    } else {
+      console.log('[HomePage] NOT adding topFees slide:', {
+        transfersLoading,
+        hasTopFees: !!topFees,
+        topFeesLength: topFees?.length
+      })
+    }
+    
+    // 최신 이적 TOP 5 슬라이드
+    if (!transfersLoading && recentTransfers && recentTransfers.length > 0) {
+      console.log('[HomePage] Adding recentTransfers slide:', recentTransfers.length)
+      slides.push({
+        id: 'transfer-recent',
+        type: 'transfer',
+        priority: 1590, // 높은 우선순위
+        data: {
+          type: 'recentTransfers',
+          transfers: recentTransfers // 모든 데이터 전달
+        }
+      })
+    } else {
+      console.log('[HomePage] NOT adding recentTransfers slide:', {
+        transfersLoading,
+        hasRecentTransfers: !!recentTransfers,
+        recentTransfersLength: recentTransfers?.length
+      })
+    }
+    
+    // 6. 리그 순위 통계 (항상 포함)
     const standingsSlides = []
     
     // 프리미어리그 순위
@@ -766,7 +827,7 @@ export default function HomePage() {
       standingsSlides.push({
         id: 'stats-premier',
         type: 'stats',
-        priority: 650,
+        priority: 1500, // 높은 우선순위로 변경
         data: {
           league: { id: 39, name: '프리미어 리그', logo: 'https://media.api-sports.io/football/leagues/39.png' },
           standings: topTeams
@@ -780,7 +841,7 @@ export default function HomePage() {
       standingsSlides.push({
         id: 'stats-laliga',
         type: 'stats',
-        priority: 640,
+        priority: 1490,
         data: {
           league: { id: 140, name: '라 리가', logo: 'https://media.api-sports.io/football/leagues/140.png' },
           standings: topTeams
@@ -794,7 +855,7 @@ export default function HomePage() {
       standingsSlides.push({
         id: 'stats-seriea',
         type: 'stats',
-        priority: 630,
+        priority: 1480,
         data: {
           league: { id: 135, name: '세리에 A', logo: 'https://media.api-sports.io/football/leagues/135.png' },
           standings: topTeams
@@ -802,11 +863,14 @@ export default function HomePage() {
       })
     }
     
-      // 순위 슬라이드 중 하나를 랜덤하게 선택하거나 순차적으로 추가
-      if (standingsSlides.length > 0 && slides.length < 5) {
-        // 가장 높은 우선순위의 순위 슬라이드 추가
-        slides.push(standingsSlides[0])
-      }
+    // 순위 슬라이드 추가 (최소 1개는 무조건 추가)
+    if (standingsSlides.length > 0) {
+      // 가장 높은 우선순위의 순위 슬라이드 추가
+      slides.push(standingsSlides[0])
+    }
+    
+    // 관리자 콘텐츠가 없을 때만 추가 콘텐츠
+    if (!hasAdminContent) {
     
       // 6. 프로모션/앱 홍보
       if (slides.length < 5 && !isAuthenticated) {
@@ -828,9 +892,12 @@ export default function HomePage() {
       }
     } // if (!hasAdminContent) for stats and promo
     
-    // 최대 6개로 제한하고 우선순위로 정렬
-    // 우선순위: 라이브 빅매치(1000+) > 라이벌전(950) > 예정 빅매치(850) > 순위(650) > 뉴스(700) > 프로모션(500)
-    return slides
+    // 최대 8개로 제한하고 우선순위로 정렬
+    // 우선순위: 이적(1600) > 라이브 빅매치(1000+) > 라이벌전(950) > 예정 빅매치(850) > 순위(650) > 뉴스(700) > 프로모션(500)
+    console.log('[carouselSlides] Total slides before sort:', slides.length)
+    console.log('[carouselSlides] Slides:', slides.map(s => ({ id: s.id, type: s.type, priority: s.priority })))
+    
+    const sortedSlides = slides
       .sort((a, b) => {
         // 실시간 경기가 가장 우선
         if (a.priority >= 1000 && b.priority < 1000) return -1
@@ -847,9 +914,13 @@ export default function HomePage() {
         // 동일 범위 내에서는 높은 우선순위 순
         return b.priority - a.priority
       })
-      .slice(0, 6)
+      .slice(0, 8) // 최대 8개로 증가하여 순위 포함
+    
+    console.log('[carouselSlides] Final slides after sort:', sortedSlides.map(s => ({ id: s.id, type: s.type, priority: s.priority })))
+    return sortedSlides
   }, [liveMatches, todayFixtures, upcomingBigMatches, personalizedFixtures, preferences, isAuthenticated, 
-      popularNewsData, premierStandings, laLigaStandings, serieAStandings, featuredMatches, curatedNews, realFeaturedMatchData])
+      popularNewsData, premierStandings, laLigaStandings, serieAStandings, featuredMatches, curatedNews, realFeaturedMatchData,
+      topFees, recentTransfers, transfersLoading])
   
   // 오늘의 경기 목록 (실시간, 예정, 완료)
   const todayMatches = useMemo(() => {
@@ -903,25 +974,31 @@ export default function HomePage() {
           }}
         />
         
-        {/* 빅클럽 경기 결과 섹션 - 그 다음 배치 */}
-        <BigClubResults />
-        
-        {/* Quick Stats - 간단한 통계 - 제거 */}
-        {/* <QuickStats /> */}
-        
-        {/* Main Content Area */}
-        <div className="space-y-6">
-          {/* Personalized Content for logged-in users */}
-          {hasPersonalizedContent && <PersonalizedSection />}
+        {/* Main Layout - 3 column grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Left Column - 2/3 width */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* 빅클럽 경기 결과 */}
+            <BigClubResults />
+            
+            {/* Personalized Content for logged-in users */}
+            {hasPersonalizedContent && <PersonalizedSection />}
+            
+            {/* 최신 축구 뉴스 - 경기 결과와 같은 너비 */}
+            <NewsSection />
+            
+            {/* Trending Community */}
+            <TrendingCommunity />
+          </div>
           
-          {/* News Section */}
-          <NewsSection />
-          
-          {/* Trending Community - 전체 너비 */}
-          <TrendingCommunity />
-          
-          {/* Mobile App Section - 전체 너비 */}
-          <MobileAppSection />
+          {/* Right Column - 1/3 width */}
+          <div className="lg:col-span-1 space-y-6">
+            {/* 리그 순위 */}
+            <LeagueStandings />
+            
+            {/* 이적 하이라이트 */}
+            <TransferHighlights />
+          </div>
         </div>
       </div>
     </div>

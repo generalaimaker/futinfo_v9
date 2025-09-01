@@ -14,6 +14,7 @@ import { FootballAPIService } from '@/lib/supabase/football'
 import { getAnalytics } from '@/lib/supabase/analytics'
 import { createClient } from '@/lib/supabase/client'
 import UsageMonitor from './UsageMonitor'
+import RealtimePollingManager from './RealtimePollingManager'
 import { 
   Shield, Trophy, Newspaper, Settings, Plus, Edit, Trash2, Save, X, 
   Calendar, Star, Eye, EyeOff, MoveUp, MoveDown, RefreshCw, Search,
@@ -814,6 +815,11 @@ export default function AdminDashboard() {
               <span className="hidden sm:inline">배너 설정</span>
               <span className="sm:hidden">배너</span>
             </TabsTrigger>
+            <TabsTrigger value="realtime" className="gap-2 whitespace-nowrap">
+              <Zap className="w-4 h-4" />
+              <span className="hidden sm:inline">실시간 폴링</span>
+              <span className="sm:hidden">폴링</span>
+            </TabsTrigger>
             <TabsTrigger value="analytics" className="gap-2 whitespace-nowrap">
               <BarChart3 className="w-4 h-4" />
               <span className="hidden sm:inline">분석</span>
@@ -1470,6 +1476,11 @@ export default function AdminDashboard() {
         {/* 모니터링 탭 */}
         <TabsContent value="monitoring" className="space-y-6">
           <UsageMonitor />
+        </TabsContent>
+
+        {/* 실시간 폴링 탭 */}
+        <TabsContent value="realtime" className="space-y-6">
+          <RealtimePollingManager />
         </TabsContent>
       </Tabs>
       </div>

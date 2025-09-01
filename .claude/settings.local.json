@@ -87,7 +87,14 @@
       "mcp__Context7__get-library-docs",
       "Bash(vercel:*)",
       "mcp__brave-search__brave_web_search",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "mcp__filesystem__list_directory",
+      "mcp__filesystem__directory_tree",
+      "Bash(open http://localhost:3000/admin)",
+      "Bash(open http://localhost:3001)",
+      "Bash(/dev/null)",
+      "Bash(open http://localhost:3000/teams/47)",
+      "Bash(open http://localhost:3000/teams/529)"
     ],
     "deny": []
   }

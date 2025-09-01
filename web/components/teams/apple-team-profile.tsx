@@ -12,7 +12,8 @@ import {
   Hash, ArrowUp, ArrowDown, Minus, AlertTriangle, Flag,
   DollarSign, ArrowRightLeft, UserPlus, UserMinus,
   MessageSquare, ThumbsUp, Eye, Send, Filter, Search,
-  Shirt, PlayCircle, PauseCircle, CheckCircle, XCircle
+  Shirt, PlayCircle, PauseCircle, CheckCircle, XCircle,
+  ArrowUpDown
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -30,112 +31,27 @@ import { useQuery } from '@tanstack/react-query'
 import footballAPIService from '@/lib/supabase/football'
 import { useRouter } from 'next/navigation'
 
-// 팀 최근 폼 표시 컴포넌트 - 리그 경기만 표시
+// 팀 최근 폼 표시 컴포넌트 - 심플 버전
 function TeamFormDisplay({ teamId, form, leagueId }: { teamId: number, form: string, leagueId?: number }) {
-  const router = useRouter()
-  const [hoveredMatch, setHoveredMatch] = useState<string | null>(null)
-  
-  // 현재 시즌 계산
-  const currentSeason = new Date().getFullYear()
-  
-  // 팀의 리그 경기만 가져오기
-  const { data: leagueFixtures } = useQuery({
-    queryKey: ['team-league-fixtures', teamId, leagueId, currentSeason],
-    queryFn: async () => {
-      if (!leagueId) return []
-      
-      try {
-        // 팀의 최근 경기 가져오기
-        const response = await footballAPIService.getTeamFixtures(teamId, 10)
-        
-        // 완료된 경기만 필터링하고 최근 5경기만 선택
-        const completedFixtures = response?.response?.filter(
-          (f: any) => f.fixture.status.short === 'FT'
-        ).slice(-5) || []
-        
-        return completedFixtures
-      } catch (error) {
-        console.error('Failed to fetch league fixtures:', error)
-        return []
-      }
-    },
-    enabled: !!teamId && !!leagueId,
-    staleTime: 5 * 60 * 1000,
-  })
-  
+  // API에서 받은 form 문자열은 이미 시간순으로 정렬되어 있음
+  // 마지막 5경기만 추출 (오른쪽이 최신)
   const formArray = form?.split('').slice(-5) || []
   
   return (
-    <div className="flex items-center justify-center gap-0.5 relative">
-      {formArray.map((result: string, i: number) => {
-        // 가장 오래된 경기부터 표시 (왼쪽이 과거, 오른쪽이 최근)
-        const fixture = leagueFixtures?.[i]
-        const matchKey = fixture ? `${fixture.fixture?.id}-${i}` : `form-${i}`
-        const isHome = fixture?.teams?.home?.id === teamId
-        const opponent = isHome ? fixture?.teams?.away : fixture?.teams?.home
-        const score = fixture?.goals || fixture?.score?.fulltime
-        const date = fixture?.fixture?.date ? new Date(fixture.fixture.date).toLocaleDateString('ko-KR', { 
-          month: 'short', 
-          day: 'numeric' 
-        }) : ''
-        
-        return (
-          <div key={i} className="relative group">
-            <div
-              className={cn(
-                "w-5 h-5 rounded text-xs font-bold flex items-center justify-center cursor-pointer transition-all",
-                result === 'W' && "bg-green-500 text-white hover:bg-green-600",
-                result === 'D' && "bg-gray-400 text-white hover:bg-gray-500",
-                result === 'L' && "bg-red-500 text-white hover:bg-red-600",
-                hoveredMatch === matchKey && "scale-110 shadow-lg"
-              )}
-              onMouseEnter={() => fixture && setHoveredMatch(matchKey)}
-              onMouseLeave={() => setHoveredMatch(null)}
-              onClick={() => {
-                if (fixture?.fixture?.id) {
-                  router.push(`/fixtures/${fixture.fixture.id}`)
-                }
-              }}
-            >
-              {result}
-            </div>
-            
-            {/* Hover Tooltip - 왼쪽에 표시 */}
-            {fixture && hoveredMatch === matchKey && (
-              <div className="absolute top-1/2 right-full transform -translate-y-1/2 mr-2 z-50 pointer-events-none">
-                <div className="bg-gray-900 text-white rounded-lg p-2 shadow-xl whitespace-nowrap">
-                  <div className="text-xs space-y-1">
-                    <div className="font-semibold text-yellow-400">{date}</div>
-                    <div className="space-y-0.5">
-                      <div className="flex items-center gap-2">
-                        <span className={cn("text-xs", isHome && "font-bold text-white")}>
-                          {fixture.teams.home.name}
-                        </span>
-                        <span className="font-bold text-yellow-400">
-                          {score?.home ?? '-'}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className={cn("text-xs", !isHome && "font-bold text-white")}>
-                          {fixture.teams.away.name}
-                        </span>
-                        <span className="font-bold text-yellow-400">
-                          {score?.away ?? '-'}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="text-gray-400 text-[10px]">{fixture.league?.name || '리그'}</div>
-                  </div>
-                  {/* Arrow pointing right */}
-                  <div className="absolute top-1/2 left-full transform -translate-y-1/2 -ml-1">
-                    <div className="border-4 border-transparent border-l-gray-900"></div>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        )
-      })}
+    <div className="flex items-center justify-center gap-0.5">
+      {formArray.map((result: string, i: number) => (
+        <div
+          key={i}
+          className={cn(
+            "w-5 h-5 rounded text-xs font-bold flex items-center justify-center",
+            result === 'W' && "bg-green-500 text-white",
+            result === 'D' && "bg-gray-400 text-white",
+            result === 'L' && "bg-red-500 text-white"
+          )}
+        >
+          {result}
+        </div>
+      ))}
     </div>
   )
 }
@@ -239,6 +155,7 @@ function StatCard({ icon: Icon, label, value, subValue, color, trend }: any) {
 
 // 선수 카드 컴포넌트
 function PlayerCard({ player }: any) {
+  // player는 중첩된 구조일 수 있음 (player.player 또는 직접 player)
   const playerData = player.player || player
   const stats = player.statistics?.[0]
   
@@ -253,11 +170,11 @@ function PlayerCard({ player }: any) {
           <div className="flex items-center gap-4">
             <div className="relative">
               <Image
-                src={playerData.photo || '/placeholder-player.png'}
+                src={playerData.photo || '/placeholder-player.svg'}
                 alt={playerData.name}
                 width={60}
                 height={60}
-                className="rounded-full object-cover"
+                className="rounded-full object-cover bg-gray-100"
               />
               {playerData.injured && (
                 <div className="absolute -top-1 -right-1 bg-red-500 text-white p-1 rounded-full">
@@ -269,22 +186,15 @@ function PlayerCard({ player }: any) {
               <h4 className="font-semibold text-sm">{playerData.name}</h4>
               <div className="flex items-center gap-2 mt-1">
                 <Badge variant="secondary" className="text-xs">
-                  {stats?.games?.position || playerData.position || 'N/A'}
+                  {stats?.games?.position || playerData.position || player.position || 'N/A'}
                 </Badge>
-                {stats?.games?.number && (
-                  <span className="text-xs text-gray-500">#{stats.games.number}</span>
+                {(stats?.games?.number || playerData.number || player.number) && (
+                  <span className="text-xs text-gray-500">#{stats?.games?.number || playerData.number || player.number}</span>
                 )}
                 {playerData.age && (
                   <span className="text-xs text-gray-500">{playerData.age}세</span>
                 )}
               </div>
-              {stats && (
-                <div className="flex items-center gap-3 mt-2 text-xs text-gray-500">
-                  <span>{stats.games?.appearences || 0}경기</span>
-                  <span>{stats.goals?.total || 0}골</span>
-                  <span>{stats.goals?.assists || 0}도움</span>
-                </div>
-              )}
             </div>
             <ChevronRight className="w-4 h-4 text-gray-400" />
           </div>
@@ -356,41 +266,111 @@ function FixtureCard({ fixture, teamId }: any) {
 }
 
 // 이적 카드 컴포넌트
-function TransferCard({ transfer, teamId }: any) {
-  // 새로운 API 데이터 구조 파싱
+// Compact Transfer Card for horizontal layout
+function CompactTransferCard({ transfer, teamId }: any) {
+  const latestTransfer = transfer.transfers?.[0] || {}
+  const playerName = transfer.player?.name || '선수명 미상'
+  const playerImage = transfer.player?.photo || null
+  const fromClub = latestTransfer.teams?.out?.name || '이전 팀'
+  const toClub = latestTransfer.teams?.in?.name || '이적 팀'
   const isIn = transfer.direction === 'in'
+  const transferDate = latestTransfer.date || transfer.transferDate
+  // Use fee from free-api if available, otherwise fall back to old format
+  const transferFee = transfer.fee?.text || latestTransfer.type || '비공개'
+  const isLoan = transfer.transferType === 'loan'
+  
+  return (
+    <div className="py-3 border-b border-gray-200 dark:border-gray-700 last:border-b-0 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-all">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3 flex-1 min-w-0">
+          {playerImage && (
+            <Image
+              src={playerImage}
+              alt={playerName}
+              width={36}
+              height={36}
+              className="rounded-full flex-shrink-0"
+            />
+          )}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2">
+              <p className="font-medium text-sm truncate">{playerName}</p>
+              {transfer.position && (
+                <span className="text-[10px] text-gray-500">{transfer.position.label || transfer.position}</span>
+              )}
+              {isLoan && (
+                <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-blue-50 text-blue-600 border-blue-200">
+                  임대
+                </Badge>
+              )}
+            </div>
+            <p className="text-xs text-gray-500 truncate">
+              {isIn ? `${fromClub} →` : `→ ${toClub}`}
+            </p>
+            <p className="text-xs text-gray-400 mt-0.5">
+              {transferDate ? new Date(transferDate).toLocaleDateString('ko-KR', { year: 'numeric', month: 'short', day: 'numeric' }) : ''}
+            </p>
+          </div>
+        </div>
+        <div className="text-right flex-shrink-0">
+          <p className={cn(
+            "text-sm font-semibold",
+            isIn ? "text-green-600" : "text-red-600"
+          )}>
+            {transferFee}
+          </p>
+          {transfer.marketValue && (
+            <p className="text-[10px] text-gray-500 mt-0.5">
+              시장가치: €{(transfer.marketValue / 1000000).toFixed(1)}M
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function TransferCard({ transfer, teamId }: any) {
+  // API 응답 구조 확인 및 파싱
+  // transfer는 TransferData 타입 (player와 transfers 배열 포함)
+  const latestTransfer = transfer.transfers?.[0] || {}
   
   // 선수 정보
-  const playerName = transfer.playerName || transfer.player?.name || '선수명 미상'
-  const playerImage = transfer.playerImage || transfer.player?.photo || null
+  const playerName = transfer.player?.name || transfer.playerName || '선수명 미상'
+  const playerImage = transfer.player?.photo || transfer.playerImage || null
   
-  // 클럽 정보
-  const fromClub = transfer.fromClub || transfer.from?.name || '이전 팀'
-  const toClub = transfer.toClub || transfer.to?.name || '이적 팀'
+  // 클럽 정보 (latestTransfer.teams에서 가져옴)
+  const fromClub = latestTransfer.teams?.out?.name || transfer.from?.name || '이전 팀'
+  const toClub = latestTransfer.teams?.in?.name || transfer.to?.name || '이적 팀'
+  
+  // 방향 결정 (현재 팀이 in 팀인지 확인)
+  const isIn = transfer.direction === 'in' || latestTransfer.teams?.in?.id === teamId
   
   // 날짜
-  const transferDate = transfer.transferDate || transfer.date
+  const transferDate = latestTransfer.date || transfer.transferDate || transfer.date
   
   // 이적료 포맷팅
   const formatFee = () => {
-    // 임대 체크
-    if (transfer.onLoan || transfer.fee?.feeText?.includes('loan')) {
-      return '임대'
+    // Use fee from free-api if available
+    if (transfer.fee?.text) {
+      return transfer.fee.text
     }
     
+    // Fallback to old API format
+    const transferTypeStr = latestTransfer.type
+    
     // 무료 이적 체크
-    if (transfer.fee?.feeText?.toLowerCase().includes('free')) {
+    if (transferTypeStr?.toLowerCase().includes('free')) {
       return '무료'
     }
     
-    // 이적료 금액
-    if (transfer.fee?.value && transfer.fee.value > 0) {
-      const million = transfer.fee.value / 1000000
-      if (million >= 1) {
-        return `€${million.toFixed(1)}M`
-      } else {
-        return `€${(transfer.fee.value / 1000).toFixed(0)}K`
-      }
+    // 이적료가 있는 경우 (예: "€ 5M", "£ 10M")
+    if (transferTypeStr && transferTypeStr.includes('€')) {
+      return transferTypeStr
+    }
+    
+    if (transferTypeStr && transferTypeStr.includes('£')) {
+      return transferTypeStr
     }
     
     // 기본값
@@ -398,13 +378,18 @@ function TransferCard({ transfer, teamId }: any) {
       return transfer.transfer_fee || transfer.transferFee
     }
     
-    return '비공개'
+    return transferTypeStr || '비공개'
   }
+  
+  // 이적 타입 표시 (임대인 경우만 표시)
+  const isLoan = transfer.transferType === 'loan'
   
   // 이적 타입 결정
   const getTransferType = () => {
-    if (transfer.onLoan || transfer.fee?.feeText?.includes('loan')) return '임대'
-    if (transfer.fee?.feeText?.toLowerCase().includes('free')) return '자유계약'
+    const transferType = latestTransfer.type?.toLowerCase() || ''
+    if (transferType.includes('loan')) return '임대'
+    if (transferType.includes('free')) return '자유계약'
+    if (transferType.includes('€') || transferType.includes('£')) return '이적'
     return '이적'
   }
   
@@ -447,7 +432,12 @@ function TransferCard({ transfer, teamId }: any) {
             
             {/* 선수 정보 */}
             <div>
-              <p className="font-semibold text-sm">{playerName}</p>
+              <div className="flex items-center gap-2">
+                <p className="font-semibold text-sm">{playerName}</p>
+                {transfer.position && (
+                  <span className="text-xs text-gray-500">{transfer.position.label || transfer.position}</span>
+                )}
+              </div>
               <div className="flex items-center gap-2 text-xs text-gray-500">
                 <span>
                   {isIn ? 
@@ -464,21 +454,25 @@ function TransferCard({ transfer, teamId }: any) {
           
           {/* 이적료 및 타입 */}
           <div className="text-right">
+            {isLoan && (
+              <Badge 
+                variant="outline" 
+                className="text-xs mb-1 bg-blue-50 text-blue-600 border-blue-200"
+              >
+                임대
+              </Badge>
+            )}
             <p className={cn(
               "text-sm font-bold",
               isIn ? "text-green-600" : "text-red-600"
             )}>
               {formatFee()}
             </p>
-            <Badge 
-              variant="outline" 
-              className={cn(
-                "text-xs mt-1",
-                getTransferType() === '임대' && "bg-blue-50 text-blue-600 border-blue-200"
-              )}
-            >
-              {getTransferType()}
-            </Badge>
+            {transfer.marketValue && (
+              <p className="text-xs text-gray-500 mt-1">
+                시장가치: €{(transfer.marketValue / 1000000).toFixed(1)}M
+              </p>
+            )}
           </div>
         </div>
       </div>
@@ -512,19 +506,53 @@ export function AppleTeamProfile({
   const stats = statsData
   
   // 스쿼드 데이터 처리
+  // squadData는 이미 page.tsx에서 추출된 배열이므로 직접 사용
   let squad = []
-  if (squadData?.response?.[0]?.players) {
+  if (Array.isArray(squadData)) {
+    squad = squadData
+  } else if (squadData?.response?.[0]?.players) {
     squad = squadData.response[0].players
+  } else if (squadData?.players) {
+    squad = squadData.players
   }
   
-  // 포지션별 선수 그룹화
+  // 포지션별 선수 그룹화 (한글로 변환)
+  const positionMap: { [key: string]: string } = {
+    'Goalkeeper': '골키퍼',
+    'Defender': '수비수',
+    'Midfielder': '미드필더',
+    'Attacker': '공격수',
+    'Forward': '공격수',  // Forward도 공격수로 매핑
+    'Unknown': '미정'
+  }
+  
   const playersByPosition = squad.reduce((acc: any, player: any) => {
-    const position = player.statistics?.[0]?.games?.position || 
-                    player.player?.position || 'Unknown'
+    // 다양한 API 응답 구조를 처리
+    // 1. player.statistics[0].games.position (가장 정확한 현재 시즌 포지션)
+    // 2. player.position (기본 포지션)
+    // 3. player.player.position (중첩된 구조)
+    const originalPosition = player.statistics?.[0]?.games?.position || 
+                            player.position || 
+                            player.player?.position || 
+                            'Unknown'
+    
+    // positionMap에서 매칭되는 한글 포지션 찾기
+    const position = positionMap[originalPosition] || '미정'
+    
     if (!acc[position]) acc[position] = []
     acc[position].push(player)
     return acc
   }, {})
+  
+  // 포지션 정렬 순서
+  const positionOrder = ['골키퍼', '수비수', '미드필더', '공격수', '미정']
+  const sortedPositions = Object.keys(playersByPosition).sort((a, b) => {
+    const indexA = positionOrder.indexOf(a)
+    const indexB = positionOrder.indexOf(b)
+    if (indexA === -1) return 1
+    if (indexB === -1) return -1
+    return indexA - indexB
+  })
   
   // 팀 순위 정보
   const leagueId = standingsData?.response?.[0]?.league?.id || statsData?.league?.id
@@ -880,7 +908,7 @@ export function AppleTeamProfile({
                     {injuriesData.slice(0, 5).map((injury: any, idx: number) => (
                       <div key={idx} className="flex items-center gap-3">
                         <Image
-                          src={injury.player.photo || '/placeholder-player.png'}
+                          src={injury.player.photo || '/placeholder-player.svg'}
                           alt={injury.player.name}
                           width={32}
                           height={32}
@@ -977,9 +1005,28 @@ export function AppleTeamProfile({
                     <tbody>
                       {leagueStandings.map((standing: any) => {
                         const isCurrentTeam = standing.team.id === teamId
-                        const isChampionsLeague = standing.rank <= 4
-                        const isEuropaLeague = standing.rank === 5
-                        const isRelegation = standing.rank >= leagueStandings.length - 2
+                        const totalTeams = leagueStandings.length
+                        
+                        // 리그별 유럽대항전 진출 및 강등권 판단
+                        let isChampionsLeague = false
+                        let isEuropaLeague = false
+                        let isConferenceLeague = false
+                        let isRelegation = false
+                        
+                        // leagueId가 61이면 Ligue 1
+                        if (leagueId === 61) {
+                          isChampionsLeague = standing.rank <= 3
+                          isEuropaLeague = standing.rank === 4
+                          isConferenceLeague = standing.rank === 5
+                        } else {
+                          // 나머지 4대 리그
+                          isChampionsLeague = standing.rank <= 4
+                          isEuropaLeague = standing.rank === 5
+                          isConferenceLeague = standing.rank === 6
+                        }
+                        
+                        // 강등권 (하위 3팀)
+                        isRelegation = standing.rank > totalTeams - 3
                         
                         return (
                           <motion.tr 
@@ -995,14 +1042,21 @@ export function AppleTeamProfile({
                               backgroundColor: isCurrentTeam ? undefined : "rgba(0,0,0,0.02)"
                             }}
                           >
-                            <td className="py-2 pr-2">
-                              <div className="flex items-center gap-2">
+                            <td className="py-2 pl-1 pr-2">
+                              <div className="flex items-center gap-1">
+                                {/* 색상 띠 */}
+                                <div className={cn(
+                                  "w-1 h-6 rounded-sm",
+                                  isChampionsLeague && "bg-blue-500",
+                                  isEuropaLeague && "bg-orange-500",
+                                  isConferenceLeague && "bg-green-500",
+                                  isRelegation && "bg-red-500",
+                                  !isChampionsLeague && !isEuropaLeague && !isConferenceLeague && !isRelegation && "bg-transparent"
+                                )} />
+                                {/* 순위 숫자 */}
                                 <span className={cn(
                                   "text-sm font-semibold",
-                                  isCurrentTeam && "text-blue-600 dark:text-blue-400",
-                                  isChampionsLeague && !isCurrentTeam && "text-green-600 dark:text-green-400",
-                                  isEuropaLeague && !isCurrentTeam && "text-orange-600 dark:text-orange-400",
-                                  isRelegation && !isCurrentTeam && "text-red-600 dark:text-red-400"
+                                  isCurrentTeam && "text-blue-600 dark:text-blue-400"
                                 )}>
                                   {standing.rank}
                                 </span>
@@ -1071,12 +1125,16 @@ export function AppleTeamProfile({
                 {/* 범례 */}
                 <div className="flex flex-wrap items-center gap-6 mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
                   <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 bg-green-500 rounded" />
+                    <div className="w-4 h-4 bg-blue-500 rounded" />
                     <span className="text-xs font-medium text-gray-600 dark:text-gray-400">챔피언스리그</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <div className="w-4 h-4 bg-orange-500 rounded" />
                     <span className="text-xs font-medium text-gray-600 dark:text-gray-400">유로파리그</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 bg-green-500 rounded" />
+                    <span className="text-xs font-medium text-gray-600 dark:text-gray-400">컨퍼런스리그</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <div className="w-4 h-4 bg-red-500 rounded" />
@@ -1088,34 +1146,43 @@ export function AppleTeamProfile({
           </TabsContent>
           
           {/* 스쿼드 탭 */}
-          <TabsContent value="squad" className="space-y-6 animate-in fade-in-0 slide-in-from-bottom-3 duration-300">
-            {/* 포지션 필터 */}
-            <div className="flex gap-2 mb-6">
-              <Button
-                variant={squadFilter === 'all' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setSquadFilter('all')}
-              >
-                전체
-              </Button>
-              {Object.keys(playersByPosition).map((position) => (
-                <Button
-                  key={position}
-                  variant={squadFilter === position ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setSquadFilter(position)}
-                >
-                  {position}
-                </Button>
-              ))}
-            </div>
+          <TabsContent value="squad" className="space-y-8 animate-in fade-in-0 slide-in-from-bottom-3 duration-300">
+            {/* 포지션별 선수 목록 */}
+            {sortedPositions.map((position) => (
+              <div key={position} className="space-y-4">
+                {/* 포지션 헤더 */}
+                <div className="flex items-center gap-3 pb-3 border-b border-gray-200 dark:border-gray-700">
+                  <div className={cn(
+                    "px-3 py-1.5 rounded-lg font-semibold text-sm",
+                    position === '골키퍼' && "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400",
+                    position === '수비수' && "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400",
+                    position === '미드필더' && "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400",
+                    position === '공격수' && "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400",
+                    position === '미정' && "bg-gray-100 dark:bg-gray-900/30 text-gray-700 dark:text-gray-400"
+                  )}>
+                    {position}
+                  </div>
+                  <span className="text-sm text-gray-500">
+                    {playersByPosition[position].length}명
+                  </span>
+                </div>
+                
+                {/* 선수 카드 그리드 */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                  {playersByPosition[position].map((player: any) => (
+                    <PlayerCard key={player.player?.id || player.id} player={player} />
+                  ))}
+                </div>
+              </div>
+            ))}
             
-            {/* 선수 목록 */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {(squadFilter === 'all' ? squad : playersByPosition[squadFilter] || []).map((player: any) => (
-                <PlayerCard key={player.player?.id || player.id} player={player} />
-              ))}
-            </div>
+            {/* 선수가 없는 경우 */}
+            {squad.length === 0 && (
+              <div className="text-center py-12">
+                <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                <p className="text-gray-500">스쿼드 정보를 불러올 수 없습니다.</p>
+              </div>
+            )}
           </TabsContent>
           
           {/* 일정 탭 */}
@@ -1266,111 +1333,105 @@ export function AppleTeamProfile({
                   <ArrowRightLeft className="w-6 h-6 text-blue-500" />
                   이적 시장
                 </h3>
-                <p className="text-sm text-gray-500 mt-1">최근 이적 및 임대 현황</p>
+                <p className="text-sm text-gray-500 mt-1">2024년 7월 이후 이적 현황</p>
               </div>
               
-              {/* 필터 */}
-              <div className="flex gap-2 mb-6">
-                <Button
-                  variant={transferFilter === 'all' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setTransferFilter('all')}
-                  className="rounded-full"
-                >
-                  <Filter className="w-3 h-3 mr-1" />
-                  전체
-                </Button>
-                <Button
-                  variant={transferFilter === 'in' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setTransferFilter('in')}
-                  className="rounded-full"
-                >
-                  <UserPlus className="w-3 h-3 mr-1" />
-                  영입
-                </Button>
-                <Button
-                  variant={transferFilter === 'out' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setTransferFilter('out')}
-                  className="rounded-full"
-                >
-                  <UserMinus className="w-3 h-3 mr-1" />
-                  방출
-                </Button>
-              </div>
-              
-              {/* 이적 목록 */}
-              <div className="space-y-3">
+              {/* 이적 목록 - 가로 2열로 분리 (IN/OUT) */}
+              <div>
                 {(() => {
-                  // 새로운 API 응답 구조 처리
-                  const transfers = transfersData?.response?.[0]?.transfers || 
-                                   transfersData?.transfers || 
-                                   transfersData || []
-                  
-                  console.log('[AppleTeamProfile] Raw transfers data:', transfers)
-                  console.log('[AppleTeamProfile] Transfer filter:', transferFilter)
+                  const transfers = transfersData || []
                   
                   if (!Array.isArray(transfers) || transfers.length === 0) {
                     return (
                       <div className="text-center py-12 text-gray-500">
                         <ArrowRightLeft className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                        <p>이적 정보가 없습니다</p>
+                        <p>2024년 7월 이후 이적 정보가 없습니다</p>
                       </div>
                     )
                   }
                   
-                  // 방향에 따라 필터링 (direction 필드 사용)
-                  const filteredTransfers = transfers.filter((transfer: any) => {
-                    if (transferFilter === 'all') return true
-                    return transfer.direction === transferFilter
-                  })
+                  // IN/OUT으로 분류 (임대 포함)
+                  const inTransfers = transfers.filter((t: any) => t.direction === 'in')
+                  const outTransfers = transfers.filter((t: any) => t.direction === 'out')
                   
-                  console.log('[AppleTeamProfile] Filtered transfers:', filteredTransfers.length)
-                  
-                  if (filteredTransfers.length === 0) {
-                    return (
-                      <div className="text-center py-8 text-gray-500">
-                        <p>해당하는 이적 정보가 없습니다</p>
+                  return (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                      {/* IN 섹션 (영입 + 임대 영입) */}
+                      <div>
+                        <div className="flex items-center gap-2 mb-4 pb-2 border-b border-gray-200 dark:border-gray-700">
+                          <UserPlus className="w-5 h-5 text-green-500" />
+                          <h4 className="font-semibold text-lg">IN ({inTransfers.length})</h4>
+                        </div>
+                        <div>
+                          {inTransfers.length > 0 ? (
+                            inTransfers.map((transfer: any, idx: number) => (
+                              <CompactTransferCard 
+                                key={`in-${transfer.player?.id || idx}-${transfer.transferDate}`} 
+                                transfer={transfer} 
+                                teamId={teamId}
+                              />
+                            ))
+                          ) : (
+                            <div className="text-center py-8 text-gray-400 text-sm">
+                              영입 선수가 없습니다
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    )
-                  }
-                  
-                  return filteredTransfers.map((transfer: any, idx: number) => (
-                    <TransferCard 
-                      key={`${transfer.player?.id || transfer.playerId || idx}-${transfer.transferDate || transfer.date || idx}`} 
-                      transfer={transfer} 
-                      teamId={teamId}
-                    />
-                  ))
+                      
+                      {/* OUT 섹션 (방출 + 임대 방출) */}
+                      <div>
+                        <div className="flex items-center gap-2 mb-4 pb-2 border-b border-gray-200 dark:border-gray-700">
+                          <UserMinus className="w-5 h-5 text-red-500" />
+                          <h4 className="font-semibold text-lg">OUT ({outTransfers.length})</h4>
+                        </div>
+                        <div>
+                          {outTransfers.length > 0 ? (
+                            outTransfers.map((transfer: any, idx: number) => (
+                              <CompactTransferCard 
+                                key={`out-${transfer.player?.id || idx}-${transfer.transferDate}`} 
+                                transfer={transfer} 
+                                teamId={teamId}
+                              />
+                            ))
+                          ) : (
+                            <div className="text-center py-8 text-gray-400 text-sm">
+                              방출 선수가 없습니다
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )
                 })()}
               </div>
               
               {/* 이적 통계 요약 */}
               {(() => {
-                const transfers = transfersData?.response?.[0]?.transfers || transfersData?.transfers || []
+                const transfers = transfersData || []
                 if (!transfers || transfers.length === 0) return null
                 
                 const inCount = transfers.filter((t: any) => t.direction === 'in').length
                 const outCount = transfers.filter((t: any) => t.direction === 'out').length
-                const loanCount = transfers.filter((t: any) => 
-                  t.onLoan || t.fee?.feeText === 'on loan' || t.type?.toLowerCase().includes('loan')
-                ).length
+                const loanInCount = transfers.filter((t: any) => t.direction === 'in' && t.transferType === 'loan').length
+                const loanOutCount = transfers.filter((t: any) => t.direction === 'out' && t.transferType === 'loan').length
                 
                 return (
                   <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
-                    <div className="grid grid-cols-3 gap-4 text-center">
+                    <div className="grid grid-cols-2 gap-8 text-center">
                       <div>
-                        <p className="text-2xl font-bold text-green-600">{inCount}</p>
-                        <p className="text-xs text-gray-500">영입</p>
+                        <p className="text-3xl font-bold text-green-600">{inCount}</p>
+                        <p className="text-sm text-gray-500 font-medium">총 영입</p>
+                        {loanInCount > 0 && (
+                          <p className="text-xs text-gray-400 mt-1">임대 {loanInCount}명 포함</p>
+                        )}
                       </div>
                       <div>
-                        <p className="text-2xl font-bold text-red-600">{outCount}</p>
-                        <p className="text-xs text-gray-500">방출</p>
-                      </div>
-                      <div>
-                        <p className="text-2xl font-bold text-blue-600">{loanCount}</p>
-                        <p className="text-xs text-gray-500">임대</p>
+                        <p className="text-3xl font-bold text-red-600">{outCount}</p>
+                        <p className="text-sm text-gray-500 font-medium">총 방출</p>
+                        {loanOutCount > 0 && (
+                          <p className="text-xs text-gray-400 mt-1">임대 {loanOutCount}명 포함</p>
+                        )}
                       </div>
                     </div>
                   </div>

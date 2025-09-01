@@ -1,0 +1,392 @@
+[
+  {
+    "name": "Arsenal",
+    "apiFootballId": 42,
+    "freeApiId": 9825,
+    "league": "Premier League"
+  },
+  {
+    "name": "Aston Villa",
+    "apiFootballId": 66,
+    "freeApiId": 10252,
+    "league": "Premier League"
+  },
+  {
+    "name": "Chelsea",
+    "apiFootballId": 49,
+    "freeApiId": 8455,
+    "league": "Premier League"
+  },
+  {
+    "name": "Everton",
+    "apiFootballId": 45,
+    "freeApiId": 8668,
+    "league": "Premier League"
+  },
+  {
+    "name": "Liverpool",
+    "apiFootballId": 40,
+    "freeApiId": 8650,
+    "league": "Premier League"
+  },
+  {
+    "name": "Manchester City",
+    "apiFootballId": 50,
+    "freeApiId": 8456,
+    "league": "Premier League"
+  },
+  {
+    "name": "Manchester United",
+    "apiFootballId": 33,
+    "freeApiId": 10260,
+    "league": "Premier League"
+  },
+  {
+    "name": "Newcastle",
+    "apiFootballId": 34,
+    "freeApiId": 10261,
+    "league": "Premier League"
+  },
+  {
+    "name": "Tottenham",
+    "apiFootballId": 47,
+    "freeApiId": 8586,
+    "league": "Premier League"
+  },
+  {
+    "name": "West Ham",
+    "apiFootballId": 48,
+    "freeApiId": 8654,
+    "league": "Premier League"
+  },
+  {
+    "name": "Wolves",
+    "apiFootballId": 39,
+    "freeApiId": 8602,
+    "league": "Premier League"
+  },
+  {
+    "name": "Leicester",
+    "apiFootballId": 46,
+    "freeApiId": 8197,
+    "league": "Premier League"
+  },
+  {
+    "name": "Southampton",
+    "apiFootballId": 41,
+    "freeApiId": 8466,
+    "league": "Premier League"
+  },
+  {
+    "name": "Brighton",
+    "apiFootballId": 51,
+    "freeApiId": 10204,
+    "league": "Premier League"
+  },
+  {
+    "name": "Fulham",
+    "apiFootballId": 36,
+    "freeApiId": 9879,
+    "league": "Premier League"
+  },
+  {
+    "name": "Crystal Palace",
+    "apiFootballId": 52,
+    "freeApiId": 9826,
+    "league": "Premier League"
+  },
+  {
+    "name": "Brentford",
+    "apiFootballId": 55,
+    "freeApiId": 9937,
+    "league": "Premier League"
+  },
+  {
+    "name": "Nottingham Forest",
+    "apiFootballId": 65,
+    "freeApiId": 10203,
+    "league": "Premier League"
+  },
+  {
+    "name": "Bournemouth",
+    "apiFootballId": 35,
+    "freeApiId": 8678,
+    "league": "Premier League"
+  },
+  {
+    "name": "Ipswich",
+    "apiFootballId": 57,
+    "freeApiId": 9902,
+    "league": "Premier League"
+  },
+  {
+    "name": "Real Madrid",
+    "apiFootballId": 541,
+    "freeApiId": 8633,
+    "league": "La Liga"
+  },
+  {
+    "name": "Barcelona",
+    "apiFootballId": 529,
+    "freeApiId": 8634,
+    "league": "La Liga"
+  },
+  {
+    "name": "Atletico Madrid",
+    "apiFootballId": 530,
+    "freeApiId": 9906,
+    "league": "La Liga"
+  },
+  {
+    "name": "Sevilla",
+    "apiFootballId": 536,
+    "freeApiId": 8302,
+    "league": "La Liga"
+  },
+  {
+    "name": "Valencia",
+    "apiFootballId": 532,
+    "freeApiId": 10267,
+    "league": "La Liga"
+  },
+  {
+    "name": "Villarreal",
+    "apiFootballId": 533,
+    "freeApiId": 10205,
+    "league": "La Liga"
+  },
+  {
+    "name": "Real Betis",
+    "apiFootballId": 543,
+    "freeApiId": 8603,
+    "league": "La Liga"
+  },
+  {
+    "name": "Real Sociedad",
+    "apiFootballId": 548,
+    "freeApiId": 8560,
+    "league": "La Liga"
+  },
+  {
+    "name": "Athletic Bilbao",
+    "apiFootballId": 531,
+    "freeApiId": 8315,
+    "league": "La Liga"
+  },
+  {
+    "name": "Celta Vigo",
+    "apiFootballId": 538,
+    "freeApiId": 9910,
+    "league": "La Liga"
+  },
+  {
+    "name": "Getafe",
+    "apiFootballId": 546,
+    "freeApiId": 8305,
+    "league": "La Liga"
+  },
+  {
+    "name": "Girona",
+    "apiFootballId": 547,
+    "freeApiId": 7732,
+    "league": "La Liga"
+  },
+  {
+    "name": "Mallorca",
+    "apiFootballId": 798,
+    "freeApiId": 8661,
+    "league": "La Liga"
+  },
+  {
+    "name": "Rayo Vallecano",
+    "apiFootballId": 728,
+    "freeApiId": 8370,
+    "league": "La Liga"
+  },
+  {
+    "name": "Juventus",
+    "apiFootballId": 496,
+    "freeApiId": 9885,
+    "league": "Serie A"
+  },
+  {
+    "name": "Atalanta",
+    "apiFootballId": 499,
+    "freeApiId": 8524,
+    "league": "Serie A"
+  },
+  {
+    "name": "Udinese",
+    "apiFootballId": 494,
+    "freeApiId": 8600,
+    "league": "Serie A"
+  },
+  {
+    "name": "Bayern Munich",
+    "apiFootballId": 157,
+    "freeApiId": 9823,
+    "league": "Bundesliga"
+  },
+  {
+    "name": "Borussia Dortmund",
+    "apiFootballId": 165,
+    "freeApiId": 9789,
+    "league": "Bundesliga"
+  },
+  {
+    "name": "RB Leipzig",
+    "apiFootballId": 173,
+    "freeApiId": 178475,
+    "league": "Bundesliga"
+  },
+  {
+    "name": "Bayer Leverkusen",
+    "apiFootballId": 168,
+    "freeApiId": 8178,
+    "league": "Bundesliga"
+  },
+  {
+    "name": "Eintracht Frankfurt",
+    "apiFootballId": 169,
+    "freeApiId": 9810,
+    "league": "Bundesliga"
+  },
+  {
+    "name": "VfB Stuttgart",
+    "apiFootballId": 172,
+    "freeApiId": 10269,
+    "league": "Bundesliga"
+  },
+  {
+    "name": "Wolfsburg",
+    "apiFootballId": 161,
+    "freeApiId": 8721,
+    "league": "Bundesliga"
+  },
+  {
+    "name": "Hoffenheim",
+    "apiFootballId": 167,
+    "freeApiId": 8226,
+    "league": "Bundesliga"
+  },
+  {
+    "name": "Freiburg",
+    "apiFootballId": 160,
+    "freeApiId": 8358,
+    "league": "Bundesliga"
+  },
+  {
+    "name": "Mainz 05",
+    "apiFootballId": 164,
+    "freeApiId": 9905,
+    "league": "Bundesliga"
+  },
+  {
+    "name": "Werder Bremen",
+    "apiFootballId": 162,
+    "freeApiId": 8697,
+    "league": "Bundesliga"
+  },
+  {
+    "name": "Augsburg",
+    "apiFootballId": 170,
+    "freeApiId": 8406,
+    "league": "Bundesliga"
+  },
+  {
+    "name": "St Pauli",
+    "apiFootballId": 191,
+    "freeApiId": 8150,
+    "league": "Bundesliga"
+  },
+  {
+    "name": "Monaco",
+    "apiFootballId": 91,
+    "freeApiId": 9829,
+    "league": "Ligue 1"
+  },
+  {
+    "name": "Marseille",
+    "apiFootballId": 81,
+    "freeApiId": 8592,
+    "league": "Ligue 1"
+  },
+  {
+    "name": "Lyon",
+    "apiFootballId": 80,
+    "freeApiId": 9748,
+    "league": "Ligue 1"
+  },
+  {
+    "name": "Lille",
+    "apiFootballId": 79,
+    "freeApiId": 8639,
+    "league": "Ligue 1"
+  },
+  {
+    "name": "Nice",
+    "apiFootballId": 84,
+    "freeApiId": 9831,
+    "league": "Ligue 1"
+  },
+  {
+    "name": "Rennes",
+    "apiFootballId": 94,
+    "freeApiId": 9851,
+    "league": "Ligue 1"
+  },
+  {
+    "name": "Lens",
+    "apiFootballId": 116,
+    "freeApiId": 8588,
+    "league": "Ligue 1"
+  },
+  {
+    "name": "Montpellier",
+    "apiFootballId": 82,
+    "freeApiId": 10249,
+    "league": "Ligue 1"
+  },
+  {
+    "name": "Nantes",
+    "apiFootballId": 83,
+    "freeApiId": 9830,
+    "league": "Ligue 1"
+  },
+  {
+    "name": "Toulouse",
+    "apiFootballId": 96,
+    "freeApiId": 9941,
+    "league": "Ligue 1"
+  },
+  {
+    "name": "Metz",
+    "apiFootballId": 112,
+    "freeApiId": 8550,
+    "league": "Ligue 1"
+  },
+  {
+    "name": "Le Havre",
+    "apiFootballId": 111,
+    "freeApiId": 9746,
+    "league": "Ligue 1"
+  },
+  {
+    "name": "Auxerre",
+    "apiFootballId": 108,
+    "freeApiId": 8583,
+    "league": "Ligue 1"
+  },
+  {
+    "name": "Angers",
+    "apiFootballId": 77,
+    "freeApiId": 8548,
+    "league": "Ligue 1"
+  },
+  {
+    "name": "Saint-Etienne",
+    "apiFootballId": 1063,
+    "freeApiId": 9853,
+    "league": "Ligue 1"
+  }
+]

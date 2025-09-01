@@ -109,7 +109,6 @@ export default function NewsPage() {
                 )}
               </div>
               <div className="flex items-center gap-2">
-                {/* Brave Search 버튼 비활성화
                 <Button 
                   variant="ghost" 
                   size="sm"
@@ -117,7 +116,7 @@ export default function NewsPage() {
                   title="뉴스 검색"
                 >
                   <Search className="w-4 h-4" />
-                </Button> */}
+                </Button>
                 <Button 
                   variant="ghost" 
                   size="sm"
@@ -141,15 +140,15 @@ export default function NewsPage() {
               </div>
             </div>
 
-            {/* Search Bar - Brave Search 비활성화 */}
-            {/* {showSearch && (
+            {/* Search Bar */}
+            {showSearch && (
               <div className="mt-4">
                 <NewsSearchBar 
                   onSearch={(query) => console.log('Searching for:', query)}
                   className="w-full"
                 />
               </div>
-            )} */}
+            )}
 
             {/* Tab Selector */}
             <div className="flex gap-2">

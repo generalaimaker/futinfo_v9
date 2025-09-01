@@ -366,92 +366,77 @@ export function BigClubResults() {
         <CardContent className="px-6 pb-6">
           <Tabs value={activeTab} onValueChange={setActiveTab}>
             <div className="mb-4">
-              <TabsList className="w-full h-auto p-1.5 bg-white/60 dark:bg-gray-800/40 backdrop-blur-xl border border-gray-200/50 dark:border-gray-700/50 rounded-2xl shadow-sm grid grid-cols-6 gap-1">
+              <TabsList className="w-full h-auto p-1.5 bg-gray-100/80 dark:bg-gray-800/40 backdrop-blur-xl border border-gray-200/50 dark:border-gray-700/50 rounded-2xl shadow-sm flex gap-0.5">
                 <TabsTrigger 
                   value="all" 
-                  className="py-2.5 rounded-xl data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:shadow-md data-[state=active]:shadow-gray-200/50 dark:data-[state=active]:shadow-black/30 transition-all duration-300 data-[state=active]:scale-[1.02] text-sm font-semibold"
+                  className="px-2.5 py-2.5 rounded-xl data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md data-[state=active]:shadow-blue-500/30 dark:data-[state=active]:shadow-blue-500/20 transition-all duration-300 text-xs font-semibold text-gray-600 dark:text-gray-400 data-[state=active]:text-white"
                 >
                   All
                 </TabsTrigger>
                 <TabsTrigger 
                   value="premier" 
-                  className="py-2.5 rounded-xl data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:shadow-md data-[state=active]:shadow-gray-200/50 dark:data-[state=active]:shadow-black/30 transition-all duration-300 data-[state=active]:scale-[1.02] text-sm font-semibold flex items-center gap-2"
+                  className="flex-1 px-2 py-2.5 rounded-xl data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-purple-600 data-[state=active]:text-white data-[state=active]:shadow-md data-[state=active]:shadow-purple-500/30 dark:data-[state=active]:shadow-purple-500/20 transition-all duration-300 text-[11px] font-semibold flex items-center justify-center gap-1 text-gray-600 dark:text-gray-400 data-[state=active]:text-white"
                 >
-                  <div className="w-5 h-5 overflow-hidden">
-                    <Image 
-                      src={BIG_CLUBS.premier.logo} 
-                      alt="EPL" 
-                      width={20} 
-                      height={20} 
-                      className="object-contain"
-                      style={{ width: 'auto', height: 'auto', maxWidth: '100%', maxHeight: '100%' }}
-                    />
-                  </div>
-                  <span>Premier League</span>
+                  <Image 
+                    src={BIG_CLUBS.premier.logo} 
+                    alt="EPL" 
+                    width={16} 
+                    height={16} 
+                    className="object-contain flex-shrink-0"
+                  />
+                  <span className="whitespace-nowrap">Premier League</span>
                 </TabsTrigger>
                 <TabsTrigger 
                   value="laliga" 
-                  className="py-2.5 rounded-xl data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:shadow-md data-[state=active]:shadow-gray-200/50 dark:data-[state=active]:shadow-black/30 transition-all duration-300 data-[state=active]:scale-[1.02] text-sm font-semibold flex items-center gap-2"
+                  className="flex-1 px-2 py-2.5 rounded-xl data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-500 data-[state=active]:to-orange-600 data-[state=active]:text-white data-[state=active]:shadow-md data-[state=active]:shadow-orange-500/30 dark:data-[state=active]:shadow-orange-500/20 transition-all duration-300 text-[11px] font-semibold flex items-center justify-center gap-1 text-gray-600 dark:text-gray-400 data-[state=active]:text-white"
                 >
-                  <div className="w-5 h-5 overflow-hidden">
-                    <Image 
-                      src={BIG_CLUBS.laliga.logo} 
-                      alt="La Liga" 
-                      width={20} 
-                      height={20} 
-                      className="object-contain"
-                      style={{ width: 'auto', height: 'auto', maxWidth: '100%', maxHeight: '100%' }}
-                    />
-                  </div>
-                  <span>La Liga</span>
+                  <Image 
+                    src={BIG_CLUBS.laliga.logo} 
+                    alt="La Liga" 
+                    width={16} 
+                    height={16} 
+                    className="object-contain flex-shrink-0"
+                  />
+                  <span className="whitespace-nowrap">La Liga</span>
                 </TabsTrigger>
                 <TabsTrigger 
                   value="bundesliga" 
-                  className="py-2.5 rounded-xl data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:shadow-md data-[state=active]:shadow-gray-200/50 dark:data-[state=active]:shadow-black/30 transition-all duration-300 data-[state=active]:scale-[1.02] text-sm font-semibold flex items-center gap-2"
+                  className="flex-1 px-2 py-2.5 rounded-xl data-[state=active]:bg-gradient-to-r data-[state=active]:from-red-500 data-[state=active]:to-red-600 data-[state=active]:text-white data-[state=active]:shadow-md data-[state=active]:shadow-red-500/30 dark:data-[state=active]:shadow-red-500/20 transition-all duration-300 text-[11px] font-semibold flex items-center justify-center gap-1 text-gray-600 dark:text-gray-400 data-[state=active]:text-white"
                 >
-                  <div className="w-5 h-5 overflow-hidden">
-                    <Image 
-                      src={BIG_CLUBS.bundesliga.logo} 
-                      alt="Bundesliga" 
-                      width={20} 
-                      height={20} 
-                      className="object-contain"
-                      style={{ width: 'auto', height: 'auto', maxWidth: '100%', maxHeight: '100%' }}
-                    />
-                  </div>
-                  <span>Bundesliga</span>
+                  <Image 
+                    src={BIG_CLUBS.bundesliga.logo} 
+                    alt="Bundesliga" 
+                    width={16} 
+                    height={16} 
+                    className="object-contain flex-shrink-0"
+                  />
+                  <span className="whitespace-nowrap">Bundesliga</span>
                 </TabsTrigger>
                 <TabsTrigger 
                   value="seriea" 
-                  className="py-2.5 rounded-xl data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:shadow-md data-[state=active]:shadow-gray-200/50 dark:data-[state=active]:shadow-black/30 transition-all duration-300 data-[state=active]:scale-[1.02] text-sm font-semibold flex items-center gap-2"
+                  className="flex-1 px-2 py-2.5 rounded-xl data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-600 data-[state=active]:to-blue-700 data-[state=active]:text-white data-[state=active]:shadow-md data-[state=active]:shadow-blue-600/30 dark:data-[state=active]:shadow-blue-600/20 transition-all duration-300 text-[11px] font-semibold flex items-center justify-center gap-1 text-gray-600 dark:text-gray-400 data-[state=active]:text-white"
                 >
-                  <div className="w-5 h-5 overflow-hidden">
-                    <Image 
-                      src={BIG_CLUBS.seriea.logo} 
-                      alt="Serie A" 
-                      width={20} 
-                      height={20} 
-                      className="object-contain"
-                      style={{ width: 'auto', height: 'auto', maxWidth: '100%', maxHeight: '100%' }}
-                    />
-                  </div>
-                  <span>Serie A</span>
+                  <Image 
+                    src={BIG_CLUBS.seriea.logo} 
+                    alt="Serie A" 
+                    width={16} 
+                    height={16} 
+                    className="object-contain flex-shrink-0"
+                  />
+                  <span className="whitespace-nowrap">Serie A</span>
                 </TabsTrigger>
                 <TabsTrigger 
                   value="ligue1" 
-                  className="py-2.5 rounded-xl data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:shadow-md data-[state=active]:shadow-gray-200/50 dark:data-[state=active]:shadow-black/30 transition-all duration-300 data-[state=active]:scale-[1.02] text-sm font-semibold flex items-center gap-2"
+                  className="flex-1 px-2 py-2.5 rounded-xl data-[state=active]:bg-gradient-to-r data-[state=active]:from-yellow-500 data-[state=active]:to-yellow-600 data-[state=active]:text-white data-[state=active]:shadow-md data-[state=active]:shadow-yellow-500/30 dark:data-[state=active]:shadow-yellow-500/20 transition-all duration-300 text-[11px] font-semibold flex items-center justify-center gap-1 text-gray-600 dark:text-gray-400 data-[state=active]:text-white"
                 >
-                  <div className="w-5 h-5 overflow-hidden">
-                    <Image 
-                      src={BIG_CLUBS.ligue1.logo} 
-                      alt="Ligue 1" 
-                      width={20} 
-                      height={20} 
-                      className="object-contain"
-                      style={{ width: 'auto', height: 'auto', maxWidth: '100%', maxHeight: '100%' }}
-                    />
-                  </div>
-                  <span>Ligue 1</span>
+                  <Image 
+                    src={BIG_CLUBS.ligue1.logo} 
+                    alt="Ligue 1" 
+                    width={16} 
+                    height={16} 
+                    className="object-contain flex-shrink-0"
+                  />
+                  <span className="whitespace-nowrap">Ligue 1</span>
                 </TabsTrigger>
               </TabsList>
             </div>

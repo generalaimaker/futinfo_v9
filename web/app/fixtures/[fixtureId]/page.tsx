@@ -5,6 +5,7 @@ import { useState, useEffect } from 'react'
 import { useFixtureDetail } from '@/lib/supabase/football'
 import { isFinishedMatch } from '@/lib/types/football'
 import { useFixtureRealtime } from '@/hooks/useFixtureRealtime'
+import { useSelectiveRealtime } from '@/hooks/useSelectiveRealtime'
 import { EnhancedMatchDetail } from '@/components/fixtures/EnhancedMatchDetail'
 import { EnhancedMatchDetailImproved } from '@/components/fixtures/enhanced-match-detail-improved'
 import { IOSMatchDetail } from '@/components/fixtures/ios-match-detail'
@@ -49,26 +50,26 @@ export default function FixtureDetailPage() {
     ['1H', '2H', 'ET', 'P', 'HT', 'BT'].includes(data.response[0].fixture.status.short) : 
     false
 
-  // Realtime 구독 (라이브 경기만)
-  useFixtureRealtime({
+  // 선택적 실시간 폴링 사용 (관리자가 선택한 경기만)
+  const { isRealtimeEnabled, pollingInterval } = useSelectiveRealtime({
     fixtureId: numericFixtureId,
-    isLive,
     onUpdate: () => {
-      console.log(`Fixture ${numericFixtureId} updated via realtime`)
+      console.log(`[Selective] Fixture ${numericFixtureId} updated (interval: ${pollingInterval}ms)`)
       refetch()
     }
   })
 
-  // 폴백: 라이브 경기인 경우 30초 간격 폴링
+  // 폴백: 실시간 폴링이 활성화되지 않은 라이브 경기는 기본 30초 폴링
   useEffect(() => {
-    if (!isLive) return
+    if (!isLive || isRealtimeEnabled) return
     
+    console.log(`[Fallback] Using default 30s polling for fixture ${numericFixtureId}`)
     const interval = setInterval(() => {
       refetch()
-    }, 30000) // 30초마다 새로고침
+    }, 30000) // 30초 기본 폴링
     
     return () => clearInterval(interval)
-  }, [isLive, refetch])
+  }, [isLive, isRealtimeEnabled, numericFixtureId, refetch])
   
   if (isLoading) {
     return (

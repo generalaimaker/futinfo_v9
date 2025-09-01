@@ -50,54 +50,88 @@ function GlassCard({ children, className, ...props }: any) {
   )
 }
 
-// 실시간 상태 인디케이터
-function LiveIndicator({ status, elapsed }: any) {
+// 실시간 상태 인디케이터 (스코어 위에 표시)
+function LiveIndicator({ status, elapsed, startTime }: any) {
+  const [currentMinute, setCurrentMinute] = useState(elapsed || 0)
   const isLive = ['1H', '2H', 'ET', 'HT'].includes(status)
   const isHalfTime = status === 'HT'
+  const isPlaying = ['1H', '2H', 'ET'].includes(status)
+  
+  // 실시간 시계 업데이트
+  useEffect(() => {
+    if (!isPlaying || !elapsed) return
+    
+    // 시작 시간 계산
+    const startTimeStamp = startTime || Date.now() - (elapsed * 60 * 1000)
+    
+    const timer = setInterval(() => {
+      if (status === '1H') {
+        // 전반전: 45분까지만 진행
+        const minutesElapsed = Math.min(45, Math.floor((Date.now() - startTimeStamp) / 60000))
+        setCurrentMinute(minutesElapsed)
+      } else if (status === '2H') {
+        // 후반전: 45분부터 90분까지
+        const minutesElapsed = Math.min(90, 45 + Math.floor((Date.now() - startTimeStamp) / 60000))
+        setCurrentMinute(minutesElapsed)
+      } else if (status === 'ET') {
+        // 연장전
+        const minutesElapsed = 90 + Math.floor((Date.now() - startTimeStamp) / 60000)
+        setCurrentMinute(minutesElapsed)
+      }
+    }, 1000)
+    
+    return () => clearInterval(timer)
+  }, [status, elapsed, isPlaying, startTime])
   
   if (!isLive) return null
   
   return (
     <motion.div 
-      className="absolute top-4 right-4 z-50"
+      className="flex justify-center mb-8"
       initial={{ scale: 0, opacity: 0 }}
       animate={{ scale: 1, opacity: 1 }}
       transition={{ type: "spring", delay: 0.2 }}
     >
-      <div className="relative">
+      <div className="relative inline-block">
         <motion.div
           className={cn(
-            "flex items-center gap-2 px-4 py-2 rounded-full",
-            "backdrop-blur-xl border",
+            "flex items-center gap-3 px-6 py-3 rounded-2xl",
+            "backdrop-blur-xl border-2 shadow-lg",
             isHalfTime 
-              ? "bg-orange-500/20 border-orange-500/30 text-orange-600"
-              : "bg-red-500/20 border-red-500/30 text-red-600"
+              ? "bg-orange-500/10 border-orange-500/30 text-orange-600"
+              : "bg-red-500/10 border-red-500/30 text-red-600"
           )}
           animate={!isHalfTime ? { 
-            scale: [1, 1.05, 1],
-            opacity: [0.9, 1, 0.9]
+            scale: [1, 1.02, 1],
           } : {}}
           transition={{ duration: 2, repeat: Infinity }}
         >
           {!isHalfTime && (
             <motion.div
-              className="w-2 h-2 bg-red-500 rounded-full"
-              animate={{ opacity: [0, 1, 0] }}
+              className="w-3 h-3 bg-red-500 rounded-full shadow-lg"
+              animate={{ opacity: [0.3, 1, 0.3] }}
               transition={{ duration: 1.5, repeat: Infinity }}
             />
           )}
-          <span className="text-sm font-bold">
-            {isHalfTime ? 'HALF TIME' : `LIVE ${elapsed}'`}
-          </span>
-          <Wifi className="w-4 h-4" />
+          <div className="flex flex-col items-center">
+            <span className="text-2xl font-bold tabular-nums">
+              {isHalfTime ? 'HALF TIME' : `${currentMinute}'`}
+            </span>
+            {!isHalfTime && (
+              <span className="text-xs font-medium opacity-80 uppercase tracking-wider">
+                {status === '1H' ? '1st Half' : status === '2H' ? '2nd Half' : 'Extra Time'}
+              </span>
+            )}
+          </div>
+          <Wifi className="w-5 h-5 opacity-60" />
         </motion.div>
         
         {/* 글로우 효과 */}
         {!isHalfTime && (
           <motion.div
-            className="absolute inset-0 bg-red-500/20 rounded-full blur-xl"
-            animate={{ scale: [1, 1.2, 1], opacity: [0.5, 0.2, 0.5] }}
-            transition={{ duration: 2, repeat: Infinity }}
+            className="absolute inset-0 bg-red-500/10 rounded-2xl blur-2xl"
+            animate={{ scale: [1, 1.3, 1], opacity: [0.3, 0.1, 0.3] }}
+            transition={{ duration: 3, repeat: Infinity }}
           />
         )}
       </div>
@@ -213,10 +247,10 @@ function HeroSection({ fixture, isLive }: any) {
       </div>
       
       {/* 콘텐츠 */}
-      <div className="relative pt-20 pb-12 px-6">
-        {/* 리그 정보 - 위치 위로, 크기 증가 */}
+      <div className="relative pt-24 pb-12 px-6">
+        {/* 리그 정보 - 더 위로 올리고 간격 조정 */}
         <motion.div 
-          className="flex items-center justify-center gap-3 mb-10"
+          className="flex items-center justify-center gap-3 mb-6"
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
         >
@@ -234,6 +268,15 @@ function HeroSection({ fixture, isLive }: any) {
             <p className="text-sm text-gray-500">{fixture.league.round}</p>
           </div>
         </motion.div>
+        
+        {/* 실시간 경기 시간 표시 (스코어 위에 한 번만) */}
+        {isLive && (
+          <LiveIndicator 
+            status={fixture.fixture.status.short} 
+            elapsed={fixture.fixture.status.elapsed}
+            startTime={fixture.fixture.timestamp}
+          />
+        )}
         
         {/* 팀 & 스코어 */}
         <div className="max-w-4xl mx-auto">

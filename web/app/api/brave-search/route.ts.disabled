@@ -1,12 +1,14 @@
 // Brave Search API 비활성화됨 - RSS만 사용
+// 이 파일은 더 이상 사용되지 않습니다
+// 활성화하려면 .disabled 확장자를 제거하세요
+
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function POST(request: NextRequest) {
   return NextResponse.json(
     { 
       success: false,
-      error: 'Brave Search API is disabled. Using RSS feeds only.',
-      message: 'This endpoint has been deprecated in favor of RSS-based news collection.'
+      error: 'Brave Search API is disabled. Using RSS feeds only.' 
     },
     { status: 503 }
   )
