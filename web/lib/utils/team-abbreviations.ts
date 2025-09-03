@@ -192,18 +192,12 @@ const teamAbbreviations: Record<string, string> = {
   'Manchester City FC': 'MCI',
   'Tottenham Hotspur FC': 'TOT',
   'FC Bayern München': 'BAY',
-  'Borussia Dortmund': 'BVB',
   'Juventus FC': 'JUV',
-  'AC Milan': 'MIL',
-  'Inter Milan': 'INT',
   'FC Inter Milan': 'INT',
   'SSC Napoli': 'NAP',
-  'AS Roma': 'ROM',
   'Atalanta BC': 'ATA',
   'SS Lazio': 'LAZ',
-  'RB Leipzig': 'RBL',
   'Bayer 04 Leverkusen': 'B04',
-  'Eintracht Frankfurt': 'SGE',
   
   // 기타 유럽팀들
   'Ajax': 'AJA',
