@@ -82,7 +82,7 @@ export default function RootLayout({
         <Providers>
           <AnalyticsTracker />
           <NavbarModern />
-          <main className="min-h-screen pt-16 pb-16 md:pb-0">
+          <main className="min-h-screen pt-16">
             {children}
           </main>
           <MobileNav />

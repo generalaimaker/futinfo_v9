@@ -106,9 +106,25 @@ async function fetchNewsFromDB(filters: NewsFilters = {}): Promise<{
   total: number
   hasMore: boolean
 }> {
+  // 먼저 배너와 주요뉴스를 가져오기
+  const { data: bannerData } = await supabase
+    .from('news_articles')
+    .select('*')
+    .eq('display_type', 'banner')
+    .single()
+  
+  const { data: featuredData } = await supabase
+    .from('news_articles')
+    .select('*')
+    .eq('display_type', 'featured')
+    .order('priority', { ascending: true })
+    .limit(5)
+  
+  // 일반 뉴스 쿼리
   let query = supabase
     .from('news_articles')
     .select('*', { count: 'exact' })
+    .is('display_type', null) // 배너나 주요뉴스가 아닌 것만
     .order('published_at', { ascending: false })
   
   // 필터 적용
@@ -140,10 +156,19 @@ async function fetchNewsFromDB(filters: NewsFilters = {}): Promise<{
     query = query.lte('published_at', filters.toDate)
   }
   
-  // 페이지네이션
+  // 페이지네이션 조정 (배너와 주요뉴스 개수 고려)
   const limit = filters.limit || 20
   const offset = filters.offset || 0
-  query = query.range(offset, offset + limit - 1)
+  const priorityCount = (bannerData ? 1 : 0) + (featuredData?.length || 0)
+  
+  // offset이 0이면 배너와 주요뉴스를 포함, 아니면 일반 뉴스만
+  if (offset === 0) {
+    const remainingLimit = Math.max(0, limit - priorityCount)
+    query = query.range(0, remainingLimit - 1)
+  } else {
+    const adjustedOffset = Math.max(0, offset - priorityCount)
+    query = query.range(adjustedOffset, adjustedOffset + limit - 1)
+  }
   
   const { data, count, error } = await query
   
@@ -152,8 +177,20 @@ async function fetchNewsFromDB(filters: NewsFilters = {}): Promise<{
   // 사용자 언어 설정 가져오기
   const userLanguage = getUserLanguage()
   
+  // 모든 기사를 합치고 순서대로 정렬
+  const allArticles: any[] = []
+  
+  // offset이 0일 때만 배너와 주요뉴스 포함
+  if (offset === 0) {
+    if (bannerData) allArticles.push(bannerData)
+    if (featuredData) allArticles.push(...featuredData)
+  }
+  
+  // 일반 뉴스 추가
+  if (data) allArticles.push(...data)
+  
   // 번역 적용 - 한국어 번역 우선, 없으면 원문 사용
-  const translatedArticles = (data || []).map(article => {
+  const translatedArticles = allArticles.map(article => {
     // 한국어 번역이 있는지 확인
     const hasKoreanTranslation = article.translations?.ko || 
                                   article.translations?.['ko'] ||
@@ -187,10 +224,13 @@ async function fetchNewsFromDB(filters: NewsFilters = {}): Promise<{
     return article
   })
   
+  // 전체 개수 계산 (배너 + 주요뉴스 + 일반뉴스)
+  const totalCount = (count || 0) + priorityCount
+  
   return {
     articles: translatedArticles,
-    total: count || 0,
-    hasMore: offset + limit < (count || 0)
+    total: totalCount,
+    hasMore: offset + limit < totalCount
   }
 }
 

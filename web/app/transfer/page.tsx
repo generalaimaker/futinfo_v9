@@ -6,7 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { 
-  TrendingUp, TrendingDown, Calendar, DollarSign, 
+  TrendingUp, TrendingDown, Calendar, Euro, 
   Users, AlertCircle, Loader2, ArrowRight, Globe, 
   ChevronLeft, ChevronRight
 } from 'lucide-react'
@@ -23,6 +23,7 @@ import { cn } from '@/lib/utils'
 export default function TransferPage() {
   const [selectedLeague, setSelectedLeague] = useState<string>('all')
   const [page, setPage] = useState(1)
+  const [marketValueSort, setMarketValueSort] = useState<'marketValue' | 'transferFee'>('marketValue')
   
   // Fetch data based on selected tab and league
   const { data: allTransfersData, isLoading: allLoading, error: allError } = useFootballTransfers(page)
@@ -251,7 +252,7 @@ export default function TransferPage() {
                   {Array.isArray(transfers) ? transfers.filter(t => t.fee?.feeText?.toLowerCase().includes('free') || (!t.fee?.value && t.fee?.feeText === 'fee')).length : 0}
                 </p>
               </div>
-              <DollarSign className="w-8 h-8 text-blue-500 opacity-20" />
+              <Euro className="w-8 h-8 text-blue-500 opacity-20" />
             </div>
           </Card>
         </div>
@@ -273,7 +274,7 @@ export default function TransferPage() {
             </TabsTrigger>
             <TabsTrigger value="market-value">
               <div className="flex items-center gap-2">
-                <DollarSign className="w-4 h-4" />
+                <Euro className="w-4 h-4" />
                 <span>시장가치 TOP</span>
               </div>
             </TabsTrigger>
@@ -341,7 +342,7 @@ export default function TransferPage() {
                   {transfers.map((transfer, index) => (
                     <div
                       key={`${transfer.player?.id || transfer.playerId || index}-${index}`}
-                      className="group relative overflow-hidden rounded-xl border border-secondary bg-gradient-to-r from-secondary/30 to-secondary/10 hover:from-secondary/50 hover:to-secondary/20 transition-all duration-300"
+                      className="group relative overflow-hidden rounded-xl border border-secondary bg-gradient-to-r from-secondary/30 to-secondary/10 hover:from-secondary/50 hover:to-secondary/20 hover:shadow-xl hover:shadow-purple-500/10 hover:scale-[1.02] hover:-translate-y-1 transition-all duration-300"
                     >
                       <div className="p-6">
                         <div className="flex items-center gap-6">
@@ -404,6 +405,11 @@ export default function TransferPage() {
                           </div>
                         </div>
                       </div>
+                      
+                      {/* Hover glow effect */}
+                      <div className="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none">
+                        <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 via-transparent to-pink-500/5" />
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -446,65 +452,73 @@ export default function TransferPage() {
                   <Loader2 className="w-8 h-8 animate-spin" />
                 </div>
               ) : (
-                <div className="grid md:grid-cols-2 gap-6">
+                <div className="grid gap-4">
                   {(topTransfersData?.transfers || []).slice(0, 10).map((transfer, index) => (
                     <div
                       key={`${transfer.player?.id || transfer.playerId || index}-${index}`}
-                      className="group relative overflow-hidden rounded-xl bg-gradient-to-br from-primary/20 via-primary/10 to-transparent border border-primary/30 hover:border-primary/50 transition-all duration-300"
+                      className="group relative rounded-lg bg-card hover:shadow-xl hover:shadow-purple-500/10 hover:scale-[1.02] hover:-translate-y-1 transition-all duration-300 dark-card overflow-hidden flex items-center gap-4 p-4"
                     >
-                      <div className="p-6">
-                        <div className="flex items-start gap-5">
-                          <div className="flex-shrink-0">
-                            <div className="w-10 h-10 bg-gradient-to-br from-primary to-primary/80 rounded-full flex items-center justify-center text-primary-foreground font-bold shadow-lg">
-                              {index + 1}
-                            </div>
-                          </div>
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-1">
-                              <h4 className="text-xl font-bold">{transfer.name || transfer.player?.name || 'Unknown Player'}</h4>
-                              {transfer.position?.label && (
-                                <Badge variant="outline">
-                                  {transfer.position.label}
-                                </Badge>
-                              )}
-                            </div>
-                            
-                            <div className="space-y-2">
-                              <div className="flex items-center gap-2 text-sm">
-                                {(() => {
-                                  const { from, to } = getTransferClubs(transfer)
-                                  return (
-                                    <>
-                                      <span className="font-medium">{from}</span>
-                                      <ArrowRight className="w-4 h-4 text-primary" />
-                                      <span className="font-medium">{to}</span>
-                                    </>
-                                  )
-                                })()}
-                              </div>
-                              
-                              <div className="flex items-center justify-between pt-3 border-t border-white/10">
-                                {(() => {
-                                  const fee = formatFee(transfer)
-                                  return (
-                                    <div className={cn("text-2xl font-bold", getFeeTextColor(fee.type))}>
-                                      {fee.text}
-                                    </div>
-                                  )
-                                })()}
-                                <div className="text-xs text-muted-foreground">
-                                  {formatDate(transfer.transferDate || transfer.date)}
-                                </div>
-                              </div>
-                              
-                              {transfer.marketValue && (
-                                <div className="text-xs text-muted-foreground">
-                                  시장가치: €{(transfer.marketValue / 1000000).toFixed(1)}M
-                                </div>
-                              )}
-                            </div>
-                          </div>
+                      {/* Transfer Type Badge */}
+                      <div className={cn(
+                        "absolute left-0 top-0 bottom-0 w-1",
+                        getTransferTypeBadgeColor(transfer)
+                      )} />
+                      
+                      {/* Transfer Details */}
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2">
+                          <h4 className="text-lg font-semibold">{transfer.name || transfer.player?.name || 'Unknown Player'}</h4>
+                          {transfer.position?.label && (
+                            <Badge variant="outline" className="text-xs">
+                              {transfer.position.label}
+                            </Badge>
+                          )}
                         </div>
+                        
+                        {/* Club Transfer */}
+                        <div className="flex items-center gap-3 mb-3">
+                          {(() => {
+                            const { from, to } = getTransferClubs(transfer)
+                            return (
+                              <>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm font-medium">{from}</span>
+                                </div>
+                                <ArrowRight className="w-5 h-5 text-primary" />
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm font-medium">{to}</span>
+                                </div>
+                              </>
+                            )
+                          })()}
+                        </div>
+                        
+                        {/* Market Value */}
+                        {transfer.marketValue && (
+                          <div className="text-xs text-muted-foreground">
+                            시장가치: €{(transfer.marketValue / 1000000).toFixed(1)}M
+                          </div>
+                        )}
+                      </div>
+                      
+                      {/* Transfer Fee */}
+                      <div className="text-right">
+                        {(() => {
+                          const fee = formatFee(transfer)
+                          return (
+                            <div className={cn("text-2xl font-bold mb-1", getFeeTextColor(fee.type))}>
+                              {fee.text}
+                            </div>
+                          )
+                        })()}
+                        <div className="text-xs text-muted-foreground">
+                          {formatDate(transfer.transferDate || transfer.date)}
+                        </div>
+                      </div>
+                      
+                      {/* Hover glow effect */}
+                      <div className="absolute inset-0 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none">
+                        <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 via-transparent to-pink-500/5" />
                       </div>
                     </div>
                   ))}
@@ -516,7 +530,39 @@ export default function TransferPage() {
           {/* Market Value Top */}
           <TabsContent value="market-value" className="space-y-4">
             <Card className="dark-card p-6">
-              <h3 className="text-lg font-semibold mb-4">전 세계 시장가치 TOP 이적</h3>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold">전 세계 시장가치 TOP 이적</h3>
+                <div className="flex gap-1 p-1 bg-muted/30 rounded-lg">
+                  <Button 
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setMarketValueSort('marketValue')}
+                    className={cn(
+                      "relative px-4 py-1.5 transition-all duration-200",
+                      marketValueSort === 'marketValue' 
+                        ? "bg-primary text-primary-foreground shadow-md hover:bg-primary/90" 
+                        : "text-muted-foreground hover:text-foreground hover:bg-transparent"
+                    )}
+                  >
+                    <Euro className="w-3 h-3 mr-1.5 inline" />
+                    <span className="font-semibold">by Value</span>
+                  </Button>
+                  <Button 
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setMarketValueSort('transferFee')}
+                    className={cn(
+                      "relative px-4 py-1.5 transition-all duration-200",
+                      marketValueSort === 'transferFee' 
+                        ? "bg-primary text-primary-foreground shadow-md hover:bg-primary/90" 
+                        : "text-muted-foreground hover:text-foreground hover:bg-transparent"
+                    )}
+                  >
+                    <TrendingUp className="w-3 h-3 mr-1.5 inline" />
+                    <span className="font-semibold">by Fee</span>
+                  </Button>
+                </div>
+              </div>
               
               {marketValueLoading ? (
                 <div className="flex items-center justify-center py-20">
@@ -524,10 +570,28 @@ export default function TransferPage() {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {(marketValueData?.transfers || []).map((transfer, index) => (
+                  {(() => {
+                    const sortedTransfers = [...(marketValueData?.transfers || [])]
+                    if (marketValueSort === 'transferFee') {
+                      // Sort by transfer fee (highest first)
+                      sortedTransfers.sort((a, b) => {
+                        const feeA = a.fee?.value || 0
+                        const feeB = b.fee?.value || 0
+                        return feeB - feeA
+                      })
+                    } else {
+                      // Sort by market value (highest first) - default
+                      sortedTransfers.sort((a, b) => {
+                        const valueA = a.marketValue || 0
+                        const valueB = b.marketValue || 0
+                        return valueB - valueA
+                      })
+                    }
+                    return sortedTransfers
+                  })().map((transfer, index) => (
                     <div
                       key={`${transfer.player?.id || transfer.playerId || index}-${index}`}
-                      className="group relative overflow-hidden rounded-xl border border-secondary bg-gradient-to-r from-secondary/30 to-secondary/10 hover:from-secondary/50 hover:to-secondary/20 transition-all duration-300"
+                      className="group relative overflow-hidden rounded-xl border border-secondary bg-gradient-to-r from-secondary/30 to-secondary/10 hover:from-secondary/50 hover:to-secondary/20 hover:shadow-xl hover:shadow-purple-500/10 hover:scale-[1.02] hover:-translate-y-1 transition-all duration-300"
                     >
                       <div className="p-5">
                         <div className="flex items-center gap-5">
@@ -563,23 +627,31 @@ export default function TransferPage() {
                           </div>
                           
                           {/* Values */}
-                          <div className="text-right space-y-1">
-                            <div>
-                              <div className="text-xs text-muted-foreground">시장가치</div>
-                              <div className="font-bold text-lg">
+                          <div className="text-right space-y-2">
+                            <div className="text-sm">
+                              <span className="text-muted-foreground">시장가치: </span>
+                              <span className="font-bold">
                                 {transfer.marketValue ? `€${(transfer.marketValue / 1000000).toFixed(1)}M` : 'N/A'}
-                              </div>
+                              </span>
                             </div>
-                            {(() => {
-                              const fee = formatFee(transfer)
-                              return (
-                                <div className={cn("text-sm font-medium", getFeeTextColor(fee.type))}>
-                                  {fee.text}
-                                </div>
-                              )
-                            })()}
+                            <div className="text-sm">
+                              <span className="text-muted-foreground">이적료: </span>
+                              {(() => {
+                                const fee = formatFee(transfer)
+                                return (
+                                  <span className={cn("font-bold", getFeeTextColor(fee.type))}>
+                                    {fee.text}
+                                  </span>
+                                )
+                              })()}
+                            </div>
                           </div>
                         </div>
+                      </div>
+                      
+                      {/* Hover glow effect */}
+                      <div className="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none">
+                        <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 via-transparent to-pink-500/5" />
                       </div>
                     </div>
                   ))}

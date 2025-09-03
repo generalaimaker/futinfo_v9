@@ -37,7 +37,12 @@ export function useMajorTransfers() {
       
       try {
         // 서버사이드 캐시된 API 엔드포인트 호출
-        const response = await fetch('/api/transfers/major')
+        const response = await fetch('/api/transfers/major', {
+          // 캐시 헤더 추가로 브라우저 캐시 활용
+          headers: {
+            'Cache-Control': 'max-age=1800', // 30분
+          }
+        })
         console.log('[MajorTransfers] Response status:', response.status)
         
         if (!response.ok) {
@@ -55,11 +60,26 @@ export function useMajorTransfers() {
         return []
       }
     },
-    staleTime: 5 * 60 * 1000, // 5분으로 줄임
-    gcTime: 15 * 60 * 1000, // 15분으로 줄임
-    retry: 1, // 1번만 재시도
+    staleTime: 30 * 60 * 1000, // 30분
+    gcTime: 60 * 60 * 1000, // 1시간 캐시 유지
+    retry: 2, // 2번 재시도
     refetchOnWindowFocus: false, // 포커스 시 재요청 안함
     enabled: true, // 명시적으로 활성화
+    refetchInterval: false, // 자동 리페치 비활성화
+    // SSR 지원을 위한 초기 데이터 설정 (있으면 사용)
+    initialData: typeof window === 'undefined' ? undefined : (() => {
+      // 로컬 스토리지에서 초기 데이터 확인
+      try {
+        const cached = localStorage.getItem('react_query_major_transfers')
+        if (cached) {
+          const parsed = JSON.parse(cached)
+          if (parsed.timestamp && Date.now() - parsed.timestamp < 30 * 60 * 1000) {
+            return parsed.data
+          }
+        }
+      } catch (e) {}
+      return undefined
+    })(),
   })
 }
 

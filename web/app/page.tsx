@@ -21,11 +21,11 @@ import {
 } from '@/lib/hooks/useFootballData'
 import { useStandings } from '@/lib/supabase/football'
 import { useUserPreferences, usePersonalizedFixtures } from '@/lib/hooks/useUserPreferences'
-import { usePopularNews } from '@/lib/supabase/cached-news'
 import { formatDistanceToNow, addDays } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import { adminService } from '@/lib/supabase/admin'
 import { FootballAPIService } from '@/lib/supabase/football'
+import { createClient } from '@/lib/supabase/client'
 
 // 개선된 컴포넌트들
 import { EnhancedHeroCarousel, HeroSlide } from '@/components/home/EnhancedHeroCarousel'
@@ -335,8 +335,67 @@ export default function HomePage() {
   const { matches: upcomingBigMatches, isLoading: bigMatchesLoading } = useUpcomingBigMatches()
   const { fixtures: personalizedFixtures } = usePersonalizedFixtures()
   const { posts: popularPosts } = usePopularPosts()
-  const { data: popularNewsData } = usePopularNews(10)
   const { topFees, recentTransfers, isLoading: transfersLoading } = useBannerTransfers()
+  
+  // 이적 데이터 캐싱 및 플레이스홀더 처리
+  const [cachedTopFees, setCachedTopFees] = useState<any[]>(() => {
+    // 로컬 스토리지에서 캐시 확인
+    if (typeof window !== 'undefined') {
+      const cached = localStorage.getItem('cached_top_fees')
+      if (cached) {
+        try {
+          const parsed = JSON.parse(cached)
+          if (parsed.timestamp && Date.now() - parsed.timestamp < 30 * 60 * 1000) { // 30분 유효
+            return parsed.data
+          }
+        } catch (e) {}
+      }
+    }
+    return []
+  })
+  
+  const [cachedRecentTransfers, setCachedRecentTransfers] = useState<any[]>(() => {
+    // 로컬 스토리지에서 캐시 확인
+    if (typeof window !== 'undefined') {
+      const cached = localStorage.getItem('cached_recent_transfers')
+      if (cached) {
+        try {
+          const parsed = JSON.parse(cached)
+          if (parsed.timestamp && Date.now() - parsed.timestamp < 30 * 60 * 1000) { // 30분 유효
+            return parsed.data
+          }
+        } catch (e) {}
+      }
+    }
+    return []
+  })
+  
+  // 이적 데이터 캐싱 업데이트
+  useEffect(() => {
+    if (!transfersLoading && topFees && topFees.length > 0) {
+      setCachedTopFees(topFees)
+      // 로컬 스토리지에 저장
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('cached_top_fees', JSON.stringify({
+          data: topFees,
+          timestamp: Date.now()
+        }))
+      }
+    }
+  }, [topFees, transfersLoading])
+  
+  useEffect(() => {
+    if (!transfersLoading && recentTransfers && recentTransfers.length > 0) {
+      setCachedRecentTransfers(recentTransfers)
+      // 로컬 스토리지에 저장
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('cached_recent_transfers', JSON.stringify({
+          data: recentTransfers,
+          timestamp: Date.now()
+        }))
+      }
+    }
+  }, [recentTransfers, transfersLoading])
   
   // 디버깅용 로그
   useEffect(() => {
@@ -355,6 +414,7 @@ export default function HomePage() {
   const [featuredMatches, setFeaturedMatches] = useState<any[]>([])
   const [curatedNews, setCuratedNews] = useState<any[]>([])
   const [realFeaturedMatchData, setRealFeaturedMatchData] = useState<any[]>([])
+  const [bannerNewsData, setBannerNewsData] = useState<any>(null)
   
   // 관리자가 선택한 추천 콘텐츠 가져오기
   useEffect(() => {
@@ -364,6 +424,23 @@ export default function HomePage() {
           adminService.getFeaturedMatches(),
           adminService.getCuratedNews()
         ])
+        
+        // 배너 뉴스 가져오기
+        const supabase = createClient()
+        const { data: bannerData } = await supabase
+          .from('news_articles')
+          .select('*')
+          .eq('display_type', 'banner')
+          .maybeSingle()
+        
+        if (bannerData) {
+          const translation = bannerData.translations?.ko
+          setBannerNewsData({
+            ...bannerData,
+            title: translation?.title || bannerData.title,
+            description: translation?.description || bannerData.description
+          })
+        }
         
         if (matches) {
           const featuredMatchList = matches.filter(m => m.is_featured)
@@ -714,107 +791,51 @@ export default function HomePage() {
     }
     } // if (!hasAdminContent) 종료
     
-    // 4. 주요 뉴스 (관리자 선택 뉴스 우선)
-    if (curatedNews.length > 0) {
-        const adminNews = curatedNews
-          .sort((a, b) => a.priority - b.priority)
-          .slice(0, 3)
-          .map((news: any) => ({
-            id: news.id,
-            title: news.title,
-            description: news.description,
-            image: news.image_url || '/images/news-placeholder.jpg',
-            category: news.category || '뉴스',
-            source: news.source_name,
-            publishedAt: news.created_at
-          }))
-        
-        slides.push({
-          id: 'news-curated',
-          type: 'news',
-          priority: 1500, // 관리자 선택 뉴스는 높은 우선순위
-          data: adminNews
-        })
-    } else if (!hasAdminContent && popularNewsData && popularNewsData.length > 0) {
-        // 관리자 콘텐츠가 없을 때만 인기 뉴스 사용
-        const topNews = popularNewsData.slice(0, 3).map((article: any) => {
-          // 한국어 번역 우선 적용
-          const hasKoreanTranslation = article.translations?.ko || 
-                                       article.translations?.['ko'] ||
-                                       article.translations?.['ko-KR']
-          
-          const title = hasKoreanTranslation 
-            ? (article.translations.ko?.title || article.translations['ko']?.title || article.translations['ko-KR']?.title || article.title)
-            : article.title
-          
-          const description = hasKoreanTranslation
-            ? (article.translations.ko?.description || article.translations['ko']?.description || article.translations['ko-KR']?.description || article.description)
-            : article.description
-          
-          return {
-            id: article.id,
-            title: title,
-            description: description,
-            image: article.image_url || '/images/news-placeholder.jpg',
-            category: article.category === 'transfer' ? '이적시장' : 
-                      article.category === 'injury' ? '부상' : '뉴스',
-            source: article.source,
-            publishedAt: article.published_at
-          }
-        })
-      
-        slides.push({
-          id: 'news-main',
-          type: 'news',
-          priority: 700,
-          data: topNews
-        })
+    // 4. 배너 뉴스 (관리자가 선택한 1개)
+    if (bannerNewsData) {
+      slides.push({
+        id: 'news-banner',
+        type: 'news',
+        priority: 1600, // 높은 우선순위
+        data: [{
+          id: bannerNewsData.id,
+          title: bannerNewsData.title,
+          description: bannerNewsData.description,
+          image: bannerNewsData.image_url || '/images/news-placeholder.jpg',
+          category: '주요 뉴스',
+          source: bannerNewsData.source,
+          publishedAt: bannerNewsData.published_at,
+          url: bannerNewsData.url
+        }]
+      })
     }
     
-    // 5. 주요 이적 (Top Transfers) - 데이터가 있을 때만 추가
-    console.log('[HomePage] Transfer check:', {
-      transfersLoading,
-      topFeesLength: topFees?.length,
-      recentTransfersLength: recentTransfers?.length
-    })
-    
-    // 최고 이적료 TOP 5 슬라이드
-    if (!transfersLoading && topFees && topFees.length > 0) {
-      console.log('[HomePage] Adding topFees slide:', topFees.length)
+    // 5. 주요 이적 (Top Transfers) - 캐시된 데이터 우선 사용
+    // 최고 이적료 TOP 5 슬라이드 (캐시 또는 실시간 데이터)
+    const effectiveTopFees = topFees || cachedTopFees
+    if (effectiveTopFees && effectiveTopFees.length > 0) {
       slides.push({
         id: 'transfer-top-fees',
         type: 'transfer',
         priority: 1600, // 높은 우선순위
         data: {
           type: 'topFees',
-          transfers: topFees // 모든 데이터 전달
+          transfers: effectiveTopFees // 모든 데이터 전달
         }
-      })
-    } else {
-      console.log('[HomePage] NOT adding topFees slide:', {
-        transfersLoading,
-        hasTopFees: !!topFees,
-        topFeesLength: topFees?.length
       })
     }
     
-    // 최신 이적 TOP 5 슬라이드
-    if (!transfersLoading && recentTransfers && recentTransfers.length > 0) {
-      console.log('[HomePage] Adding recentTransfers slide:', recentTransfers.length)
+    // 최신 이적 TOP 5 슬라이드 (캐시 또는 실시간 데이터)
+    const effectiveRecentTransfers = recentTransfers || cachedRecentTransfers
+    if (effectiveRecentTransfers && effectiveRecentTransfers.length > 0) {
       slides.push({
         id: 'transfer-recent',
         type: 'transfer',
         priority: 1590, // 높은 우선순위
         data: {
           type: 'recentTransfers',
-          transfers: recentTransfers // 모든 데이터 전달
+          transfers: effectiveRecentTransfers // 모든 데이터 전달
         }
-      })
-    } else {
-      console.log('[HomePage] NOT adding recentTransfers slide:', {
-        transfersLoading,
-        hasRecentTransfers: !!recentTransfers,
-        recentTransfersLength: recentTransfers?.length
       })
     }
     
@@ -919,8 +940,8 @@ export default function HomePage() {
     console.log('[carouselSlides] Final slides after sort:', sortedSlides.map(s => ({ id: s.id, type: s.type, priority: s.priority })))
     return sortedSlides
   }, [liveMatches, todayFixtures, upcomingBigMatches, personalizedFixtures, preferences, isAuthenticated, 
-      popularNewsData, premierStandings, laLigaStandings, serieAStandings, featuredMatches, curatedNews, realFeaturedMatchData,
-      topFees, recentTransfers, transfersLoading])
+      premierStandings, laLigaStandings, serieAStandings, featuredMatches, curatedNews, realFeaturedMatchData,
+      topFees, recentTransfers, cachedTopFees, cachedRecentTransfers, bannerNewsData])
   
   // 오늘의 경기 목록 (실시간, 예정, 완료)
   const todayMatches = useMemo(() => {

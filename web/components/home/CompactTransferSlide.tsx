@@ -79,35 +79,35 @@ export function CompactTransferSlide({ data }: { data: any }) {
       </div>
       
       {/* 메인 컨텐츠 - 애플 스타일 레이아웃 */}
-      <div className="relative h-full flex flex-col justify-center py-4 px-8 md:px-12">
+      <div className="relative h-full flex flex-col justify-center py-2 px-3 sm:py-4 sm:px-8 md:px-12">
         <div className="max-w-5xl mx-auto w-full">
           {/* 헤더 - 애플 스타일 타이포그래피 */}
-          <div className="mb-4">
+          <div className="mb-2 sm:mb-4">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, ease: [0.32, 0.72, 0, 1] }}
-              className="flex items-center justify-between mb-2"
+              className="flex items-center justify-between mb-1 sm:mb-2"
             >
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 sm:gap-3">
                 <div className={cn(
-                  "p-2.5 rounded-2xl",
+                  "p-1.5 sm:p-2.5 rounded-xl sm:rounded-2xl",
                   isTopFees 
                     ? "bg-gradient-to-br from-yellow-500/20 to-orange-500/20" 
                     : "bg-gradient-to-br from-blue-500/20 to-purple-500/20"
                 )}>
                   {isTopFees ? (
-                    <Trophy className="w-6 h-6 text-yellow-400" />
+                    <Trophy className="w-4 h-4 sm:w-6 sm:h-6 text-yellow-400" />
                   ) : (
-                    <Zap className="w-6 h-6 text-blue-400" />
+                    <Zap className="w-4 h-4 sm:w-6 sm:h-6 text-blue-400" />
                   )}
                 </div>
-                <h1 className="text-3xl md:text-4xl font-bold text-white tracking-tight">
+                <h1 className="text-xl sm:text-3xl md:text-4xl font-bold text-white tracking-tight">
                   {isTopFees ? '최고 이적료' : '최신 이적'}
                 </h1>
               </div>
               {isTopFees && (
-                <p className="text-sm text-white/60">
+                <p className="text-[10px] sm:text-sm text-white/60 whitespace-nowrap">
                   2025/26 시즌 빅딜 TOP 5
                 </p>
               )}
@@ -115,7 +115,7 @@ export function CompactTransferSlide({ data }: { data: any }) {
           </div>
           
           {/* 이적 리스트 - 애플 스타일 카드 */}
-          <div className="space-y-2">
+          <div className="space-y-1 sm:space-y-2">
             {displayTransfers.map((transfer: any, index: number) => (
               <motion.div
                 key={transfer.id || index}
@@ -144,7 +144,7 @@ export function CompactTransferSlide({ data }: { data: any }) {
                   />
                   
                   <div 
-                    className="relative overflow-hidden rounded-2xl p-3"
+                    className="relative overflow-hidden rounded-xl sm:rounded-2xl p-2 sm:p-3"
                     style={{
                       background: 'linear-gradient(135deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02))',
                       backdropFilter: 'blur(40px) saturate(150%)',
@@ -156,13 +156,13 @@ export function CompactTransferSlide({ data }: { data: any }) {
                       `,
                     }}
                   >
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2 sm:gap-3">
                       {/* 순위 - 프리미엄 디자인 */}
                       <div className="relative">
                         <motion.div
                           whileHover={{ scale: 1.1 }}
                           className={cn(
-                            "w-10 h-10 rounded-xl flex items-center justify-center",
+                            "w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl flex items-center justify-center",
                             "bg-gradient-to-br backdrop-blur-xl relative overflow-hidden",
                             isTopFees ? (
                               transfer.rank === 1 
@@ -183,7 +183,7 @@ export function CompactTransferSlide({ data }: { data: any }) {
                             <div className="absolute inset-0 bg-gradient-to-t from-transparent via-white/10 to-white/20" />
                           )}
                           <span className={cn(
-                            "font-black text-lg relative z-10",
+                            "font-black text-sm sm:text-lg relative z-10",
                             isTopFees ? (
                               transfer.rank === 1 ? "text-yellow-300" : 
                               transfer.rank === 2 ? "text-gray-300" :
@@ -200,7 +200,7 @@ export function CompactTransferSlide({ data }: { data: any }) {
                             transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
                             className="absolute -top-1 -right-1"
                           >
-                            <Star className="w-3.5 h-3.5 text-yellow-400 fill-yellow-400 drop-shadow-glow" />
+                            <Star className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-yellow-400 fill-yellow-400 drop-shadow-glow" />
                           </motion.div>
                         )}
                       </div>
@@ -211,7 +211,7 @@ export function CompactTransferSlide({ data }: { data: any }) {
                           <motion.h3 
                             whileHover={{ x: 2 }}
                             className={cn(
-                              "font-semibold text-base truncate",
+                              "font-semibold text-sm sm:text-base truncate",
                               transfer.isEmpty ? "text-white/20" :
                               transfer.rank === 1 ? "text-white" :
                               "text-white/90"
@@ -223,7 +223,7 @@ export function CompactTransferSlide({ data }: { data: any }) {
                             <motion.span 
                               initial={{ opacity: 0, scale: 0.8 }}
                               animate={{ opacity: 1, scale: 1 }}
-                              className="px-2 py-0.5 text-[10px] font-medium rounded-full bg-gradient-to-r from-white/15 to-white/10 text-white/80 backdrop-blur-xl border border-white/10"
+                              className="px-1.5 sm:px-2 py-0.5 text-[9px] sm:text-[10px] font-medium rounded-full bg-gradient-to-r from-white/15 to-white/10 text-white/80 backdrop-blur-xl border border-white/10"
                             >
                               {transfer.position}
                             </motion.span>
@@ -234,7 +234,7 @@ export function CompactTransferSlide({ data }: { data: any }) {
                             initial={{ opacity: 0, y: 5 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: 0.1 + index * 0.05 }}
-                            className="flex items-center gap-2 mt-1.5"
+                            className="flex items-center gap-1.5 sm:gap-2 mt-1 sm:mt-1.5"
                           >
                             <div className="flex items-center gap-1.5 group/from">
                               {transfer.fromClub.logo && (
@@ -246,13 +246,13 @@ export function CompactTransferSlide({ data }: { data: any }) {
                                   <Image 
                                     src={transfer.fromClub.logo}
                                     alt={transfer.fromClub.name}
-                                    width={14}
-                                    height={14}
-                                    className="rounded-full relative z-10"
+                                    width={12}
+                                    height={12}
+                                    className="rounded-full relative z-10 w-3 h-3 sm:w-[14px] sm:h-[14px]"
                                   />
                                 </motion.div>
                               )}
-                              <span className="text-xs text-white/50 truncate max-w-[80px] group-hover/from:text-white/70 transition-colors">
+                              <span className="text-[10px] sm:text-xs text-white/50 truncate max-w-[60px] sm:max-w-[80px] group-hover/from:text-white/70 transition-colors">
                                 {transfer.fromClub.name}
                               </span>
                             </div>
@@ -272,13 +272,13 @@ export function CompactTransferSlide({ data }: { data: any }) {
                                   <Image 
                                     src={transfer.toClub.logo}
                                     alt={transfer.toClub.name}
-                                    width={14}
-                                    height={14}
-                                    className="rounded-full relative z-10"
+                                    width={12}
+                                    height={12}
+                                    className="rounded-full relative z-10 w-3 h-3 sm:w-[14px] sm:h-[14px]"
                                   />
                                 </motion.div>
                               )}
-                              <span className="text-xs text-white/70 font-medium truncate max-w-[80px] group-hover/to:text-white/90 transition-colors">
+                              <span className="text-[10px] sm:text-xs text-white/70 font-medium truncate max-w-[60px] sm:max-w-[80px] group-hover/to:text-white/90 transition-colors">
                                 {transfer.toClub.name}
                               </span>
                             </div>
@@ -297,9 +297,9 @@ export function CompactTransferSlide({ data }: { data: any }) {
                             {isTopFees && transfer.rank === 1 && (
                               <div className="absolute inset-0 bg-gradient-to-r from-yellow-400/30 to-amber-400/30 blur-xl" />
                             )}
-                            <div className="flex items-center gap-1.5 relative">
+                            <div className="flex items-center gap-1 sm:gap-1.5 relative">
                               <span className={cn(
-                                "font-bold text-base",
+                                "font-bold text-xs sm:text-base",
                                 transfer.isEmpty ? "text-white/20" :
                                 isTopFees && transfer.rank === 1 ? "text-transparent bg-gradient-to-r from-yellow-300 via-yellow-400 to-amber-400 bg-clip-text animate-shimmer" :
                                 isTopFees ? "text-yellow-400" : "text-white/90"
@@ -314,10 +314,10 @@ export function CompactTransferSlide({ data }: { data: any }) {
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             transition={{ delay: 0.2 }}
-                            className="flex items-center gap-1 mt-1 justify-end"
+                            className="flex items-center gap-0.5 sm:gap-1 mt-0.5 sm:mt-1 justify-end"
                           >
-                            <Calendar className="w-3 h-3 text-white/30" />
-                            <span className="text-[10px] text-white/40">
+                            <Calendar className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-white/30" />
+                            <span className="text-[9px] sm:text-[10px] text-white/40">
                               {new Date(transfer.transferDate).toLocaleDateString('ko-KR', {
                                 month: 'numeric',
                                 day: 'numeric'

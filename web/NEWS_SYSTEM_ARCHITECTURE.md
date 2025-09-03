@@ -1,13 +1,13 @@
 # 축구 뉴스 시스템 아키텍처
 
 ## 개요
-RSS 기반 클라이언트 사이드 뉴스 시스템을 서버 캐시 기반의 자동화된 뉴스 수집 및 번역 시스템으로 전환
+RSS 피드 기반의 자동화된 뉴스 수집 및 번역 시스템
 
 ## 핵심 기술 스택
 
 ### API 및 서비스
-- **Brave Search News API**: 뉴스 수집 (BSAuVeLxuIcPZLNrftU6XXkXRzj7QXT, 20M 요청/월)
-- **DeepL Translation API**: 다국어 번역 (무료 플랜, 500,000 문자/월)
+- **RSS Feeds**: 뉴스 수집 (주요 스포츠 미디어 RSS 피드)
+- **Azure Translator API**: 다국어 번역
 - **Supabase**: 데이터베이스 및 Edge Functions
 - **PostgreSQL Cron (pg_cron)**: 자동화 스케줄링
 
@@ -59,13 +59,13 @@ CREATE TABLE user_preferences (
 ### 2. Edge Functions
 
 #### `/supabase/functions/news-collector-enhanced/`
-- **목적**: Brave Search API를 통한 뉴스 수집
+- **목적**: RSS 피드를 통한 뉴스 수집
 - **실행 주기**: 5분마다 (Cron)
 - **주요 기능**:
-  - 60개 이상의 주요 팀 뉴스 검색
+  - RSS 피드에서 뉴스 수집
   - 중복 제거 및 우선순위 설정
   - 메타데이터 추출 (팀, 리그, 카테고리)
-  - 배치 처리로 API 효율성 최적화
+  - 배치 처리로 효율성 최적화
 
 ```typescript
 const PRIORITY_TEAMS = {
@@ -78,7 +78,7 @@ const PRIORITY_TEAMS = {
 ```
 
 #### `/supabase/functions/news-translator/`
-- **목적**: DeepL API를 통한 다국어 번역
+- **목적**: Azure Translator API를 통한 다국어 번역
 - **실행 주기**: 10분마다 (Cron)
 - **지원 언어**: 한국어, 일본어, 중국어, 스페인어, 독일어, 프랑스어
 - **주요 기능**:

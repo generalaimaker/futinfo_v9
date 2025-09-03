@@ -187,6 +187,8 @@ export function LeagueStandings() {
   const router = useRouter()
   const { preferences } = useUserPreferences()
   const [selectedLeagueId, setSelectedLeagueId] = useState(39) // 기본값: 프리미어리그
+  const [cachedStandings, setCachedStandings] = useState<any>({})
+  const [isChangingLeague, setIsChangingLeague] = useState(false)
   
   // 리그 순위 데이터 가져오기 - 2025/2026 시즌
   const currentSeason = 2025
@@ -194,6 +196,29 @@ export function LeagueStandings() {
     league: selectedLeagueId,
     season: currentSeason
   })
+  
+  // 데이터 캐싱
+  useEffect(() => {
+    if (standingsData && !cachedStandings[selectedLeagueId]) {
+      setCachedStandings(prev => ({
+        ...prev,
+        [selectedLeagueId]: standingsData
+      }))
+    }
+  }, [standingsData, selectedLeagueId])
+  
+  // 리그 변경 시 로딩 상태 관리
+  const handleLeagueChange = (leagueId: number) => {
+    if (leagueId === selectedLeagueId) return
+    
+    setIsChangingLeague(true)
+    setSelectedLeagueId(leagueId)
+    
+    // 로딩 애니메이션 최소 시간 보장
+    setTimeout(() => {
+      setIsChangingLeague(false)
+    }, 300)
+  }
   
   // 전체 팀 추출
   const topTeams = standingsData?.response?.[0]?.league?.standings?.[0] || []
@@ -255,8 +280,8 @@ export function LeagueStandings() {
       
       <div className="relative">
         {/* 헤더 */}
-        <div className="px-6 pt-5 pb-3">
-          <div className="flex items-center gap-3 mb-3">
+        <div className="px-3 sm:px-6 pt-4 sm:pt-5 pb-2 sm:pb-3">
+          <div className="flex items-center gap-2 sm:gap-3 mb-2 sm:mb-3">
             <div className="relative">
               <div className="absolute inset-0 bg-gradient-to-br from-blue-500 to-purple-600 blur-xl opacity-40" />
               <div className="relative p-2.5 rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 text-white shadow-lg">
@@ -280,7 +305,7 @@ export function LeagueStandings() {
                 key={league.id}
                 variant="ghost"
                 size="sm"
-                onClick={() => setSelectedLeagueId(league.id)}
+                onClick={() => handleLeagueChange(league.id)}
                 className={cn(
                   "flex-1 px-2 py-1.5 h-8 rounded-xl transition-all flex items-center justify-center gap-1 whitespace-nowrap",
                   selectedLeagueId === league.id
@@ -296,7 +321,17 @@ export function LeagueStandings() {
         </div>
       
         {/* 순위 테이블 */}
-        <div className="px-6 pb-4">
+        <div className="px-3 sm:px-6 pb-3 sm:pb-4 relative min-h-[400px]">
+          {/* 로딩 오버레이 */}
+          {(isLoading || isChangingLeague) && (
+            <div className="absolute inset-0 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm z-10 flex items-center justify-center rounded-lg">
+              <div className="flex flex-col items-center gap-2">
+                <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+                <span className="text-sm text-gray-500">순위 불러오는 중...</span>
+              </div>
+            </div>
+          )}
+          
           <table className="w-full">
             <thead className="border-b border-gray-200/50 dark:border-gray-700/50">
               <tr>
@@ -385,6 +420,9 @@ export function LeagueStandings() {
                             alt={team.team.name}
                             fill
                             className="object-contain"
+                            sizes="24px"
+                            loading="eager"
+                            priority={index < 10}
                           />
                         </div>
                         <span className={cn(
@@ -440,7 +478,7 @@ export function LeagueStandings() {
         </div>
       
         {/* 범례 및 하단 링크 */}
-        <div className="px-6 py-3 border-t border-gray-200/50 dark:border-gray-700/50 space-y-3">
+        <div className="px-3 sm:px-6 py-2 sm:py-3 border-t border-gray-200/50 dark:border-gray-700/50 space-y-2 sm:space-y-3">
           {/* 범례 */}
           <div className="flex flex-wrap gap-3 justify-center text-[10px]">
             <div className="flex items-center gap-1">

@@ -94,7 +94,9 @@
       "Bash(open http://localhost:3001)",
       "Bash(/dev/null)",
       "Bash(open http://localhost:3000/teams/47)",
-      "Bash(open http://localhost:3000/teams/529)"
+      "Bash(open http://localhost:3000/teams/529)",
+      "Bash(open http://localhost:3000/admin/news)",
+      "Bash(open http://localhost:3001/admin/news)"
     ],
     "deny": []
   }

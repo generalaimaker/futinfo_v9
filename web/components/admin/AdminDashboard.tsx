@@ -107,6 +107,14 @@ export default function AdminDashboard() {
     engagement: 0
   })
   
+  // 인기 콘텐츠 및 사용자 행동 데이터
+  const [popularContent, setPopularContent] = useState<any[]>([])
+  const [userBehavior, setUserBehavior] = useState({
+    avgSessionDuration: 0,
+    bounceRate: 0,
+    pagesPerSession: 0
+  })
+  
   // 필터 상태
   const [selectedLeague, setSelectedLeague] = useState<number | null>(null)
   const [selectedTeam, setSelectedTeam] = useState<number | null>(null)
@@ -257,6 +265,71 @@ export default function AdminDashboard() {
         featuredContent: (featured?.length || 0) + (news?.length || 0),
         engagement: analyticsStats.engagement
       })
+      
+      // 인기 페이지 가져오기
+      const { data: topPages } = await supabase
+        .from('page_views')
+        .select('page_path')
+        .gte('created_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
+        .order('created_at', { ascending: false })
+        .limit(100)
+      
+      // 페이지별 조회수 계산
+      const pageViewCounts = new Map<string, number>()
+      topPages?.forEach(view => {
+        const count = pageViewCounts.get(view.page_path) || 0
+        pageViewCounts.set(view.page_path, count + 1)
+      })
+      
+      // 상위 3개 페이지
+      const sortedPages = Array.from(pageViewCounts.entries())
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 3)
+        .map(([path, count]) => ({
+          path,
+          count,
+          title: getPageTitle(path)
+        }))
+      
+      setPopularContent(sortedPages)
+      
+      // 사용자 행동 통계 계산
+      const { data: sessions } = await supabase
+        .from('user_sessions')
+        .select('session_id, created_at, last_activity')
+        .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
+      
+      if (sessions && sessions.length > 0) {
+        // 평균 세션 시간 계산
+        const durations = sessions.map(s => {
+          const start = new Date(s.created_at).getTime()
+          const end = new Date(s.last_activity).getTime()
+          return (end - start) / 1000 // 초 단위
+        })
+        const avgDuration = durations.reduce((a, b) => a + b, 0) / durations.length
+        
+        // 세션당 평균 페이지뷰
+        const sessionIds = sessions.map(s => s.session_id)
+        const { data: pageViews } = await supabase
+          .from('page_views')
+          .select('session_id')
+          .in('session_id', sessionIds)
+        
+        const viewsPerSession = new Map<string, number>()
+        pageViews?.forEach(pv => {
+          const count = viewsPerSession.get(pv.session_id) || 0
+          viewsPerSession.set(pv.session_id, count + 1)
+        })
+        
+        const avgPagesPerSession = Array.from(viewsPerSession.values()).reduce((a, b) => a + b, 0) / viewsPerSession.size || 0
+        const bounceRate = Array.from(viewsPerSession.values()).filter(c => c === 1).length / viewsPerSession.size * 100 || 0
+        
+        setUserBehavior({
+          avgSessionDuration: Math.round(avgDuration),
+          pagesPerSession: Math.round(avgPagesPerSession * 10) / 10,
+          bounceRate: Math.round(bounceRate)
+        })
+      }
     } catch (error) {
       console.error('Error loading stats:', error)
       setStats({
@@ -266,6 +339,17 @@ export default function AdminDashboard() {
         engagement: 0
       })
     }
+  }
+  
+  // 페이지 경로를 읽기 쉬운 제목으로 변환
+  const getPageTitle = (path: string): string => {
+    if (path === '/') return '홈'
+    if (path.includes('/teams/')) return '팀 상세'
+    if (path.includes('/news')) return '뉴스'
+    if (path.includes('/transfer')) return '이적시장'
+    if (path.includes('/standings')) return '순위'
+    if (path.includes('/admin')) return '관리자'
+    return path.split('/').pop() || path
   }
 
   const loadMatches = async () => {
@@ -763,7 +847,13 @@ export default function AdminDashboard() {
       {/* 빠른 액션 */}
       <div className="mb-8">
         <h2 className="text-lg font-semibold mb-4">빠른 작업</h2>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+          <QuickAction
+            icon={Newspaper}
+            label="뉴스 관리"
+            onClick={() => router.push('/admin/news')}
+            color="blue"
+          />
           <QuickAction
             icon={Zap}
             label="빅매치 자동선택"
@@ -804,11 +894,6 @@ export default function AdminDashboard() {
               <Trophy className="w-4 h-4" />
               <span className="hidden sm:inline">경기 관리</span>
               <span className="sm:hidden">경기</span>
-            </TabsTrigger>
-            <TabsTrigger value="news" className="gap-2 whitespace-nowrap">
-              <Newspaper className="w-4 h-4" />
-              <span className="hidden sm:inline">뉴스 관리</span>
-              <span className="sm:hidden">뉴스</span>
             </TabsTrigger>
             <TabsTrigger value="banner" className="gap-2 whitespace-nowrap">
               <Palette className="w-4 h-4" />
@@ -1132,256 +1217,6 @@ export default function AdminDashboard() {
           </Card>
         </TabsContent>
 
-        {/* 뉴스 관리 탭 */}
-        <TabsContent value="news" className="space-y-6">
-          {/* 필터 바 */}
-          <Card className="p-4 bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl">
-            <div className="flex flex-wrap gap-4">
-              <div className="flex-1 min-w-[200px]">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                  <Input
-                    placeholder="뉴스 검색 (예: 손흥민, 프리미어리그)..."
-                    value={newsSearchQuery}
-                    onChange={(e) => setNewsSearchQuery(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && searchNews()}
-                    className="pl-10"
-                  />
-                </div>
-              </div>
-              
-              <Button
-                onClick={searchNews}
-                disabled={isSearchingNews}
-                className="bg-green-600 hover:bg-green-700"
-              >
-                {isSearchingNews ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
-                <span className="ml-2">검색</span>
-              </Button>
-              
-              <Button
-                onClick={loadLatestNews}
-                disabled={isSearchingNews}
-                variant="outline"
-              >
-                <RefreshCw className="w-4 h-4 mr-2" />
-                최신 뉴스
-              </Button>
-            </div>
-          </Card>
-
-          {/* 현재 선택된 뉴스 */}
-          <Card className="p-6 bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl">
-            {/* 번역 상태 정보 카드 */}
-            <div className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg p-3 mb-4 border border-purple-200">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Languages className="w-5 h-5 text-purple-600" />
-                  <span className="text-sm font-medium text-gray-700">
-                    오늘의 번역 현황
-                  </span>
-                </div>
-                <div className="flex items-center gap-4 text-sm">
-                  <span className="text-gray-600">
-                    사용: <span className="font-bold text-purple-600">{translationStatus.translatedToday}</span>/{translationStatus.dailyLimit}
-                  </span>
-                  <span className="text-gray-600">
-                    남은 횟수: <span className="font-bold text-blue-600">{translationStatus.remainingToday}개</span>
-                  </span>
-                </div>
-              </div>
-              <div className="mt-2">
-                <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div 
-                    className="bg-gradient-to-r from-purple-500 to-blue-500 h-2 rounded-full transition-all"
-                    style={{ width: `${(translationStatus.translatedToday / translationStatus.dailyLimit) * 100}%` }}
-                  />
-                </div>
-              </div>
-              <p className="text-xs text-gray-500 mt-2">
-                💡 주요 뉴스 5개만 제목과 설명을 한국어로 번역합니다 (일일 한도 제한)
-              </p>
-            </div>
-            
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold flex items-center gap-2">
-                <Star className="w-5 h-5 text-yellow-500" />
-                선택된 뉴스 ({selectedNews.length}/5)
-              </h3>
-              <div className="flex gap-2">
-                {selectedNews.length > 0 && (
-                  <Button
-                    size="sm"
-                    variant="destructive"
-                    onClick={() => {
-                      setSelectedNews([])
-                      toast.success('선택이 초기화되었습니다')
-                    }}
-                  >
-                    전체 해제
-                  </Button>
-                )}
-                <Button
-                  onClick={saveFeaturedNews}
-                  disabled={isSavingNews || selectedNews.length === 0}
-                  className="bg-blue-600 hover:bg-blue-700"
-                >
-                  {isSavingNews ? (
-                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                  ) : (
-                    <Save className="w-4 h-4 mr-2" />
-                  )}
-                  저장하기
-                </Button>
-                <Button
-                  onClick={translateFeaturedNews}
-                  disabled={isTranslating || translationStatus.remainingToday === 0}
-                  className="bg-purple-600 hover:bg-purple-700"
-                  title={`일일 번역 한도: ${translationStatus.translatedToday}/${translationStatus.dailyLimit}`}
-                >
-                  {isTranslating ? (
-                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                  ) : (
-                    <Languages className="w-4 h-4 mr-2" />
-                  )}
-                  번역 ({translationStatus.remainingToday}개 가능)
-                </Button>
-              </div>
-            </div>
-            
-            <AnimatePresence>
-              {selectedNews.length === 0 ? (
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  className="text-center py-12 text-gray-500"
-                >
-                  <Newspaper className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-                  <p>선택된 뉴스가 없습니다</p>
-                  <p className="text-sm mt-2">아래에서 뉴스를 선택해주세요</p>
-                </motion.div>
-              ) : (
-                <div className="space-y-3">
-                  {selectedNews.map((article, index) => (
-                    <motion.div
-                      key={article.id}
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: 20 }}
-                      transition={{ delay: index * 0.1 }}
-                      className="flex items-center gap-4 p-4 bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 rounded-xl"
-                    >
-                      <span className="text-2xl font-bold text-gray-300">#{index + 1}</span>
-                      
-                      {article.urlToImage && (
-                        <img 
-                          src={article.urlToImage} 
-                          alt=""
-                          className="w-16 h-16 object-cover rounded-lg"
-                        />
-                      )}
-                      
-                      <div className="flex-1">
-                        <h4 className="font-medium line-clamp-1">{article.title}</h4>
-                        <p className="text-sm text-gray-500 mt-1">{article.source.name}</p>
-                      </div>
-                      
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        onClick={() => toggleNewsSelection(article)}
-                      >
-                        <X className="w-4 h-4" />
-                      </Button>
-                    </motion.div>
-                  ))}
-                </div>
-              )}
-            </AnimatePresence>
-          </Card>
-
-          {/* 뉴스 선택 */}
-          <Card className="p-6 bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl">
-            <h3 className="text-lg font-semibold mb-4">뉴스 선택</h3>
-            
-            <div className="space-y-2 max-h-[600px] overflow-y-auto">
-              {searchResults.length === 0 ? (
-                <div className="text-center py-12 text-gray-500">
-                  <Newspaper className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-                  <p>표시할 뉴스가 없습니다</p>
-                  <p className="text-sm mt-2">검색하거나 최신 뉴스를 불러와주세요</p>
-                </div>
-              ) : (
-                searchResults.map((article) => {
-                  const isSelected = selectedNews.some(n => n.id === article.id)
-                  
-                  return (
-                    <motion.div
-                      key={article.id}
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      className={cn(
-                        "flex items-center justify-between p-4 rounded-xl border transition-all cursor-pointer",
-                        "hover:shadow-lg hover:scale-[1.02]",
-                        isSelected ? "bg-green-50 dark:bg-green-950/30 border-green-300" : "bg-white dark:bg-gray-800"
-                      )}
-                      onClick={() => toggleNewsSelection(article)}
-                    >
-                      <div className="flex items-center gap-4 flex-1">
-                        {article.urlToImage && (
-                          <img 
-                            src={article.urlToImage} 
-                            alt=""
-                            className="w-20 h-20 object-cover rounded-lg"
-                          />
-                        )}
-                        
-                        <div className="flex-1">
-                          <h4 className="font-medium line-clamp-2 mb-1">{article.title}</h4>
-                          <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2">
-                            {article.description}
-                          </p>
-                          <div className="flex items-center gap-3 mt-2 text-xs text-gray-500">
-                            <span className="flex items-center gap-1">
-                              <Globe className="w-3 h-3" />
-                              {article.source.name}
-                            </span>
-                            <span>
-                              {format(new Date(article.publishedAt), 'MM/dd HH:mm')}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                      
-                      <Button
-                        size="sm"
-                        variant={isSelected ? "secondary" : "default"}
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          toggleNewsSelection(article)
-                        }}
-                        disabled={!isSelected && selectedNews.length >= 5}
-                      >
-                        {isSelected ? (
-                          <>
-                            <CheckCircle className="w-4 h-4 mr-1" />
-                            선택됨
-                          </>
-                        ) : (
-                          <>
-                            <Plus className="w-4 h-4 mr-1" />
-                            선택
-                          </>
-                        )}
-                      </Button>
-                    </motion.div>
-                  )
-                }))
-              }
-            </div>
-          </Card>
-        </TabsContent>
-
         {/* 배너 설정 탭 */}
         <TabsContent value="banner" className="space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -1438,18 +1273,16 @@ export default function AdminDashboard() {
             <Card className="p-6">
               <h3 className="text-lg font-semibold mb-4">인기 콘텐츠</h3>
               <div className="space-y-3">
-                <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                  <span className="text-sm">맨유 vs 리버풀</span>
-                  <span className="text-sm font-bold">3,421 views</span>
-                </div>
-                <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                  <span className="text-sm">손흥민 재계약 뉴스</span>
-                  <span className="text-sm font-bold">2,856 views</span>
-                </div>
-                <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                  <span className="text-sm">바르셀로나 vs 레알</span>
-                  <span className="text-sm font-bold">2,234 views</span>
-                </div>
+                {popularContent.length > 0 ? (
+                  popularContent.map((content, index) => (
+                    <div key={index} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                      <span className="text-sm">{content.title}</span>
+                      <span className="text-sm font-bold">{content.count.toLocaleString()} views</span>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-sm text-gray-500">데이터를 수집 중입니다...</div>
+                )}
               </div>
             </Card>
 
@@ -1458,15 +1291,23 @@ export default function AdminDashboard() {
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-gray-600">평균 체류시간</span>
-                  <span className="text-sm font-bold">4분 32초</span>
+                  <span className="text-sm font-bold">
+                    {userBehavior.avgSessionDuration > 0 
+                      ? `${Math.floor(userBehavior.avgSessionDuration / 60)}분 ${userBehavior.avgSessionDuration % 60}초`
+                      : '계산 중...'}
+                  </span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600">클릭률</span>
-                  <span className="text-sm font-bold">32.4%</span>
+                  <span className="text-sm text-gray-600">페이지/세션</span>
+                  <span className="text-sm font-bold">
+                    {userBehavior.pagesPerSession > 0 ? userBehavior.pagesPerSession : '계산 중...'}
+                  </span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-gray-600">이탈률</span>
-                  <span className="text-sm font-bold">12.8%</span>
+                  <span className="text-sm font-bold">
+                    {userBehavior.bounceRate > 0 ? `${userBehavior.bounceRate}%` : '계산 중...'}
+                  </span>
                 </div>
               </div>
             </Card>

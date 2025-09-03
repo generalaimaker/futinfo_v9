@@ -353,7 +353,6 @@ function EmptyState({ message }: { message: string }) {
 
 export default function AppleStyleFixturesPage() {
   const [selectedDate, setSelectedDate] = useState(new Date())
-  const [viewMode, setViewMode] = useState<'tv' | 'time'>('time')
   const [showFilter, setShowFilter] = useState(false)
   
   const { data, isLoading, error, refetch } = useFixturesByDate(selectedDate) as { 
@@ -405,17 +404,10 @@ export default function AppleStyleFixturesPage() {
     return aPriority - bPriority
   })
   
-  // TV 모드 필터링
-  const tvFixtures = viewMode === 'tv' 
-    ? allFixtures.filter((f: any) => [39, 140, 135, 78, 61, 2, 3].includes(f.league.id))
-    : allFixtures
-  
   // 시간순 정렬
-  if (viewMode === 'time') {
-    allFixtures.sort((a: any, b: any) => 
-      new Date(a.fixture.date).getTime() - new Date(b.fixture.date).getTime()
-    )
-  }
+  allFixtures.sort((a: any, b: any) => 
+    new Date(a.fixture.date).getTime() - new Date(b.fixture.date).getTime()
+  )
   
   // 라이브 경기 추출
   const liveFixtures = allFixtures.filter((f: any) => isLiveMatch(f.fixture.status.short))
@@ -456,33 +448,8 @@ export default function AppleStyleFixturesPage() {
           </button>
         </div>
         
-        {/* 필터 탭 */}
-        <div className="flex items-center gap-2 px-4 pb-3">
-          <button
-            onClick={() => setViewMode('tv')}
-            className={cn(
-              "flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-medium transition-all",
-              viewMode === 'tv' 
-                ? "bg-gray-900 text-white dark:bg-white dark:text-gray-900" 
-                : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
-            )}
-          >
-            On TV
-          </button>
-          <button
-            onClick={() => setViewMode('time')}
-            className={cn(
-              "flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-medium transition-all",
-              viewMode === 'time' 
-                ? "bg-gray-900 text-white dark:bg-white dark:text-gray-900" 
-                : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
-            )}
-          >
-            By time
-          </button>
-          
-          <div className="flex-1" />
-          
+        {/* 필터 버튼 */}
+        <div className="flex items-center justify-end px-4 pb-3">
           <button
             onClick={() => setShowFilter(!showFilter)}
             className="flex items-center gap-2 px-4 py-1.5 text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
@@ -501,8 +468,6 @@ export default function AppleStyleFixturesPage() {
           <EmptyState message="Unable to load fixtures" />
         ) : allFixtures.length === 0 ? (
           <EmptyState message="No fixtures scheduled" />
-        ) : viewMode === 'tv' && tvFixtures.length === 0 ? (
-          <EmptyState message="No televised fixtures today" />
         ) : (
           <div>
             {/* Following 섹션 */}
@@ -511,27 +476,15 @@ export default function AppleStyleFixturesPage() {
             )}
             
             {/* 리그별 경기 */}
-            {viewMode === 'time' ? (
-              // By time 모드: 리그별 그룹화
-              sortedLeagues.map((league: any) => (
-                <AppleStyleLeagueGroup
-                  key={league.leagueId}
-                  leagueId={league.leagueId}
-                  leagueName={league.leagueName}
-                  fixtures={league.fixtures}
-                  defaultExpanded={LEAGUE_INFO[league.leagueId]?.priority <= 5}
-                />
-              ))
-            ) : (
-              // TV 모드: 필터링된 경기만 표시
-              <div className="bg-white dark:bg-gray-800/50 rounded-2xl overflow-hidden shadow-sm">
-                <div className="divide-y divide-gray-100 dark:divide-gray-700/50">
-                  {tvFixtures.map((fixture: any) => (
-                    <ModernMatchCard key={fixture.fixture.id} fixture={fixture} />
-                  ))}
-                </div>
-              </div>
-            )}
+            {sortedLeagues.map((league: any) => (
+              <AppleStyleLeagueGroup
+                key={league.leagueId}
+                leagueId={league.leagueId}
+                leagueName={league.leagueName}
+                fixtures={league.fixtures}
+                defaultExpanded={LEAGUE_INFO[league.leagueId]?.priority <= 5}
+              />
+            ))}
           </div>
         )}
       </div>

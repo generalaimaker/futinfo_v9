@@ -1,7 +1,7 @@
 'use client'
 
 import { usePathname, useRouter } from 'next/navigation'
-import { Home, Globe, Heart, Bell, User } from 'lucide-react'
+import { Home, Calendar, Users, Newspaper, TrendingUp } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useSupabase } from '@/lib/supabase/provider'
 import { Badge } from '@/components/ui/badge'
@@ -22,47 +22,48 @@ export default function MobileNav() {
       label: '홈',
       icon: Home,
       href: '/',
-      color: 'text-gray-600'
-    },
-    {
-      id: 'all',
-      label: '전체',
-      icon: Globe,
-      href: '/community',
       color: 'text-blue-600'
     },
     {
-      id: 'myteam',
-      label: '내팀',
-      icon: Heart,
-      href: '/community?tab=myteam',
-      color: 'text-purple-600',
-      badge: 'Chelsea' // 동적으로 변경
+      id: 'fixtures',
+      label: '일정',
+      icon: Calendar,
+      href: '/fixtures',
+      color: 'text-green-600'
     },
     {
-      id: 'notifications',
-      label: '알림',
-      icon: Bell,
-      href: '/notifications',
-      color: 'text-red-600',
-      badge: '3' // 알림 수
+      id: 'community',
+      label: '락커룸',
+      icon: Users,
+      href: '/community',
+      color: 'text-purple-600'
     },
     {
-      id: 'profile',
-      label: '내정보',
-      icon: User,
-      href: user ? '/profile' : '/auth/login',
-      color: 'text-gray-600'
+      id: 'news',
+      label: '뉴스',
+      icon: Newspaper,
+      href: '/news',
+      color: 'text-red-600'
+    },
+    {
+      id: 'standings',
+      label: '순위',
+      icon: TrendingUp,
+      href: '/standings',
+      color: 'text-orange-600'
     }
   ]
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-900 border-t dark:border-gray-800 md:hidden z-50">
+    <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-900 border-t dark:border-gray-800 md:hidden z-[100]" style={{ position: 'fixed !important', bottom: '0 !important' }}>
       <div className="grid grid-cols-5 h-16">
         {tabs.map((tab) => {
           const Icon = tab.icon
           const isActive = pathname === tab.href || 
-                          (tab.id === 'all' && pathname.startsWith('/community'))
+                          (tab.id === 'community' && pathname.startsWith('/community')) ||
+                          (tab.id === 'fixtures' && pathname.startsWith('/fixtures')) ||
+                          (tab.id === 'news' && pathname.startsWith('/news')) ||
+                          (tab.id === 'standings' && pathname.startsWith('/standings'))
           
           return (
             <button
@@ -70,7 +71,7 @@ export default function MobileNav() {
               onClick={() => router.push(tab.href)}
               className={cn(
                 "flex flex-col items-center justify-center gap-1 relative transition-colors",
-                isActive ? tab.color : "text-gray-400 hover:text-gray-600"
+                isActive ? tab.color : "text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-400"
               )}
             >
               <div className="relative">
@@ -78,20 +79,13 @@ export default function MobileNav() {
                   "h-5 w-5",
                   isActive && "scale-110"
                 )} />
-                {tab.badge && tab.id === 'notifications' && (
-                  <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center">
-                    {tab.badge}
-                  </span>
-                )}
               </div>
-              <span className="text-[10px] font-medium">
+              <span className={cn(
+                "text-[10px] font-medium",
+                isActive && "font-semibold"
+              )}>
                 {tab.label}
               </span>
-              {tab.badge && tab.id === 'myteam' && (
-                <span className="absolute -top-1 right-1 text-[8px] bg-blue-100 text-blue-600 px-1 rounded">
-                  {tab.badge}
-                </span>
-              )}
             </button>
           )
         })}

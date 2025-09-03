@@ -460,3 +460,15 @@
     background-position: 100% 50%;
   }
 }
+
+/* Mobile navigation fix - 모바일 하단탭 고정 */
+@media (max-width: 768px) {
+  /* 모바일 하단탭이 항상 화면 최하단에 고정 */
+  .fixed[class*="bottom-0"][class*="md:hidden"] {
+    position: fixed !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    z-index: 100 !important;
+  }
+}

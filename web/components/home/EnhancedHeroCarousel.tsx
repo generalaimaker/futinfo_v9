@@ -7,7 +7,8 @@ import {
   Calendar, Clock, Circle, Trophy, Star, 
   ChevronLeft, ChevronRight, Pause, Play,
   MapPin, Activity, Zap, Newspaper, TrendingUp,
-  Users, BarChart3, Heart, Bell, Sparkles, Flame
+  Users, BarChart3, Heart, Bell, Sparkles, Flame,
+  ExternalLink
 } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -19,6 +20,8 @@ import { ko } from 'date-fns/locale'
 import { motion, AnimatePresence } from 'framer-motion'
 import { formatMatchTime, formatRelativeTime, formatVenue, getTimezoneAbbreviation } from '@/lib/utils/timezone'
 import { getTeamColor } from '@/lib/data/team-colors'
+import { getTeamAbbreviation } from '@/lib/utils/team-abbreviations'
+import { getLeagueAbbreviation } from '@/lib/utils/league-abbreviations'
 
 // 슬라이드 콘텐츠 타입
 export type SlideType = 'match' | 'news' | 'team' | 'stats' | 'promotion' | 'transfer'
@@ -143,7 +146,7 @@ export function EnhancedHeroCarousel({
     <div className="relative">
       {/* 메인 캐러셀 - Apple 스타일 */}
       <Card 
-        className="relative h-[420px] md:h-[480px] lg:h-[520px] border-0 rounded-2xl overflow-hidden group shadow-2xl bg-gradient-to-br from-gray-900 to-black"
+        className="relative h-[380px] sm:h-[420px] md:h-[480px] lg:h-[520px] border-0 rounded-2xl overflow-hidden group shadow-2xl bg-gradient-to-br from-gray-900 to-black"
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
       >
@@ -356,12 +359,12 @@ function MatchSlide({ data }: { data: any }) {
       
       {/* Liquid Glass 라이브 인디케이터 */}
       {isLive && (
-        <div className="absolute top-6 left-6 z-20">
+        <div className="absolute top-4 left-4 sm:top-6 sm:left-6 z-20">
           <motion.div 
             initial={{ scale: 0.9, opacity: 0, x: -20 }}
             animate={{ scale: 1, opacity: 1, x: 0 }}
             transition={{ type: "spring" }}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-full"
+            className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-full"
             style={{
               background: 'linear-gradient(135deg, rgba(255,0,0,0.3), rgba(255,0,0,0.2))',
               backdropFilter: 'blur(20px)',
@@ -380,23 +383,23 @@ function MatchSlide({ data }: { data: any }) {
                 boxShadow: '0 0 10px rgba(255,255,255,0.8)',
               }}
             />
-            <span className="text-sm font-bold text-white">LIVE</span>
-            <span className="text-sm text-white/90">{data.fixture.status.elapsed}'</span>
+            <span className="text-xs sm:text-sm font-bold text-white">LIVE</span>
+            <span className="text-xs sm:text-sm text-white/90">{data.fixture.status.elapsed}'</span>
           </motion.div>
         </div>
       )}
 
       {/* 리그 표시 - 중앙 상단, 여백 더 증가 */}
-      <div className="absolute top-8 left-1/2 -translate-x-1/2 z-20">
+      <div className="absolute top-4 sm:top-8 left-1/2 -translate-x-1/2 z-20">
         <motion.div
           initial={{ y: -20, opacity: 0, scale: 0.9 }}
           animate={{ y: 0, opacity: 1, scale: 1 }}
           transition={{ delay: 0.2, type: "spring" }}
-          className="flex items-center gap-3 px-5 py-3 bg-gradient-to-r from-white/25 to-white/15 backdrop-blur-xl rounded-full shadow-xl border border-white/20"
+          className="flex items-center gap-2 sm:gap-3 px-3 sm:px-5 py-2 sm:py-3 bg-gradient-to-r from-white/25 to-white/15 backdrop-blur-xl rounded-full shadow-xl border border-white/20"
         >
           {/* 리그 로고 */}
           {data.league.logo && (
-            <div className="relative w-6 h-6">
+            <div className="relative w-5 h-5 sm:w-6 sm:h-6">
               <Image
                 src={data.league.logo}
                 alt={data.league.name}
@@ -406,13 +409,17 @@ function MatchSlide({ data }: { data: any }) {
             </div>
           )}
           <div className="flex items-center gap-2">
-            <span className="text-sm font-bold text-white">
+            {/* 모바일에서는 약어, 데스크탑에서는 풀네임 */}
+            <span className="text-xs sm:text-sm font-bold text-white sm:hidden">
+              {getLeagueAbbreviation(data.league.name)}
+            </span>
+            <span className="text-sm font-bold text-white hidden sm:inline">
               {data.league.name}
             </span>
             {data.league.round && (
               <>
-                <span className="text-white/40">•</span>
-                <span className="text-xs text-white/70">
+                <span className="text-white/40 hidden sm:inline">•</span>
+                <span className="text-[10px] sm:text-xs text-white/70 hidden sm:inline">
                   {data.league.round}
                 </span>
               </>
@@ -430,26 +437,27 @@ function MatchSlide({ data }: { data: any }) {
       </div>
 
       {/* 경기 정보 - 중앙 정렬로 균형잡힌 레이아웃 */}
-      <div className="relative h-full flex flex-col justify-center pt-24 pb-16 px-8 md:px-12">
-        <div className="max-w-6xl mx-auto w-full">
-          <div className="flex items-center justify-between gap-8">
+      <div className="relative h-full">
+        <div className="absolute inset-0 flex items-center justify-center px-2 sm:px-8 md:px-12">
+          <div className="max-w-6xl mx-auto w-full">
+            <div className="flex items-center justify-center gap-2 sm:gap-8">
             {/* 홈팀 - 팀 컬러 네온 글로우 효과 */}
             <motion.div 
               initial={{ x: -100, opacity: 0, scale: 0.8 }}
               animate={{ x: 0, opacity: 1, scale: 1 }}
               transition={{ delay: 0.2, type: "spring", stiffness: 100 }}
-              className="flex-1 flex flex-col items-center"
+              className="flex flex-col items-center"
             >
-              <div className="relative mb-4">
+              <div className="relative mb-2 sm:mb-4">
                 {/* Liquid Glass 팀 로고 컨테이너 */}
                 <motion.div
                   whileHover={{ scale: 1.05, rotateY: 5 }}
                   transition={{ type: "spring", stiffness: 300 }}
                   className="relative"
                 >
-                  {/* 소프트 글로우 */}
+                  {/* 소프트 글로우 - 모바일에서는 숨김 */}
                   <div 
-                    className="absolute -inset-4 rounded-[32px] opacity-50"
+                    className="absolute -inset-4 rounded-[32px] opacity-50 hidden sm:block"
                     style={{
                       background: `radial-gradient(circle at 50% 50%, ${homeTeamColors.primary}40, transparent 60%)`,
                       filter: 'blur(40px)',
@@ -457,7 +465,7 @@ function MatchSlide({ data }: { data: any }) {
                   />
                   
                   {/* Glass Container with Depth */}
-                  <div className="relative w-32 h-32 md:w-40 md:h-40 group">
+                  <div className="relative w-20 h-20 sm:w-32 sm:h-32 md:w-40 md:h-40 group">
                     {/* Back Glass Layer */}
                     <div 
                       className="absolute inset-0 rounded-[28px] backdrop-blur-2xl"
@@ -484,12 +492,12 @@ function MatchSlide({ data }: { data: any }) {
                     />
                     
                     {/* Logo */}
-                    <div className="absolute inset-0 p-6 flex items-center justify-center">
+                    <div className="absolute inset-0 p-3 sm:p-6 flex items-center justify-center">
                       <Image
                         src={data.teams.home.logo}
                         alt={data.teams.home.name}
                         fill
-                        className="object-contain p-6 drop-shadow-lg"
+                        className="object-contain p-3 sm:p-6 drop-shadow-lg"
                       />
                     </div>
                     
@@ -503,7 +511,11 @@ function MatchSlide({ data }: { data: any }) {
                   </div>
                 </motion.div>
               </div>
-              <h3 className="text-xl md:text-2xl font-black text-white text-center tracking-tight">
+              {/* 모바일에서는 팀명 약어 */}
+              <h3 className="text-sm sm:text-xl md:text-2xl font-black text-white text-center tracking-tight sm:hidden">
+                {getTeamAbbreviation(data.teams.home.name)}
+              </h3>
+              <h3 className="text-xl md:text-2xl font-black text-white text-center tracking-tight hidden sm:block">
                 {data.teams.home.name}
               </h3>
             </motion.div>
@@ -513,7 +525,7 @@ function MatchSlide({ data }: { data: any }) {
               initial={{ scale: 0, rotateY: 180 }}
               animate={{ scale: 1, rotateY: 0 }}
               transition={{ delay: 0.3, type: "spring" }}
-              className="px-8 text-center"
+              className="px-2 sm:px-8 text-center"
             >
               {isLive || isFinished ? (
                 <div className="relative">
@@ -522,7 +534,7 @@ function MatchSlide({ data }: { data: any }) {
                     initial={{ scale: 0.8, opacity: 0 }}
                     animate={{ scale: 1, opacity: 1 }}
                     transition={{ delay: 0.3, type: "spring" }}
-                    className="relative px-8 py-4 rounded-[32px]"
+                    className="relative px-4 sm:px-8 py-2 sm:py-4 rounded-[32px]"
                     style={{
                       background: 'linear-gradient(135deg, rgba(255,255,255,0.08), rgba(255,255,255,0.03))',
                       backdropFilter: 'blur(20px)',
@@ -534,12 +546,12 @@ function MatchSlide({ data }: { data: any }) {
                       border: '1px solid rgba(255,255,255,0.1)',
                     }}
                   >
-                    <div className="flex items-center gap-6 justify-center">
+                    <div className="flex items-center gap-3 sm:gap-6 justify-center">
                       <motion.span 
                         initial={{ x: -50, opacity: 0 }}
                         animate={{ x: 0, opacity: 1 }}
                         transition={{ delay: 0.4 }}
-                        className="text-7xl md:text-8xl font-black text-white"
+                        className="text-3xl sm:text-7xl md:text-8xl font-black text-white"
                         style={{ 
                           textShadow: `0 4px 12px ${homeTeamColors.primary}80, 0 2px 4px rgba(0,0,0,0.5)`,
                           filter: `drop-shadow(0 4px 8px ${homeTeamColors.primary}40)`,
@@ -574,7 +586,7 @@ function MatchSlide({ data }: { data: any }) {
                         initial={{ x: 50, opacity: 0 }}
                         animate={{ x: 0, opacity: 1 }}
                         transition={{ delay: 0.4 }}
-                        className="text-7xl md:text-8xl font-black text-white"
+                        className="text-3xl sm:text-7xl md:text-8xl font-black text-white"
                         style={{ 
                           textShadow: `0 4px 12px ${awayTeamColors.primary}80, 0 2px 4px rgba(0,0,0,0.5)`,
                           filter: `drop-shadow(0 4px 8px ${awayTeamColors.primary}40)`,
@@ -611,10 +623,10 @@ function MatchSlide({ data }: { data: any }) {
                     initial={{ scale: 0, rotate: -180 }}
                     animate={{ scale: 1, rotate: 0 }}
                     transition={{ delay: 0.3, type: "spring" }}
-                    className="relative mt-12"
+                    className="relative mt-4 sm:mt-12"
                   >
                     <div 
-                      className="text-6xl md:text-7xl font-black tracking-widest"
+                      className="text-4xl sm:text-6xl md:text-7xl font-black tracking-widest"
                       style={{
                         background: 'linear-gradient(135deg, rgba(255,255,255,0.3), rgba(255,255,255,0.1))',
                         WebkitBackgroundClip: 'text',
@@ -632,19 +644,19 @@ function MatchSlide({ data }: { data: any }) {
                     initial={{ y: 20, opacity: 0 }}
                     animate={{ y: 0, opacity: 1 }}
                     transition={{ delay: 0.4 }}
-                    className="mt-8 space-y-2"
+                    className="mt-4 sm:mt-8 space-y-1 sm:space-y-2"
                   >
-                    <div className="text-3xl md:text-4xl font-bold text-white">
+                    <div className="text-lg sm:text-3xl md:text-4xl font-bold text-white">
                       {formatMatchTime(data.fixture.date)}
                     </div>
-                    <div className="text-sm text-white/60">
+                    <div className="text-xs sm:text-sm text-white/60">
                       {new Date(data.fixture.date).toLocaleDateString('ko-KR', { 
                         weekday: 'short',
                         month: 'short', 
                         day: 'numeric'
                       })}
                     </div>
-                    <div className="flex items-center gap-2 justify-center">
+                    <div className="hidden sm:flex items-center gap-2 justify-center">
                       <MapPin className="w-3 h-3 text-white/60" />
                       <span className="text-xs text-white/60">
                         {formatVenue(data.fixture.venue)}
@@ -660,18 +672,18 @@ function MatchSlide({ data }: { data: any }) {
               initial={{ x: 100, opacity: 0, scale: 0.8 }}
               animate={{ x: 0, opacity: 1, scale: 1 }}
               transition={{ delay: 0.2, type: "spring", stiffness: 100 }}
-              className="flex-1 flex flex-col items-center"
+              className="flex flex-col items-center"
             >
-              <div className="relative mb-4">
+              <div className="relative mb-2 sm:mb-4">
                 {/* Liquid Glass 팀 로고 컨테이너 */}
                 <motion.div
                   whileHover={{ scale: 1.05, rotateY: -5 }}
                   transition={{ type: "spring", stiffness: 300 }}
                   className="relative"
                 >
-                  {/* 소프트 글로우 */}
+                  {/* 소프트 글로우 - 모바일에서는 숨김 */}
                   <div 
-                    className="absolute -inset-4 rounded-[32px] opacity-50"
+                    className="absolute -inset-4 rounded-[32px] opacity-50 hidden sm:block"
                     style={{
                       background: `radial-gradient(circle at 50% 50%, ${awayTeamColors.primary}40, transparent 60%)`,
                       filter: 'blur(40px)',
@@ -679,7 +691,7 @@ function MatchSlide({ data }: { data: any }) {
                   />
                   
                   {/* Glass Container with Depth */}
-                  <div className="relative w-32 h-32 md:w-40 md:h-40 group">
+                  <div className="relative w-20 h-20 sm:w-32 sm:h-32 md:w-40 md:h-40 group">
                     {/* Back Glass Layer */}
                     <div 
                       className="absolute inset-0 rounded-[28px] backdrop-blur-2xl"
@@ -706,12 +718,12 @@ function MatchSlide({ data }: { data: any }) {
                     />
                     
                     {/* Logo */}
-                    <div className="absolute inset-0 p-6 flex items-center justify-center">
+                    <div className="absolute inset-0 p-3 sm:p-6 flex items-center justify-center">
                       <Image
                         src={data.teams.away.logo}
                         alt={data.teams.away.name}
                         fill
-                        className="object-contain p-6 drop-shadow-lg"
+                        className="object-contain p-3 sm:p-6 drop-shadow-lg"
                       />
                     </div>
                     
@@ -725,58 +737,64 @@ function MatchSlide({ data }: { data: any }) {
                   </div>
                 </motion.div>
               </div>
-              <h3 className="text-xl md:text-2xl font-black text-white text-center tracking-tight">
+              {/* 모바일에서는 팀명 약어 */}
+              <h3 className="text-sm sm:text-xl md:text-2xl font-black text-white text-center tracking-tight sm:hidden">
+                {getTeamAbbreviation(data.teams.away.name)}
+              </h3>
+              <h3 className="text-xl md:text-2xl font-black text-white text-center tracking-tight hidden sm:block">
                 {data.teams.away.name}
               </h3>
             </motion.div>
           </div>
-
-          {/* 상세보기 버튼 */}
+        </div>
+        </div>
+        
+        {/* 상세보기 버튼 - 하단 고정 위치 */}
+        <div className="absolute bottom-6 sm:bottom-8 left-0 right-0 flex justify-center z-20">
           <motion.div 
             initial={{ y: 20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ delay: 0.6 }}
-            className="flex items-center justify-center mt-14"
           >
-            <Link href={`/fixtures/${data.fixture.id}`}>
-              <motion.button
-                whileHover={{ scale: 1.02, y: -2 }}
-                whileTap={{ scale: 0.98 }}
-                className="relative group"
+          <Link href={`/fixtures/${data.fixture.id}`}>
+            <motion.button
+              whileHover={{ scale: 1.02, y: -2 }}
+              whileTap={{ scale: 0.98 }}
+              className="relative group"
+            >
+              {/* Liquid Glass Button */}
+              <div 
+                className="px-4 sm:px-6 py-2.5 sm:py-3 rounded-2xl backdrop-blur-2xl flex items-center gap-2"
+                style={{
+                  background: 'linear-gradient(135deg, rgba(255,255,255,0.15), rgba(255,255,255,0.08))',
+                  boxShadow: `
+                    inset 0 1px 2px rgba(255,255,255,0.3),
+                    inset 0 -1px 1px rgba(0,0,0,0.1),
+                    0 10px 30px -5px rgba(0,0,0,0.5),
+                    0 5px 15px -3px rgba(255,255,255,0.1)
+                  `,
+                  border: '1px solid rgba(255,255,255,0.2)',
+                }}
               >
-                {/* Liquid Glass Button */}
-                <div 
-                  className="px-6 py-3 rounded-2xl backdrop-blur-2xl flex items-center gap-2"
-                  style={{
-                    background: 'linear-gradient(135deg, rgba(255,255,255,0.15), rgba(255,255,255,0.08))',
-                    boxShadow: `
-                      inset 0 1px 2px rgba(255,255,255,0.3),
-                      inset 0 -1px 1px rgba(0,0,0,0.1),
-                      0 10px 30px -5px rgba(0,0,0,0.5),
-                      0 5px 15px -3px rgba(255,255,255,0.1)
-                    `,
-                    border: '1px solid rgba(255,255,255,0.2)',
-                  }}
+                <span className="text-xs sm:text-sm font-semibold text-white">경기 상세보기</span>
+                <motion.div
+                  animate={{ x: [0, 3, 0] }}
+                  transition={{ duration: 1.5, repeat: Infinity }}
                 >
-                  <span className="text-sm font-semibold text-white">경기 상세보기</span>
-                  <motion.div
-                    animate={{ x: [0, 3, 0] }}
-                    transition={{ duration: 1.5, repeat: Infinity }}
-                  >
-                    <ChevronRight className="h-4 w-4 text-white/80" />
-                  </motion.div>
-                </div>
-                
-                {/* Hover Glow */}
-                <div 
-                  className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"
-                  style={{
-                    background: 'radial-gradient(circle at center, rgba(255,255,255,0.1), transparent)',
-                    filter: 'blur(10px)',
-                  }}
-                />
-              </motion.button>
-            </Link>
+                  <ChevronRight className="h-3 w-3 sm:h-4 sm:w-4 text-white/80" />
+                </motion.div>
+              </div>
+              
+              {/* Hover Glow */}
+              <div 
+                className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                style={{
+                  background: 'radial-gradient(circle at center, rgba(255,255,255,0.1), transparent)',
+                  filter: 'blur(10px)',
+                }}
+              />
+            </motion.button>
+          </Link>
           </motion.div>
         </div>
       </div>
@@ -785,214 +803,205 @@ function MatchSlide({ data }: { data: any }) {
 }
 
 // ============================================
-// 뉴스 슬라이드
+// 뉴스 슬라이드 - 배너 뉴스 전용 임팩트 있는 디자인
 // ============================================
 function NewsSlide({ data }: { data: any }) {
   // data가 배열이 아닌 경우 배열로 변환
   const newsItems = Array.isArray(data) ? data : [data]
+  const mainNews = newsItems[0] // 배너 뉴스는 항상 1개
+  
+  if (!mainNews) return null
   
   return (
     <div className="absolute inset-0">
-      {/* Liquid Glass 스타일 배경 */}
-      <div className="absolute inset-0 bg-gradient-to-br from-slate-900/95 via-blue-950/90 to-indigo-950/95" />
+      {/* 배경 이미지 (있는 경우) */}
+      {mainNews.image && (
+        <div className="absolute inset-0">
+          <Image
+            src={mainNews.image}
+            alt={mainNews.title}
+            fill
+            className="object-cover"
+            priority
+          />
+          <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/70 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent" />
+        </div>
+      )}
       
-      {/* 부드러운 컬러 오브 */}
+      {/* 배경이 없는 경우 그라디언트 */}
+      {!mainNews.image && (
+        <div className="absolute inset-0 bg-gradient-to-br from-red-900/95 via-slate-900/90 to-black/95" />
+      )}
+      
+      {/* 프리미엄 효과 */}
       <div className="absolute inset-0 overflow-hidden">
         <motion.div
           animate={{
-            x: [0, -50, 0],
-            y: [0, 100, 0],
-            scale: [1, 1.2, 1],
+            x: [0, 100, 0],
+            y: [0, -100, 0],
+            scale: [1, 1.5, 1],
           }}
           transition={{
-            duration: 25,
+            duration: 30,
             repeat: Infinity,
             ease: "easeInOut"
           }}
-          className="absolute -top-20 -right-20 w-[600px] h-[600px] rounded-full"
+          className="absolute -top-40 -right-40 w-[800px] h-[800px] rounded-full"
           style={{
-            background: 'radial-gradient(circle, rgba(59,130,246,0.3), rgba(59,130,246,0.1), transparent)',
-            filter: 'blur(80px)',
-            mixBlendMode: 'screen'
-          }}
-        />
-        <motion.div
-          animate={{
-            x: [0, 50, 0],
-            y: [0, -50, 0],
-            scale: [1, 1.1, 1],
-          }}
-          transition={{
-            duration: 20,
-            repeat: Infinity,
-            ease: "easeInOut"
-          }}
-          className="absolute -bottom-20 -left-20 w-[500px] h-[500px] rounded-full"
-          style={{
-            background: 'radial-gradient(circle, rgba(99,102,241,0.3), rgba(99,102,241,0.1), transparent)',
-            filter: 'blur(80px)',
+            background: 'radial-gradient(circle, rgba(239,68,68,0.2), rgba(239,68,68,0.05), transparent)',
+            filter: 'blur(100px)',
             mixBlendMode: 'screen'
           }}
         />
       </div>
       
-      {/* 상단 하이라이트 */}
-      <div className="absolute inset-0 bg-gradient-to-b from-white/5 via-transparent to-transparent" />
-      
-      {/* 뉴스 콘텐츠 영역 - 더 컴팩트한 레이아웃 */}
-      <div className="relative h-full flex flex-col justify-center py-4 px-6 md:px-8">
-        <div className="max-w-4xl mx-auto w-full">
-          {/* 헤더 영역 - 크기 더 축소 */}
-          <div className="flex items-center justify-between mb-3">
-            <motion.h2 
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
-              className="text-base md:text-lg font-bold text-white"
-            >
-              Top News
-            </motion.h2>
-            
-            {/* 우측 상단 뉴스 아이콘 */}
+      {/* BREAKING NEWS 배지 - 모바일에서 숨김 */}
+      <div className="absolute top-6 left-6 z-20 hidden sm:block">
+        <motion.div
+          initial={{ scale: 0, rotate: -10 }}
+          animate={{ scale: 1, rotate: 0 }}
+          transition={{ type: "spring", bounce: 0.5 }}
+          className="flex items-center gap-2"
+        >
+          <div className="relative">
             <motion.div
-              initial={{ opacity: 0, x: 20 }}
+              animate={{ scale: [1, 1.2, 1] }}
+              transition={{ duration: 2, repeat: Infinity }}
+              className="absolute inset-0 bg-red-500 blur-xl opacity-60"
+            />
+            <div className="relative flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-red-500 to-red-600 rounded-full shadow-2xl">
+              <motion.div
+                animate={{ opacity: [1, 0, 1] }}
+                transition={{ duration: 1.5, repeat: Infinity }}
+                className="w-2 h-2 bg-white rounded-full"
+              />
+              <span className="text-sm font-black text-white uppercase tracking-wider">Breaking News</span>
+            </div>
+          </div>
+        </motion.div>
+      </div>
+      
+      {/* 메인 콘텐츠 */}
+      <div className="relative h-full flex items-center px-4 sm:px-8 md:px-16">
+        <div className="max-w-5xl w-full">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+          >
+            {/* 카테고리 & 출처 */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4 mb-3 sm:mb-4">
+              <Badge className="bg-white/20 backdrop-blur text-white border-white/30 px-2 sm:px-3 py-1 text-xs sm:text-sm">
+                {mainNews.category || '주요 뉴스'}
+              </Badge>
+              <div className="flex items-center gap-2 text-white/70">
+                <Newspaper className="w-3 h-3 sm:w-4 sm:h-4" />
+                <span className="text-xs sm:text-sm font-medium">{mainNews.source}</span>
+                {mainNews.publishedAt && (
+                  <>
+                    <span className="text-white/40">•</span>
+                    <span className="text-xs sm:text-sm">
+                      {formatDistanceToNow(new Date(mainNews.publishedAt), {
+                        addSuffix: true,
+                        locale: ko
+                      })}
+                    </span>
+                  </>
+                )}
+              </div>
+            </div>
+            
+            {/* 제목 - 매우 크고 임팩트 있게 */}
+            <motion.h1
+              initial={{ opacity: 0, x: -30 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.4 }}
-              className="flex items-center gap-1.5 px-2 py-1 rounded-full"
+              className="text-xl sm:text-3xl md:text-5xl lg:text-6xl font-black text-white mb-3 sm:mb-6 leading-tight"
               style={{
-                background: 'linear-gradient(135deg, rgba(255,255,255,0.08), rgba(255,255,255,0.04))',
-                backdropFilter: 'blur(10px)',
-                border: '1px solid rgba(255,255,255,0.1)',
+                textShadow: '0 4px 20px rgba(0,0,0,0.5), 0 2px 10px rgba(0,0,0,0.8)'
               }}
             >
-              <Newspaper className="w-3.5 h-3.5 text-white/60" />
-              <span className="text-[10px] text-white/60">Football News</span>
-            </motion.div>
-          </div>
-          
-          <div className="grid gap-2.5">
-            {newsItems.slice(0, 3).map((item: any, index: number) => (
-              <motion.div
-                key={item.id || index}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.3 + index * 0.1 }}
-              >
-                <Link 
-                  href={`/news/${item.id || index}`}
-                  className="block group"
-                >
-                  <motion.div 
-                    whileHover={{ scale: 1.01, x: 3 }}
-                    className="relative p-2.5 rounded-xl transition-all"
-                    style={{
-                      background: 'linear-gradient(135deg, rgba(255,255,255,0.08), rgba(255,255,255,0.03))',
-                      backdropFilter: 'blur(20px)',
-                      boxShadow: `
-                        inset 0 1px 2px rgba(255,255,255,0.1),
-                        0 10px 30px -5px rgba(0,0,0,0.3)
-                      `,
-                      border: '1px solid rgba(255,255,255,0.1)',
-                    }}
-                  >
-                    <div className="flex items-start gap-2.5">
-                      {/* 뉴스 순위 표시 - 모두 동일한 스타일 */}
-                      <div 
-                        className="w-6 h-6 rounded-full flex items-center justify-center font-bold text-[10px] flex-shrink-0"
-                        style={{
-                          background: 'linear-gradient(135deg, rgba(255,255,255,0.15), rgba(255,255,255,0.08))',
-                          boxShadow: 'inset 0 1px 2px rgba(255,255,255,0.2)',
-                          border: '1px solid rgba(255,255,255,0.2)',
-                        }}
-                      >
-                        <span className="text-white">{index + 1}</span>
-                      </div>
-                      
-                      {/* 뉴스 콘텐츠 */}
-                      <div className="flex-1">
-                      <div className="flex items-center gap-1.5 mb-1">
-                        <span className="text-[10px] text-white/50 font-medium">{item.source}</span>
-                        {item.publishedAt && (
-                          <span className="text-[10px] text-white/40">
-                            {formatDistanceToNow(new Date(item.publishedAt), {
-                              addSuffix: true,
-                              locale: ko
-                            })}
-                          </span>
-                        )}
-                      </div>
-                      
-                      <h3 className="text-sm md:text-base font-bold text-white mb-1.5 group-hover:text-blue-300 transition-colors line-clamp-2">
-                        {item.title}
-                      </h3>
-                      
-                      <p className="text-xs text-white/60 line-clamp-2">
-                        {item.description}
-                      </p>
-                      </div>
-                    </div>
-                    
-                    {/* Hover Glow Effect */}
-                    <div 
-                      className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"
-                      style={{
-                        background: 'radial-gradient(circle at center, rgba(59,130,246,0.1), transparent)',
-                        filter: 'blur(20px)',
-                      }}
-                    />
-                  </motion.div>
-                </Link>
-              </motion.div>
-            ))}
-          </div>
-          
-          {/* 하단 버튼 영역 - 중앙 정렬, 크기 축소 */}
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.6 }}
-            className="mt-4 flex justify-center"
-          >
-            <Link href="/news">
-              <motion.button
-                whileHover={{ scale: 1.02, y: -1 }}
-                whileTap={{ scale: 0.98 }}
-                className="relative group inline-block"
-              >
-                <div 
-                  className="px-4 py-2 rounded-xl backdrop-blur-2xl flex items-center gap-1.5"
-                  style={{
-                    background: 'linear-gradient(135deg, rgba(255,255,255,0.15), rgba(255,255,255,0.08))',
-                    boxShadow: `
-                      inset 0 1px 2px rgba(255,255,255,0.3),
-                      inset 0 -1px 1px rgba(0,0,0,0.1),
-                      0 10px 30px -5px rgba(0,0,0,0.4)
-                    `,
-                    border: '1px solid rgba(255,255,255,0.2)',
+              {mainNews.title}
+            </motion.h1>
+            
+            {/* 설명 */}
+            <motion.p
+              initial={{ opacity: 0, x: -30 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.5 }}
+              className="text-sm sm:text-lg md:text-xl text-white/80 mb-4 sm:mb-8 line-clamp-2 sm:line-clamp-3 max-w-3xl"
+              style={{
+                textShadow: '0 2px 10px rgba(0,0,0,0.5)'
+              }}
+            >
+              {mainNews.description}
+            </motion.p>
+            
+            {/* 액션 버튼 */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.6 }}
+              className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-4 relative z-50"
+              onMouseDown={(e) => e.stopPropagation()}
+              onMouseUp={(e) => e.stopPropagation()}
+              onTouchStart={(e) => e.stopPropagation()}
+              onTouchEnd={(e) => e.stopPropagation()}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {mainNews.url && (
+                <div
+                  className="px-4 sm:px-6 py-2 sm:py-3 bg-white text-black hover:bg-white/90 font-bold shadow-2xl rounded-lg flex items-center justify-center gap-2 transition-all cursor-pointer select-none text-sm sm:text-base"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const url = mainNews.url;
+                    console.log('Opening URL:', url);
+                    if (url) {
+                      window.open(url, '_blank', 'noopener,noreferrer');
+                    }
+                  }}
+                  role="button"
+                  tabIndex={0}
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      window.open(mainNews.url, '_blank', 'noopener,noreferrer');
+                    }
                   }}
                 >
-                  <span className="text-xs font-semibold text-white">모든 뉴스 보기</span>
-                  <motion.div
-                    animate={{ x: [0, 3, 0] }}
-                    transition={{ duration: 1.5, repeat: Infinity }}
-                  >
-                    <ChevronRight className="h-3.5 w-3.5 text-white/80" />
-                  </motion.div>
+                  <span>전체 기사 읽기</span>
+                  <ExternalLink className="w-3 h-3 sm:w-4 sm:h-4" />
                 </div>
-                
-                {/* Hover Glow */}
-                <div 
-                  className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"
-                  style={{
-                    background: 'radial-gradient(circle at center, rgba(255,255,255,0.1), transparent)',
-                    filter: 'blur(10px)',
-                  }}
-                />
-              </motion.button>
-            </Link>
+              )}
+              <div
+                className="px-4 sm:px-6 py-2 sm:py-3 border sm:border-2 border-white/30 text-white hover:bg-white/10 backdrop-blur font-bold rounded-lg flex items-center justify-center gap-2 transition-all cursor-pointer select-none text-sm sm:text-base"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  console.log('Navigating to /news');
+                  window.location.href = '/news';
+                }}
+                role="button"
+                tabIndex={0}
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    window.location.href = '/news';
+                  }
+                }}
+              >
+                <span>더 많은 뉴스</span>
+                <ChevronRight className="w-3 h-3 sm:w-4 sm:h-4" />
+              </div>
+            </motion.div>
           </motion.div>
         </div>
       </div>
+      
+      {/* 하단 그라디언트 */}
+      <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-black/80 to-transparent" />
     </div>
   )
 }
@@ -1120,30 +1129,31 @@ function StatsSlide({ data }: { data: any }) {
     <div className="absolute inset-0">
       <div className="absolute inset-0 bg-gradient-to-br from-orange-900/90 via-slate-900/80 to-slate-800/70" />
       
-      {/* 순위 라벨 */}
-      <div className="absolute top-4 left-4 z-20">
-        <div className="flex items-center gap-2 px-3 py-1.5 bg-orange-500 rounded-full">
-          <Trophy className="w-4 h-4 text-white" />
-          <span className="text-xs font-bold text-white">리그 순위</span>
+      {/* 순위 라벨 - 모바일에서 위치 조정 */}
+      <div className="absolute top-2 left-2 sm:top-4 sm:left-4 z-20">
+        <div className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1 sm:py-1.5 bg-orange-500 rounded-full">
+          <Trophy className="w-3 h-3 sm:w-4 sm:h-4 text-white" />
+          <span className="text-[10px] sm:text-xs font-bold text-white">리그 순위</span>
         </div>
       </div>
 
-      {/* 순위 정보 - 패딩 및 간격 조정 */}
-      <div className="relative h-full flex items-center p-6 md:p-8">
+      {/* 순위 정보 - 모바일 패딩 최적화 */}
+      <div className="relative h-full flex items-center p-3 sm:p-6 md:p-8">
         <div className="max-w-4xl mx-auto w-full">
-          <h2 className="text-lg md:text-xl lg:text-2xl font-bold text-white mb-4">
-            {data.league.name} 상위 5팀
+          <h2 className="text-base sm:text-lg md:text-xl lg:text-2xl font-bold text-white mb-2 sm:mb-4">
+            <span className="hidden sm:inline">{data.league.name} 상위 5팀</span>
+            <span className="sm:hidden">{data.league.name} TOP 5</span>
           </h2>
           
-          <div className="grid gap-2.5">
+          <div className="grid gap-1.5 sm:gap-2.5">
             {data.standings.slice(0, 5).map((team: any, index: number) => (
               <div
                 key={team.team.id}
-                className="flex items-center justify-between bg-white/10 backdrop-blur rounded-lg p-2 md:p-3"
+                className="flex items-center justify-between bg-white/10 backdrop-blur rounded-lg p-1.5 sm:p-2 md:p-3"
               >
-                <div className="flex items-center gap-2 md:gap-3 flex-1">
+                <div className="flex items-center gap-1.5 sm:gap-2 md:gap-3 flex-1 min-w-0">
                   <div className={cn(
-                    "w-6 h-6 md:w-7 md:h-7 rounded-full flex items-center justify-center font-bold text-xs",
+                    "w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7 rounded-full flex items-center justify-center font-bold text-[10px] sm:text-xs flex-shrink-0",
                     index === 0 && "bg-yellow-500 text-white",
                     index === 1 && "bg-gray-400 text-white",
                     index === 2 && "bg-orange-600 text-white",
@@ -1156,37 +1166,37 @@ function StatsSlide({ data }: { data: any }) {
                     alt={team.team.name}
                     width={24}
                     height={24}
-                    className="object-contain w-6 h-6 md:w-7 md:h-7"
+                    className="object-contain w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7 flex-shrink-0"
                   />
-                  <span className="text-white font-medium text-sm md:text-base truncate">{team.team.name}</span>
+                  <span className="text-white font-medium text-xs sm:text-sm md:text-base truncate">{team.team.name}</span>
                 </div>
                 
-                <div className="flex items-center gap-3 md:gap-5 text-white">
+                <div className="flex items-center gap-2 sm:gap-3 md:gap-5 text-white flex-shrink-0">
                   <div className="text-center hidden sm:block">
-                    <p className="text-[10px] md:text-xs text-white/60">경기</p>
-                    <p className="font-bold text-xs md:text-sm">{team.all.played}</p>
+                    <p className="text-[9px] sm:text-[10px] md:text-xs text-white/60">경기</p>
+                    <p className="font-bold text-[10px] sm:text-xs md:text-sm">{team.all.played}</p>
                   </div>
                   <div className="text-center">
-                    <p className="text-[10px] md:text-xs text-white/60">승점</p>
-                    <p className="font-bold text-sm md:text-base">{team.points}</p>
+                    <p className="text-[9px] sm:text-[10px] md:text-xs text-white/60">승점</p>
+                    <p className="font-bold text-xs sm:text-sm md:text-base">{team.points}</p>
                   </div>
                   <div className="text-center">
-                    <p className="text-[10px] md:text-xs text-white/60">득실</p>
-                    <p className="font-bold text-xs md:text-sm">{team.goalsDiff > 0 ? '+' : ''}{team.goalsDiff}</p>
+                    <p className="text-[9px] sm:text-[10px] md:text-xs text-white/60">득실</p>
+                    <p className="font-bold text-[10px] sm:text-xs md:text-sm">{team.goalsDiff > 0 ? '+' : ''}{team.goalsDiff}</p>
                   </div>
                 </div>
               </div>
             ))}
           </div>
           
-          <div className="mt-4 text-center">
+          <div className="mt-2 sm:mt-4 text-center">
             <Link href="/standings">
               <Button 
                 size="sm" 
-                className="bg-white/20 backdrop-blur hover:bg-white/30 text-white border-0 whitespace-nowrap flex items-center gap-1"
+                className="bg-white/20 backdrop-blur hover:bg-white/30 text-white border-0 whitespace-nowrap flex items-center gap-1 text-xs sm:text-sm px-3 py-1.5 sm:px-4 sm:py-2 h-auto"
               >
                 <span>전체 순위 보기</span>
-                <ChevronRight className="h-4 w-4 flex-shrink-0" />
+                <ChevronRight className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
               </Button>
             </Link>
           </div>

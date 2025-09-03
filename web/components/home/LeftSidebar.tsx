@@ -28,6 +28,29 @@ export function LeftSidebar() {
     setIsHydrated(true)
   }, [])
 
+  // 기본 표시 팀들 (요청한 순서대로)
+  const defaultTeams = [
+    // Premier League
+    { id: 40, name: 'Liverpool', logo: 'https://media.api-sports.io/football/teams/40.png' },
+    { id: 33, name: 'Manchester United', logo: 'https://media.api-sports.io/football/teams/33.png' },
+    { id: 49, name: 'Chelsea', logo: 'https://media.api-sports.io/football/teams/49.png' },
+    { id: 50, name: 'Manchester City', logo: 'https://media.api-sports.io/football/teams/50.png' },
+    { id: 42, name: 'Arsenal', logo: 'https://media.api-sports.io/football/teams/42.png' },
+    { id: 47, name: 'Tottenham', logo: 'https://media.api-sports.io/football/teams/47.png' },
+    // La Liga
+    { id: 541, name: 'Real Madrid', logo: 'https://media.api-sports.io/football/teams/541.png' },
+    { id: 529, name: 'Barcelona', logo: 'https://media.api-sports.io/football/teams/529.png' },
+    { id: 530, name: 'Atlético Madrid', logo: 'https://media.api-sports.io/football/teams/530.png' },
+    // Serie A
+    { id: 496, name: 'Juventus', logo: 'https://media.api-sports.io/football/teams/496.png' },
+    { id: 489, name: 'AC Milan', logo: 'https://media.api-sports.io/football/teams/489.png' },
+    { id: 505, name: 'Inter', logo: 'https://media.api-sports.io/football/teams/505.png' },
+    // Bundesliga
+    { id: 157, name: 'Bayern Munich', logo: 'https://media.api-sports.io/football/teams/157.png' },
+    // Ligue 1
+    { id: 85, name: 'Paris Saint-Germain', logo: 'https://media.api-sports.io/football/teams/85.png' },
+  ]
+
   const topLeagues = [
     { id: 39, name: 'Premier League', country: 'England', logo: 'https://media.api-sports.io/football/leagues/39.png' },
     { id: 140, name: 'La Liga', country: 'Spain', logo: 'https://media.api-sports.io/football/leagues/140.png' },
@@ -37,6 +60,12 @@ export function LeftSidebar() {
   ]
 
   const displayedLeagues = showAllLeagues ? followedLeagues : followedLeagues.slice(0, 5)
+  
+  // 항상 기본 팀 표시 (팔로우 여부와 관계없이)
+  const displayedTeams = showAllTeams ? defaultTeams : defaultTeams.slice(0, 10)
+  
+  // Debug log
+  console.log('LeftSidebar - First 3 teams:', displayedTeams.slice(0, 3).map(t => t.name))
 
   // Don't render until hydrated to avoid hydration mismatch
   if (!isHydrated) {
@@ -59,63 +88,99 @@ export function LeftSidebar() {
   return (
     <div className="w-full h-full bg-white border-r overflow-y-auto">
       <div className="p-4 space-y-6">
-        {/* Followed Teams */}
+        {/* Popular Teams Section - Always Show */}
         <div>
           <div className="flex items-center justify-between mb-3">
-            <h3 className="font-semibold text-sm">Followed teams</h3>
-            <Link href="/favorites">
-              <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
-                <Plus className="h-3 w-3" />
-              </Button>
-            </Link>
+            <h3 className="font-semibold text-sm">Popular teams</h3>
           </div>
           <div className="space-y-2">
-            {followedTeams.length === 0 ? (
+            {displayedTeams.map((team) => (
               <Link
-                href="/teams"
-                className="flex items-center justify-center py-4 px-2 rounded-lg border-2 border-dashed border-gray-200 hover:border-gray-300 transition-colors"
+                key={team.id}
+                href={`/teams/${team.id}`}
+                className="flex items-center space-x-3 py-2 px-2 rounded-lg hover:bg-gray-50 transition-colors"
               >
-                <Plus className="h-4 w-4 mr-2 text-gray-400" />
-                <span className="text-sm text-gray-500">Add teams</span>
-              </Link>
-            ) : (
-              <>
-                {followedTeams.map((team) => (
-                  <Link
-                    key={team.id}
-                    href={`/teams/${team.id}`}
-                    className="flex items-center space-x-3 py-2 px-2 rounded-lg hover:bg-gray-50 transition-colors"
-                  >
-                    {team.logo ? (
-                      <Image
-                        src={team.logo}
-                        alt={team.name}
-                        width={24}
-                        height={24}
-                        className="object-contain"
-                      />
-                    ) : (
-                      <div className="w-6 h-6 bg-gray-200 rounded-full flex items-center justify-center">
-                        <Flag className="h-3 w-3 text-gray-500" />
-                      </div>
-                    )}
-                    <span className="text-sm">{team.name}</span>
-                  </Link>
-                ))}
-                {followedTeams.length > 5 && !showAllTeams && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="w-full text-xs"
-                    onClick={() => setShowAllTeams(true)}
-                  >
-                    Show all ({followedTeams.length})
-                  </Button>
+                {team.logo ? (
+                  <Image
+                    src={team.logo}
+                    alt={team.name}
+                    width={24}
+                    height={24}
+                    className="object-contain"
+                  />
+                ) : (
+                  <div className="w-6 h-6 bg-gray-200 rounded-full flex items-center justify-center">
+                    <Flag className="h-3 w-3 text-gray-500" />
+                  </div>
                 )}
-              </>
+                <span className="text-sm">{team.name}</span>
+              </Link>
+            ))}
+            {defaultTeams.length > 10 && !showAllTeams && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-full text-xs"
+                onClick={() => setShowAllTeams(true)}
+              >
+                Show all ({defaultTeams.length})
+              </Button>
+            )}
+            {showAllTeams && defaultTeams.length > 10 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-full text-xs"
+                onClick={() => setShowAllTeams(false)}
+              >
+                Show less
+              </Button>
             )}
           </div>
         </div>
+
+        {/* Followed Teams Section - Show only if user has followed teams */}
+        {followedTeams.length > 0 && (
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-semibold text-sm">Followed teams</h3>
+              <Link href="/favorites">
+                <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
+                  <Plus className="h-3 w-3" />
+                </Button>
+              </Link>
+            </div>
+            <div className="space-y-2">
+              {followedTeams.slice(0, 5).map((team) => (
+                <Link
+                  key={team.id}
+                  href={`/teams/${team.id}`}
+                  className="flex items-center space-x-3 py-2 px-2 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  {team.logo ? (
+                    <Image
+                      src={team.logo}
+                      alt={team.name}
+                      width={24}
+                      height={24}
+                      className="object-contain"
+                    />
+                  ) : (
+                    <div className="w-6 h-6 bg-gray-200 rounded-full flex items-center justify-center">
+                      <Flag className="h-3 w-3 text-gray-500" />
+                    </div>
+                  )}
+                  <span className="text-sm">{team.name}</span>
+                </Link>
+              ))}
+              {followedTeams.length > 5 && (
+                <Link href="/favorites" className="text-xs text-gray-500 hover:text-gray-700">
+                  View all ({followedTeams.length})
+                </Link>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Followed Leagues */}
         <div>

@@ -38,15 +38,15 @@ export function TrendingCommunity() {
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,_var(--tw-gradient-stops))] from-purple-100/20 via-transparent to-transparent dark:from-purple-900/10" />
       
       <div className="relative">
-        <div className="px-6 py-5 flex items-center justify-between">
-          <div className="flex items-center gap-3">
+        <div className="px-3 sm:px-6 py-3 sm:py-5 flex items-center justify-between">
+          <div className="flex items-center gap-2 sm:gap-3">
             <div className="relative">
               <div className="absolute inset-0 bg-gradient-to-br from-purple-500 to-pink-600 blur-xl opacity-40" />
-              <div className="relative p-2.5 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-600 text-white shadow-lg">
-                <Users className="w-5 h-5" />
+              <div className="relative p-2 sm:p-2.5 rounded-xl sm:rounded-2xl bg-gradient-to-br from-purple-500 to-pink-600 text-white shadow-lg">
+                <Users className="w-4 h-4 sm:w-5 sm:h-5" />
               </div>
             </div>
-            <h3 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 dark:from-white dark:to-gray-300 bg-clip-text text-transparent">
+            <h3 className="text-lg sm:text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 dark:from-white dark:to-gray-300 bg-clip-text text-transparent">
               커뮤니티 인기글
             </h3>
           </div>
@@ -56,32 +56,32 @@ export function TrendingCommunity() {
               whileTap={{ scale: 0.95 }}
               className="px-4 py-2 rounded-xl bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-gray-200/50 dark:border-gray-700/50 hover:bg-gray-50 dark:hover:bg-gray-700/80 transition-all shadow-sm flex items-center gap-1.5 group"
             >
-              <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">더보기</span>
-              <ChevronRight className="w-4 h-4 text-gray-500 group-hover:translate-x-0.5 transition-transform" />
+              <span className="text-xs sm:text-sm font-semibold text-gray-700 dark:text-gray-300">더보기</span>
+              <ChevronRight className="w-3 h-3 sm:w-4 sm:h-4 text-gray-500 group-hover:translate-x-0.5 transition-transform" />
             </motion.button>
           </Link>
         </div>
         
-        <div className="px-6 pb-6">
+        <div className="px-3 sm:px-6 pb-3 sm:pb-6">
           <Link href={`/community/posts/${topPost.id}`} className="block">
             <motion.div
               whileHover={{ scale: 1.02 }}
-              className="p-4 rounded-2xl bg-white/80 dark:bg-gray-800/40 backdrop-blur-xl border border-gray-200/50 dark:border-gray-700/30 hover:bg-white dark:hover:bg-gray-800/60 hover:shadow-lg hover:shadow-gray-200/30 dark:hover:shadow-black/20 transition-all group"
+              className="p-3 sm:p-4 rounded-xl sm:rounded-2xl bg-white/80 dark:bg-gray-800/40 backdrop-blur-xl border border-gray-200/50 dark:border-gray-700/30 hover:bg-white dark:hover:bg-gray-800/60 hover:shadow-lg hover:shadow-gray-200/30 dark:hover:shadow-black/20 transition-all group"
             >
-              <h4 className="font-semibold text-base text-gray-900 dark:text-gray-100 mb-3 line-clamp-2 group-hover:text-primary transition-colors">
+              <h4 className="font-semibold text-sm sm:text-base text-gray-900 dark:text-gray-100 mb-2 sm:mb-3 line-clamp-2 group-hover:text-primary transition-colors">
                 {topPost.title}
               </h4>
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4 text-xs">
+                <div className="flex items-center gap-3 sm:gap-4 text-[10px] sm:text-xs">
                   <div className="flex items-center gap-1.5">
-                    <div className="w-5 h-5 rounded-full bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center">
-                      <Users className="w-3 h-3 text-white" />
+                    <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center">
+                      <Users className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-white" />
                     </div>
                     <span className="text-gray-600 dark:text-gray-400 font-medium">
                       {topPost.author?.username || '익명'}
                     </span>
                   </div>
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2 sm:gap-3">
                     <span className="flex items-center gap-1 text-gray-600 dark:text-gray-400">
                       <MessageCircle className="w-3 h-3" />
                       {topPost.comment_count}
@@ -92,7 +92,7 @@ export function TrendingCommunity() {
                     </span>
                   </div>
                 </div>
-                <div className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
+                <div className="flex items-center gap-1 sm:gap-1.5 text-[10px] sm:text-xs text-gray-500 dark:text-gray-400">
                   <Clock className="w-3 h-3" />
                   <span>
                     {formatDistanceToNow(new Date(topPost.created_at), { 

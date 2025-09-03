@@ -16,6 +16,8 @@ import { format, addDays, isSameDay } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import { motion, AnimatePresence } from 'framer-motion'
 import { formatMatchTime } from '@/lib/utils/timezone'
+import { getTeamAbbreviation } from '@/lib/utils/team-abbreviations'
+import { getLeagueAbbreviation } from '@/lib/utils/league-abbreviations'
 
 interface MatchData {
   fixture: any
@@ -43,6 +45,10 @@ function MatchCard({ match, index }: { match: any; index: number }) {
   // 사용자 위치 기반 시간 표시
   const matchTime = formatMatchTime(match.fixture.date)
   
+  // 팀명 약어 처리
+  const homeAbbr = getTeamAbbreviation(match.teams.home.name)
+  const awayAbbr = getTeamAbbreviation(match.teams.away.name)
+  
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -54,7 +60,7 @@ function MatchCard({ match, index }: { match: any; index: number }) {
         className="block"
       >
         <div className={cn(
-          "group relative p-4 rounded-2xl transition-all duration-300",
+          "group relative p-2.5 sm:p-4 rounded-xl sm:rounded-2xl transition-all duration-300",
           "bg-white/80 dark:bg-gray-800/40 backdrop-blur-xl",
           "border border-gray-200/50 dark:border-gray-700/30",
           "hover:bg-gradient-to-r hover:from-blue-50/50 hover:to-purple-50/50 dark:hover:from-blue-950/20 dark:hover:to-purple-950/20",
@@ -79,41 +85,50 @@ function MatchCard({ match, index }: { match: any; index: number }) {
             </div>
           )}
           
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             {/* 홈팀 - 오른쪽 정렬 */}
-            <div className="flex items-center gap-2.5 flex-1 justify-end">
-              <p className={cn(
-                "font-semibold text-sm text-gray-900 dark:text-gray-100 truncate",
-                "group-hover:text-primary transition-colors",
-                isFinished && match.teams.home.winner && "text-green-600 dark:text-green-400"
-              )}>
-                {match.teams.home.name}
-              </p>
-              <div className="relative w-10 h-10 overflow-hidden">
+            <div className="flex items-center gap-1.5 sm:gap-2 flex-1 justify-end min-w-0">
+              <div className="text-right min-w-0">
+                <p className={cn(
+                  "font-semibold sm:hidden text-xs",
+                  "group-hover:text-primary transition-colors",
+                  isFinished && match.teams.home.winner && "text-green-600 dark:text-green-400"
+                )}>
+                  {homeAbbr}
+                </p>
+                <p className={cn(
+                  "font-semibold hidden sm:block text-sm truncate",
+                  "group-hover:text-primary transition-colors",
+                  isFinished && match.teams.home.winner && "text-green-600 dark:text-green-400"
+                )}>
+                  {match.teams.home.name}
+                </p>
+              </div>
+              <div className="relative w-7 h-7 sm:w-9 sm:h-9 overflow-hidden flex-shrink-0">
                 <Image
                   src={match.teams.home.logo}
                   alt={match.teams.home.name}
-                  width={40}
-                  height={40}
+                  width={36}
+                  height={36}
                   className="w-full h-full object-contain"
                 />
               </div>
             </div>
             
             {/* 스코어/시간 - 중앙 */}
-            <div className="min-w-[75px]">
+            <div className="flex-shrink-0">
               {isFinished || isLive ? (
-                <div className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-800/80 dark:to-gray-700/80 rounded-xl px-3 py-1.5 border border-gray-200/50 dark:border-gray-700/50">
-                  <div className="flex items-center justify-center gap-2">
+                <div className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-800/80 dark:to-gray-700/80 rounded-lg sm:rounded-xl px-2.5 sm:px-3 py-1 sm:py-1.5 border border-gray-200/50 dark:border-gray-700/50">
+                  <div className="flex items-center justify-center gap-1 sm:gap-1.5">
                     <span className={cn(
-                      "text-lg font-bold",
+                      "text-sm sm:text-base font-bold",
                       match.teams.home.winner ? "text-green-600 dark:text-green-400" : "text-gray-600 dark:text-gray-400"
                     )}>
                       {match.goals.home ?? 0}
                     </span>
-                    <span className="text-xs text-gray-400">:</span>
+                    <span className="text-[10px] sm:text-xs text-gray-400">-</span>
                     <span className={cn(
-                      "text-lg font-bold",
+                      "text-sm sm:text-base font-bold",
                       match.teams.away.winner ? "text-green-600 dark:text-green-400" : "text-gray-600 dark:text-gray-400"
                     )}>
                       {match.goals.away ?? 0}
@@ -121,8 +136,8 @@ function MatchCard({ match, index }: { match: any; index: number }) {
                   </div>
                 </div>
               ) : (
-                <div className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-800/80 dark:to-gray-700/80 rounded-xl px-3 py-2 border border-gray-200/50 dark:border-gray-700/50">
-                  <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 text-center">
+                <div className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-800/80 dark:to-gray-700/80 rounded-lg sm:rounded-xl px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-200/50 dark:border-gray-700/50">
+                  <p className="text-[11px] sm:text-sm font-semibold text-gray-700 dark:text-gray-300 text-center whitespace-nowrap">
                     {matchTime}
                   </p>
                 </div>
@@ -130,23 +145,32 @@ function MatchCard({ match, index }: { match: any; index: number }) {
             </div>
             
             {/* 원정팀 - 왼쪽 정렬 */}
-            <div className="flex items-center gap-2.5 flex-1">
-              <div className="relative w-10 h-10 overflow-hidden">
+            <div className="flex items-center gap-1.5 sm:gap-2 flex-1 min-w-0">
+              <div className="relative w-7 h-7 sm:w-9 sm:h-9 overflow-hidden flex-shrink-0">
                 <Image
                   src={match.teams.away.logo}
                   alt={match.teams.away.name}
-                  width={40}
-                  height={40}
+                  width={36}
+                  height={36}
                   className="w-full h-full object-contain"
                 />
               </div>
-              <p className={cn(
-                "font-semibold text-sm text-gray-900 dark:text-gray-100 truncate",
-                "group-hover:text-primary transition-colors",
-                isFinished && match.teams.away.winner && "text-green-600 dark:text-green-400"
-              )}>
-                {match.teams.away.name}
-              </p>
+              <div className="text-left min-w-0">
+                <p className={cn(
+                  "font-semibold sm:hidden text-xs",
+                  "group-hover:text-primary transition-colors",
+                  isFinished && match.teams.away.winner && "text-green-600 dark:text-green-400"
+                )}>
+                  {awayAbbr}
+                </p>
+                <p className={cn(
+                  "font-semibold hidden sm:block text-sm truncate",
+                  "group-hover:text-primary transition-colors",
+                  isFinished && match.teams.away.winner && "text-green-600 dark:text-green-400"
+                )}>
+                  {match.teams.away.name}
+                </p>
+              </div>
             </div>
           </div>
         </div>
@@ -389,6 +413,7 @@ export function TodayMatches({ initialMatches = [], onDateChange }: TodayMatches
                 {sortedLeagues.map((leagueKey, leagueIndex) => {
                   const [leagueId, ...leagueNameParts] = leagueKey.split('_')
                   const leagueName = leagueNameParts.join('_')
+                  const leagueAbbr = getLeagueAbbreviation(leagueName)
                   const leagueMatches = matchesByLeague[leagueKey]
                   const firstMatch = leagueMatches[0]
                   const isCollapsed = collapsedLeagues.has(leagueKey)
@@ -406,11 +431,11 @@ export function TodayMatches({ initialMatches = [], onDateChange }: TodayMatches
                         whileHover={{ scale: 1.002 }}
                         whileTap={{ scale: 0.998 }}
                         onClick={() => toggleLeague(leagueKey)}
-                        className="w-full flex items-center justify-between px-5 py-4 bg-gradient-to-r from-gray-50/90 to-gray-100/90 dark:from-gray-800/90 dark:to-gray-750/90 backdrop-blur-sm border-b border-gray-200/30 dark:border-gray-700/30 hover:from-gray-100/90 hover:to-gray-150/90 dark:hover:from-gray-750/90 dark:hover:to-gray-700/90 transition-all group"
+                        className="w-full flex items-center justify-between px-3 sm:px-5 py-3 sm:py-4 bg-gradient-to-r from-gray-50/90 to-gray-100/90 dark:from-gray-800/90 dark:to-gray-750/90 backdrop-blur-sm border-b border-gray-200/30 dark:border-gray-700/30 hover:from-gray-100/90 hover:to-gray-150/90 dark:hover:from-gray-750/90 dark:hover:to-gray-700/90 transition-all group"
                       >
-                        <div className="flex items-center gap-3.5">
+                        <div className="flex items-center gap-2.5 sm:gap-3.5">
                           {firstMatch.league.logo && (
-                            <div className="relative w-10 h-10 overflow-hidden">
+                            <div className="relative w-8 h-8 sm:w-10 sm:h-10 overflow-hidden">
                               <Image
                                 src={firstMatch.league.logo}
                                 alt={leagueName}
@@ -421,9 +446,14 @@ export function TodayMatches({ initialMatches = [], onDateChange }: TodayMatches
                             </div>
                           )}
                           <div className="flex flex-col items-start">
-                            <span className="font-bold text-base text-gray-900 dark:text-gray-100">
-                              {leagueName}
-                            </span>
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold text-sm sm:text-base text-gray-900 dark:text-gray-100 sm:hidden">
+                                {leagueAbbr}
+                              </span>
+                              <span className="font-bold text-base text-gray-900 dark:text-gray-100 hidden sm:block">
+                                {leagueName}
+                              </span>
+                            </div>
                             <span className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                               {leagueMatches.filter(m => ['LIVE', '1H', '2H', 'HT'].includes(m.fixture?.status?.short)).length > 0 && (
                                 <span className="inline-flex items-center gap-1 text-red-500 dark:text-red-400 font-medium">
@@ -433,8 +463,8 @@ export function TodayMatches({ initialMatches = [], onDateChange }: TodayMatches
                               )}
                             </span>
                           </div>
-                          <Badge className="ml-2 px-2.5 py-0.5 text-xs font-semibold bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/30 dark:to-purple-900/30 text-blue-700 dark:text-blue-300 border border-blue-200/50 dark:border-blue-700/30">
-                            {leagueMatches.length}경기
+                          <Badge className="ml-1 sm:ml-2 px-1.5 sm:px-2.5 py-0.5 text-[10px] sm:text-xs font-semibold bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/30 dark:to-purple-900/30 text-blue-700 dark:text-blue-300 border border-blue-200/50 dark:border-blue-700/30">
+                            {leagueMatches.length}
                           </Badge>
                         </div>
                         <motion.div
@@ -456,7 +486,7 @@ export function TodayMatches({ initialMatches = [], onDateChange }: TodayMatches
                             transition={{ duration: 0.3, ease: "easeInOut" }}
                             className="overflow-hidden"
                           >
-                            <div className="p-3 space-y-2 bg-gradient-to-b from-gray-50/50 to-white/50 dark:from-gray-800/20 dark:to-gray-800/10">
+                            <div className="p-2 sm:p-3 space-y-1.5 sm:space-y-2 bg-gradient-to-b from-gray-50/50 to-white/50 dark:from-gray-800/20 dark:to-gray-800/10">
                               {leagueMatches.map((match, index) => (
                                 <MatchCard key={match.fixture.id} match={match} index={index} />
                               ))}

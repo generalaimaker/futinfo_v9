@@ -1,5 +1,6 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { motion } from 'framer-motion'
@@ -9,8 +10,20 @@ import { useTransferHighlights } from '@/lib/hooks/useMajorTransfers'
 
 export function TransferHighlights() {
   const { data: transfers, isLoading } = useTransferHighlights()
+  const [cachedTransfers, setCachedTransfers] = useState<any[]>([])
   
-  if (isLoading) {
+  // 데이터 캐싱
+  useEffect(() => {
+    if (transfers && transfers.length > 0) {
+      setCachedTransfers(transfers)
+    }
+  }, [transfers])
+  
+  // 캐시된 데이터가 있으면 사용
+  const displayTransfers = transfers && transfers.length > 0 ? transfers : cachedTransfers
+  
+  // 로딩 중이고 캐시도 없을 때만 스켈레톤 표시
+  if (isLoading && cachedTransfers.length === 0) {
     return (
       <Card className="relative overflow-hidden border-0 rounded-3xl shadow-2xl">
         <div className="absolute inset-0 bg-gradient-to-br from-green-50 via-white to-emerald-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800 opacity-50" />
@@ -41,7 +54,7 @@ export function TransferHighlights() {
   }
   
   // 데이터가 없을 때
-  if (!transfers || transfers.length === 0) {
+  if (!displayTransfers || displayTransfers.length === 0) {
     return null // 이적 데이터가 없으면 섹션 자체를 표시하지 않음
   }
   
@@ -53,7 +66,7 @@ export function TransferHighlights() {
       
       <div className="relative flex flex-col">
         {/* Compact Header */}
-        <div className="px-4 py-3 flex items-center justify-between border-b border-gray-200/50 dark:border-gray-700/50">
+        <div className="px-3 sm:px-4 py-2.5 sm:py-3 flex items-center justify-between border-b border-gray-200/50 dark:border-gray-700/50">
           <div className="flex items-center gap-2">
             <div className="relative">
               <div className="absolute inset-0 bg-gradient-to-br from-green-500 to-emerald-600 blur-xl opacity-40" />
@@ -83,9 +96,9 @@ export function TransferHighlights() {
         </div>
         
         {/* Transfer List - Vertical */}
-        <div className="px-4 py-3">
-          <div className="space-y-2">
-            {transfers?.slice(0, 8).map((transfer, index) => (
+        <div className="px-3 sm:px-4 py-2.5 sm:py-3">
+          <div className="space-y-1.5 sm:space-y-2">
+            {displayTransfers?.slice(0, 8).map((transfer, index) => (
               <TransferListItem key={transfer.id} transfer={transfer} index={index} />
             ))}
           </div>
@@ -101,11 +114,11 @@ function TransferListItem({ transfer, index }: { transfer: any, index: number })
     <motion.div
       initial={{ opacity: 0, x: -10 }}
       animate={{ opacity: 1, x: 0 }}
-      transition={{ delay: index * 0.03 }}
+      transition={{ delay: Math.min(index * 0.02, 0.1) }} // 최대 딜레이 0.1초로 제한
       whileHover={{ x: 2 }}
       className="relative group"
     >
-      <div className="relative overflow-hidden rounded-lg bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-gray-200/50 dark:border-gray-700/50 hover:bg-white dark:hover:bg-gray-800 transition-all shadow-sm hover:shadow-md p-3">
+      <div className="relative overflow-hidden rounded-lg bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-gray-200/50 dark:border-gray-700/50 hover:bg-white dark:hover:bg-gray-800 transition-all shadow-sm hover:shadow-md p-2.5 sm:p-3">
         <div className="flex items-center gap-3">
           {/* Player Info */}
           <div className="flex-1 min-w-0">

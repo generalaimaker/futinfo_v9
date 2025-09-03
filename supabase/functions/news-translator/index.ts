@@ -10,16 +10,18 @@ const corsHeaders = {
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const supabase = createClient(supabaseUrl, supabaseServiceKey)
-const DEEPL_API_KEY = Deno.env.get('DEEPL_API_KEY')!
-const DEEPL_API_URL = 'https://api-free.deepl.com/v2/translate'
+
+// Azure Translator 설정
+const AZURE_TRANSLATOR_KEY = Deno.env.get('AZURE_TRANSLATOR_KEY')!
+const AZURE_TRANSLATOR_ENDPOINT = Deno.env.get('AZURE_TRANSLATOR_ENDPOINT') || 'https://api.cognitive.microsofttranslator.com'
+const AZURE_TRANSLATOR_REGION = 'koreacentral'
 
 // 지원 언어
-const SUPPORTED_LANGUAGES = ['ko', 'ja', 'zh', 'es', 'de', 'fr']
+const SUPPORTED_LANGUAGES = ['ko', 'ja', 'zh-Hans', 'es', 'de', 'fr']
 
 interface TranslationRequest {
-  articleIds?: string[]
-  priority?: 'high' | 'normal' | 'low'
-  languages?: string[]
+  articleIds: string[] // 필수: 번역할 기사 ID 목록
+  languages?: string[] // 옵션: 번역할 언어 (기본값: 한국어만)
 }
 
 interface NewsArticle {
@@ -29,58 +31,42 @@ interface NewsArticle {
   translations: any
 }
 
-// DeepL API를 사용한 텍스트 번역
-async function translateText(
-  text: string,
+// Azure Translator API를 사용한 텍스트 번역
+async function translateWithAzure(
+  texts: string[],
   targetLang: string,
-  sourceLang: string = 'EN'
-): Promise<string> {
-  if (!text || text.trim() === '') return text
+  sourceLang: string = 'en'
+): Promise<string[]> {
+  if (!texts || texts.length === 0) return texts
   
-  // 언어 코드 정규화
-  const languageMap: Record<string, string> = {
-    'ko': 'KO',
-    'ja': 'JA',
-    'zh': 'ZH',
-    'es': 'ES',
-    'de': 'DE',
-    'fr': 'FR',
-    'en': 'EN'
-  }
-  
-  const normalizedTarget = languageMap[targetLang.toLowerCase()] || targetLang
-  const normalizedSource = languageMap[sourceLang.toLowerCase()] || sourceLang
-  
-  // 같은 언어면 번역 안함
-  if (normalizedSource === normalizedTarget) return text
+  // 빈 텍스트 필터링
+  const validTexts = texts.map(t => t || '')
   
   try {
-    const response = await fetch(DEEPL_API_URL, {
+    const response = await fetch(`${AZURE_TRANSLATOR_ENDPOINT}/translate?api-version=3.0&from=${sourceLang}&to=${targetLang}`, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
+        'Ocp-Apim-Subscription-Key': AZURE_TRANSLATOR_KEY,
+        'Ocp-Apim-Subscription-Region': AZURE_TRANSLATOR_REGION,
+        'Content-Type': 'application/json'
       },
-      body: new URLSearchParams({
-        auth_key: DEEPL_API_KEY,
-        text: text,
-        source_lang: normalizedSource,
-        target_lang: normalizedTarget,
-      }),
+      body: JSON.stringify(validTexts.map(text => ({ text })))
     })
     
     if (!response.ok) {
-      throw new Error(`DeepL API error: ${response.status}`)
+      const error = await response.text()
+      throw new Error(`Azure Translator error: ${response.status} - ${error}`)
     }
     
-    const data = await response.json()
-    return data.translations[0].text
+    const results = await response.json()
+    return results.map((result: any) => result.translations[0].text)
   } catch (error) {
     console.error(`Translation error for ${targetLang}:`, error)
-    return text // 에러 시 원문 반환
+    return texts // 에러 시 원문 반환
   }
 }
 
-// 기사 번역
+// 기사 번역 (수동 선택된 기사만)
 async function translateArticle(
   article: NewsArticle,
   targetLanguages: string[]
@@ -89,48 +75,68 @@ async function translateArticle(
   const newTranslations: any = {}
   
   for (const lang of targetLanguages) {
-    // 이미 번역된 경우 스킵
+    // 이미 번역된 경우 스킵 (옵션)
     if (translations[lang]) {
-      console.log(`Skipping ${lang} - already translated`)
+      console.log(`Article ${article.id}: ${lang} translation already exists`)
       continue
     }
     
     try {
       console.log(`Translating article ${article.id} to ${lang}...`)
       
-      // 제목과 설명 번역 (병렬 처리)
-      const [translatedTitle, translatedDescription] = await Promise.all([
-        translateText(article.title, lang),
-        translateText(article.description || '', lang)
-      ])
+      // 제목과 설명을 한 번에 번역 (API 호출 최적화)
+      const textsToTranslate = [
+        article.title,
+        article.description || ''
+      ]
+      
+      const translatedTexts = await translateWithAzure(textsToTranslate, lang)
       
       newTranslations[lang] = {
-        title: translatedTitle,
-        description: translatedDescription,
+        title: translatedTexts[0],
+        description: translatedTexts[1],
         translated_at: new Date().toISOString()
       }
       
-      console.log(`Successfully translated to ${lang}`)
+      console.log(`Successfully translated article ${article.id} to ${lang}`)
     } catch (error) {
-      console.error(`Failed to translate to ${lang}:`, error)
+      console.error(`Failed to translate article ${article.id} to ${lang}:`, error)
     }
   }
   
   return newTranslations
 }
 
-// 배치 번역 처리
-async function processBatchTranslation(
-  articles: NewsArticle[],
+// 선택된 기사들 번역 처리
+async function processSelectedTranslations(
+  articleIds: string[],
   targetLanguages: string[]
-): Promise<void> {
-  const batchSize = 10 // 한 번에 처리할 기사 수
+): Promise<{ success: number; failed: number; details: any[] }> {
+  const results = {
+    success: 0,
+    failed: 0,
+    details: [] as any[]
+  }
   
-  for (let i = 0; i < articles.length; i += batchSize) {
-    const batch = articles.slice(i, i + batchSize)
-    
-    // 배치 병렬 처리
-    const translationPromises = batch.map(async (article) => {
+  // 선택된 기사들 가져오기
+  const { data: articles, error } = await supabase
+    .from('news_articles')
+    .select('id, title, description, translations')
+    .in('id', articleIds)
+  
+  if (error) {
+    throw new Error(`Failed to fetch articles: ${error.message}`)
+  }
+  
+  if (!articles || articles.length === 0) {
+    throw new Error('No articles found with provided IDs')
+  }
+  
+  console.log(`Processing ${articles.length} selected articles for translation`)
+  
+  // 각 기사 번역 처리
+  for (const article of articles) {
+    try {
       const newTranslations = await translateArticle(article, targetLanguages)
       
       if (Object.keys(newTranslations).length > 0) {
@@ -141,7 +147,7 @@ async function processBatchTranslation(
         }
         
         // DB 업데이트
-        const { error } = await supabase
+        const { error: updateError } = await supabase
           .from('news_articles')
           .update({ 
             translations: mergedTranslations,
@@ -149,21 +155,42 @@ async function processBatchTranslation(
           })
           .eq('id', article.id)
         
-        if (error) {
-          console.error(`Error updating article ${article.id}:`, error)
+        if (updateError) {
+          console.error(`Error updating article ${article.id}:`, updateError)
+          results.failed++
+          results.details.push({
+            id: article.id,
+            status: 'failed',
+            error: updateError.message
+          })
         } else {
           console.log(`Updated translations for article ${article.id}`)
+          results.success++
+          results.details.push({
+            id: article.id,
+            status: 'success',
+            languages: Object.keys(newTranslations)
+          })
         }
+      } else {
+        results.details.push({
+          id: article.id,
+          status: 'skipped',
+          reason: 'Already translated or no new translations'
+        })
       }
-    })
-    
-    await Promise.all(translationPromises)
-    
-    // API 레이트 리밋 고려하여 잠시 대기
-    if (i + batchSize < articles.length) {
-      await new Promise(resolve => setTimeout(resolve, 1000)) // 1초 대기
+    } catch (error) {
+      console.error(`Failed to process article ${article.id}:`, error)
+      results.failed++
+      results.details.push({
+        id: article.id,
+        status: 'failed',
+        error: error.message
+      })
     }
   }
+  
+  return results
 }
 
 serve(async (req) => {
@@ -173,74 +200,40 @@ serve(async (req) => {
   }
 
   try {
-    console.log('Starting news translation...')
+    console.log('Starting manual news translation...')
     
     // 요청 파싱
-    const body: TranslationRequest = await req.json().catch(() => ({}))
-    const targetLanguages = body.languages || SUPPORTED_LANGUAGES
-    const priority = body.priority || 'normal'
+    const body: TranslationRequest = await req.json()
     
-    let query = supabase
-      .from('news_articles')
-      .select('id, title, description, translations')
-    
-    // 특정 기사 ID가 제공된 경우
-    if (body.articleIds && body.articleIds.length > 0) {
-      query = query.in('id', body.articleIds)
-    } else {
-      // 최근 24시간 내 기사 중 번역 안 된 것들
-      const oneDayAgo = new Date()
-      oneDayAgo.setDate(oneDayAgo.getDate() - 1)
-      
-      query = query
-        .gte('published_at', oneDayAgo.toISOString())
-        .order('published_at', { ascending: false })
-        .limit(priority === 'high' ? 50 : 20)
+    // 필수 파라미터 검증
+    if (!body.articleIds || body.articleIds.length === 0) {
+      throw new Error('articleIds is required and must not be empty')
     }
     
-    const { data: articles, error } = await query
+    // 번역 언어 설정 (기본값: 한국어만)
+    const targetLanguages = body.languages || ['ko']
     
-    if (error) throw error
-    if (!articles || articles.length === 0) {
-      return new Response(JSON.stringify({
-        success: true,
-        message: 'No articles to translate',
-        processed: 0
-      }), {
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'application/json'
-        }
-      })
+    console.log(`Received request to translate ${body.articleIds.length} articles to ${targetLanguages.join(', ')}`)
+    
+    // Azure API 키 확인
+    if (!AZURE_TRANSLATOR_KEY) {
+      throw new Error('Azure Translator API key not configured')
     }
     
-    console.log(`Found ${articles.length} articles to process`)
-    
-    // 번역이 필요한 기사 필터링
-    const articlesToTranslate = articles.filter(article => {
-      const translations = article.translations || {}
-      // 모든 언어로 번역되지 않은 기사
-      return targetLanguages.some(lang => !translations[lang])
-    })
-    
-    console.log(`${articlesToTranslate.length} articles need translation`)
-    
-    if (articlesToTranslate.length > 0) {
-      // DeepL API 키 확인
-      if (!DEEPL_API_KEY || DEEPL_API_KEY === 'your-deepl-api-key-here') {
-        throw new Error('DeepL API key not configured')
-      }
-      
-      // 배치 번역 처리
-      await processBatchTranslation(articlesToTranslate, targetLanguages)
-    }
+    // 선택된 기사들 번역 처리
+    const results = await processSelectedTranslations(body.articleIds, targetLanguages)
     
     // 응답
     const response = {
       success: true,
-      processed: articlesToTranslate.length,
-      languages: targetLanguages,
-      priority: priority,
+      message: `Translated ${results.success} articles successfully`,
+      results: {
+        total: body.articleIds.length,
+        succeeded: results.success,
+        failed: results.failed,
+        languages: targetLanguages,
+        details: results.details
+      },
       timestamp: new Date().toISOString()
     }
     

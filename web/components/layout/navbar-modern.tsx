@@ -296,20 +296,24 @@ export function NavbarModern() {
             </h3>
             <div className="space-y-1">
               {[
-                { id: 33, name: 'Manchester United', logo: 'https://media.api-sports.io/football/teams/33.png' },
+                // Premier League
                 { id: 40, name: 'Liverpool', logo: 'https://media.api-sports.io/football/teams/40.png' },
-                { id: 50, name: 'Manchester City', logo: 'https://media.api-sports.io/football/teams/50.png' },
+                { id: 33, name: 'Manchester United', logo: 'https://media.api-sports.io/football/teams/33.png' },
                 { id: 49, name: 'Chelsea', logo: 'https://media.api-sports.io/football/teams/49.png' },
+                { id: 50, name: 'Manchester City', logo: 'https://media.api-sports.io/football/teams/50.png' },
                 { id: 42, name: 'Arsenal', logo: 'https://media.api-sports.io/football/teams/42.png' },
-                { id: 47, name: 'Tottenham', logo: 'https://media.api-sports.io/football/teams/47.png' },
+                { id: 47, name: 'Tottenham Hotspur', logo: 'https://media.api-sports.io/football/teams/47.png' },
+                // La Liga
                 { id: 541, name: 'Real Madrid', logo: 'https://media.api-sports.io/football/teams/541.png' },
                 { id: 529, name: 'Barcelona', logo: 'https://media.api-sports.io/football/teams/529.png' },
-                { id: 530, name: 'Atletico Madrid', logo: 'https://media.api-sports.io/football/teams/530.png' },
-                { id: 157, name: 'Bayern Munich', logo: 'https://media.api-sports.io/football/teams/157.png' },
-                { id: 165, name: 'Borussia Dortmund', logo: 'https://media.api-sports.io/football/teams/165.png' },
+                { id: 530, name: 'Atlético Madrid', logo: 'https://media.api-sports.io/football/teams/530.png' },
+                // Serie A
                 { id: 496, name: 'Juventus', logo: 'https://media.api-sports.io/football/teams/496.png' },
                 { id: 489, name: 'AC Milan', logo: 'https://media.api-sports.io/football/teams/489.png' },
-                { id: 492, name: 'Inter Milan', logo: 'https://media.api-sports.io/football/teams/492.png' },
+                { id: 505, name: 'Inter Milan', logo: 'https://media.api-sports.io/football/teams/505.png' },
+                // Bundesliga
+                { id: 157, name: 'Bayern Munich', logo: 'https://media.api-sports.io/football/teams/157.png' },
+                // Ligue 1
                 { id: 85, name: 'Paris Saint-Germain', logo: 'https://media.api-sports.io/football/teams/85.png' },
               ].map((team) => (
                 <Link

@@ -1840,7 +1840,9 @@ export const useStandings = (
   return useQuery({
     queryKey: ['standings', params],
     queryFn: () => footballAPIService.getStandings(params),
-    staleTime: 60 * 60 * 1000, // 1시간
+    staleTime: 2 * 60 * 60 * 1000, // 2시간
+    gcTime: 4 * 60 * 60 * 1000, // 4시간 (이전 cacheTime)
+    refetchOnWindowFocus: false, // 포커스 시 재요청 비활성화
     ...options
   })
 }
