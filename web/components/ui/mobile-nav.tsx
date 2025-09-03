@@ -55,7 +55,7 @@ export default function MobileNav() {
   ]
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-900 border-t dark:border-gray-800 md:hidden z-[100]" style={{ position: 'fixed !important', bottom: '0 !important' }}>
+    <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-900 border-t dark:border-gray-800 md:hidden z-[100]">
       <div className="grid grid-cols-5 h-16">
         {tabs.map((tab) => {
           const Icon = tab.icon
