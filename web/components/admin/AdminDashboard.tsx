@@ -252,6 +252,8 @@ export default function AdminDashboard() {
 
   const loadStats = async () => {
     try {
+      const supabase = createClient()
+      
       // 실제 데이터 기반 통계
       const [featured, news, analyticsStats] = await Promise.all([
         adminService.getFeaturedMatches(),
