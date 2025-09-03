@@ -6,11 +6,7 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { 
-  useBraveNewsSearch, 
-  useSaveSearchHistory,
-  useSearchHistory 
-} from '@/lib/hooks/useBraveNewsSearch'
+// Removed unused imports - these hooks were deleted
 import { formatDistanceToNow } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import { cn } from '@/lib/utils'
@@ -40,9 +36,10 @@ export function NewsSearchBar({ onSearch, className }: NewsSearchBarProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
   
-  const searchMutation = useBraveNewsSearch()
-  const saveHistory = useSaveSearchHistory()
-  const searchHistory = useSearchHistory()
+  // Removed deleted hooks - using local state instead
+  const [searchResults, setSearchResults] = useState<any>(null)
+  const [isSearching, setIsSearching] = useState(false)
+  const [searchHistory, setSearchHistory] = useState<string[]>([])
   
   // 검색 실행
   const handleSearch = async (searchQuery: string) => {
@@ -51,17 +48,26 @@ export function NewsSearchBar({ onSearch, className }: NewsSearchBarProps) {
     setQuery(searchQuery)
     setShowResults(true)
     setIsOpen(false)
+    setIsSearching(true)
     
-    // 히스토리 저장
-    saveHistory.mutate(searchQuery)
-    
-    // 검색 실행
-    await searchMutation.mutateAsync({
-      query: searchQuery,
-      freshness: 'week',
-      count: 20,
-      saveToDb: false // 검색 결과는 DB에 저장하지 않음
+    // 히스토리 저장 (로컬)
+    setSearchHistory(prev => {
+      const updated = [searchQuery, ...prev.filter(q => q !== searchQuery)]
+      return updated.slice(0, 10) // 최대 10개 저장
     })
+    
+    // 검색 실행 시뮬레이션 (실제 API 연동 필요시 추가)
+    try {
+      // TODO: 실제 검색 API 구현 필요
+      setSearchResults({
+        total: 0,
+        articles: []
+      })
+    } catch (error) {
+      console.error('Search error:', error)
+    } finally {
+      setIsSearching(false)
+    }
     
     onSearch?.(searchQuery)
   }
@@ -126,10 +132,10 @@ export function NewsSearchBar({ onSearch, className }: NewsSearchBarProps) {
           <Button
             size="sm"
             onClick={() => handleSearch(query)}
-            disabled={!query.trim() || searchMutation.isPending}
+            disabled={!query.trim() || isSearching}
             className="h-7 px-2"
           >
-            {searchMutation.isPending ? (
+            {isSearching ? (
               <Loader2 className="w-3 h-3 animate-spin" />
             ) : (
               '검색'
@@ -190,12 +196,12 @@ export function NewsSearchBar({ onSearch, className }: NewsSearchBarProps) {
       )}
       
       {/* 검색 결과 */}
-      {showResults && searchMutation.data && (
+      {showResults && searchResults && (
         <div className="absolute top-full mt-2 w-full bg-white dark:bg-gray-900 rounded-lg shadow-lg border z-50 max-h-[600px] overflow-auto">
           <div className="p-3 border-b sticky top-0 bg-white dark:bg-gray-900">
             <div className="flex items-center justify-between">
               <h3 className="font-semibold">
-                검색 결과: {searchMutation.data.total}개
+                검색 결과: {searchResults.total}개
               </h3>
               <Button
                 size="sm"
@@ -211,7 +217,7 @@ export function NewsSearchBar({ onSearch, className }: NewsSearchBarProps) {
           </div>
           
           <div className="divide-y">
-            {searchMutation.data.articles.map((article, index) => (
+            {searchResults.articles.map((article: any, index: number) => (
               <a
                 key={index}
                 href={article.url}
@@ -268,7 +274,7 @@ export function NewsSearchBar({ onSearch, className }: NewsSearchBarProps) {
             ))}
           </div>
           
-          {searchMutation.data.articles.length === 0 && (
+          {searchResults.articles.length === 0 && (
             <div className="p-8 text-center text-muted-foreground">
               검색 결과가 없습니다
             </div>
