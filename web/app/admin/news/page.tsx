@@ -252,6 +252,34 @@ export default function AdminNewsPage() {
     }
   }
 
+  // 프리미어리그 뉴스 집중 수집 (새로운 함수)
+  const collectPremierLeagueNews = async () => {
+    setIsCollecting(true)
+    try {
+      const { data, error } = await supabase.functions.invoke('premier-league-news')
+      
+      if (error) throw error
+      
+      const stats = data?.stats
+      if (stats) {
+        toast.success(
+          `프리미어리그 뉴스: ${stats.saved}개 저장 (${stats.unique_articles}개 고유 기사)`,
+          {
+            description: `상위 소스: ${stats.top_sources?.map((s: any) => s.source).join(', ')}`
+          }
+        )
+      }
+      
+      await loadNewsArticles()
+      await loadApiUsage()
+    } catch (error) {
+      console.error('Error collecting PL news:', error)
+      toast.error('프리미어리그 뉴스 수집 실패')
+    } finally {
+      setIsCollecting(false)
+    }
+  }
+
   // News API 뉴스 수집 (심층 분석 기사)
   const collectNewsAPI = async () => {
     setIsCollecting(true)
@@ -683,6 +711,57 @@ export default function AdminNewsPage() {
             )}
             RSS 뉴스
           </Button>
+
+          <Button
+            onClick={collectPremierLeagueNews}
+            disabled={isCollecting}
+            className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white"
+          >
+            {isCollecting ? (
+              <Loader2 className="w-4 h-4 animate-spin mr-2" />
+            ) : (
+              <Shield className="w-4 h-4 mr-2" />
+            )}
+            ⚡ 프리미어리그 속보
+          </Button>
+
+          <Button
+            onClick={async () => {
+              setIsCollecting(true)
+              try {
+                const response = await fetch(
+                  `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/simple-rss-collector`,
+                  {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`
+                    }
+                  }
+                )
+                const data = await response.json()
+                if (data.success) {
+                  toast.success(`RSS 뉴스 수집 완료! ${data.saved}개 저장됨`)
+                  await loadNewsArticles()
+                } else {
+                  toast.error('RSS 수집 실패')
+                }
+              } catch (error) {
+                toast.error('RSS 수집 중 오류 발생')
+              } finally {
+                setIsCollecting(false)
+              }
+            }}
+            disabled={isCollecting}
+            className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white"
+          >
+            {isCollecting ? (
+              <Loader2 className="w-4 h-4 animate-spin mr-2" />
+            ) : (
+              <Globe className="w-4 h-4 mr-2" />
+            )}
+            📡 RSS 실시간 수집
+          </Button>
           
           <Button
             onClick={translateSelectedNews}
@@ -714,8 +793,8 @@ export default function AdminNewsPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* 왼쪽: 뉴스 목록 (2/3) */}
           <div className="lg:col-span-2">
-            <Card className="p-6">
-              <div className="mb-4">
+            <Card className="p-6 h-[1400px] flex flex-col">
+              <div className="flex-1 flex flex-col overflow-hidden">
                 <h2 className="text-xl font-bold mb-3 flex items-center gap-2">
                   <Search className="w-5 h-5" />
                   뉴스 목록 ({filteredArticles.length}개)
@@ -743,7 +822,7 @@ export default function AdminNewsPage() {
                 </div>
 
                 {/* 뉴스 리스트 */}
-                <div className="space-y-3 max-h-[700px] overflow-y-auto">
+                <div className="space-y-2 flex-1 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 dark:scrollbar-thumb-gray-600 dark:scrollbar-track-gray-800 hover:scrollbar-thumb-gray-400 dark:hover:scrollbar-thumb-gray-500">
                   {filteredArticles.map((article) => {
                     const isBanner = bannerNews?.id === article.id
                     const isFeatured = featuredNews.some(n => n.id === article.id)
@@ -754,7 +833,7 @@ export default function AdminNewsPage() {
                         key={article.id}
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
-                        className={`p-4 rounded-xl border transition-all ${
+                        className={`p-3 rounded-xl border transition-all ${
                           isBanner
                             ? 'bg-purple-50 dark:bg-purple-900/20 border-purple-500'
                             : isFeatured
@@ -767,17 +846,17 @@ export default function AdminNewsPage() {
                             <img 
                               src={article.image_url} 
                               alt=""
-                              className="w-20 h-20 object-cover rounded-lg"
+                              className="w-16 h-16 object-cover rounded-lg flex-shrink-0"
                             />
                           )}
                           <div className="flex-1">
-                            <h3 className="font-semibold line-clamp-2 mb-1">
+                            <h3 className="font-semibold text-sm line-clamp-1 mb-0.5">
                               {hasKoreanTranslation ? article.translations.ko.title : article.title}
                             </h3>
-                            <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2 mb-2">
+                            <p className="text-xs text-gray-600 dark:text-gray-400 line-clamp-1 mb-1">
                               {hasKoreanTranslation ? article.translations.ko.description : article.description}
                             </p>
-                            <div className="flex items-center gap-3 text-xs">
+                            <div className="flex items-center gap-2 text-xs">
                               <span className="flex items-center gap-1 text-gray-500">
                                 <Globe className="w-3 h-3" />
                                 {article.source}
@@ -810,31 +889,31 @@ export default function AdminNewsPage() {
                                 })}
                               </span>
                             </div>
-                            <div className="flex gap-2 mt-2">
+                            <div className="flex gap-1.5 mt-1.5">
                               <Button
                                 size="sm"
                                 variant={isBanner ? "default" : "outline"}
-                                className="text-xs"
+                                className="text-xs h-7 px-2"
                                 onClick={(e) => {
                                   e.stopPropagation()
                                   selectBannerNews(article)
                                 }}
                               >
-                                배너 선택
+                                배너
                               </Button>
                               <Button
                                 size="sm"
                                 variant={isFeatured ? "default" : "outline"}
-                                className="text-xs"
+                                className="text-xs h-7 px-2"
                                 onClick={(e) => {
                                   e.stopPropagation()
                                   toggleFeaturedNews(article)
                                 }}
                               >
-                                {isFeatured ? '주요 해제' : '주요 선택'}
+                                {isFeatured ? '주요 ✓' : '주요'}
                               </Button>
                               <Link href={article.url} target="_blank" onClick={(e) => e.stopPropagation()}>
-                                <Button size="sm" variant="ghost" className="text-xs">
+                                <Button size="sm" variant="ghost" className="text-xs h-7 px-2">
                                   <ExternalLink className="w-3 h-3" />
                                 </Button>
                               </Link>
@@ -852,10 +931,52 @@ export default function AdminNewsPage() {
           {/* 오른쪽: 홈화면 뉴스 선택 (1/3) */}
           <div>
             <Card className="p-6 sticky top-6">
-              <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-                <Check className="w-5 h-5" />
-                홈화면 뉴스 선택
-              </h2>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-bold flex items-center gap-2">
+                  <Check className="w-5 h-5" />
+                  홈화면 뉴스 선택
+                </h2>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setBannerNews(null)
+                    setFeaturedNews([])
+                    toast.info('모든 선택이 해제되었습니다')
+                  }}
+                  className="text-xs text-red-600 hover:bg-red-50"
+                >
+                  <X className="w-3 h-3 mr-1" />
+                  전체 해제
+                </Button>
+              </div>
+
+              {/* 선택 현황 요약 */}
+              <div className="mb-4 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-gray-600">선택된 뉴스</span>
+                  <div className="flex gap-3">
+                    <span className={`font-semibold ${bannerNews ? 'text-purple-600' : 'text-gray-400'}`}>
+                      배너: {bannerNews ? '1' : '0'}/1
+                    </span>
+                    <span className={`font-semibold ${featuredNews.length > 0 ? 'text-green-600' : 'text-gray-400'}`}>
+                      주요: {featuredNews.length}/5
+                    </span>
+                  </div>
+                </div>
+                <div className="mt-2 w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+                  <div className="h-full flex">
+                    <div 
+                      className="bg-purple-600 transition-all"
+                      style={{ width: bannerNews ? '16.66%' : '0%' }}
+                    />
+                    <div 
+                      className="bg-green-600 transition-all"
+                      style={{ width: `${(featuredNews.length / 6) * 100}%` }}
+                    />
+                  </div>
+                </div>
+              </div>
 
               {/* 배너 뉴스 */}
               <div className="mb-4">
@@ -885,14 +1006,31 @@ export default function AdminNewsPage() {
 
               {/* 주요 뉴스 */}
               <div>
-                <h3 className="text-sm font-semibold mb-2 text-green-600">📰 주요 뉴스 ({featuredNews.length}/5)</h3>
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-sm font-semibold text-green-600">📰 주요 뉴스 ({featuredNews.length}/5)</h3>
+                  {featuredNews.length > 0 && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => {
+                        setFeaturedNews([])
+                        toast.info('주요 뉴스가 모두 해제되었습니다')
+                      }}
+                      className="text-xs text-gray-500 hover:text-red-600"
+                    >
+                      <X className="w-3 h-3 mr-1" />
+                      주요 뉴스만 해제
+                    </Button>
+                  )}
+                </div>
                 <div className="space-y-2">
                   {featuredNews.map((article, index) => (
                     <motion.div
                       key={article.id}
                       initial={{ opacity: 0, x: 20 }}
                       animate={{ opacity: 1, x: 0 }}
-                      className="p-3 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-300"
+                      exit={{ opacity: 0, x: -20 }}
+                      className="p-3 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-300 hover:shadow-md transition-shadow"
                     >
                       <div className="flex items-start justify-between">
                         <div className="flex gap-2 flex-1">

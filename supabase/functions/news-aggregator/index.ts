@@ -1,6 +1,6 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { DOMParser } from 'https://deno.land/x/deno_dom/deno-dom-wasm.ts'
+import { DOMParser } from 'https://deno.land/x/deno_dom@v0.1.38/deno-dom-wasm.ts'
 
 // Supabase 클라이언트
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!
@@ -122,13 +122,16 @@ async function fetchAllNews(): Promise<NewsArticle[]> {
 
 // 개별 RSS 소스에서 뉴스 가져오기
 async function fetchFromSource(source: typeof RSS_SOURCES[0]): Promise<NewsArticle[]> {
+  console.log(`Fetching RSS from ${source.name}: ${source.url}`)
   const response = await fetch(source.url)
   const text = await response.text()
+  console.log(`Received ${text.length} chars from ${source.name}`)
   
   const parser = new DOMParser()
   const doc = parser.parseFromString(text, 'text/xml')
   
   const items = doc.querySelectorAll('item')
+  console.log(`Found ${items.length} items in ${source.name} RSS feed`)
   const articles: NewsArticle[] = []
   
   items.forEach((item) => {
